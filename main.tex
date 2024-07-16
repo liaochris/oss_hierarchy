@@ -1,0 +1,191 @@
+%
+\documentclass[12pt,notitlepage]{article}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{yhmath}
+\usepackage{graphicx}
+\usepackage{epstopdf}
+\usepackage{pdflscape}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{dsfont}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{marvosym}
+\usepackage{multirow}
+\usepackage{pdflscape}
+\usepackage[hyphens]{url}
+\usepackage{setspace}
+\usepackage{epigraph}
+\usepackage{bm}
+\usepackage{textcomp}
+\usepackage{diagbox}
+\usepackage{bbm}
+\usepackage{verbatim}
+\usepackage[framemethod=tikz]{mdframed}
+\usepackage{subcaption}
+\usepackage{caption}
+\usepackage{lipsum}
+\usepackage{mathtools}
+\usepackage{scalerel}
+\usepackage{stackengine}
+\usepackage{amsthm}
+
+\usepackage[
+backend=biber,
+style=authoryear-comp,
+sorting=ynt
+]{biblatex}
+\addbibresource{references.bib} %Import the bibliography file
+\usepackage{hyperref}
+\usepackage[shortlabels]{enumitem}
+\setlength{\epigraphrule}{0pt}
+\setlength\parindent{0pt}
+\renewcommand{\baselinestretch}{1.25}
+
+\setcounter{MaxMatrixCols}{10}
+
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+
+
+
+\newcommand{\I}{\mathbb{I}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Ll}{\mathrm{L}}
+\newcommand{\R}{\mathbb{R}}
+\renewcommand{\L}{\mathbb{L}}
+\newcommand{\Var}{\mathrm{Var}}
+\newcommand{\Cov}{\mathrm{Cov}}
+\newcommand{\Corr}{\mathrm{Corr}}
+\newcommand{\Prob}{\mathbb{P}}
+\newcommand{\supp}{\mathrm{supp}}
+\newcommand{\notimplies}{\mathrel{{\ooalign{\hidewidth$\not\phantom{=}$\hidewidth\cr$\implies$}}}}
+\newcommand{\var}{\mathrm{var}}
+\newcommand{\Bias}{\mathrm{Bias}}
+\newcommand{\cov}{\mathrm{cov}}
+\newcommand{\corr}{\mathrm{corr}}
+\newcommand{\MSE}{\mathrm{MSE}}
+
+\topmargin=-1.5cm \textheight=23cm \oddsidemargin=0.5cm
+\evensidemargin=0.5cm \textwidth=15.5cm
+
+\newtheorem{theorem1}{Special Theorem}
+
+\newtheorem{ass}{Assumption}
+\newtheorem{definit}{Definition}
+\newtheorem{prop}{Proposition}
+\newtheorem{thm}{Theorem}
+\newtheorem{lem}{Lemma}
+\newtheorem{conj}{Conjecture}
+\newtheorem{cor}{Corollary}
+\newtheorem{rem}{Remark}
+
+\renewcommand{\thesubsection}{\arabic{section}.\arabic{subsection}}
+\renewcommand{\thesubsubsection}{\arabic{section}.\arabic{subsection}.\arabic{subsubsection}}
+
+\newcommand\dapprox{\stackrel{\mathclap{\tiny \mbox{d}}}{\approx}}
+\newcommand\papprox{\stackrel{\mathclap{\tiny \mbox{p}}}{\approx}}
+\newcommand\pconverge{\stackrel{\mathclap{\tiny \mbox{p}}}{\to}}
+\newcommand\dconverge{\stackrel{\mathclap{\tiny \mbox{d}}}{\to}}
+
+\addbibresource{references.bib}
+
+
+\newcommand\independent{\protect\mathpalette{\protect\independenT}{\perp}}
+\def\independenT#1#2{\mathrel{\rlap{$#1#2$}\mkern2mu{#1#2}}}
+
+\usepackage{epsfig,hyperref}
+
+\hypersetup{
+	pdftitle={undergrad thesis},    % title
+	pdfauthor={Chris Liao},     % author
+	pdfnewwindow=true,      % links in new window
+	colorlinks=true,       % false: boxed links; true: colored links
+	linkcolor=blue,          % color of internal links
+	citecolor=red,        % color of links to bibliography
+	filecolor=black,      % color of file links
+	urlcolor=blue           % color of external links
+}
+
+\allowdisplaybreaks
+
+\begin{document}
+	\begin{titlepage}
+\begin{center}
+THE UNIVERSITY OF CHICAGO
+\\[1.5in]
+BEHIND THE GLASS DOOR\\
+UNRAVELING HIERARCHICAL STRUCTURE IN OPEN SOURCE SOFTWARE
+\\[1in]
+A BACHELOR THESIS SUBMITTED TO \\
+\bigskip
+THE FACULTY OF THE DEPARTMENT OF ECONOMICS \\
+\bigskip
+FOR HONORS WITH THE DEGREE OF \\
+\bigskip
+BACHELOR OF THE ARTS IN ECONOMICS
+\\[1.5in]
+BY CHRIS LIAO
+\\[2in]
+CHICAGO, ILLINOIS \\
+JUNE 2024
+\end{center}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\begin{abstract}
+   \footnote{I am grateful for the amazing mentors and friends who have supported me throughout my research journey and thesis-writing experience. First, I am grateful to my advisor Ali Hortaçsu for his invaluable advice and guidance throughout the past year. I am indebted to Jesse Shapiro for pushing me to think critically, Luis Garicano for helping me understand hierarchy models, and to Josh Lerner for generously sharing his knowledge about the open source software literature. I thank Jordan Rosenthal-Kay and Noah Sobel-Lewin for helpful discussions about this thesis and economics research more broadly, and I'm thankful to my undergraduate research supervisors Scott Nelson, Thomas Sargent, George Hall and James Traina for providing me with the opportunity and guidance to grow into a more careful and thoughtful researcher over the past four years. The undergraduate economics department supervisors Victor Lima and Kotaro Yoshida have been tremendously supportive both in individual meetings and through the thesis workshop. To my friends - Anjali, Annie, David, Jake, Jason, Laura, Matt and everyone else - thank you for your attentive listening over the past nine months and your support at the thesis presentation. Finally, I am forever grateful to my family for their unconditional support and love.
+   }
+\end{abstract}
+\newpage
+\section{Introduction}
+\begin{itemize}
+\item Paragraphs 1-2: Motivation. After reading these paragraphs a reader in any field of economics should believe that if you answer your research question your paper will make an important contribution.
+
+The development of open source software (OSS), software that can be accessed, modified and redistributed without additional cost, is an \$8.8 trillion industry (\cite{hoffmann_value_2024}). OSS solutions are present in 70-90\% of all software and have been adopted by businesses across many industries, such as tech, retail and auto (\cite{nagle_open_2017}). OSS organizations are unlike traditional firms because OSS contributors, who help build the software, are unpaid volunteers. Most OSS contributors have full time salaried jobs in addition to their role in the OSS organization, so their contribution time, the time they spend contributing to OSS, is constrained. As unpaid volunteers, OSS contributors also have time freedom, the ability to decide how they allocate their time across different tasks. However, OSS organizations also possess characteristics of traditional firms. The largest OSS organizations can have multiple layers of hierarchy. OSS organizations are also affected by technological advances, such as the advent of artificial intelligence and platform improvements by OSS hosting sites like GitHub.
+
+OSS organizational structure and how technological advances affect that structure is not well understood. Existing models from the economics literature cannot be applied to study OSS either, because they are inspired by traditional firms with typical employment structures. Understanding the dynamics of OSS organizational structure is important because it affects OSS development, an economically significant industry. Moreover, the digital and technology-focused nature of OSS development means that OSS organizations are very likely to be affected by technological advances. More broadly, while the structure of OSS organizations certainly differs from traditional firms, many corporate institutions have employment structures where their employees have some degree of time freedom. For example, corporate R \& D researchers, or graduate students in a research lab are afforded time freedom while still working within a hierarchy. Modelling OSS organizations can provide valuable insights about the impact of organizational structure in those and other related settings. 
+
+\item Paragraphs 3-4: Challenges. These paragraphs explain why your research question has not already been answered, i.e., what are the central challenges a researcher must tackle to answer this question.
+
+\qquad OSS development has been widely documented by researchers as a hierarchical process, but how that hierarchy affects OSS development have not been widely studied (\cite{crowston_hierarchy_2006}). Economists have modelled hierarchical structure in traditional firms, but modelling hierarchical structure in OSS development requires solving two challenges that existing models are not equipped for (\cite{garicano_hierarchies_2000}). First, the model must incorporate the constrained nature of an OSS contributor's contribution time and their time freedom. Existing models fail because they model traditional firms that determine what tasks their employees do and how much time they spend on the job. In OSS development, contributors choose what tasks to work on, and their total contribution time is their choice, not the choice of the OSS organization's leaders (\cite{lerner_simple_2002}). Second, the model must describe the decision making process of OSS organizations, which differ from traditional firms. Traditional firms decide how to allocate employees across the hierarchy after observing employee wages and training costs. OSS organizations also determine the allocation of employees across the hierarchy, but wages and training costs are not part of their decision making function. 
+
+
+A model that solves both of these challenges will allow us to characterize the decisions that OSS contributors and organizations make. These changes are necessary because existing models of hierarchy produce puzzling results when applied to OSS organizations. One notable result from the hierarchy literature, applied to OSS development, is that OSS contributors ranked higher on the hierarchy should never be the ones writing code to create new software features or fix bugs. This is not true in OSS software development. \textcolor{red}{Puzzle for comparative statics: idk, have to find out}
+
+
+\item Paragraph 5: This Paper. This paragraph states in a nutshell what the paper accomplishes and how. 
+In this paper, I develop a model of hierarchical structure in OSS development, where OSS contributors have time freedom and OSS organizations determine the structure of the hierarchy without accounting for contributor associated costs. Solving for the equilibrium OSS contributors' and organization's decision functions is the key to characterizing how hierarchical structure affects OSS development. Using these equilibrium results, I follow the hierarchy literature in examining how technological advances - specifically, the cost of knowledge acquisition and the cost of communication - affects organizational structure and subsequently OSS development. Finally, I use novel microdata on OSS development from GitHub, the world's largest OSS hosting platform to examine my model's predictions and compare it to the epmirical reality of OSS development. 
+
+\item Paragraphs 6-7: Model. Summarize the key formal assumptions you will maintain in your analysis.
+
+1. Two layer model of hierarchy - read rank programmers and write rank programmers. Programmers in each rank are homogenous, (MAYBE: risk neutral)
+2. Describe what OSS developers think about when they make decisions (for each rank)
+- read rank programmers focus on how many of their problems get solved
+- write rank programmers focus on how the overall project does
+3. Describe what OSS organizations think about
+- choose W, 
+4. what other stuff? 
+
+this doesn't need an additional paragraph - it can be integrated into the paragraph above, and the puzzles are that we don't know the answers and existing models cannot provide these (either because they just can't or because they're wrong) 
+
+
+\item Paragraphs 8-9: Data. Explain where you obtain your data and how you measure the concepts that are central to your study.
+\item Paragraphs 10-11: Methods. Explain how you take your model to the data and how you overcome the challenges you raised in paragraphs 3-4.
+Explain the empirical stuff ig? 
+
+\item Paragraphs 12-13: Findings. Describe the key findings. Make sure they connect clearly to the motivation in paragraphs 1-2.
+\item Paragraphs 14-15: Literature. Lay out the two main ways your paper contributes to the literature. Each paragraph should center around one contribution and should explain precisely how your paper differs from the most closely related recent work.
+\end{itemize}
+
+(i) What aspect(s) of OSS projects are puzzling when seen through the lens of existing models?
+(ii) How does your model explain those aspects? 
+(iii) What additional predictions does your model make, and are those borne out in the data? 
+
+
+\end{document}

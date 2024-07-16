@@ -1,0 +1,132 @@
+%
+\documentclass[12pt,notitlepage]{article}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{yhmath}
+\usepackage{graphicx}
+\usepackage{epstopdf}
+\usepackage{pdflscape}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{dsfont}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{marvosym}
+\usepackage{multirow}
+\usepackage{pdflscape}
+\usepackage[hyphens]{url}
+\usepackage{setspace}
+\usepackage{epigraph}
+\usepackage{bm}
+\usepackage{textcomp}
+\usepackage{diagbox}
+\usepackage{bbm}
+\usepackage{verbatim}
+\usepackage[framemethod=tikz]{mdframed}
+\usepackage{subcaption}
+\usepackage{caption}
+\usepackage{lipsum}
+\usepackage{mathtools}
+\usepackage{scalerel}
+\usepackage{stackengine}
+\usepackage{amsthm}
+
+\usepackage[
+backend=biber,
+style=authoryear-comp,
+sorting=ynt
+]{biblatex}
+\addbibresource{references.bib} %Import the bibliography file
+\usepackage{hyperref}
+\usepackage[shortlabels]{enumitem}
+\setlength{\epigraphrule}{0pt}
+\setlength\parindent{0pt}
+\renewcommand{\baselinestretch}{1.25}
+
+\setcounter{MaxMatrixCols}{10}
+
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+
+
+
+\newcommand{\I}{\mathbb{I}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Ll}{\mathrm{L}}
+\newcommand{\R}{\mathbb{R}}
+\renewcommand{\L}{\mathbb{L}}
+\newcommand{\Var}{\mathrm{Var}}
+\newcommand{\Cov}{\mathrm{Cov}}
+\newcommand{\Corr}{\mathrm{Corr}}
+\newcommand{\Prob}{\mathbb{P}}
+\newcommand{\supp}{\mathrm{supp}}
+\newcommand{\notimplies}{\mathrel{{\ooalign{\hidewidth$\not\phantom{=}$\hidewidth\cr$\implies$}}}}
+\newcommand{\var}{\mathrm{var}}
+\newcommand{\Bias}{\mathrm{Bias}}
+\newcommand{\cov}{\mathrm{cov}}
+\newcommand{\corr}{\mathrm{corr}}
+\newcommand{\MSE}{\mathrm{MSE}}
+
+\topmargin=-1.5cm \textheight=23cm \oddsidemargin=0.5cm
+\evensidemargin=0.5cm \textwidth=15.5cm
+
+\newtheorem{theorem1}{Special Theorem}
+
+\newtheorem{ass}{Assumption}
+\newtheorem{definit}{Definition}
+\newtheorem{prop}{Proposition}
+\newtheorem{thm}{Theorem}
+\newtheorem{lem}{Lemma}
+\newtheorem{conj}{Conjecture}
+\newtheorem{cor}{Corollary}
+\newtheorem{rem}{Remark}
+
+\renewcommand{\thesubsection}{\arabic{section}.\arabic{subsection}}
+\renewcommand{\thesubsubsection}{\arabic{section}.\arabic{subsection}.\arabic{subsubsection}}
+
+\newcommand\dapprox{\stackrel{\mathclap{\tiny \mbox{d}}}{\approx}}
+\newcommand\papprox{\stackrel{\mathclap{\tiny \mbox{p}}}{\approx}}
+\newcommand\pconverge{\stackrel{\mathclap{\tiny \mbox{p}}}{\to}}
+\newcommand\dconverge{\stackrel{\mathclap{\tiny \mbox{d}}}{\to}}
+
+\addbibresource{references.bib}
+
+
+\newcommand\independent{\protect\mathpalette{\protect\independenT}{\perp}}
+\def\independenT#1#2{\mathrel{\rlap{$#1#2$}\mkern2mu{#1#2}}}
+
+\usepackage{epsfig,hyperref}
+
+\hypersetup{
+	pdftitle={undergrad thesis},    % title
+	pdfauthor={Chris Liao},     % author
+	pdfnewwindow=true,      % links in new window
+	colorlinks=true,       % false: boxed links; true: colored links
+	linkcolor=blue,          % color of internal links
+	citecolor=red,        % color of links to bibliography
+	filecolor=black,      % color of file links
+	urlcolor=blue           % color of external links
+}
+
+\allowdisplaybreaks
+
+\begin{document}
+\textbf{Hierarchy/Core in OSS}
+\begin{enumerate}
+    \item \cite{crowston_core_2006}
+    \begin{itemize}
+        \item Provides examples of \"Academic case studies of FLOSS Projects" that have hierarchical structures
+        \item \"At the center of the onion are the core developers, who contribute most of the code and oversee the design and evolution of the project. In the next ring out are the co-developers who submit patches (e.g., bug fixes), which are reviewed and checked in by core developers."
+    \end{itemize}
+    \item \cite{crowston_hierarchy_2006}
+    \begin{itemize}
+        \item FLOSS projects are not uniformly centralized/hierarchical
+        \item Projects are highly connected
+        \item Lots of one way communication in projects
+        \item Projects become more decentralized as project size grows (expect there to be more write rank contributors as project size increases)
+    \end{itemize}
+\end{enumerate}
+
+\end{document}
