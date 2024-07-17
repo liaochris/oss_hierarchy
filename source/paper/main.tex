@@ -139,53 +139,156 @@ JUNE 2024
 \newpage
 
 \begin{abstract}
-   \footnote{I am grateful for the amazing mentors and friends who have supported me throughout my research journey and thesis-writing experience. First, I am grateful to my advisor Ali Hortaçsu for his invaluable advice and guidance throughout the past year. I am indebted to Jesse Shapiro for pushing me to think critically, Luis Garicano for helping me understand hierarchy models, and to Josh Lerner for generously sharing his knowledge about the open source software literature. I thank Jordan Rosenthal-Kay and Noah Sobel-Lewin for helpful discussions about this thesis and economics research more broadly, and I'm thankful to my undergraduate research supervisors Scott Nelson, Thomas Sargent, George Hall and James Traina for providing me with the opportunity and guidance to grow into a more careful and thoughtful researcher over the past four years. The undergraduate economics department supervisors Victor Lima and Kotaro Yoshida have been tremendously supportive both in individual meetings and through the thesis workshop. To my friends - Anjali, Annie, David, Jake, Jason, Laura, Matt and everyone else - thank you for your attentive listening over the past nine months and your support at the thesis presentation. Finally, I am forever grateful to my family for their unconditional support and love.
+   \footnote{\\
+   Advisors: Ali Hortaçsu, Jesse Shapiro\\
+   Hierarchies/OSS: Luis Garicano, Josh Lerner, Frank Nagle\\
+   Econ Friends: Jordan Rosenthal-kay, Noah Sobel-Lewin\\
+   Research Supervisors: Scott Nelson, Thomas Sargent, George Hall, James Traina \\
+   Undergrad Econ Dept: Victor Lima, Kotaro Yoshida\\
+   Friends \\
+   Family \\
+   UChicago IT: Colin Hudler \\
+   OSS contributors: Anna Woodard + various survey respondents \\
    }
 \end{abstract}
 \newpage
 \section{Introduction}
-\begin{itemize}
-\item Paragraphs 1-2: Motivation. After reading these paragraphs a reader in any field of economics should believe that if you answer your research question your paper will make an important contribution.
+\textbf{Paragraphs 1-2: Motivation. After reading these paragraphs a reader in any field of economics should believe that if you answer your research question your paper will make an important contribution.}
 
-The development of open source software (OSS), software that can be accessed, modified and redistributed without additional cost, is an \$8.8 trillion industry (\cite{hoffmann_value_2024}). OSS solutions are present in 70-90\% of all software and have been adopted by businesses across many industries, such as tech, retail and auto (\cite{nagle_open_2017}). OSS organizations are unlike traditional firms because OSS contributors, who help build the software, are unpaid volunteers. Most OSS contributors have full time salaried jobs in addition to their role in the OSS organization, so their contribution time, the time they spend contributing to OSS, is constrained. As unpaid volunteers, OSS contributors also have time freedom, the ability to decide how they allocate their time across different tasks. However, OSS organizations also possess characteristics of traditional firms. The largest OSS organizations can have multiple layers of hierarchy. OSS organizations are also affected by technological advances, such as the advent of artificial intelligence and platform improvements by OSS hosting sites like GitHub.
+The development of open source software (OSS), software that can be accessed, modified and redistributed without additional cost, is an \$8.8 trillion industry (\cite{hoffmann_value_2024}). OSS components are present in 70-90\% of all software and have been adopted by businesses across many industries, such as tech, retail and auto (\cite{nagle_open_2017}). For example, this paper was produced using software such as LaTeX, Overleaf, Markdown, Python, all of which are open source. The distribution of OSS sans cost means that many of the organizations that develop OSS software projects are unlike traditional firms because OSS contributors, who help build the software, are volunteers. Consequently, the full time job of many OSS contributors is not developing OSS, so their contribution time to OSS is constrained. However, as volunteers, OSS contributors also have time freedom, as they, not the firm, determines how to allocate their time across different tasks. However, OSS organizations aren't totally unrecognizable when compared with traditional firms. OSS organizations have multiple layers of hierarchy and are just as affected, if not moreso, by technological advances, such as the advent of artificial intelligence or platform improvements by OSS hosting sites like GitHub.
 
-OSS organizational structure and how technological advances affect that structure is not well understood. Existing models from the economics literature cannot be applied to study OSS either, because they are inspired by traditional firms with typical employment structures. Understanding the dynamics of OSS organizational structure is important because it affects OSS development, an economically significant industry. Moreover, the digital and technology-focused nature of OSS development means that OSS organizations are very likely to be affected by technological advances. More broadly, while the structure of OSS organizations certainly differs from traditional firms, many corporate institutions have employment structures where their employees have some degree of time freedom. For example, corporate R \& D researchers, or graduate students in a research lab are afforded time freedom while still working within a hierarchy. Modelling OSS organizations can provide valuable insights about the impact of organizational structure in those and other related settings. 
+\qquad The relationship between OSS organizational structure and OSS development, and the impact of technological advancement on that dynamic is not well understood. Developing an economic model that can help us better understand OSS development is crucial because of the importance of OSS in the economy. Using the lens of OSS organizational structure to study OSS development is important because OSS cannot be produced without the work of its contributors, whose tasks and roles are affected by OSS organizational structure. Moreover, understanding how technological advances affect the relationship between OSS organizational structure and OSS development is also important for two reasons. First, the digital and technology-focused nature of OSS development means that OSS contributors, and hence, the organization, are likely to be among the first affected by technological advances. Moreover, understanding the impact of technological advances can help policymakers and stakeholders make more informed decisions when the decision is OSS-relevant. The hierarchical nature of OSS organizations makes it tempting to apply models of hierarchy from the economics literature (\cite{garicano_hierarchies_2000}); however, those models are insufficient because they are inspired by traditional firms with typical employment structures. 
 
-\item Paragraphs 3-4: Challenges. These paragraphs explain why your research question has not already been answered, i.e., what are the central challenges a researcher must tackle to answer this question.
+\textbf{Paragraphs 3-4: Challenges. These paragraphs explain why your research question has not already been answered, i.e., what are the central challenges a researcher must tackle to answer this question.}
 
-\qquad OSS development has been widely documented by researchers as a hierarchical process, but how that hierarchy affects OSS development have not been widely studied (\cite{crowston_hierarchy_2006}). Economists have modelled hierarchical structure in traditional firms, but modelling hierarchical structure in OSS development requires solving two challenges that existing models are not equipped for (\cite{garicano_hierarchies_2000}). First, the model must incorporate the constrained nature of an OSS contributor's contribution time and their time freedom. Existing models fail because they model traditional firms that determine what tasks their employees do and how much time they spend on the job. In OSS development, contributors choose what tasks to work on, and their total contribution time is their choice, not the choice of the OSS organization's leaders (\cite{lerner_simple_2002}). Second, the model must describe the decision making process of OSS organizations, which differ from traditional firms. Traditional firms decide how to allocate employees across the hierarchy after observing employee wages and training costs. OSS organizations also determine the allocation of employees across the hierarchy, but wages and training costs are not part of their decision making function. 
+\qquad The organizational structure of OSS development has been widely documented by researchers as a hierarchical process, but how that hierarchy affects OSS development have not been widely studied (\cite{crowston_hierarchy_2006}). Economists have modelled hierarchical structure in traditional firms, but modelling hierarchical structure in OSS development requires solving two challenges that existing models are not equipped for (\cite{garicano_hierarchies_2000}). First, the model must incorporate the constrained nature of an OSS contributor's contribution time and their time freedom. Existing models fail because they model traditional firms that determine what tasks their employees do and how much time they spend on the job. In OSS development, contributors choose what tasks to work on, and their total contribution time is their choice, not the OSS organization's choice (\cite{lerner_simple_2002}). Second, the model must describe the decision making process of OSS organizations, which differ from traditional firms. Traditional firms decide how to allocate employees across the hierarchy after observing employee wages and training costs, which they incur. OSS organizations also determine the allocation of employees across the hierarchy, but wages and training costs are not part of their decision making function as they incur none of those. 
 
-
-A model that solves both of these challenges will allow us to characterize the decisions that OSS contributors and organizations make. These changes are necessary because existing models of hierarchy produce puzzling results when applied to OSS organizations. One notable result from the hierarchy literature, applied to OSS development, is that OSS contributors ranked higher on the hierarchy should never be the ones writing code to create new software features or fix bugs. This is not true in OSS software development. \textcolor{red}{Puzzle for comparative statics: idk, have to find out}
+\qquad A model that solves both of these challenges will allow us to characterize the decisions that OSS contributors and organizations make. These changes are necessary because existing models of hierarchy produce puzzling results when applied to OSS organizations. One notable result from the hierarchy literature, applied to OSS development, is that OSS contributors ranked higher on the hierarchy should never be the ones writing code to solve new tasks.. \textcolor{red}{It might be nice to explain what particular feature of my model enables this.} This is not true in OSS software development, as the data shows plenty of highly ranked contributors solving newly encountered problems. \textcolor{red}{Puzzle for comparative statics, if any}
 
 
-\item Paragraph 5: This Paper. This paragraph states in a nutshell what the paper accomplishes and how. 
-In this paper, I develop a model of hierarchical structure in OSS development, where OSS contributors have time freedom and OSS organizations determine the structure of the hierarchy without accounting for contributor associated costs. Solving for the equilibrium OSS contributors' and organization's decision functions is the key to characterizing how hierarchical structure affects OSS development. Using these equilibrium results, I follow the hierarchy literature in examining how technological advances - specifically, the cost of knowledge acquisition and the cost of communication - affects organizational structure and subsequently OSS development. Finally, I use novel microdata on OSS development from GitHub, the world's largest OSS hosting platform to examine my model's predictions and compare it to the epmirical reality of OSS development. 
+\textbf{Paragraph 5: This Paper. This paragraph states in a nutshell what the paper accomplishes and how. }
+In this paper, I develop a model of hierarchical structure in OSS development, where OSS contributors have time freedom and OSS organizations determine the structure of the hierarchy without accounting for contributor associated costs. Solving for the equilibrium OSS contributors' and organization's decision functions is the key to characterizing how hierarchical structure affects OSS development. Using these equilibrium results, I follow the hierarchy literature in examining how technological advances - specifically, the cost of knowledge acquisition and the cost of communication - affects organizational structure and subsequently OSS development. Finally, I use novel microdata on OSS development from GitHub, the world's largest OSS hosting platform to compare my model's predictions to the empirical reality of OSS development. 
 
-\item Paragraphs 6-7: Model. Summarize the key formal assumptions you will maintain in your analysis.
+\textbf{Paragraphs 6-7: Model. Summarize the key formal assumptions you will maintain in your analysis.}
 
-1. Two layer model of hierarchy - read rank programmers and write rank programmers. Programmers in each rank are homogenous, (MAYBE: risk neutral)
-2. Describe what OSS developers think about when they make decisions (for each rank)
-- read rank programmers focus on how many of their problems get solved
-- write rank programmers focus on how the overall project does
-3. Describe what OSS organizations think about
-- choose W, 
-4. what other stuff? 
+\qquad The hierarchical model I propose features two layers of hierarchy. OSS contributors in both ranks are risk neutral and choose between spending time acquiring knowledge, or performing various tasks that help further develop the OSS. Following the hierarchy literature, OSS contributors within a rank are homogeneous (\cite{garicano_hierarchies_2000}). OSS contributor incentives differ by rank; while lower rank contributors are only concerned with finding a problem solution, higher rank contributors are prioritize the project's overall welfare. OSS organizations want to promote the optimal number of highly rank contributors to maximize output without incurring excessively high costs related to hiring and managing lots of highly ranked OSS contributors. 
 
-this doesn't need an additional paragraph - it can be integrated into the paragraph above, and the puzzles are that we don't know the answers and existing models cannot provide these (either because they just can't or because they're wrong) 
+\textbf{Paragraphs 8-9: Data. Explain where you obtain your data and how you measure the concepts that are central to your study.}
+
+\textbf{Paragraphs 10-11: Methods. Explain how you take your model to the data and how you overcome the challenges you raised in paragraphs 3-4.}
+
+\textbf{Paragraphs 12-13: Findings. Describe the key findings. Make sure they connect clearly to the motivation in paragraphs 1-2.}
+
+\textbf{Paragraphs 14-15: Literature. Lay out the two main ways your paper contributes to the literature. Each paragraph should center around one contribution and should explain precisely how your paper differs from the most closely related recent work.}
+
+\section{Model}
+\subsection{Background}
+An OSS project's development can be abstracted to solving a variety of tasks; example tasks include fixing software bugs, implementing new features or writing documentation for the codebase. These tasks are solved by OSS contributors from the project, whose task-solving ability depends on the task difficulty $z \in [0, 1]$ and their own knowledge $k \in [0, 1]$, as tasks of difficulty z can only be solved by those with knowledge $k \geq z$. 
+
+\qquad There are two types of agents whose decision-making process we're interested in: OSS contributors, and the OSS project. OSS contributors are primarily characterized by their rank: read or write. Read rank contributors are below write rank contributors on the hierarchy.  One real-world example of a read rank contributor is a OSS project user whose encountering some bugs related to that software. He needs the bug solved to accomplish his primary mission and he's not interested in contributing to the project beyond helping find a solution to the bug so he can continue using the software. They don't have any broader interest in the OSS project's welfare, such as helping develop a new feature, beyond their specific use case. On the other hand, a write-rank contributor is typically a longstanding contributor to the OSS project. She's knowledgeable about a large proportion of the project's scope and importantly, her rank also provides a signal to employers about her skill level. The more developed and well-known the project is, the more she benefits in terms of future wages, because it will increase her visibility to employers offering attractive positions (\cite{hann_economic_2002}). 
+
+\qquad  All OSS contributors spend time $t_p$ in production, the broad term I use for solving new tasks and acquiring knowledge $k$.  An equivalent real-life example would be the time tradeoff someone makes between reading documentation about the project's different aspect, which helps them understand a larger proportion of the project's scope, and spending time actually trying to solve more problems. While the two choices are substitutes, being an effective contributor would be difficult without having spent time on both tasks as well. Read rank contributors develop solutions for all tasks that they encounter, but their limited knowledge $k^r < 1$ means they cannot assess whether their proposed solution is correct. As a consequence, write rank contributors also have the option of spending time $t_h^w$ correcting incorrectly solved problems. I denote distinguish between task type using variable letters or subscripts, and rank-specific variables using superscripts. Following \cite{bloom_distinct_2014},  all write-rank contributors have perfect knowledge $k^w = 1$ which allows the project to solves all tasks it encounters. This is a reasonable assumption as I'm focused on studying how organizational structure affects software development, not how the level of programmer knowledge affects software development. \textcolor{blue}{Notwithstanding this, I'm pretty sure my results are invariant to $k^w$'s level}. I also follow the literature on hierarchies (\cite{garicano_hierarchies_2000}) by assuming that within a rank, contributors are homogeneous. \textcolor{blue}{Once I have my results I believe I'll be able to explain how heterogeneity would not change the qualitative nature of my results}
+
+\qquad \textcolor{blue}{Add note on why I omit approval}
+
+\qquad  The OSS project's role is to allocate contributors across the hierarchy. I normalize the total number of OSS contributors to 1 and since there are only two ranks in the hierarchy, when the project promotes $\beta_w$ contributors to write rank, there are $1 - \beta_w$ read rank OSS contributors. In my primary results, I assume that given the optimal number of contributors $\beta_w^*$ the OSS project promotes to write rank, there are $\beta \geq \beta_w^*$  contributors who want to be promoted. This may not always be realistic, as some OSS contributors may not want to be promoted so $\beta < \beta_w^*$. \textcolor{blue}{Notwithstanding this, I show that this does not affect my results}. The OSS project takes into account the decision function of OSS contributors and how their equilibrium decisions may be affected by the project's choice of $\beta_w^*$ when choosing $\beta_w^*$. I assume that the OSS project is aware of the decision function of its contributors because each rank's specific incentives, as I described earlier, are well known and documented in the literature on incentives for contributing to OSS (\cite{lerner_simple_2002}, \cite{lakhani_how_2003}, \cite{von_krogh_community_2003}, \cite{robert_g_wolf_why_2003}). 
+
+\subsection{Set Up}
+\subsubsection{Read Rank}
+Tasks of difficulty $k$ appear with probability $f(k)$ and cumulative distribution function $F(k)$. In expectation, read-rank contributors with knowledge $k^r$ that spend $t_p^r$ time in production solve $t_p^r F(k^r)$ tasks correctly. In addition, $t_h^w \beta_w$ of all tasks solved incorrectly by read rank contributors are corrected by all write-rank contributors, so in expectation, $t_h^w \frac{\beta_w}{1-\beta_w}$ of each read-rank contributor's incorrectly solutions are fixed. 
+
+The read rank contributor's utility is invariant to the problem solver's identity, as they only care about the solution. They face costs of $c_r(t_p^r, k^r)$  from contributing because it takes up their time. Thus, a read rank contributor solves 
+
+$$\max_{\{k^r, t_p^r\}} u_r\left(t_p^rF(k^r) + t_h^w \frac{\beta_w}{1-\beta_w}\right) - c_r(t_p^r, k^r)$$
+
+I make the following assumptions about $u_r, c_r$. 
+\begin{enumerate}
+    \item $u_r$ is linear. Thus, $u_r(x) = \alpha_r x + \beta_r$ where $\alpha_r > 0$. Read rank programmers make their decisions knowing only the expectation of their outcomes. This complicates the process of solving the model without changing the qualitative results (\textcolor{blue}{I think intuitively this is true, but how do I show this? Maybe show examples for risk-averse, risk-favoring individuals}), so I assume that the read rank contributor is risk neutral and possesses linear utility, which allows me to remove the expectation. 
+    \item The first derivative of the cost function is increasing. Formally, 
+    $$\frac{\partial c_r}{\partial t_p^r}>0 \qquad \frac{\partial c_r}{\partial k^r}>0$$
+    Intuitively, contributing to OSS costs time that could be spent on an OSS contributor's primary mission. 
+    \item The second derivative and cross partials of the cost function are increasing. Formally, $$\frac{\partial^2 c_r}{\partial (t_p^r)^2}>0 \qquad \frac{\partial^2 c_r}{\partial (k^r)^2}>0 \qquad \frac{\partial^2 c_r}{\partial t_p^r \partial k^r}>0$$
+    An extreme but helpful motivating example is to compare the marginal cost of spending 10 minutes contributing to OSS, which is much higher when you have only contributed for 10 minutes, as opposed to when you have already contributed for 23 hours that day, and you really should grab an hour or two of sleep! 
+    \item The marginal cost of the initial time spent contributing to OSS is negligible. Formally, $$\lim_{k^r \to 0^+} \frac{\partial c_r}{\partial k^r} = 0 \qquad  \lim_{t_p^r \to 0^+} \frac{\partial c_r}{\partial t_p^r} = 0$$
+    The assumption's practical effect is that the optimal choice of $k^r, t_p^r$ will always be economically interesting so $t_p^r>0, k^r>0$. This paper is focused on actual, not hypothetical OSS contributors.
+\end{enumerate}
 
 
-\item Paragraphs 8-9: Data. Explain where you obtain your data and how you measure the concepts that are central to your study.
-\item Paragraphs 10-11: Methods. Explain how you take your model to the data and how you overcome the challenges you raised in paragraphs 3-4.
-Explain the empirical stuff ig? 
+\subsubsection{Write Rank}
+The project's perceived success by outsiders is determined by its output. In aggregate, $1-\beta_w$ read-rank contributors are expected to solve $(1-\beta_w) t_p^rF(k^r)$ tasks correctly. Each write-rank contributor spends $t_p^w$ time solving new tasks correctly with their perfect knowledge and $t_h^w$ time helping solve incorrectly solved tasks perfectly. In aggregate, $\beta_w$ write rank contributors solve $\beta_w (t_p^w + t_h^w)$ tasks. In total, the project solves
+$$(1-\beta_w) t_p^rF(k^r) + \beta_w (t_p^w + t_h^w)$$
+problems correctly. 
 
-\item Paragraphs 12-13: Findings. Describe the key findings. Make sure they connect clearly to the motivation in paragraphs 1-2.
-\item Paragraphs 14-15: Literature. Lay out the two main ways your paper contributes to the literature. Each paragraph should center around one contribution and should explain precisely how your paper differs from the most closely related recent work.
-\end{itemize}
+Definitionally, the about of problem solutions that are corrected is at most the total number of porblems solved incorrectly. In expectation, 
+$$\beta_w t_h^w \leq (1-\beta_w)(1-F(k^r)) \iff \frac{\beta_w t_h^w}{1-\beta_w} \leq 1-F(k^r)$$
+This is a key difference between my model and the hierarchy model from \cite{garicano_hierarchies_2000}. \cite{garicano_hierarchies_2000}'s model forces the inequality to be an inequality, as employees must help answer questions from lower ranks. In my model, because OSS contributors have time freedom, they cannot be required to do so.  
 
-(i) What aspect(s) of OSS projects are puzzling when seen through the lens of existing models?
-(ii) How does your model explain those aspects? 
-(iii) What additional predictions does your model make, and are those borne out in the data? 
+The write ranked contributor faces costs $c_w(t_p^w, t_h^w, k^w = 1)$ from contributing, so they solve
+$$\max_{\{t_p^w, t_h^w\}} u_w\left((1-\beta_w) t_p^r F(k^r) + \beta_w t_h^w + \beta_w t_p^w\right) - c_w(t_p^w, t_h^w, 1)$$
+$$ \text{ such that } \beta_w t_h^w \leq (1-\beta_w)(1-F(k^r))$$
+I make the following assumptions about $u_w, c_w$
+\begin{enumerate}
+    \item $u_w$ is linear. Thus, $u_w(x) = \alpha_wx + \beta_w, \alpha_w > 0$
+    \item The first derivative of the cost function is increasing. Formally, 
+    $$\frac{\partial c_w}{\partial t_p^w}>0 \qquad  \frac{\partial c_w}{\partial t_h^w}>0$$
+    \item  The second derivative and cross partials of the cost function are increasing. Formally, $$\frac{\partial^2 c_w}{\partial (t_p^w)^2}>0 \qquad  \frac{\partial^2 c_w}{\partial (t_h^w)^2}>0 \qquad  \frac{\partial^2 c_w}{\partial t_h^w \partial t_p^w}>0$$
+    \item The marginal cost of the initial time spent contributing to OSS is negligible. Formally,
+    $$\lim_{t_p^w \to 0^+} \frac{\partial c_w}{\partial t_p^w} = 0 \qquad \lim_{t_h^w \to 0^+} \frac{\partial c_w}{\partial t_h^w} = 0$$
+\end{enumerate}
+\subsubsection{Organization}
+The OSS organization's objectives are not as simple as maximizing its perceived output. While the OSS organization benefits from increased output, it encounters coordination problems from having too many write ranked programmers. For example, the costs of hiring, screening and coordinating with different write ranked contributors increases as the number of write ranked contributors $\beta_w$ increase. I describe this cost as $c_o(\beta_w)$. Practically, this prevents the OSS organization from promoting everyone to write rank, which is what it would do absent $c_o$. This reflects the empirical reality of OSS organizations, which are largely composed of read rank contributors. 
 
+\textcolor{blue}{Aside: Another way to enforce this is to have write rank programmers be more disincentivized to contribute the higher $\beta_w$ is. This is also grounded in empirical reality. I wonder how this affects the results though. }
+
+Recall that the project's total output is 
+$$(1-\beta_w) t_p^r F(k^r) + \beta_w t_h^w(\beta_w) + \beta_w t_p^w(\beta_w)$$
+Thus, the OSS organization solves
+$$\max_{\{\beta_w\}} u_o\left((1-\beta_w) t_p^r F(k^r) + \beta_w t_h^w + \beta_w t_p^w\right) - c_o(\beta_w)$$ 
+$$\text{such that }\frac{\beta_w t_h^w}{1-\beta_w} \leq 1-F(k^r)$$
+
+Assuming linear utility $u_o = \alpha_o + \beta_o, \alpha>0$, then the organization's problem is 
+I make the following assumptions about $u_o, c_o$
+\begin{enumerate}
+    \item $u_o$ is linear. Thus, $u_o(x) = \alpha_ox + \beta_o, \alpha_o > 0$
+    \item The first derivative of the cost function is increasing. Formally, 
+    $$\frac{\partial c_o}{\partial \beta_w}>0$$
+    \item  The second derivative of the cost function is increasing. Formally, $$\frac{\partial^2 c_o}{\partial (\beta_w)^2}>0$$
+    \item The marginal cost of coordinating with the first write rank programmer is negligible. Formally,
+    $$\lim_{\beta_w \to 0^+} \frac{\partial c_o}{\partial \beta_w} = 0 $$
+\end{enumerate}
+
+\subsection{Solving the Model}
+\subsubsection{Read Rank}
+Solving for the first order conditions tells us that read rank programmers find $k^r, t_p^r$ solving $$\frac{t_p^r}{F(k^r)} = \frac{\frac{\partial c_r}{\partial k^r}}{\frac{\partial c_r}{\partial t_p^r}}$$
+\subsubsection{Write Rank}
+The solutions to $t_p^w$ and $t_h^w$ depend on the value taken by the inequality $\frac{\beta_w t_h^w}{1-\beta_w} \leq 1-F(k^r)$. There are two cases.
+\begin{enumerate}
+    \item The optimal $t_p^w, t_h^w, \beta_w$ are such that
+    $$\frac{\beta_w t_h^w}{1-\beta_w} = 1-F(k^r)$$
+    In this case, 
+    $$t_p^w \text{ solves } \alpha_w \beta_w = \frac{\partial c_w}{\partial t_p^w} \text{ and by construction, } t_h^w = \frac{(1-\beta_w)}{\beta_w} (1 -F(k^r))$$
+    \item The optimal $t_p^w, t_h^w, \beta_w$ are such that
+    $$\frac{\beta_w t_h^w}{1-\beta_w} < 1-F(k^r)$$
+    In this case, the constraint can be ignored and I can just solve the FOCs. That tells us that 
+    $$t_p^w, t_h^w \text{ solve } \frac{\partial c_w}{\partial t_h^w} = \frac{\partial c_w}{\partial t_p^w}$$
+\end{enumerate}
+The constraint means that $\frac{\beta_w t_h^w}{1-\beta_w} > 1-F(k^r)$ never occurs. 
+\subsubsection{Organization Solution}
+Note that the solutions for $\beta_w$, which is solved by the organization and $t_p^w$ and $t_h^w$, which are solved by the write rank contributor, all depend on each other. With that said, 
+$$\beta_w \text{ solves } -t_p^rF(k^r) + (t_h^w + t_p^w) + \beta_w\left(\frac{\partial t_h^w}{\partial \beta_w} + \frac{\partial t_p^w}{\partial \beta_w}\right) = \frac{\frac{\partial c_o}{\partial \beta_w}}{\alpha_o}$$
+
+as $u_o' = \alpha_o$, so the optimal $\beta_w$ is chosen simply by solving the above. 
+
+\subsection{Analysis}
+\subsubsection{Contributor Time Allocation}
+Do write rank programmers code ($t_p^w>0$)? Yes!
+\begin{enumerate}
+    \item When $\frac{\beta_w t_h^w}{1-\beta_w} = 1-F(k^r)$ then
+    $$\alpha_w \beta_w = \frac{\partial c_w}{\partial t_p^w}$$
+    Since $\alpha_w>0$ by definition and $\beta_w>0$ is implied by $\lim_{\beta_w \to 0^+} \frac{\partial c_o}{\partial \beta_w} = 0$, then $\frac{\partial c_w}{\partial t_p^w}>0$. Since $\frac{\partial^2 c_w}{\partial (t_p^w)^2}>0$ and $\lim_{t_p^w \to 0^+} \frac{\partial c_w}{\partial t_p^w} = 0$, then $t_p^w>0$
+    \item When $\frac{\beta_w t_h^w}{1-\beta_w} < 1-F(k^r)$, then $\lim_{t_p^w \to 0^+} \frac{\partial c_w}{\partial t_p^w} = 0$ and $\lim_{t_h^w \to 0^+} \frac{\partial c_w}{\partial t_h^w} = 0$. Thus, only $t_p^w>0$ can fulfill $\frac{\partial c_w}{\partial t_h^w} = \frac{\partial c_w}{\partial t_p^w}$
+\end{enumerate}
+\subsubsection{Comparative Statics}
+haha funny story... It's hard to simultaneously figure out how $t_h^w, t_p^w, \beta_w$ all interact with each other when you have to start taking derivatives, especially because I don't have a closed form solution. \\
 
 \end{document}
