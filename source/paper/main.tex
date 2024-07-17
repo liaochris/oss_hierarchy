@@ -290,5 +290,14 @@ Do write rank programmers code ($t_p^w>0$)? Yes!
 \end{enumerate}
 \subsubsection{Comparative Statics}
 haha funny story... It's hard to simultaneously figure out how $t_h^w, t_p^w, \beta_w$ all interact with each other when you have to start taking derivatives, especially because I don't have a closed form solution. \\
-
+Here's an illustrative example. I want to look at how the cost of knowledge acquisition for read rank contributors increasing impacts contributor choices. \\
+When $\frac{\partial c_r}{\partial k^r}$ increases, then 
+\begin{enumerate}
+    \item $k^r$ decreases, $t_p^r F(k^r)$ decreases. The intuition is that when knowledge becomes more costly, less knowledge is acquired and less output is produced. 
+    \item Now, I want to look at the impact on $\beta_w$. 
+    $$\beta_w \text{ solves } -t_p^rF(k^r) + (t_h^w + t_p^w) + \beta_w\left(\frac{\partial t_h^w}{\partial \beta_w} + \frac{\partial t_p^w}{\partial \beta_w}\right) = \frac{\frac{\partial c_o}{\partial \beta_w}}{\alpha_o}$$
+    Since $t_p^rF(k^r)$ decreases, then we would expect that $(t_h^w + t_p^w) + \beta_w\left(\frac{\partial t_h^w}{\partial \beta_w} + \frac{\partial t_p^w}{\partial \beta_w}\right)$ also decreases. This might tell us whether $\beta_w$ increases or decreases. But first, we have to account for the impact of $k^r$. 
+    \item If the helping constraint does not hold, none of the variables are affected. But increasing $\beta_w$ increases $t_p^w$ and decreases $t_h^w$, so it's not clear whether $\beta_w$ should or decrease in response either. 
+    \item If the helping constraint does hold, then $k^r$ decreasing likely increases $t_h^w$ and decreases $t_p^w$, and has similarly opposing effects on $\frac{\partial t_h^w}{\partial \beta_w}$ and $\frac{\partial t_p^w}{\partial \beta_w}$. That also makes it difficult to figure out whether $\beta_w$ is now needed as an increasing or decreasing force. 
+\end{enumerate}
 \end{document}
