@@ -36,7 +36,7 @@ jobs:
           pre_compile: tlmgr update --self && tlmgr update --all
 
           # Arbitrary bash codes to be executed after compiling LaTeX documents
-          post_compile: latexmk -c
+          post_compile: latexmk source/paper/main.tex
 
           # Instruct latexmk to enable --shell-escape
           # latexmk_shell_escape: # optional
