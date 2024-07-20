@@ -19,3 +19,12 @@ jobs:
       with:
           name: PDF
           path: output/paper/main.pdf
+
+    - name: Upload file to repository
+      run: |
+        git config --global user.name "liaochris"
+        git config --global user.email "liaochris@users.noreply.github.com"
+        git add report.pdf
+        git commit -m "compiling pdf skip ci"
+        git push
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
