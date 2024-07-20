@@ -91,7 +91,7 @@ sorting=ynt
 \newcommand\pconverge{\stackrel{\mathclap{\tiny \mbox{p}}}{\to}}
 \newcommand\dconverge{\stackrel{\mathclap{\tiny \mbox{d}}}{\to}}
 
-\addbibresource{references.bib}
+\addbibresource{source/paper/references.bib}
 
 
 \newcommand\independent{\protect\mathpalette{\protect\independenT}{\perp}}
@@ -200,8 +200,8 @@ Tasks of difficulty $k$ appear with probability $f(k)$ and cumulative distributi
 
 \qquad The read rank contributor's utility is affected by the proportion of all tasks they attempt that they solve correctly. While their primary goal is to obtain a solution, they also benefit from being the problem solver. In OSS development, contributors acquire skills from learning how to solve problems that have long-run benefits, and their ability to use problem solutions in their primary mission is enhanced when they provided and understand the solution. They face costs of $c_r(t_p^r, k^r)$  from contributing because it takes up their time. Thus, a read rank contributor solves 
 
-$$\max_{\{k^r, t_p^r\}} u_r\left(t_p^rF(k^r) + \beta_r(t_p^r (1-F(k^r))) \right) - c_r(t_p^r, k^r)$$
-$\beta_r < 1$ helps mediate the reduced benefit read rank contributors receive when their problems are solved by others. 
+$$\max_{\{k^r, t_p^r\}} u_r\left(t_p^rF(k^r) + \omega_r(t_p^r (1-F(k^r))) \right) - c_r(t_p^r, k^r)$$
+$\omega_r < 1$ helps mediate the reduced benefit read rank contributors receive when their problems are solved by others. 
 I make the following assumptions about $u_r, c_r$. 
 \begin{enumerate}
     \item $u_r$ is linear. Thus, $u_r(x) = \alpha_r x + \beta_r$ where $\alpha_r > 0, \beta_r \in \mathbb{R}$. Read rank programmers make their decisions knowing only the expectation of their outcomes. This complicates the process of solving the model without changing the qualitative results (\textcolor{blue}{I think intuitively this is true, but how do I show this? Maybe show examples for risk-averse, risk-favoring individuals}), so I assume that the read rank contributor is risk neutral and possesses linear utility, which allows me to remove the expectation. 
@@ -257,7 +257,10 @@ I make the following assumptions about $u_o, c_o$
 
 \subsection{Solving the Model}
 \subsubsection{Read Rank}
-Solving for the first order conditions tells us that read rank programmers find $k^r, t_p^r$ solving $$\frac{t_p^r}{F(k^r)} = \frac{\frac{\partial c_r}{\partial k^r}}{\frac{\partial c_r}{\partial t_p^r}}$$
+Solving for the first order conditions tells us that read rank programmers find $k^r, t_p^r$ solving 
+
+
+$$\frac{t_p^r}{F(k^r)} = \frac{\frac{\partial c_r}{\partial k^r}}{\frac{\partial c_r}{\partial t_p^r}}$$
 \subsubsection{Write Rank}
 The solutions to $t_p^w$ and $t_h^w$ depend on the value taken by the inequality $\frac{\beta_w t_h^w}{1-\beta_w} \leq 1-F(k^r)$. There are two cases.
 \begin{enumerate}
