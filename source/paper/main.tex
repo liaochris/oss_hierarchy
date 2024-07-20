@@ -167,6 +167,7 @@ The development of open source software (OSS), software that can be accessed, mo
 
 
 \textbf{Paragraph 5: This Paper. This paragraph states in a nutshell what the paper accomplishes and how. }
+
 In this paper, I develop a model of hierarchical structure in OSS development, where OSS contributors have time freedom and OSS organizations determine the structure of the hierarchy without accounting for contributor associated costs. Solving for the equilibrium OSS contributors' and organization's decision functions is the key to characterizing how hierarchical structure affects OSS development. Using these equilibrium results, I follow the hierarchy literature in examining how technological advances - specifically, the cost of knowledge acquisition and the cost of communication - affects organizational structure and subsequently OSS development. Finally, I use novel microdata on OSS development from GitHub, the world's largest OSS hosting platform to compare my model's predictions to the empirical reality of OSS development. 
 
 \textbf{Paragraphs 6-7: Model. Summarize the key formal assumptions you will maintain in your analysis.}
@@ -187,7 +188,7 @@ An OSS project's development can be abstracted to solving a variety of tasks; ex
 
 \qquad There are two types of agents whose decision-making process we're interested in: OSS contributors, and the OSS project. OSS contributors are primarily characterized by their rank: read or write. Read rank contributors are below write rank contributors on the hierarchy.  One real-world example of a read rank contributor is a OSS project user whose encountering some bugs related to that software. He needs the bug solved to accomplish his primary mission and he's not interested in contributing to the project beyond helping find a solution to the bug so he can continue using the software. They don't have any broader interest in the OSS project's welfare, such as helping develop a new feature, beyond their specific use case. On the other hand, a write-rank contributor is typically a longstanding contributor to the OSS project. She's knowledgeable about a large proportion of the project's scope and importantly, her rank also provides a signal to employers about her skill level. The more developed and well-known the project is, the more she benefits in terms of future wages, because it will increase her visibility to employers offering attractive positions (\cite{hann_economic_2002}). 
 
-\qquad  All OSS contributors spend time $t_p$ in production, the broad term I use for solving new tasks and acquiring knowledge $k$.  An equivalent real-life example would be the time tradeoff someone makes between reading documentation about the project's different aspect, which helps them understand a larger proportion of the project's scope, and spending time actually trying to solve more problems. While the two choices are substitutes, being an effective contributor would be difficult without having spent time on both tasks as well. Read rank contributors develop solutions for all tasks that they encounter, but their limited knowledge $k^r < 1$ means they cannot assess whether their proposed solution is correct. As a consequence, write rank contributors also have the option of spending time $t_h^w$ correcting incorrectly solved problems. I denote distinguish between task type using variable letters or subscripts, and rank-specific variables using superscripts. Following \cite{bloom_distinct_2014},  all write-rank contributors have perfect knowledge $k^w = 1$ which allows the project to solves all tasks it encounters. This is a reasonable assumption as I'm focused on studying how organizational structure affects software development, not how the level of programmer knowledge affects software development. \textcolor{blue}{Notwithstanding this, I'm pretty sure my results are invariant to $k^w$'s level}. I also follow the literature on hierarchies (\cite{garicano_hierarchies_2000}) by assuming that within a rank, contributors are homogeneous. \textcolor{blue}{Once I have my results I believe I'll be able to explain how heterogeneity would not change the qualitative nature of my results}
+\qquad  All OSS contributors spend time $t_p$ in production, the broad term I use for solving new tasks and acquiring knowledge $k$.  An equivalent real-life example would be the time tradeoff someone makes between reading documentation about the project's different aspect, which helps them understand a larger proportion of the project's scope, and spending time actually trying to solve more problems. While the two choices are substitutes, being an effective contributor would be difficult without having spent time on both tasks as well. Read rank contributors develop solutions for all tasks that they encounter, but their limited knowledge $k^r < 1$ means they cannot assess whether their proposed solution is correct. As a consequence, write rank contributors also spent time $t_h^w$ correcting incorrectly solved problems. Following the literature (\cite{garicano_hierarchies_2000}), I assume that write rank contributors try to correct all incorrect problems solutions. I denote distinguish between task type using variable letters or subscripts, and rank-specific variables using superscripts. Following \cite{bloom_distinct_2014},  all write-rank contributors have perfect knowledge $k^w = 1$ which allows the project to solves all tasks it encounters. This is a reasonable assumption as I'm focused on studying how organizational structure affects software development, not how the level of programmer knowledge affects software development. \textcolor{blue}{Notwithstanding this, I'm pretty sure my results are invariant to $k^w$'s level}. I also follow the literature on hierarchies (\cite{garicano_hierarchies_2000}) by assuming that within a rank, contributors are homogeneous. \textcolor{blue}{Once I have my results I believe I'll be able to explain how heterogeneity would not change the qualitative nature of my results}
 
 \qquad \textcolor{blue}{Add note on why I omit approval}
 
@@ -195,58 +196,55 @@ An OSS project's development can be abstracted to solving a variety of tasks; ex
 
 \subsection{Set Up}
 \subsubsection{Read Rank}
-Tasks of difficulty $k$ appear with probability $f(k)$ and cumulative distribution function $F(k)$. In expectation, read-rank contributors with knowledge $k^r$ that spend $t_p^r$ time in production solve $t_p^r F(k^r)$ tasks correctly. In addition, $t_h^w \beta_w$ of all tasks solved incorrectly by read rank contributors are corrected by all write-rank contributors, so in expectation, $t_h^w \frac{\beta_w}{1-\beta_w}$ of each read-rank contributor's incorrectly solutions are fixed. 
+Tasks of difficulty $k$ appear with probability $f(k)$ and cumulative distribution function $F(k)$. In expectation, read-rank contributors with knowledge $k^r$ that spend $t_p^r$ time in production solve $t_p^r F(k^r)$ tasks correctly. Since all tasks solved incorrectly by read rank contributors are corrected by all write-rank contributors, in expectation, $t_p^r (1-F(k^r))$ of each read-rank contributor's incorrectly solutions are fixed. 
 
-The read rank contributor's utility is invariant to the problem solver's identity, as they only care about the solution. They face costs of $c_r(t_p^r, k^r)$  from contributing because it takes up their time. Thus, a read rank contributor solves 
+\qquad The read rank contributor's utility is affected by the proportion of all tasks they attempt that they solve correctly. While their primary goal is to obtain a solution, they also benefit from being the problem solver. In OSS development, contributors acquire skills from learning how to solve problems that have long-run benefits, and their ability to use problem solutions in their primary mission is enhanced when they provided and understand the solution. They face costs of $c_r(t_p^r, k^r)$  from contributing because it takes up their time. Thus, a read rank contributor solves 
 
-$$\max_{\{k^r, t_p^r\}} u_r\left(t_p^rF(k^r) + t_h^w \frac{\beta_w}{1-\beta_w}\right) - c_r(t_p^r, k^r)$$
-
+$$\max_{\{k^r, t_p^r\}} u_r\left(t_p^rF(k^r) + \beta_r(t_p^r (1-F(k^r))) \right) - c_r(t_p^r, k^r)$$
+$\beta_r < 1$ helps mediate the reduced benefit read rank contributors receive when their problems are solved by others. 
 I make the following assumptions about $u_r, c_r$. 
 \begin{enumerate}
-    \item $u_r$ is linear. Thus, $u_r(x) = \alpha_r x + \beta_r$ where $\alpha_r > 0$. Read rank programmers make their decisions knowing only the expectation of their outcomes. This complicates the process of solving the model without changing the qualitative results (\textcolor{blue}{I think intuitively this is true, but how do I show this? Maybe show examples for risk-averse, risk-favoring individuals}), so I assume that the read rank contributor is risk neutral and possesses linear utility, which allows me to remove the expectation. 
+    \item $u_r$ is linear. Thus, $u_r(x) = \alpha_r x + \beta_r$ where $\alpha_r > 0, \beta_r \in \mathbb{R}$. Read rank programmers make their decisions knowing only the expectation of their outcomes. This complicates the process of solving the model without changing the qualitative results (\textcolor{blue}{I think intuitively this is true, but how do I show this? Maybe show examples for risk-averse, risk-favoring individuals}), so I assume that the read rank contributor is risk neutral and possesses linear utility, which allows me to remove the expectation. 
     \item The first derivative of the cost function is increasing. Formally, 
     $$\frac{\partial c_r}{\partial t_p^r}>0 \qquad \frac{\partial c_r}{\partial k^r}>0$$
     Intuitively, contributing to OSS costs time that could be spent on an OSS contributor's primary mission. 
     \item The second derivative and cross partials of the cost function are increasing. Formally, $$\frac{\partial^2 c_r}{\partial (t_p^r)^2}>0 \qquad \frac{\partial^2 c_r}{\partial (k^r)^2}>0 \qquad \frac{\partial^2 c_r}{\partial t_p^r \partial k^r}>0$$
     An extreme but helpful motivating example is to compare the marginal cost of spending 10 minutes contributing to OSS, which is much higher when you have only contributed for 10 minutes, as opposed to when you have already contributed for 23 hours that day, and you really should grab an hour or two of sleep! 
     \item The marginal cost of the initial time spent contributing to OSS is negligible. Formally, $$\lim_{k^r \to 0^+} \frac{\partial c_r}{\partial k^r} = 0 \qquad  \lim_{t_p^r \to 0^+} \frac{\partial c_r}{\partial t_p^r} = 0$$
-    The assumption's practical effect is that the optimal choice of $k^r, t_p^r$ will always be economically interesting so $t_p^r>0, k^r>0$. This paper is focused on actual, not hypothetical OSS contributors.
+    The assumption's practical effect is that the optimal choice of $k^r, t_p^r$ will always be economically interesting so $t_p^r>0, k^r>0$. I make this assumption because this paper is focused on actual, not hypothetical OSS contributors.
 \end{enumerate}
 
 
 \subsubsection{Write Rank}
-The project's perceived success by outsiders is determined by its output. In aggregate, $1-\beta_w$ read-rank contributors are expected to solve $(1-\beta_w) t_p^rF(k^r)$ tasks correctly. Each write-rank contributor spends $t_p^w$ time solving new tasks correctly with their perfect knowledge and $t_h^w$ time helping solve incorrectly solved tasks perfectly. In aggregate, $\beta_w$ write rank contributors solve $\beta_w (t_p^w + t_h^w)$ tasks. In total, the project solves
-$$(1-\beta_w) t_p^rF(k^r) + \beta_w (t_p^w + t_h^w)$$
-problems correctly. 
+The project's perceived success by outsiders is determined by its output. In aggregate, $1-\beta_w$ read-rank contributors are expected to solve $(1-\beta_w) t_p^rF(k^r)$ tasks correctly. Each write-rank contributor spends $t_p^w$ time solving new tasks correctly with their perfect knowledge and $t_h^w$ time helping correct read rank contributors solutions. Since all incorrect problem solutions are corrected, $\beta_w t_h^w = (1-\beta_w) t_p^rF(k^r)$. Note that $t_h^w$ is decreasing in $\beta_w, t_p^r$ and $F(k^r)$. In aggregate, $\beta_w$ write rank contributors solve $\beta_w t_p^w + (1-\beta_w) t_p^rF(k^r)$ tasks and in total, the project solves
+$$(1-\beta_w) t_p^r + \beta_w t_p^w $$
+problems correctly.
 
-Definitionally, the about of problem solutions that are corrected is at most the total number of porblems solved incorrectly. In expectation, 
-$$\beta_w t_h^w \leq (1-\beta_w)(1-F(k^r)) \iff \frac{\beta_w t_h^w}{1-\beta_w} \leq 1-F(k^r)$$
-This is a key difference between my model and the hierarchy model from \cite{garicano_hierarchies_2000}. \cite{garicano_hierarchies_2000}'s model forces the inequality to be an inequality, as employees must help answer questions from lower ranks. In my model, because OSS contributors have time freedom, they cannot be required to do so.  
-
-The write ranked contributor faces costs $c_w(t_p^w, t_h^w, k^w = 1)$ from contributing, so they solve
-$$\max_{\{t_p^w, t_h^w\}} u_w\left((1-\beta_w) t_p^r F(k^r) + \beta_w t_h^w + \beta_w t_p^w\right) - c_w(t_p^w, t_h^w, 1)$$
-$$ \text{ such that } \beta_w t_h^w \leq (1-\beta_w)(1-F(k^r))$$
+\qquad Note that since their helping time $t_h^w$ is fixed, I can omit it from the write rank contributor's problem, because $t_h^w$ can be defined perfectly using $\beta_w, t_p^r, k^r$. Accordingly, the write ranked contributor faces costs $c_w(t_p^w, \beta_w, t_p^r, k^r, k^w = 1)$ from contributing, so they solve
+$$\max_{\{t_p^w, t_h^w\}} u_w\left((1-\beta_w) t_p^r + \beta_w t_p^w \right) - c_w(t_p^w, t_h^w, 1)$$
 I make the following assumptions about $u_w, c_w$
 \begin{enumerate}
     \item $u_w$ is linear. Thus, $u_w(x) = \alpha_wx + \beta_w, \alpha_w > 0$
-    \item The first derivative of the cost function is increasing. Formally, 
-    $$\frac{\partial c_w}{\partial t_p^w}>0 \qquad  \frac{\partial c_w}{\partial t_h^w}>0$$
-    \item  The second derivative and cross partials of the cost function are increasing. Formally, $$\frac{\partial^2 c_w}{\partial (t_p^w)^2}>0 \qquad  \frac{\partial^2 c_w}{\partial (t_h^w)^2}>0 \qquad  \frac{\partial^2 c_w}{\partial t_h^w \partial t_p^w}>0$$
+    \item The first derivative of the cost function is increasing in. Formally, 
+    $$\frac{\partial c_w}{\partial t_p^w}>0 $$
+    Since $t_h^w$ is decreasing in $\beta_w, t_p^r$ and $F(k^r)$,
+    $$\frac{\partial c_w}{\partial \beta_w}<0 \qquad \frac{\partial c_w}{\partial t_p^r}<0 \qquad \frac{\partial c_w}{\partial k^r}<0$$
+    \textcolor{red}{Change this...
+    \item  The second derivative of production in the cost function are increasing. Formally, $$\frac{\partial^2 c_w}{\partial (t_p^w)^2}>0 \qquad  \frac{\partial^2 c_w}{\partial (t_h^w)^2}>0 \qquad  \frac{\partial^2 c_w}{\partial t_h^w \partial t_p^w}>0$$
     \item The marginal cost of the initial time spent contributing to OSS is negligible. Formally,
-    $$\lim_{t_p^w \to 0^+} \frac{\partial c_w}{\partial t_p^w} = 0 \qquad \lim_{t_h^w \to 0^+} \frac{\partial c_w}{\partial t_h^w} = 0$$
+    $$\lim_{t_h^w \to 0^+} \frac{\partial c_w}{\partial t_h^w} = 0$$}
 \end{enumerate}
 \subsubsection{Organization}
 The OSS organization's objectives are not as simple as maximizing its perceived output. While the OSS organization benefits from increased output, it encounters coordination problems from having too many write ranked programmers. For example, the costs of hiring, screening and coordinating with different write ranked contributors increases as the number of write ranked contributors $\beta_w$ increase. I describe this cost as $c_o(\beta_w)$. Practically, this prevents the OSS organization from promoting everyone to write rank, which is what it would do absent $c_o$. This reflects the empirical reality of OSS organizations, which are largely composed of read rank contributors. 
 
-\textcolor{blue}{Aside: Another way to enforce this is to have write rank programmers be more disincentivized to contribute the higher $\beta_w$ is. This is also grounded in empirical reality. I wonder how this affects the results though. }
+\textcolor{blue}{Aside: Another way to enforce this is to have write rank programmers be more disincentivized to contribute the higher $\beta_w$ is. This is also grounded in empirical reality. I wonder how this affects the results though. It certainly makes characterizing $\beta_w$ in the cost function more difficult for write rank programmers. Perhaps you could do cost invariant to $\beta_w$}
 
-Recall that the project's total output is 
+\qquad Recall that the project's total output is 
 $$(1-\beta_w) t_p^r F(k^r) + \beta_w t_h^w(\beta_w) + \beta_w t_p^w(\beta_w)$$
 Thus, the OSS organization solves
 $$\max_{\{\beta_w\}} u_o\left((1-\beta_w) t_p^r F(k^r) + \beta_w t_h^w + \beta_w t_p^w\right) - c_o(\beta_w)$$ 
 $$\text{such that }\frac{\beta_w t_h^w}{1-\beta_w} \leq 1-F(k^r)$$
 
-Assuming linear utility $u_o = \alpha_o + \beta_o, \alpha>0$, then the organization's problem is 
 I make the following assumptions about $u_o, c_o$
 \begin{enumerate}
     \item $u_o$ is linear. Thus, $u_o(x) = \alpha_ox + \beta_o, \alpha_o > 0$
@@ -272,12 +270,50 @@ The solutions to $t_p^w$ and $t_h^w$ depend on the value taken by the inequality
     In this case, the constraint can be ignored and I can just solve the FOCs. That tells us that 
     $$t_p^w, t_h^w \text{ solve } \frac{\partial c_w}{\partial t_h^w} = \frac{\partial c_w}{\partial t_p^w}$$
 \end{enumerate}
+
 The constraint means that $\frac{\beta_w t_h^w}{1-\beta_w} > 1-F(k^r)$ never occurs. 
 \subsubsection{Organization Solution}
 Note that the solutions for $\beta_w$, which is solved by the organization and $t_p^w$ and $t_h^w$, which are solved by the write rank contributor, all depend on each other. With that said, 
 $$\beta_w \text{ solves } -t_p^rF(k^r) + (t_h^w + t_p^w) + \beta_w\left(\frac{\partial t_h^w}{\partial \beta_w} + \frac{\partial t_p^w}{\partial \beta_w}\right) = \frac{\frac{\partial c_o}{\partial \beta_w}}{\alpha_o}$$
 
-as $u_o' = \alpha_o$, so the optimal $\beta_w$ is chosen simply by solving the above. 
+as $u_o' = \alpha_o$, so the optimal $\beta_w$ is chosen simply by solving the above. I rewrite the above as 
+$$ (t_h^w + t_p^w) + \beta_w\left(\frac{\partial t_h^w}{\partial \beta_w} + \frac{\partial t_p^w}{\partial \beta_w}\right) - \frac{\frac{\partial c_o}{\partial \beta_w}}{\alpha_o} = t_p^rF(k^r)$$
+to keep all the $\beta_w$ terms on one side. 
+\subsubsection{Combining Write Rank and Organization}
+In my thesis, I assumed that helping is always less costly than production. This means $$\frac{\partial c_w}{\partial t_h^w} < \frac{\partial c_w}{\partial t_p^w}, \forall t_h^w, t_p^w$$
+\textcolor{blue}{I need to figure out a way to make this work better}. This means that 
+$$\frac{\beta_w t_h^w}{1-\beta_w} < 1-F(k^r) \implies t_p^w = 0 \text{ and } t_h^w \text{ solves } \alpha_w \beta_w = \frac{\partial c_w}{\partial t_h^w}$$
+The other case has already been analyzed. 
+Formally, \\
+$$t_h^w(\beta_w, k^r) =  
+\begin{cases} 
+    \text{solves } \alpha_w\beta_w = \frac{\partial c_w}{\partial t_h^w} & t_h^w < \frac{(1-F(k^r))(1-\beta_w)}{\beta_w} \\
+    \frac{(1-F(k^r))(1-\beta_w)}{\beta_w} & \text{otherwise } \\
+\end{cases}$$
+
+$$t_p^w(\beta_w, k^r, t_h^w) =  
+\begin{cases} 
+    0 & t_h^w < \frac{(1-F(k^r))(1-\beta_w)}{\beta_w} \\
+    \text{solves }\alpha_w \beta_w = \frac{\partial c_w}{\partial t_p^w} & \text{otherwise } \\
+\end{cases}$$
+
+
+What about $\beta_w?$ Well, 
+$$\beta_w(t_h^w, t_p^w, \beta_w, k^r) \text{ solves}  
+\begin{cases} 
+    t_h^w(\beta_w, k^r) + \beta_w\frac{\partial t_h^w(\beta_w, k^r)}{\partial \beta_w} -\frac{\frac{\partial c_o}{\partial \beta_w}}{\alpha_o} = t_p^rF(k^r) & t_h^w < \frac{(1-F(k^r))(1-\beta_w)}{\beta_w} \\
+    t_p^w(\beta_w, k^r, t_h^w)  + \beta_w \frac{\partial t_p^w(\beta_w, k^r, t_h^w)}{\partial \beta_w} - 1 - \frac{\frac{\partial c_o}{\partial \beta_w}}{\alpha_o} = t_p^rF(k^r) & \text{otherwise } \\
+\end{cases}$$
+For the first case, since $t_p^w(\beta_w, k^r, t_h^w) = 0$ when $t_h^w < \frac{(1-F(k^r))(1-\beta_w)}{\beta_w}$, then $\frac{\partial t_p^w}{\partial \beta_w} = 0$, since $t_p^w$ is just constant at 0. Thus, $t_p^w + \beta_w\frac{\partial t_p^w}{\partial \beta_w} = 0$\\
+For the second case, $t_h^w = \frac{(1-F(k^r))(1-\beta_w)}{\beta_w}$ so $\frac{\partial t_h^w}{\partial \beta_w} = -\frac{(1-F(k^r)}{\beta_w^2}$. Thus, $t_h^w + \beta_w\frac{\partial t_h^w}{\partial \beta_w} = -1$
+
+\subsection{Brainstorming}
+If we assume that all problems that need help are solved, $$\beta_w t_h^w = (1-\beta_w) t_p^r (1-F(k^r))$$ so I can rewrite the organization's problem as 
+$$\max_{\{\beta_w\}} u_o\left((1-\beta_w) t_p^r + \beta_w t_p^w\right) - c_o(\beta_w)$$ 
+and $$\beta_w \text{ solves } \alpha_o (t_p^w - t_p^r) = \frac{\partial c_o}{\partial \beta_w}$$
+The write rank contributor's problem then becomes
+$$\max_{\{t_p^w\}} u_w\left((1-\beta_w) t_p^r + \beta_w t_p^w\right) - c_w(t_p^w, t_h^w, 1)$$
+so $$t_p^w \text{ solves } \alpha_w \beta_w = \frac{\partial c_w}{\partial t_p^w}$$
 
 \subsection{Analysis}
 \subsubsection{Contributor Time Allocation}
@@ -286,18 +322,29 @@ Do write rank programmers code ($t_p^w>0$)? Yes!
     \item When $\frac{\beta_w t_h^w}{1-\beta_w} = 1-F(k^r)$ then
     $$\alpha_w \beta_w = \frac{\partial c_w}{\partial t_p^w}$$
     Since $\alpha_w>0$ by definition and $\beta_w>0$ is implied by $\lim_{\beta_w \to 0^+} \frac{\partial c_o}{\partial \beta_w} = 0$, then $\frac{\partial c_w}{\partial t_p^w}>0$. Since $\frac{\partial^2 c_w}{\partial (t_p^w)^2}>0$ and $\lim_{t_p^w \to 0^+} \frac{\partial c_w}{\partial t_p^w} = 0$, then $t_p^w>0$
-    \item When $\frac{\beta_w t_h^w}{1-\beta_w} < 1-F(k^r)$, then $\lim_{t_p^w \to 0^+} \frac{\partial c_w}{\partial t_p^w} = 0$ and $\lim_{t_h^w \to 0^+} \frac{\partial c_w}{\partial t_h^w} = 0$. Thus, only $t_p^w>0$ can fulfill $\frac{\partial c_w}{\partial t_h^w} = \frac{\partial c_w}{\partial t_p^w}$
+    \item When $\frac{\beta_w t_h^w}{1-\beta_w} < 1-F(k^r)$, $t_p^w = 0$ since $\frac{\partial c_w}{\partial t_h^w} < \frac{\partial c_w}{\partial t_p^w}, \forall t_h^w, t_p^w$
 \end{enumerate}
 \subsubsection{Comparative Statics}
-haha funny story... It's hard to simultaneously figure out how $t_h^w, t_p^w, \beta_w$ all interact with each other when you have to start taking derivatives, especially because I don't have a closed form solution. \\
-Here's an illustrative example. I want to look at how the cost of knowledge acquisition for read rank contributors increasing impacts contributor choices. \\
-When $\frac{\partial c_r}{\partial k^r}$ increases, then 
+    Need to think more about how to do this.
+    \begin{enumerate}
+        \item Figure out whether it is every optimal for the project to select a $\beta_w$ that means write-ranked programmers program $(t_p^w > 0$
+        \item Figure out under what conditions $\beta_w, t_h^w, k^r$ combine such that $t_p^w > 0$ or $t_p^w = 0$
+        \item Analyze what happens when $\frac{\partial c_r}{\partial k^r}, \frac{\partial c_w}{\partial t_h^w}$ (and perhaps $\frac{\partial c_w}{\partial k^w}$) changes
+        
+    \end{enumerate}
+    
+    Initial approach is to separate into 4 bins. Also, want to understand when you fall into each bin. 
 \begin{enumerate}
-    \item $k^r$ decreases, $t_p^r F(k^r)$ decreases. The intuition is that when knowledge becomes more costly, less knowledge is acquired and less output is produced. 
-    \item Now, I want to look at the impact on $\beta_w$. 
-    $$\beta_w \text{ solves } -t_p^rF(k^r) + (t_h^w + t_p^w) + \beta_w\left(\frac{\partial t_h^w}{\partial \beta_w} + \frac{\partial t_p^w}{\partial \beta_w}\right) = \frac{\frac{\partial c_o}{\partial \beta_w}}{\alpha_o}$$
-    Since $t_p^rF(k^r)$ decreases, then we would expect that $(t_h^w + t_p^w) + \beta_w\left(\frac{\partial t_h^w}{\partial \beta_w} + \frac{\partial t_p^w}{\partial \beta_w}\right)$ also decreases. This might tell us whether $\beta_w$ increases or decreases. But first, we have to account for the impact of $k^r$. 
-    \item If the helping constraint does not hold, none of the variables are affected. But increasing $\beta_w$ increases $t_p^w$ and decreases $t_h^w$, so it's not clear whether $\beta_w$ should or decrease in response either. 
-    \item If the helping constraint does hold, then $k^r$ decreasing likely increases $t_h^w$ and decreases $t_p^w$, and has similarly opposing effects on $\frac{\partial t_h^w}{\partial \beta_w}$ and $\frac{\partial t_p^w}{\partial \beta_w}$. That also makes it difficult to figure out whether $\beta_w$ is now needed as an increasing or decreasing force. 
+    \item Helping isn't maxxed out and post change, helping is still not maxxed out\\
+    \textcolor{blue}{For example, suppose $\frac{\partial c_r}{\partial k^r}$ increases. That leads to a decrease in $k^r$ and a decrease in $t_p^r F(k^r)$. Now we want to see whether an increase or decrease in $\beta_w$ causes $ t_h^w(\beta_w, k^r) + \beta_w\frac{\partial t_h^w(\beta_w, k^r)}{\partial \beta_w} -\frac{\frac{\partial c_o}{\partial \beta_w}}{\alpha_o}$ to decrease. \\
+    Intuitively, we would think that $\beta_w$ increases. \begin{enumerate}
+        \item Increasing $\beta_w$ actually causes $t_h^w$ to increase because $\frac{\partial c_w}{\partial t_h^w}$ is concave. 
+        \item It's not totally clear to me how $\beta_w\frac{\partial t_h^w(\beta_w, k^r)}{\partial \beta_w}$ is affected - $\beta_w$ obviously increases and my instinct says $\frac{\partial t_h^w(\beta_w, k^r)}{\partial \beta_w}$ increases because as $\beta_w$ increases, for the write rank contributor, there are increasing returns to helping more (since everyone helps more, and the multiplier effect of one person helping more increases). 
+        \item $\frac{\frac{\partial c_o}{\partial \beta_o}}{\alpha_o}$ increases. But does it increase more than $t_h^w(\beta_w, k^r) + \beta_w\frac{\partial t_h^w(\beta_w, k^r)}{\partial \beta_w}$? I think I need functional forms to make this work. 
+    \end{enumerate}}
+    \item Helping is already maxxed out and post change, helping is already maxxed out
+    \item Helping isn't maxxed out and post change, helping is  maxxed out
+    \item Helping is maxxed out and post change, helping isn't maxxed out
 \end{enumerate}
+Likely, for a given comparative static, only one of 3, 4 will be true. Analyzing 3, 4 will also be the most difficult part
 \end{document}
