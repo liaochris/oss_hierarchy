@@ -259,8 +259,17 @@ I make the following assumptions about $u_o, c_o$
 Solving for the first order conditions tells us that read rank programmers find $k^r, t_p^r$ solving 
 
 
-$$\frac{t_p^r}{F(k^r)} = \frac{\frac{\partial c_r}{\partial k^r}}{\frac{\partial c_r}{\partial t_p^r}}$$
+$$\frac{\omega_r + (1-\omega_r) F(k^r)}{t_p^r(1-\omega_r)f(k^r)} = \frac{\frac{\partial c_r}{\partial k^r}}{\frac{\partial c_r}{\partial t_p^r}}$$
 \subsubsection{Write Rank}
+If we assume that all problems that need help are solved, $$\beta_w t_h^w = (1-\beta_w) t_p^r (1-F(k^r))$$ so I can rewrite the write rank contributor's problem as
+$$\max_{\{t_p^w\}} u_w\left((1-\beta_w) t_p^r + \beta_w t_p^w\right) - c_w(t_p^w, t_h^w, 1)$$
+so $$t_p^w \text{ solves } \alpha_w \beta_w = \frac{\partial c_w}{\partial t_p^w}$$
+
+
+organization's problem
+$$\max_{\{\beta_w\}} u_o\left((1-\beta_w) t_p^r + \beta_w t_p^w\right) - c_o(\beta_w)$$ 
+and $$\beta_w \text{ solves } \alpha_o (t_p^w - t_p^r) = \frac{\partial c_o}{\partial \beta_w}$$
+
 The solutions to $t_p^w$ and $t_h^w$ depend on the value taken by the inequality $\frac{\beta_w t_h^w}{1-\beta_w} \leq 1-F(k^r)$. There are two cases.
 \begin{enumerate}
     \item The optimal $t_p^w, t_h^w, \beta_w$ are such that
@@ -310,12 +319,6 @@ For the first case, since $t_p^w(\beta_w, k^r, t_h^w) = 0$ when $t_h^w < \frac{(
 For the second case, $t_h^w = \frac{(1-F(k^r))(1-\beta_w)}{\beta_w}$ so $\frac{\partial t_h^w}{\partial \beta_w} = -\frac{(1-F(k^r)}{\beta_w^2}$. Thus, $t_h^w + \beta_w\frac{\partial t_h^w}{\partial \beta_w} = -1$
 
 \subsection{Brainstorming}
-If we assume that all problems that need help are solved, $$\beta_w t_h^w = (1-\beta_w) t_p^r (1-F(k^r))$$ so I can rewrite the organization's problem as 
-$$\max_{\{\beta_w\}} u_o\left((1-\beta_w) t_p^r + \beta_w t_p^w\right) - c_o(\beta_w)$$ 
-and $$\beta_w \text{ solves } \alpha_o (t_p^w - t_p^r) = \frac{\partial c_o}{\partial \beta_w}$$
-The write rank contributor's problem then becomes
-$$\max_{\{t_p^w\}} u_w\left((1-\beta_w) t_p^r + \beta_w t_p^w\right) - c_w(t_p^w, t_h^w, 1)$$
-so $$t_p^w \text{ solves } \alpha_w \beta_w = \frac{\partial c_w}{\partial t_p^w}$$
 
 \subsection{Analysis}
 \subsubsection{Contributor Time Allocation}
