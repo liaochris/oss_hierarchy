@@ -2,7 +2,6 @@
 \documentclass[12pt,notitlepage]{article}
 \usepackage{amssymb}
 \usepackage{amsmath}
-\usepackage{yhmath}
 \usepackage{graphicx}
 \usepackage{epstopdf}
 \usepackage{pdflscape}
@@ -112,7 +111,8 @@ sorting=ynt
 \allowdisplaybreaks
 
 \begin{document}
-	\begin{titlepage}
+
+\begin{titlepage}
 \begin{center}
 THE UNIVERSITY OF CHICAGO
 \\[1.5in]
@@ -220,7 +220,7 @@ $$(1-\beta_w) t_p^r + \beta_w t_p^w $$
 problems correctly.
 
 \qquad Note that since their helping time $t_h^w$ is fixed, I can omit it from the write rank contributor's problem, because $t_h^w$ can be defined perfectly using $\beta_w, t_p^r, k^r$. Accordingly, the write ranked contributor faces costs $c_w(t_p^w, \beta_w, t_p^r, k^r, k^w = 1)$ from contributing, so they solve
-$$\max_{\{t_p^w, t_h^w\}} u_w\left((1-\beta_w) t_p^r + \beta_w t_p^w \right) - c_w(t_p^w, t_h^w, 1)$$
+$$\max_{\{t_p^w, t_h^w\}} u_w\left((1-\beta_w) t_p^r + \beta_w t_p^w \right) - c_w(t_p^w, \beta_w, t_p^r, k^r, k^w = 1)$$
 I make the following assumptions about $u_w, c_w$
 \begin{enumerate}
     \item $u_w$ is linear. Thus, $u_w(x) = \alpha_wx + \beta_w, \alpha_w > 0$
@@ -239,10 +239,9 @@ The OSS organization's objectives are not as simple as maximizing its perceived 
 \textcolor{blue}{Aside: Another way to enforce this is to have write rank programmers be more disincentivized to contribute the higher $\beta_w$ is. This is also grounded in empirical reality. I wonder how this affects the results though. It certainly makes characterizing $\beta_w$ in the cost function more difficult for write rank programmers. Perhaps you could do cost invariant to $\beta_w$}
 
 \qquad Recall that the project's total output is 
-$$(1-\beta_w) t_p^r F(k^r) + \beta_w t_h^w(\beta_w) + \beta_w t_p^w(\beta_w)$$
+$$(1-\beta_w) t_p^r + \beta_w t_p^w$$
 Thus, the OSS organization solves
-$$\max_{\{\beta_w\}} u_o\left((1-\beta_w) t_p^r F(k^r) + \beta_w t_h^w + \beta_w t_p^w\right) - c_o(\beta_w)$$ 
-$$\text{such that }\frac{\beta_w t_h^w}{1-\beta_w} \leq 1-F(k^r)$$
+$$\max_{\{\beta_w\}} u_o\left((1-\beta_w) t_p^r + \beta_w t_p^w\right) - c_o(\beta_w)$$ 
 
 I make the following assumptions about $u_o, c_o$
 \begin{enumerate}
@@ -262,61 +261,14 @@ Solving for the first order conditions tells us that read rank programmers find 
 $$\frac{\omega_r + (1-\omega_r) F(k^r)}{t_p^r(1-\omega_r)f(k^r)} = \frac{\frac{\partial c_r}{\partial k^r}}{\frac{\partial c_r}{\partial t_p^r}}$$
 \subsubsection{Write Rank}
 If we assume that all problems that need help are solved, $$\beta_w t_h^w = (1-\beta_w) t_p^r (1-F(k^r))$$ so I can rewrite the write rank contributor's problem as
-$$\max_{\{t_p^w\}} u_w\left((1-\beta_w) t_p^r + \beta_w t_p^w\right) - c_w(t_p^w, t_h^w, 1)$$
-so $$t_p^w \text{ solves } \alpha_w \beta_w = \frac{\partial c_w}{\partial t_p^w}$$
+$$\max_{\{t_p^w\}} u_w\left((1-\beta_w) t_p^r + \beta_w t_p^w\right) - c_w(t_p^w, \beta_w, t_p^r, k^r, k^w = 1)$$
+so $$t_p^w \text{ solves } \alpha_w \beta_w = \frac{\partial c_w}{\partial t_p^w} + \frac{\partial c_w}{\partial \beta_w}\frac{\partial \beta_w}{\partial t_p^w}$$
 
+\subsubsection{Organization Solution}
+When $$t_h^w = (1-\beta_w) t_p^r (1-F(k^r))$$ 
 
-organization's problem
 $$\max_{\{\beta_w\}} u_o\left((1-\beta_w) t_p^r + \beta_w t_p^w\right) - c_o(\beta_w)$$ 
 and $$\beta_w \text{ solves } \alpha_o (t_p^w - t_p^r) = \frac{\partial c_o}{\partial \beta_w}$$
-
-The solutions to $t_p^w$ and $t_h^w$ depend on the value taken by the inequality $\frac{\beta_w t_h^w}{1-\beta_w} \leq 1-F(k^r)$. There are two cases.
-\begin{enumerate}
-    \item The optimal $t_p^w, t_h^w, \beta_w$ are such that
-    $$\frac{\beta_w t_h^w}{1-\beta_w} = 1-F(k^r)$$
-    In this case, 
-    $$t_p^w \text{ solves } \alpha_w \beta_w = \frac{\partial c_w}{\partial t_p^w} \text{ and by construction, } t_h^w = \frac{(1-\beta_w)}{\beta_w} (1 -F(k^r))$$
-    \item The optimal $t_p^w, t_h^w, \beta_w$ are such that
-    $$\frac{\beta_w t_h^w}{1-\beta_w} < 1-F(k^r)$$
-    In this case, the constraint can be ignored and I can just solve the FOCs. That tells us that 
-    $$t_p^w, t_h^w \text{ solve } \frac{\partial c_w}{\partial t_h^w} = \frac{\partial c_w}{\partial t_p^w}$$
-\end{enumerate}
-
-The constraint means that $\frac{\beta_w t_h^w}{1-\beta_w} > 1-F(k^r)$ never occurs. 
-\subsubsection{Organization Solution}
-Note that the solutions for $\beta_w$, which is solved by the organization and $t_p^w$ and $t_h^w$, which are solved by the write rank contributor, all depend on each other. With that said, 
-$$\beta_w \text{ solves } -t_p^rF(k^r) + (t_h^w + t_p^w) + \beta_w\left(\frac{\partial t_h^w}{\partial \beta_w} + \frac{\partial t_p^w}{\partial \beta_w}\right) = \frac{\frac{\partial c_o}{\partial \beta_w}}{\alpha_o}$$
-
-as $u_o' = \alpha_o$, so the optimal $\beta_w$ is chosen simply by solving the above. I rewrite the above as 
-$$ (t_h^w + t_p^w) + \beta_w\left(\frac{\partial t_h^w}{\partial \beta_w} + \frac{\partial t_p^w}{\partial \beta_w}\right) - \frac{\frac{\partial c_o}{\partial \beta_w}}{\alpha_o} = t_p^rF(k^r)$$
-to keep all the $\beta_w$ terms on one side. 
-\subsubsection{Combining Write Rank and Organization}
-In my thesis, I assumed that helping is always less costly than production. This means $$\frac{\partial c_w}{\partial t_h^w} < \frac{\partial c_w}{\partial t_p^w}, \forall t_h^w, t_p^w$$
-\textcolor{blue}{I need to figure out a way to make this work better}. This means that 
-$$\frac{\beta_w t_h^w}{1-\beta_w} < 1-F(k^r) \implies t_p^w = 0 \text{ and } t_h^w \text{ solves } \alpha_w \beta_w = \frac{\partial c_w}{\partial t_h^w}$$
-The other case has already been analyzed. 
-Formally, \\
-$$t_h^w(\beta_w, k^r) =  
-\begin{cases} 
-    \text{solves } \alpha_w\beta_w = \frac{\partial c_w}{\partial t_h^w} & t_h^w < \frac{(1-F(k^r))(1-\beta_w)}{\beta_w} \\
-    \frac{(1-F(k^r))(1-\beta_w)}{\beta_w} & \text{otherwise } \\
-\end{cases}$$
-
-$$t_p^w(\beta_w, k^r, t_h^w) =  
-\begin{cases} 
-    0 & t_h^w < \frac{(1-F(k^r))(1-\beta_w)}{\beta_w} \\
-    \text{solves }\alpha_w \beta_w = \frac{\partial c_w}{\partial t_p^w} & \text{otherwise } \\
-\end{cases}$$
-
-
-What about $\beta_w?$ Well, 
-$$\beta_w(t_h^w, t_p^w, \beta_w, k^r) \text{ solves}  
-\begin{cases} 
-    t_h^w(\beta_w, k^r) + \beta_w\frac{\partial t_h^w(\beta_w, k^r)}{\partial \beta_w} -\frac{\frac{\partial c_o}{\partial \beta_w}}{\alpha_o} = t_p^rF(k^r) & t_h^w < \frac{(1-F(k^r))(1-\beta_w)}{\beta_w} \\
-    t_p^w(\beta_w, k^r, t_h^w)  + \beta_w \frac{\partial t_p^w(\beta_w, k^r, t_h^w)}{\partial \beta_w} - 1 - \frac{\frac{\partial c_o}{\partial \beta_w}}{\alpha_o} = t_p^rF(k^r) & \text{otherwise } \\
-\end{cases}$$
-For the first case, since $t_p^w(\beta_w, k^r, t_h^w) = 0$ when $t_h^w < \frac{(1-F(k^r))(1-\beta_w)}{\beta_w}$, then $\frac{\partial t_p^w}{\partial \beta_w} = 0$, since $t_p^w$ is just constant at 0. Thus, $t_p^w + \beta_w\frac{\partial t_p^w}{\partial \beta_w} = 0$\\
-For the second case, $t_h^w = \frac{(1-F(k^r))(1-\beta_w)}{\beta_w}$ so $\frac{\partial t_h^w}{\partial \beta_w} = -\frac{(1-F(k^r)}{\beta_w^2}$. Thus, $t_h^w + \beta_w\frac{\partial t_h^w}{\partial \beta_w} = -1$
 
 \subsection{Brainstorming}
 
