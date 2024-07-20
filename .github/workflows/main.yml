@@ -26,5 +26,22 @@ jobs:
         git config --global user.email "liaochris@users.noreply.github.com"
         git add main.pdf
         git commit -m "compiling pdf skip ci"
-        git push
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        
+    - name: Push changes
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: copy the file
+    - uses: actions/checkout@master
+      run: |
+        mv main.pdf output/table/main.pdf
+    - name: Commit files
+      run: |
+        git config --local user.email "liaochris"
+        git config --local user.name "liaochris@users.noreply.github.com"
+        git commit -m "moving pdf skip ci"
+    - name: Push changes
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
