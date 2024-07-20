@@ -18,10 +18,11 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
           name: PDF
-          path: output/paper/main.pdf
+          path:	main.pdf
 
     - name: Upload file to repository
       run: |
+        mv main.pdf output/paper/main.pdf
         git config --global user.name "liaochris"
         git config --global user.email "liaochris@users.noreply.github.com"
         git add output/paper/main.pdf
