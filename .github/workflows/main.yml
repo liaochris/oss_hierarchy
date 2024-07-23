@@ -12,19 +12,19 @@ jobs:
       uses: xu-cheng/latex-action@3.2.0
       with:
           # The root LaTeX file to be compiled
-          root_file: source/paper/main.tex
+          root_file: source/paper/main.tex 
           
     - name: Compile Introduction
       uses: xu-cheng/latex-action@3.2.0
       with:
           # The root LaTeX file to be compiled
-          root_file: source/paper/introduction.tex 
+          root_file: source/paper/sections/introduction.tex 
 
     - name: Compile Model
       uses: xu-cheng/latex-action@3.2.0
       with:
           # The root LaTeX file to be compiled
-          root_file: source/paper/model.tex 
+          root_file: source/paper/sections/model.tex 
       
     - name: Upload introduction and paper
       run: |
