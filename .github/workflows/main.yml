@@ -8,44 +8,47 @@ jobs:
     - name: Set up Git repository
       uses: actions/checkout@v2
 
-    - name: Compile Paper
+    - name: Compile Introduction and Model
       uses: xu-cheng/latex-action@3.2.0
       with:
           # The root LaTeX file to be compiled
-          root_file: source/paper/main.tex  source/paper/sections/introduction.tex source/paper/sections/model.tex 
+          root_file: source/paper/sections/introduction.tex  source/paper/sections/model.tex 
           
-    - name: Compile Introduction
-      uses: xu-cheng/latex-action@3.2.0
-      with:
-          # The root LaTeX file to be compiled
-          root_file: source/paper/sections/introduction.tex 
-
-    - name: Compile Model
-      uses: xu-cheng/latex-action@3.2.0
-      with:
-          # The root LaTeX file to be compiled
-          root_file: source/paper/sections/model.tex 
-      
     - name: Upload introduction and paper
       run: |
         git config --global user.name "liaochris"
         git config --global user.email "liaochris@users.noreply.github.com"
-        git add main.pdf introduction.pdf model.pdf
+        git add *.pdf
         git commit -m "compiling pdf skip ci"
 
-    - name: Move introduction and paper
+    - name: Move introduction and model
       run: |
-        mv main.pdf output/paper/main.pdf
-        mv introduction.pdf output/paper/sections/introduction.pdf
-        mv model.pdf output/paper/sections/introduction.pdf
-        
-    - name: Update pdf locations
+        mv *.pdf output/paper/sections/*.pdf        
+      
+    - name: Compile Paper
+      uses: xu-cheng/latex-action@3.2.0
+      with:
+          # The root LaTeX file to be compiled
+          root_file: source/paper/main.tex
+          
+    - name: Upload paper
       run: |
-        git add *main.pdf *introduction.pdf *model.pdf
+        git add *main.pdf 
         git config --local user.email "liaochris"
         git config --local user.name "liaochris@users.noreply.github.com"
         git commit -m "moving pdf skip ci"
-        
+
+    - name: Move paper
+      run: |
+        mv *.pdf output/paper/sections/*.pdf        
+
+    - name: Update pdf locations
+      run: |
+        git add *.pdf
+        git config --local user.email "liaochris"
+        git config --local user.name "liaochris@users.noreply.github.com"
+        git commit -m "moving pdf skip ci"
+
     - name: Push changes
       uses: ad-m/github-push-action@master
       with:
