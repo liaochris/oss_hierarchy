@@ -1,0 +1,145 @@
+%
+\documentclass[12pt,notitlepage]{article}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{epstopdf}
+\usepackage{pdflscape}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{dsfont}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{marvosym}
+\usepackage{multirow}
+\usepackage{pdflscape}
+\usepackage[hyphens]{url}
+\usepackage{setspace}
+\usepackage{epigraph}
+\usepackage{bm}
+\usepackage{textcomp}
+\usepackage{diagbox}
+\usepackage{bbm}
+\usepackage{verbatim}
+\usepackage[framemethod=tikz]{mdframed}
+\usepackage{subcaption}
+\usepackage{caption}
+\usepackage{lipsum}
+\usepackage{mathtools}
+\usepackage{scalerel}
+\usepackage{stackengine}
+\usepackage{amsthm}
+\usepackage{epsfig,hyperref}
+
+\usepackage[
+backend=biber,
+style=authoryear-comp,
+sorting=ynt
+]{biblatex}
+\usepackage{hyperref}
+\usepackage[shortlabels]{enumitem}
+\setlength{\epigraphrule}{0pt}
+\setlength\parindent{0pt}
+\renewcommand{\baselinestretch}{1.25}
+
+\setcounter{MaxMatrixCols}{10}
+
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+
+
+
+\newcommand{\I}{\mathbb{I}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Ll}{\mathrm{L}}
+\newcommand{\R}{\mathbb{R}}
+\renewcommand{\L}{\mathbb{L}}
+\newcommand{\Var}{\mathrm{Var}}
+\newcommand{\Cov}{\mathrm{Cov}}
+\newcommand{\Corr}{\mathrm{Corr}}
+\newcommand{\Prob}{\mathbb{P}}
+\newcommand{\supp}{\mathrm{supp}}
+\newcommand{\notimplies}{\mathrel{{\ooalign{\hidewidth$\not\phantom{=}$\hidewidth\cr$\implies$}}}}
+\newcommand{\var}{\mathrm{var}}
+\newcommand{\Bias}{\mathrm{Bias}}
+\newcommand{\cov}{\mathrm{cov}}
+\newcommand{\corr}{\mathrm{corr}}
+\newcommand{\MSE}{\mathrm{MSE}}
+
+\topmargin=-1.5cm \textheight=23cm \oddsidemargin=0.5cm
+\evensidemargin=0.5cm \textwidth=15.5cm
+
+\newtheorem{theorem1}{Special Theorem}
+
+\newtheorem{ass}{Assumption}
+\newtheorem{definit}{Definition}
+\newtheorem{prop}{Proposition}
+\newtheorem{thm}{Theorem}
+\newtheorem{lem}{Lemma}
+\newtheorem{conj}{Conjecture}
+\newtheorem{cor}{Corollary}
+\newtheorem{rem}{Remark}
+
+\renewcommand{\thesubsection}{\arabic{section}.\arabic{subsection}}
+\renewcommand{\thesubsubsection}{\arabic{section}.\arabic{subsection}.\arabic{subsubsection}}
+
+\newcommand\dapprox{\stackrel{\mathclap{\tiny \mbox{d}}}{\approx}}
+\newcommand\papprox{\stackrel{\mathclap{\tiny \mbox{p}}}{\approx}}
+\newcommand\pconverge{\stackrel{\mathclap{\tiny \mbox{p}}}{\to}}
+\newcommand\dconverge{\stackrel{\mathclap{\tiny \mbox{d}}}{\to}}
+
+\addbibresource{source/paper/references.bib}
+
+
+\newcommand\independent{\protect\mathpalette{\protect\independenT}{\perp}}
+\def\independenT#1#2{\mathrel{\rlap{$#1#2$}\mkern2mu{#1#2}}}
+
+
+\hypersetup{
+	pdftitle={undergrad thesis},    % title
+	pdfauthor={Chris Liao},     % author
+	pdfnewwindow=true,      % links in new window
+	colorlinks=true,       % false: boxed links; true: colored links
+	linkcolor=blue,          % color of internal links
+	citecolor=red,        % color of links to bibliography
+	filecolor=black,      % color of file links
+	urlcolor=blue           % color of external links
+}
+
+\allowdisplaybreaks
+
+\begin{document}
+
+\section{Introduction}
+\textbf{Paragraphs 1-2: Motivation. After reading these paragraphs a reader in any field of economics should believe that if you answer your research question your paper will make an important contribution.}
+
+The development of open source software (OSS), software that can be accessed, modified and redistributed without additional cost, is an \$8.8 trillion industry (\cite{hoffmann_value_2024}). OSS components are present in 70-90\% of all software and have been adopted by businesses across many industries, such as tech, retail and auto (\cite{nagle_open_2017}). This paper was produced using OSS such as LaTeX, Overleaf and Python. The distribution of OSS sans cost means that many organizations that develop OSS software projects are unlike traditional firms because their "employees" --- OSS contributors who help build the software --- are volunteers. Consequently, 
+the full time job of many OSS contributors is not developing OSS, so their contribution time to OSS is their choice. However, as volunteers, OSS contributors also have time freedom, as they, not the firm, determines how to allocate their time across different tasks. OSS organizations aren't totally unrecognizable when compared with traditional firms either. OSS organizations have multiple layers of hierarchy. Both the organizational structure and the contributors in the organization are affected by technological advances, ranging from economy-wide developments such as the advent of artificial intelligence to OSS-specific shocks platform improvements by OSS hosting sites like GitHub.
+
+\qquad While OSS development has been studied extenively, the relationship between OSS organizational structure and OSS development, and the impact of technological advancement on that dynamic is not well understood. Developing an economic model that can help us better understand OSS development is crucial because of the importance of OSS in the economy. Using the lens of OSS organizational structure to study OSS development is important because OSS cannot be produced without the work of its contributors, whose tasks and roles are affected by OSS organizational structure. Moreover, understanding how technological advances affect the relationship between OSS organizational structure and OSS development is also important for two reasons. First, the digital and technology-focused nature of OSS development means that OSS contributors, and hence, the organization, are likely to be among the first affected by technological advances. Moreover, understanding the impact of technological advances can help policymakers and OSS stakeholders make more informed decisions about OSS. The hierarchical nature of OSS organizations makes it tempting to apply models of hierarchy from the economics literature (\cite{garicano_hierarchies_2000}); however, those models are insufficient because they are inspired by traditional firms with typical employment structures. 
+
+\textbf{Paragraphs 3-4: Challenges. These paragraphs explain why your research question has not already been answered, i.e., what are the central challenges a researcher must tackle to answer this question.}
+
+\qquad The organizational structure of OSS development has been widely documented by researchers as a hierarchical process, but how that hierarchy affects OSS development have not been widely studied (\cite{crowston_hierarchy_2006}). Economists have modelled hierarchical structure in traditional firms, but modelling hierarchical structure in OSS development requires solving two challenges that existing models are not equipped for (\cite{garicano_hierarchies_2000}). First, the model must incorporate the constrained nature of an OSS contributor's contribution time and their time freedom. Existing models fail because they model traditional firms that determine what tasks their employees do and how much time they spend on the job. In OSS development, contributors choose what tasks to work on, and their total contribution time is their choice, not the OSS organization's choice (\cite{lerner_simple_2002}). Second, the model must describe the decision making process of OSS organizations, which differ from traditional firms. Traditional firms decide how to allocate employees across the hierarchy after observing employee wages and training costs, which they incur. OSS organizations also determine the allocation of employees across the hierarchy, but wages and training costs are not part of their decision making function as they incur none of those. 
+
+\qquad A model that solves both of these challenges will allow us to characterize the decisions that OSS contributors and organizations make. These changes are necessary because existing models of hierarchy produce puzzling results when applied to OSS organizations. One notable result from the hierarchy literature, applied to OSS development, is that OSS contributors ranked higher on the hierarchy should never be the ones writing code to solve new tasks. This is not true in OSS software development, as the data shows plenty of highly ranked contributors solving newly encountered problems. 
+
+
+\textbf{Paragraph 5: This Paper. This paragraph states in a nutshell what the paper accomplishes and how. }
+
+In this paper, I develop a model of hierarchical structure in OSS development, where OSS contributors have time freedom and OSS organizations, who aren't responsible for paying or assigning tasks to contributors, determine the hierarchy's structure. Solving for the equilibrium OSS contributors' and organization's decision functions is the key to characterizing how hierarchical structure affects OSS development, my first aim. Using these equilibrium results, I follow the hierarchy literature in examining how technological advances - specifically, the cost of knowledge acquisition and the cost of communication - affects organizational structure and subsequently OSS development, accomplishing my second aim. Finally, I use novel microdata on OSS development from GitHub, the world's largest OSS hosting platform to compare my model's predictions to the empirical reality of OSS development. 
+
+\textbf{Paragraphs 6-7: Model. Summarize the key formal assumptions you will maintain in your analysis.}
+
+\qquad The hierarchical model I propose features two layers of hierarchy. OSS contributors in both ranks are risk neutral and choose between spending time acquiring knowledge, or performing various tasks that help further develop the OSS. Following the hierarchy literature, OSS contributors within a rank are homogeneous (\cite{garicano_hierarchies_2000}). OSS contributor incentives differ by rank; while lower rank contributors are mostly concerned with finding a problem solution, higher rank contributors prioritize the project's overall welfare. OSS organizations want to promote the optimal number of highly rank contributors to maximize output; however, while they do not pay wages or assign tasks, they do incur costs for hiring and coordinating with lots of highly ranked OSS contributors. 
+
+\textbf{Paragraphs 8-9: Data. Explain where you obtain your data and how you measure the concepts that are central to your study.}
+
+\textbf{Paragraphs 10-11: Methods. Explain how you take your model to the data and how you overcome the challenges you raised in paragraphs 3-4.}
+
+\textbf{Paragraphs 12-13: Findings. Describe the key findings. Make sure they connect clearly to the motivation in paragraphs 1-2.}
+
+\textbf{Paragraphs 14-15: Literature. Lay out the two main ways your paper contributes to the literature. Each paragraph should center around one contribution and should explain precisely how your paper differs from the most closely related recent work.}
+\end{document}
