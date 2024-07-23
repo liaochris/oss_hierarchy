@@ -12,28 +12,23 @@ jobs:
       uses: xu-cheng/latex-action@3.2.0
       with:
           # The root LaTeX file to be compiled
-          root_file: source/paper/main.tex
+          root_file: source/paper/main.tex source/paper/introduction.tex 
       
-    - name: Upload PDF file
-      uses: actions/upload-artifact@v4
-      with:
-          name: PDF
-          path:	main.pdf
-
     - name: Upload file to repository
       run: |
         git config --global user.name "liaochris"
         git config --global user.email "liaochris@users.noreply.github.com"
-        git add main.pdf
+        git add main.pdf introduction.pdf
         git commit -m "compiling pdf skip ci"
 
     - name: Copy and move the file to a different directory
       run: |
         mv main.pdf output/paper/main.pdf
+        mv introduction.pdf output/paper/introduction.pdf
         
     - name: Commit new file location
       run: |
-        git add output/paper/main.pdf main.pdf
+        git add *main.pdf *introduction.pdf
         git config --local user.email "liaochris"
         git config --local user.name "liaochris@users.noreply.github.com"
         git commit -m "moving pdf skip ci"
