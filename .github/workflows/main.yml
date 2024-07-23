@@ -16,7 +16,9 @@ jobs:
 
     - name: Move Introduction and Model
       run: |
-        mv *.pdf output/paper/sections/
+        mkdir -p output/paper/sections/
+        mv introduction.pdf output/paper/sections/introduction.pdf
+        mv model.pdf output/paper/sections/model.pdf
       
     - name: Compile Paper
       uses: xu-cheng/latex-action@3.2.0
@@ -26,7 +28,7 @@ jobs:
           
     - name: Move Paper
       run: |
-        mv *.pdf output/paper/sections/     
+        mv main.pdf output/paper/sections/main.pdf     
 
     - name: Commit compiled PDFs
       run: |
