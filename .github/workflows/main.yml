@@ -12,23 +12,14 @@ jobs:
       uses: xu-cheng/latex-action@3.2.0
       with:
           # The root LaTeX file to be compiled
-          root_file: source/paper/sections/introduction.tex  source/paper/sections/model.tex 
+          root_file: source/paper/sections/introduction.tex  source/paper/sections/model.tex source/paper/main.tex
 
-    - name: Move Introduction and Model
+    - name: Move Components
       run: |
         mkdir -p output/paper/sections/
         mv introduction.pdf output/paper/sections/introduction.pdf
         mv model.pdf output/paper/sections/model.pdf
-      
-    - name: Compile Paper
-      uses: xu-cheng/latex-action@3.2.0
-      with:
-          # The root LaTeX file to be compiled
-          root_file: source/paper/main.tex
-          
-    - name: Move Paper
-      run: |
-        mv main.pdf output/paper/sections/main.pdf     
+        mv main.pdf output/paper/main.pdf     
 
     - name: Commit compiled PDFs
       run: |
