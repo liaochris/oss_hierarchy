@@ -19,22 +19,29 @@ jobs:
       with:
           # The root LaTeX file to be compiled
           root_file: source/paper/introduction.tex 
+
+    - name: Compile Model
+      uses: xu-cheng/latex-action@3.2.0
+      with:
+          # The root LaTeX file to be compiled
+          root_file: source/paper/model.tex 
       
     - name: Upload introduction and paper
       run: |
         git config --global user.name "liaochris"
         git config --global user.email "liaochris@users.noreply.github.com"
-        git add main.pdf introduction.pdf
+        git add main.pdf introduction.pdf model.pdf
         git commit -m "compiling pdf skip ci"
 
     - name: Move introduction and paper
       run: |
         mv main.pdf output/paper/main.pdf
-        mv introduction.pdf output/paper/introduction.pdf
+        mv introduction.pdf output/paper/sections/introduction.pdf
+        mv model.pdf output/paper/sections/introduction.pdf
         
     - name: Update pdf locations
       run: |
-        git add *main.pdf *introduction.pdf
+        git add *main.pdf *introduction.pdf *model.pdf
         git config --local user.email "liaochris"
         git config --local user.name "liaochris@users.noreply.github.com"
         git commit -m "moving pdf skip ci"
