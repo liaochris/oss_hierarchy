@@ -17,8 +17,10 @@ jobs:
     - name: Move Components
       run: |
         mkdir -p output/paper/sections/
+        mkdir -p output/paper/external/
         mv introduction.pdf output/paper/sections/introduction.pdf
         mv model.pdf output/paper/sections/model.pdf
+        mv model_shared_JMS.pdf output/paper/external/model_shared_JMS.pdf
         mv main.pdf output/paper/main.pdf     
 
     - name: Commit compiled PDFs
