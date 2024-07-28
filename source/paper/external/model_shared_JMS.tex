@@ -74,7 +74,7 @@ I make the following assumptions about $u_o, c_o$
 \subsection{Solving the Model}
 \subsubsection{Read Rank}
 Solving for the first order conditions tells us that read rank programmers find $k^r, t_p^r$ solving 
-$$\frac{t_p^r(1-\omega_r)f(k^r)}{F(k^r) + \omega_r(1-F(k^r)) } = \frac{\frac{\partial c_r}{\partial k^r}}{\frac{\partial c_r}{\partial t_p^r}}$$
+$$\frac{t_p^r(1-\omega_r)f(k^r)}{(1-\omega_r)F(k^r) + \omega_r} = \frac{\frac{\partial c_r}{\partial k^r}}{\frac{\partial c_r}{\partial t_p^r}}$$
 \subsubsection{Write Rank}
 The write rank contributor's problem so
 $$\max_{\{t_p^w\}} u_w\left((1-\beta_w) t_p^r + \beta_w t_p^w \right) - c_w\left(t_p^w, t_h^w = \frac{ h (1-\beta_w) t_p^r(1-F(k^r))}{\beta_w}, k^w = 1\right)$$
@@ -91,45 +91,69 @@ so
 \end{align}
 
 
-\subsection{Analysis}
-\subsubsection{Contributor Time Allocation}
-The key question we're interested in is whether write rank programmers code ($t_p^w>0$)? In \cite{garicano_hierarchies_2000}, we observe that the factory manager never picks up a hammer. While this aligns with our knowledge of factory production, in OSS development, highly ranked project members still write code and spearhead the production of new software features. Thus, we want a model that's able to reflect this empirical reality. 
-Recall that $$\alpha_w \beta_w = \frac{\partial c_w}{\partial t_p^w} + \frac{\partial c_w}{\partial t_h^w}\frac{\partial t_h^w}{\partial \beta_w}\frac{\partial \beta_w}{\partial t_p^w}$$
-
-First, we know the LHS $\alpha_w \beta_w>0$. We also know that $\frac{\partial t_h^w}{\partial \beta_w} < 0$ and $\frac{\partial c_w}{\partial t_h^w} >0 $ so $\frac{\partial t_h^w}{\partial \beta_w}\frac{\partial c_w}{\partial t_h^w}<0$. Finally, 
-
-\begin{itemize}
-    \item $\alpha_w \beta_w>0$ 
-    \item $\frac{\partial t_h^w}{\partial \beta_w} < 0$ and $\frac{\partial c_w}{\partial t_h^w} >0 $ so $\frac{\partial t_h^w}{\partial \beta_w}\frac{\partial c_w}{\partial t_h^w}<0$
-    \item By \ref{org_solution}, $\frac{\partial c_o}{\partial \beta_w}$ is increasing in $t_p^w$. By \ref{org_concave_cost}, the concavity of the organization's cost function means that $\frac{\partial c_o}{\partial \beta_w}$ is also increasing in $\beta_w$. Thus, $\frac{\partial \beta_w}{\partial t_p^w} > 0$.
-\end{itemize}
-Since $\lim_{t_p^w \to 0^+} \frac{\partial c_w}{\partial t_p^w} = 0$, if $t_p^w = 0$, then $\alpha_w\beta_w < 0$. As $\frac{\partial^2 c_w}{\partial (t_p^w)^2}>0$ then $\alpha_w \beta_w>0$ requires $t_p^w>0$. 
-
-\subsubsection{Comparative Statics}
-What is the impact of an increase in $\frac{\partial c_r}{\partial k^r}, \frac{\partial c_w}{\partial k^w}$ (cost of knowledge for read or write rank contributors) or $h$ (communication costs) on
+\subsection{Analysis - Part 1}
+Suppose we want to analyze how an increase in $\frac{\partial c_r}{\partial k^r}$, the cost of knowledge acquisition for read-rank contributors, affects
 \begin{enumerate}
-    \item $t_p^r, k^r$ - How do read rank contributors change their time allocation?
-    \item The next three statistics of interest are all interrelated, so the best approach is to analyze them simultaneously. We're interested in
-    \begin{enumerate}
-        \item $\frac{\beta_w}{1-\beta_w}$ - organization response - span of workers on each level
-        \item $t_p^w$ - write rank contributor time allocation response
-        \item $t_h^w = h \frac{(1-\beta_w)}{\beta_w} t_p^r(1-F(k^r))$ - write rank contributor time allocation response
-    \end{enumerate}
-    The statistics in the previous two points combine to inform us about how contributors of all ranks and organizations change their time allocation in response to technological changes. These are valuable because they tell us how OSS contributors might adapt their workflows when new technologies are adopted. They also tell us how organizations restructure themselves 
-    
-    \item $(1-\beta_w) t_p^r F(k^r)$ - how much work is done by read rank contributors in aggregate. 
-    \item $\beta_w t_p^w$ - how much work is done by write rank contributors, in aggregate. If I find both of the statistics above, I can also analyze how overall work share is changing and how that's evolving with the quantity of people on each level of the hierarchy, $\beta_w$
-    \item $\beta_w t_h^w \iff h (1-\beta_w) t_p^rF(k^r)$ - how much helping is done \\
-    The statistics in the aforementioned three points help us understand how technological advances affect the quantity and scope of responsibilities contributors at different levels of the hierarchy have to take on in response to technological change. 
+    \item How read rank contributors allocate their time
+    \item How write rank contributors allocate their time
+    \item The organization's response
 \end{enumerate}
-\newpage
-\subsection{Robustness}
+\subsubsection{How read rank contributors allocate their time}
+Let $r^*$ denote choices prior to the cost increase and $r$ denote choices after the cost increase. The concave nature of costs $c_r$ and the linear form of $u_r$ means that read-rank contributors will not increase output in solution set $r^*$ and that $k^{r^*} > k^r$. Thus, 
+$$ t_p^{r^*}(F(k^{r^*}) + \omega_r(1-F(k^{r^*})))  > t_p^r(F(k^r) + \omega_r(1-F(k^r)))$$
+Suppose for contradiction that $t_p^{r^*} F(k^{r^*}) < t_p^r F(k^r)$. Note that since $k^{r^*} > k^r$, then $t_p^{r^*} < t_p^r$. Then
+\begin{align*}
+t_p^{r^*} F(k^{r^*})(1-\omega_r)  &< t_p^r F(k^r)(1-\omega_r)\\
+t_p^{r^*} F(k^{r^*})(1-\omega_r) + \omega_r t_p^{r^*}  &< t_p^r F(k^r)(1-\omega_r) + \omega_r t_p^r \\
+\iff t_p^{r^*} (F(k^{r^*}) + \omega_r (1-F(k^{r^*})))  &< t_p^r(F(k^r) + \omega_r (1-F(k^r)) 
+\end{align*}
+This is clearly a contradiction. Thus, $t_p^{r^*} F(k^{r^*}) > t_p^r F(k^r)$. However, without specifying a functional form for $c_r$ and the exact distribution of $F$, I won't know whether $t_p^{r^*} \gtreqqless t_p^r$. However, 
+it seems difficult to imagine that $t_p^{r^*} > t_p^r$. Consider the expression below, which is another way of expressing the read-rank contributor's FOCs 
+$$t_p^r(1-\omega_r)f(k^r) \frac{\partial c_r}{\partial t_p^r} = ((1-\omega_r)F(k^r) + \omega_r) \frac{\partial c_r}{\partial k^r}$$
 \begin{enumerate}
-    \item Show that my results are invariant to setting $k^w = 1$ as long as $k^w>k^r$ \textcolor{blue}{fairly important}
-    \item Once I have my results, I can explain how heterogeneity within rank would impact my results
-    \item Show how the results change when $\beta_w$ is capped. 
-    \item Impact of adding approval?
-    \item How can I affect $\beta_w$ by discincentivizing write rank contributors when $\beta_w$ is too high
-    \item How can I justify that write rank programmers and organizations are invariant to inputs with mean preserving spreads in $u_w, u_o$? Not sure it's very true...
+    \item If $t_p^r$ decreases, $t_p^r\frac{\partial c_r}{\partial t_p^r}$ decreases, which is the exact opposite of what we need for the conditions to equal when $\frac{\partial c_r}{\partial k^r}$ increases. This would require $k^r$ to decrease even further.
+    \item Instead, consider the following. We can have $t_p^r$ increase/stay the same and $k^r$ decrease by less than it would have had to in the previous scenario in order to achieve equality. This would still be a possible optimal solution for the read-rank contributor because the condition holds with equality. Moreover, in this scenario, the equilibrium $k^r, t_p^r$ are higher so this is clearly the preferred option. 
+\end{enumerate}
+\subsubsection{How write rank contributors allocate their time \& the organization's response}
+Finding $t_p^w, \beta_w$ requires simultaneously solving 
+$$t_p^w \text{ solves } \alpha_w \beta_w - \frac{\partial c_w}{\partial t_h^w} \frac{\partial t_h^w}{\partial \beta_w}\frac{\partial \beta_w}{\partial t_p^w} = \frac{\partial c_w}{\partial t_p^w} $$
+and
+\begin{align}
+    \beta_w \text{ solves } \alpha_o(t_p^w - t_p^r) = \frac{\partial c_o}{\partial \beta_w} \label{org_solution}
+\end{align}
+Here's why trying to figure out how $t_p^w, \beta_w$ respond to an increase in $\frac{\partial c_r}{\partial k^r}$, the cost of knowledge acquisition for read-rank contributors, is complicated. 
+\begin{enumerate}
+    \item Suppose that $t_p^r$ increases (what I consider the mostly likely scenario). Note also that $t_p^w$ decreases, as $k^r$ decreases. Consequently, $\alpha_o(t_p^w - t_p^r) < \frac{\partial c_o}{\partial \beta_w}$. To remedy this, one solution is to decrease $\beta_w$. The problem is that when $\beta_w$ decreases, $t_p^w$ is affected. Write-rank contributors now have more problems they need to help correct, so $t_h^w$ increases and $t_p^w$ decreases even more. But if the decrease in $\beta_w$ causes a decrease in $\frac{\partial c_o}{\partial \beta_w}$ that outweighs the decrease in $\alpha_o(t_p^w - t_p^r)$, this could be a possible solution. \\
+    Economically, what's happening is that write rank programmers become less valuable to the organization because they're engaged in less production (and read rank programmers are attempting more problems, so the model conceptualizes them as "more" valuable). Consequently, it may be optimal for the project to have less write rank programmers because they contribute less to production, and it can improve it's overall welfare by reducing coordination costs. \\
+    
+    Note also that any change in $\beta_w$ must also still maintain that $t_p^w > t_p^r$ as $\frac{\partial c_o}{\partial \beta_w} >0$ always. 
+    
+    \item  But does the decrease in $t_p^w - t_p^r$ exceed the decrease in $\frac{\partial c_o}{\partial \beta_w}$? What if the solution is to increase $\beta_w$? Even though $\frac{\partial c_o}{\partial \beta_w}$ increases, the corresponding increase in $t_p^w$ might be able to account for both that increase, the increase in $t_p^r$. Note that it's not totally clear the increase in $\beta_w$ will always increase $t_p^w$, but in this situation it must happen. \\
+    Economically, if the number of write rank contributors $\beta_w$ increases, the amount of helping each contributor needs to perform decreases so they might be able to spend more time on production. In this scenario, the increased production gained means that this new increased level of $\beta_w$ is actually worth it, if the improved level of production outweighs the cost of an increase in $\beta_w$. \\
+\end{enumerate}
+
+\subsection{Analysis - Part 2}
+Suppose we want to analyze how an increase in $h$, the cost of communication, affects
+\begin{enumerate}
+    \item How read rank contributors allocate their time
+    \item How write rank contributors allocate their time
+    \item The organization's response
+\end{enumerate}
+\subsubsection{How read rank contributors allocate their time}
+They are not affected. 
+\subsubsection{How write rank contributors allocate their time \& the organization's response}
+Recall that $t_h^w = \frac{ h (1-\beta_w) t_p^r(1-F(k^r))}{\beta_w}$, so $\frac{\partial t_h^w}{\partial \beta_w} = -\frac{h t_p^r(1-F(k^r))}{\beta_w^2}$. Thus,
+$$t_p^w \text{ solves } \alpha_w \beta_w + \frac{h t_p^r(1-F(k^r))}{\beta_w^2} \frac{\partial c_w}{\partial t_h^w} \frac{\partial \beta_w}{\partial t_p^w} = \frac{\partial c_w}{\partial t_p^w} $$
+When $h$ increases, then there are also two possible options. Recall that $\beta_w$ and $t_p^w$ move together. 
+\begin{enumerate}
+    \item If $h$ increases, one potential counterbalancing solution is for $t_p^w$ to also increase, to equalize the LHS and RHS. However, whether this works also hinges on whether $\beta_w$ responds by increasing or decreasing. Note that regardless of whether $\beta_w$ increases or decreases, the change in $\alpha_w \beta_w + \frac{h t_p^r(1-F(k^r))}{\beta_w^2} \frac{\partial c_w}{\partial t_h^w} \frac{\partial \beta_w}{\partial t_p^w}$ is also of unclear sign. 
+    
+    \item If $h$ increases, another solution is for $\beta_w$ to decrease because the decrease in $\alpha_w\beta_w$ may outweigh the unclear change in magnitude of $\frac{h t_p^r(1-F(k^r))}{\beta_w^2} \frac{\partial c_w}{\partial t_h^w} \frac{\partial \beta_w}{\partial t_p^w}$. The decrease in $\beta_w$ will decrease $t_p^w$ for sure, more helping is required from two fronts: increased communication cost time and less write rank contributors to split responsibilities among. 
+\end{enumerate}
+\subsection{Note for Jesse}
+At the risk of the previous sections being unclear, here's a summary of the dilemma I'm encountering. For most of the comparative statics I'm interested in, the answer I've arrived at so far is that the sign of the change is \textbf{unclear}. I haven't substituted functional forms in this note because when I've tried to do so in the past, the calculations haven't provided any useful insights and it tends to lead to a Mathematica rabbit hole. I'm debating between two different next steps
+\begin{enumerate}
+    \item Trying to find one reasonable example (using functional forms) where it's possible that for example, depending on the specifics of the utility \& cost function, the sign change for each of my variables of interest could be either positive or negative to formally prove that
+    \item Since the change in sign seems at this point like an empirical question, I would pivot towards analyzing the data I have. Personally, I would prefer this because I'm a bit tired of thinking about this model, the marginal gains of working on the empirical analysis are larger and I enjoy data analysis more. I also know that it's important to make sure I do a job done well and the model will offer little use if it's not done well and doesn't help us understand how different forces are causing change. 
 \end{enumerate}
 \end{document}
