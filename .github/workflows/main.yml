@@ -34,8 +34,7 @@ jobs:
       uses: ad-m/github-push-action@master
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Generate changelog
+    
+    - name: Get a changelog between two references
       uses: metcalfc/changelog-generator@v4.3.1
-      with:
-        mytoken: ${{ secrets.GITHUB_TOKEN }}
+
