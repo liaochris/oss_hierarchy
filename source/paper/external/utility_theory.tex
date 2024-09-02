@@ -1,0 +1,61 @@
+\documentclass[source/paper/main.tex]{subfiles}
+\begin{document}
+\begin{enumerate}
+    \item \cite{garicano_hierarchies_2000} assume time spent helping can be nonstochastic because of LLN - note that time spent helping is a function of $F(k^r)$. Note also that \cite{garicano_hierarchies_2000} assumes linear utility by the firm because the firm is just optimizing output. I will also assume the nonstochasticity of helping, so that $t_h^w$ is a deterministic constant
+\end{enumerate}
+Difference between $u(P(t_p^r) F(k^r))$ and $P(t_p^r) u(F(k^r))$ is twofold.
+\begin{enumerate}
+    \item The marginal benefit of $t_p^r$ in $u(P(t_p^r) F(k^r))$ is affected by the curvature of $u$ while the marginal benefit of $t_p^r$ in $P(t_p^r) u(F(k^r))$ is affected by the shape of $u$ 
+    \item In $u(t_p^rF(k^r))$, our marginal utility is affected by the number of problems we solve correctly, $P(t_p^r)F(k^r)$. In $P(t_p^r) u(F(k^r))$, our marginal utility is affected by effort and knowledge separately. 
+    \item It seems like it's reasonable to separate \% of problems solved from number of problems attempted. Even omitting costs from the conversation, we don't want to treat the satisfaction someone gets from solving 1 problem (after trying to solve 10) the same way someone gets from solving 1 problem (after trying to solve 1). 
+\end{enumerate}
+Let $P_s$ be the proportion solved, with $P_s \sim N(F(k^r), \frac{F(k^r)(1-F(k^r))}{t_p^r})$. Since $$E[P(t_p^r)u(P_s))] = P(t_p^r)E[u(P_s)]$$ and we can rewrite $$E[u(P_s)] \approx u(F(k^r)) + \frac{u''(F(k^r))F(k^r)(1-F(k^r))}{2t_p^r}$$
+then the read rank programmer solves 
+$$\max_{k^r, t_p^r} P(t_p^r)\left(u(F(k^r)) + \frac{u''(F(k^r))F(k^r)(1-F(k^r))}{2t_p^r}\right) - c_r(t_p^r, k^r)$$
+with first order conditions
+\begin{align*}
+    [k^r] &: P(t_p^r)f(k^r)\left(u'(F(k^r)) + \frac{u'''(F(k^r))F(k^r)(1-F(k^r)) + u''(F(k^r))  (1-2F(k^r))}{t_p^r}\right)= \frac{\partial c_r}{\partial k^r}\\
+    [t_p^r] &: P'(t_p^r) u(F(k^r)) + \frac{(2P'(t_p^r)t_p^r + P(t_p^r))(F(k^r)(1-F(k^r)))}{4(t_p^r)^2}u''(F(k^r)) = \frac{\partial c_r}{\partial t_p^r}
+\end{align*}
+Assuming risk neutrality about $u_r$, then $u'' = u''' = 0$ so 
+$$P(t_p^r)f(k^r)\alpha_r = \frac{\partial c_r}{\partial k^r} \qquad P'(t_p^r)\alpha_r F(k^r) = \frac{\partial c_r}{\partial t_p^r}$$
+
+Suppose that $F(k^r)$ is distributed exponentially, following the literature\footnote{see how varying this changes the way people behave}. When $\frac{\partial c_r}{\partial k^r}$ decreases,  $k^r$ responds by increasing. This will cause $P'(t_p^r)$ to either decrease or increase, depending on whether $\frac{\partial }{\partial t_p^r}(\frac{\partial c_r}{P'(t_p^r)\partial t_p^r})>0$. When $\frac{\partial }{\partial t_p^r}(\frac{\partial c_r}{P'(t_p^r)\partial t_p^r})>0$ $(\frac{\partial }{\partial t_p^r}(\frac{\partial c_r}{P'(t_p^r)\partial t_p^r})<0)$, then $t_p^r$ increases (decreases) in response to increases in knowledge acquisition. 
+
+
+I test three different representative examples for $P(t_p^r)$:\\
+Constant marginal value: $P(t_p^r) = \alpha t_p^r$
+$$\alpha \alpha_r  t_p^r f(k^r)= \frac{\partial c_r}{\partial k^r} \qquad \alpha \alpha_r F(k^r) = \frac{\partial c_r}{\partial t_p^r}$$
+Since $\frac{\partial }{\partial t_p^r}(\frac{\partial c_r}{\alpha_r \partial t_p^r})>0$, $t_p^r$ increases in response to increases in knowledge acquisition. 
+ 
+ Increasing marginal value: $P(t_p^r) = e^{t_p^r}$
+$$\frac{f(k^r)}{F(k^r)} = \frac{\frac{\partial c_r}{\partial k^r}}{\frac{\partial c_r}{\partial t_p^r}}$$
+When $\frac{\partial }{\partial t_p^r}(\frac{\partial c_r}{e^{t_p^r} \partial t_p^r})>0$, $t_p^r$ increases in response to increases in knowledge acquisition. It's possible in this case for production effort $t_p^r$ to decrease, but it must be accompanied by increases in knowledge $k^r$ (or otherwise the read-rank contributor would be worse off). 
+
+Decreasing marginal value: $P(t_p^r) = \log(t_p^r)$
+$$\frac{\log(t_p^r)f(k^r)}{t_p^rF(k^r)} = \frac{\frac{\partial c_r}{\partial k^r}}{\frac{\partial c_r}{\partial t_p^r}}$$
+When $\frac{\partial }{\partial t_p^r}(t_p^r \frac{\partial c_r}{\partial t_p^r})>0$, $t_p^r$ increases in response to increases in knowledge acquisition. More likely, \\
+
+
+While it may seem interesting that production increases when the cost ratio of production to the marginal value of production increases, note the following few facts
+\begin{enumerate}
+    \item If the ratio decreased, since $\alpha_r F(k^r) > \frac{\frac{\partial c_r}{\partial t_p^r}}{P'(t_p^r)}$, production would occur forever
+    \item If the ratio decreased as we increased $t_p^r$, the previous equilibrium would not have been an equilibrium as we could have increased $t_p^r$, and we would have had
+    $$P(t_p^r)f(k^r)\alpha_r > \frac{\partial c_r}{\partial k^r} \qquad P'(t_p^r)\alpha_r F(k^r) > \frac{\partial c_r}{\partial t_p^r}$$
+\end{enumerate}
+When contributors are risk averse, compared to risk neutral contributors, their knowledge to production effort ratios are higher. Mathematically, this is because $u'' < 0$ and $u''' > 0$. As such,
+$u_k^3 = \frac{u'''(F(k^r))F(k^r)(1-F(k^r))}{t_p^r}$ is positive, $u_2^k = \frac{u''(F(k^r))  (1-2F(k^r))}{t_p^r}$ is positive for $k^r > \frac12$ and $u_2^{t_p^r} = \frac{(2P'(t_p^r)t_p^r + P(t_p^r))(F(k^r)(1-F(k^r)))}{4(t_p^r)^2}u''(F(k^r))$ is negative. \textcolor{red}{How to handle $k^r< \frac12??$}
+
+Moving these expressions to the marginal costs side of the expression, we get
+\begin{align*}
+    [k^r] &: P(t_p^r)f(k^r)u'(F(k^r)) = \frac{\partial c_r}{\partial k^r} - P(t_p^r)(f(k^r)u_k^3 + u_2^k)\\
+    [t_p^r] &: P'(t_p^r) u(F(k^r)) = \frac{\partial c_r}{\partial t_p^r} - u_2^{t_p^r} 
+\end{align*}
+The marginal costs side (RHS) of knowledge is less than in the risk neutral case. On the other hand, regardless of $k^r$'s magnitude, the marginal costs side (LHS) of production effort is higher than in the risk neutral case. An increase knowledge acquired $k^r$, and decreasing production effort $t_p^r$ fits with this narrative. Intuitively, this makes sense; risk-averse individuals want to increase how much of the uncertain good, knowledge, they acquire, which comes at the expense of production.
+
+On the other hand, we can flip the signs for the calculation above to show that risk seeking individuals are comfortable with lower levels of knowledge acquisition and consequently spend more time on production. This also makes economic sense - they derive higher utility from the same level of knowledge acquisition than a risk neutral or risk averse individual in expectation and since costs are concave, they expend additional time on production. \footnote{\textcolor{red}{Work more on both of these sections in the appendix}}
+
+Two further notes: First, risk neutrality about knowledge acquisition may not always be a reasonable assumption. For someone who contributes to OSS only because they might want feedback/to share their solutions for a bug, OSS contribution has a small enough impact on their daily routine that we can consider them risk neutral. For someone like a student, whose hoping to acquire programming knowledge through contributing to OSS, the potential benefits of knowledge acquisition through OSS contribution might be large enough that they are affected by their personal risk neutral/risk favouring preferences. 
+
+Second, for write rank individuals, following \cite{garicano_hierarchies_2000}, we will assume that the value of unsolved problems $\beta_w t_h^w$ is non stochastic by the large of law numbers. Since they divide responsibility equally in deterministic fashion, then their solution does not need to be calculated with expectations in mind. 
+\end{document}
