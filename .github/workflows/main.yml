@@ -18,14 +18,20 @@ jobs:
       run: |
         mkdir -p output/paper/sections/
         mkdir -p output/paper/external/
-
+        mv introduction.pdf output/paper/sections/introduction.pdf
+        mv model.pdf output/paper/sections/model.pdf
+        mv method.pdf output/paper/sections/method.tex 
+        mv main.pdf output/paper/main.tex 
+        mv utility_theory.pdf output/paper/external/utility_theory.tex 
+        mv model_shared_JMS.pdf output/paper/external/model_shared_JMS.tex
+        
     - name: Commit compiled PDFs
       run: |
         git add *.pdf
-        git config --local user.email "liaochris"
-        git config --local user.name "liaochris@users.noreply.github.com"
+        git config --local user.email "liaochris@users.noreply.github.com"
+        git config --local user.name "liaochris"
         git commit -m "moving pdf skip ci"
-
+        
     - name: Push changes
       uses: ad-m/github-push-action@master
       with:
