@@ -12,7 +12,8 @@ jobs:
       uses: xu-cheng/latex-action@3.2.0
       with:
           # The root LaTeX file to be compiled
-          root_file: source/paper/sections/introduction.tex  source/paper/sections/model.tex source/paper/main.tex source/paper/external/model_shared_JMS.tex
+          root_file: source/paper/sections/introduction.tex  source/paper/sections/model.tex 
+          source/paper/sections/method.tex source/paper/main.tex source/paper/external/utility_theory.tex
 
     - name: Move Components
       run: |
@@ -20,8 +21,9 @@ jobs:
         mkdir -p output/paper/external/
         mv introduction.pdf output/paper/sections/introduction.pdf
         mv model.pdf output/paper/sections/model.pdf
-        mv model_shared_JMS.pdf output/paper/external/model_shared_JMS.pdf
+        mv model.pdf output/paper/sections/method.pdf
         mv main.pdf output/paper/main.pdf     
+        mv utility_theory.pdf output/paper/external/utility_theory.pdf
 
     - name: Commit compiled PDFs
       run: |

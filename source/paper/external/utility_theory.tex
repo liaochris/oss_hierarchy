@@ -19,6 +19,61 @@ with first order conditions
 \end{align*}
 Assuming risk neutrality about $u_r$, then $u'' = u''' = 0$ so 
 $$P(t_p^r)f(k^r)\alpha_r = \frac{\partial c_r}{\partial k^r} \qquad P'(t_p^r)\alpha_r F(k^r) = \frac{\partial c_r}{\partial t_p^r}$$
+\begin{itemize}
+    \item Suppose $u_r = \alpha_r F(k^r)$
+    \item Suppose $P(t_p^r) = P t_p^r$
+\end{itemize}
+Example $c_r(k^r, t_p^r) = \alpha_k k^r + \alpha_p t_p^r$\\
+$$\frac{t_p^r f(k^r) }{F(k^r)} = \frac{\frac{\partial c_r}{\partial k^r}}{\frac{\partial c_r}{\partial t_p^r}} \iff \frac{t_p^r f(k^r) }{F(k^r)} = \frac{\alpha_k}{\alpha_p} \iff t_p^r = \frac{\alpha_k F(k^r)}{\alpha_p f(k^r)}$$
+Then, the problem becomes
+\begin{align*}
+    &\max_{t_p^r, k^r} P t_p^r u(F(k^r)) - \alpha_k k^r - \alpha_p t_p^r \\
+    &= \max_{k^r} P\frac{\alpha_k\alpha_r (F(k^r))^2}{\alpha_p f(k^r)}  - \alpha_k k^r - \frac{\alpha_k F(k^r)}{f(k^r)} \\
+    &= \max_{k^r} P\frac{\alpha_k\alpha_r}{\alpha_p} (e^{k^r} - 1)(1-e^{-k^r})  - \alpha_k k^r -\alpha_k (e^{k^r} - 1) 
+\end{align*}
+Thus, at the optimal $k^r$, 
+\begin{align*}
+    &\frac{\partial }{\partial k^r} \left(  \frac{P\alpha_k\alpha_r}{\alpha_p} (e^{k^r} - 2 + e^{-k^r}) - \alpha_k k^r - \alpha_k (e^{k^r} - 1)\right) = 0 \\
+    &\iff   \frac{P\alpha_k\alpha_r}{\alpha_p} (e^{k^r} - e^{-k^r})  = \alpha_k(e^{k^r} + 1) \\
+    &\iff \frac{P\alpha_r}{\alpha_p}  = \frac{e^{k^r} + 1}{e^{k^r} - e^{-k^r}} 
+\end{align*}
+and we find that
+\begin{align}
+    k^r &= \log\left(\frac{P\alpha_r}{P\alpha_r-\alpha_p}\right) \label{knowledge_linear}\\
+    t_p^r &= \frac{\alpha_k}{P\alpha_r - \alpha_p}   \label{production_effort_linear} 
+\end{align}
+When the cost of knowledge acquisition $\alpha_k$ goes up, then production effort increases, per \ref{production_effort_linear}. Knowledge acquired stays the same, per \ref{knowledge_linear}. This occurs because the decrease in knowledge caused by its increased marginal cost is precisely balanced out by the need for more knowledge because it complements increased production effort. \\
+I suspect this is because the cost function is linear. Next, I test how this changes with a cost function with marginally increasing costs. 
+
+Example $c_r(k^r, t_p^r) = \alpha_k (k^r)^2 + \alpha_p (t_p^r)^2$\\
+$$\frac{t_p^r f(k^r) }{F(k^r)} = \frac{\frac{\partial c_r}{\partial k^r}}{\frac{\partial c_r}{\partial t_p^r}} \iff \frac{t_p^r f(k^r) }{F(k^r)} = \frac{\alpha_k k^r}{\alpha_p t_p^r} \iff t_p^r = \sqrt{\frac{\alpha_k}{\alpha_p} k^r (e^{k^r} - 1)} $$
+Thus, the problem becomes
+\begin{align*}
+    &\max_{t_p^r, k^r} P  t_p^r  u(F(k^r)) - \alpha_k (k^r)^2 - \alpha_p (t_p^r)^2 \\
+    &= \max_{k^r} P\alpha_r(1-e^{-k^r}) \sqrt{\frac{\alpha_k}{\alpha_p} k^r (e^{k^r} - 1)}  -\alpha_k (k^r)^2 - \alpha_k k^r (e^{k^r} - 1)
+\end{align*}
+Thus, at the optimal $k^r$, 
+\begin{align*}
+    &\frac{\partial }{\partial k^r} \left(P\alpha_r(1-e^{-k^r}) \sqrt{\frac{\alpha_k}{\alpha_p} k^r (e^{k^r} - 1)}  -\alpha_k (k^r)^2 - \alpha_k k^r (e^{k^r} - 1)\right) = 0 \\
+    &\iff P \alpha_r \left(\frac{1}{\alpha_k \alpha_p}\right)^{\frac12 } (1 - e^{-k^r}) = 2 \sqrt{k^r (e^{k^r} - 1)}
+\end{align*}
+and we find that
+\begin{align}
+    \frac{2\sqrt{k^r(e^{k^r} - 1)}}{1-e^{-k^r}} &= \frac{P\alpha_r}{\sqrt{\alpha_k \alpha_p}} \label{knowledge_quadratic} \\
+    t_p^r &= \frac{P\alpha_r}{2\alpha_p} (1-e^{-k^r}) \label{production_effort_quadratic}
+\end{align}
+I've omitted the algebra for the optimal $k^r$ calculation and included it in 
+\href{run:source/paper/math/quadratic.pdf}{quadratic.pdf}
+When $\alpha_k$, the cost of knowledge acquisition increases, $k^r$ decreases as $\frac{2\sqrt{k^r(e^{k^r} - 1)}}{1-e^{-k^r}}$ is increasing in $k^r$, per \ref{knowledge_quadratic}. Production effort stays the same, per \ref{knowledge_linear}. This occurs because the increase in knowledge caused by its increased relative value is precisely balanced out by the need for less knowledge because it complements increased knowledge. 
+
+\textcolor{red}{The lack of change in both variables is likely due to a choice of functional form, and given other forms, we may expect results in between. Next, I test how this changes with a cost function where the cost of production and knowledge is not linearly separable}
+
+Example $c_r(k^r, t_p^r) = {k^r}^\alpha_k {t_p^r}^\alpha_p $
+
+
+Then, I think we can describe how this would change with $u'', u'''$
+
+\section{Old}
 
 Suppose that $F(k^r)$ is distributed exponentially, following the literature\footnote{see how varying this changes the way people behave}. When $\frac{\partial c_r}{\partial k^r}$ decreases,  $k^r$ responds by increasing. This will cause $P'(t_p^r)$ to either decrease or increase, depending on whether $\frac{\partial }{\partial t_p^r}(\frac{\partial c_r}{P'(t_p^r)\partial t_p^r})>0$. When $\frac{\partial }{\partial t_p^r}(\frac{\partial c_r}{P'(t_p^r)\partial t_p^r})>0$ $(\frac{\partial }{\partial t_p^r}(\frac{\partial c_r}{P'(t_p^r)\partial t_p^r})<0)$, then $t_p^r$ increases (decreases) in response to increases in knowledge acquisition. 
 
