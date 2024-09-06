@@ -43,7 +43,7 @@ and we find that
     t_p^r &= \frac{\alpha_k}{P\alpha_r - \alpha_p}   \label{production_effort_linear} 
 \end{align}
 When the cost of knowledge acquisition $\alpha_k$ goes up, then production effort increases, per \ref{production_effort_linear}. Knowledge acquired stays the same, per \ref{knowledge_linear}. This occurs because the decrease in knowledge caused by its increased marginal cost is precisely balanced out by the need for more knowledge because it complements increased production effort. \\
-I suspect this is because the cost function is linear. Next, I test how this changes with a cost function with marginally increasing costs. 
+I suspect this is because the cost function is linear. Next, I test how this changes with a cost function with marginally increasing costs. Also I think the linear cost function is fucked...
 
 Example $c_r(k^r, t_p^r) = \alpha_k (k^r)^2 + \alpha_p (t_p^r)^2$\\
 $$\frac{t_p^r f(k^r) }{F(k^r)} = \frac{\frac{\partial c_r}{\partial k^r}}{\frac{\partial c_r}{\partial t_p^r}} \iff \frac{t_p^r f(k^r) }{F(k^r)} = \frac{\alpha_k k^r}{\alpha_p t_p^r} \iff t_p^r = \sqrt{\frac{\alpha_k}{\alpha_p} k^r (e^{k^r} - 1)} $$
@@ -54,7 +54,7 @@ Thus, the problem becomes
 \end{align*}
 Thus, at the optimal $k^r$, 
 \begin{align*}
-    &\frac{\partial }{\partial k^r} \left(P\alpha_r(1-e^{-k^r}) \sqrt{\frac{\alpha_k}{\alpha_p} k^r (e^{k^r} - 1)}  -\alpha_k (k^r)^2 - \alpha_k k^r (e^{k^r} - 1)\right) = 0 \\
+    &\frac{\partial }{\partial k^r} \left(P\alpha_r(1-e^{-k^r}) \sqrt{\frac{\alpha_k}{\alpha_p} k^r (e^{k^r} - 1)}\right) = \frac{\partial }{\partial k^r} \left( \alpha_k (k^r)^2 - \alpha_k k^r (e^{k^r} - 1) \right) = 0 \\
     &\iff P \alpha_r \left(\frac{1}{\alpha_k \alpha_p}\right)^{\frac12 } (1 - e^{-k^r}) = 2 \sqrt{k^r (e^{k^r} - 1)}
 \end{align*}
 and we find that
@@ -64,14 +64,13 @@ and we find that
 \end{align}
 I've omitted the algebra for the optimal $k^r$ calculation and included it in 
 \href{run:source/paper/math/quadratic.pdf}{quadratic.pdf}
-When $\alpha_k$, the cost of knowledge acquisition increases, $k^r$ decreases as $\frac{2\sqrt{k^r(e^{k^r} - 1)}}{1-e^{-k^r}}$ is increasing in $k^r$, per \ref{knowledge_quadratic}. Production effort stays the same, per \ref{knowledge_linear}. This occurs because the increase in knowledge caused by its increased relative value is precisely balanced out by the need for less knowledge because it complements increased knowledge. 
-
-\textcolor{red}{The lack of change in both variables is likely due to a choice of functional form, and given other forms, we may expect results in between. Next, I test how this changes with a cost function where the cost of production and knowledge is not linearly separable}
-
-Example $c_r(k^r, t_p^r) = {k^r}^\alpha_k {t_p^r}^\alpha_p $
+When $\alpha_k$, the cost of knowledge acquisition increases, $k^r$ decreases as $\frac{2\sqrt{k^r(e^{k^r} - 1)}}{1-e^{-k^r}}$ is increasing in $k^r$, per \ref{knowledge_quadratic}. Production effort decreases because while the marginal rate of substitution means we shift effort towards production, the negative effect of the increased cost in knowledge and the reduction in production's marginal benefit (because of a reduction in knowledge) is greater.  
 
 
-Then, I think we can describe how this would change with $u'', u'''$ that are non zero, and $P$ that are non-linear. The problem is 
+\textbf{Then, I think we can describe how thi
+
+s would change with $u'', u'''$ that are non zero, and $P$ that are non-linear. I don't have the intuition for production and should try some functional forms... I also don't have intuition for knowledge and should try some functional forms... but this one will be harder (try quadratic of some form)
+Ask Jesse if the $k^r<1$ is a problem - resolved by using $1-e^{-(x-1)}$ imo}
 
 \section{Old}
 
