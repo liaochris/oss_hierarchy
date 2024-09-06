@@ -22,11 +22,7 @@ Moreover, contributors benefit in their on-the-job education from learning how t
 \end{align}
 I make the following assumptions about $u_r, c_r$. 
 \begin{enumerate}
-    \item $u_r$ is linear. Thus, $u_r(x) = \alpha_r x + \beta_r$ where $\alpha_r > 0, \beta_r \in \mathbb{R}$. Since read rank programmers make their decisions only knowing the expectation of their outcomes, practically, this assumption allows me to apply linearity of expectations, so $u_r = \E[u_r]$. \\
-    
-    Linear utility requires contributors who are invariant between mean preserving spreads. In my setting, this means that the utility read rank contributors believe they will get for solving $t_p^r$ problems with knowledge $k^r$ is invariant to potential dispersion created by mean-preserving changes in the problem difficulty distribution $F(k^r)$. \textcolor{red}{I actually can't explain this... They obviously behave differently with different $F(k^r)$...}
-
-    \textcolor{blue}{One idea is to use the normal approximation to the binomial distribution (perhaps with truncation)}
+    \item Something about how changes in skew don't really affect $u_r$. I don't want to assume quadratic explicitly though
 
     
     \item The first derivative of the cost function is increasing. Formally, 
@@ -49,9 +45,7 @@ The $h>1$ represents communication costs encountered in helping correct problems
 $$\max_{\{t_p^w\}} u_w\left((1-\beta_w) t_p^r + \beta_w t_p^w \right) - c_w\left(t_p^w, t_h^w = \frac{ h (1-\beta_w) t_p^r(1-F(k^r))}{\beta_w}, k^w = 1\right)$$
 I make the following assumptions about $u_w, c_w$
 \begin{enumerate}
-    \item $u_w$ is linear. Thus, $u_w(x) = \alpha_wx + \beta_w, \alpha_w > 0$. 
-    \textcolor{red}{also problematic, same reason as before}
-    
+    \item Anything about $u_w$?    
     \item The first derivative of the cost function is increasing in. Formally, 
     $$\frac{\partial c_w}{\partial t_p^w}>0 \qquad \frac{\partial c_w}{\partial t_h^w}>0 $$   
     \item  The second derivative of production in the cost function are increasing. Formally, $$ \frac{\partial^2 c_w}{\partial (t_p^w)^2}>0 \qquad  \frac{\partial^2 c_w}{\partial (t_h^w)^2}>0 \qquad  \frac{\partial^2 c_w}{\partial t_h^w \partial t_p^w}>0$$
@@ -66,8 +60,7 @@ $$\max_{\{\beta_w\}} u_o\left((1-\beta_w) t_p^r + \beta_w t_p^w\right) - c_o(\be
 
 I make the following assumptions about $u_o, c_o$
 \begin{enumerate}
-    \item $u_o$ is linear. Thus, $u_o(x) = \alpha_ox + \beta_o, \alpha_o > 0$.
-    \textcolor{red}{also problematic, same reason as before}
+    \item Anything about $u_o$?
     \item The first derivative of the cost function is increasing. Formally, 
     $$\frac{\partial c_o}{\partial \beta_w}>0$$
     \item  The second derivative of the cost function is increasing. Formally, 
@@ -80,18 +73,12 @@ I make the following assumptions about $u_o, c_o$
 
 \subsection{Solving the Model}
 \subsubsection{Read Rank}
-Solving for the first order conditions tells us that read rank programmers find $k^r, t_p^r$ solving 
-$$\frac{t_p^rf(k^r)}{F(k^r)} = \frac{\frac{\partial c_r}{\partial k^r}}{\frac{\partial c_r}{\partial t_p^r}}$$
-
-When a read rank contributor's knowledge increases, they solve $t_p^r f(k^r)$ more problems, which has $\omega_r t_p^r f(k^r)$ benefit However, note that the utility they derive from write rank contributors solving their problems decreases, because when read rank contributors are more knowledgeable, write rank contributors solve $t_p^r f(k^r)$ less problems. The combination of both factors mean that ultimately, the change in utility caused by an increase in knowledge on overall problems solved is weighted by a factor of $2\omega_r - 1$. By imposing that $\omega_r>\frac12$, which says that contributors prefer to solve problems on their own than have them be solved by others, read rank contributors will acquire some knowledge. 
-
-When a write rank contributor's effort increases, they benefit in two ways. First, they solve $F(k^r)$ more problems, which has $\omega_r F(k^r)$ benefit. Second, because more problems are unsolved, write rank contributors have to help fix $1-F(k^r)$ problems, which has $1-\omega_r$ benefit.
+I've solved for it in \href{run:source/paper/utility_theory.tex}{utility\_theory.tex}
 
 \subsubsection{Write Rank}
 The write rank contributor's problem so
 $$\max_{\{t_p^w\}} u_w\left((1-\beta_w) t_p^r + \beta_w t_p^w \right) - c_w\left(t_p^w, t_h^w = \frac{ h (1-\beta_w) t_p^r(1-F(k^r))}{\beta_w}, k^w = 1\right)$$
-Note that $\frac{\partial u_w}{\partial \beta_w} = \alpha_w$ 
-so $$t_p^w \text{ solves } \alpha_w \beta_w - \frac{\partial c_w}{\partial t_h^w} \frac{\partial t_h^w}{\partial \beta_w}\frac{\partial \beta_w}{\partial t_p^w} = \frac{\partial c_w}{\partial t_p^w} $$
+so $$t_p^w \text{ solves } u_w' \cdot \beta_w \beta_w - \frac{\partial c_w}{\partial t_h^w} \frac{\partial t_h^w}{\partial \beta_w}\frac{\partial \beta_w}{\partial t_p^w} = \frac{\partial c_w}{\partial t_p^w} $$
 
 Total production increases by $\beta_w$ when production effort $t_p^w$ is increased, with an aggregate effect of $\alpha_w\beta_w$. The increase in $t_p^w$ also has a secondary effect, which depends on whether increases in production $t_p^w$ increase or decrease the total amount of write rank contributors $\beta_w$ (aka what's the sign of $\frac{\partial \beta_w}{\partial t_p^w}$). 
 
@@ -104,7 +91,7 @@ The organization's problem is
 $$\max_{\{\beta_w\}} u_o\left((1-\beta_w) t_p^r + \beta_w t_p^w\right) - c_o(\beta_w)$$ 
 so 
 \begin{align}
-    \beta_w \text{ solves } \alpha_o(t_p^w- t_p^r + \beta_w \frac{\partial t_p^w}{\partial \beta_w} ) = \frac{\partial c_o}{\partial \beta_w} \label{org_solution}
+    \beta_w \text{ solves } u_o' \cdot (t_p^w- t_p^r + \beta_w \frac{\partial t_p^w}{\partial \beta_w} ) = \frac{\partial c_o}{\partial \beta_w} \label{org_solution}
 \end{align}
 There are two benefits to increasing write-rank contributors, $\beta_w$. First, exchanging a read rank contributor for a write rank contributor has the net effect of $t_p^w - t_p^r$ on production. Second, note that when more write rank contributors are promoted, write rank contributors' individual production increases because they have less helping responsibilities. This is captured by $\frac{\partial t_p^w}{\partial \beta_w}$, and its multiplied by a factor of $\beta_w$ for each write rank contributor. 
 
@@ -117,28 +104,21 @@ Suppose we want to analyze how a decrease in $\frac{\partial c_r}{\partial k^r}$
 \end{enumerate}
 \subsubsection{How read rank contributors allocate their time}
 
-$$\frac{(2\omega_r -1) t_p^r f(k^r)}{1 - \omega_r + (2 \omega_r -1)F(k^r)} = \frac{\frac{\partial c_r}{\partial k^r}}{\frac{\partial c_r}{\partial t_p^r}}$$
-\begin{enumerate}
-    \item Obviously, to some degree, $k^r$ decreases. The marginal benefit of knowledge acquisition, at the previous level of $k^r$, is now outweighed by the marginal cost of knowledge acquisition. The direct effect of the decrease is of less interest to us. What's more interesting is how the project responds to this change in their capabilities, and how that affects the work read-rank contributors do. 
-    \item The changes in $k^r$ and $t_p^r$ are interrelated. Since $\frac{\partial c_r}{\partial k^r}$ increased, the marginal cost of acquiring knowledge now exceeds the marginal benefit of knowledge, so the amount of knowledge acquired will be reduced. \\
-    
-    How $t_p^r$ changes depends. It might be the case that because the marginal benefit of production effort is affected by a contributor's level of knowledge it may be optimal to reduce production effort. It might also be the case that increasing production may be optimal. The optimal ratio of knowledge to effort decreases when the cost of knowledge increases; this can be accomplished either by decreasing knowledge, increasing production effort, or both. The combination of both that is chosen depends on the cost curves of knowledge and production. When reducing time spent on knowledge acquisition reduces costs by large (small) magnitudes, has (small) negative effects on utility, and increasing production has large (small) increases on cost, then contributors may choose to decrease the knowledge to effort ratio large through reductions (increases) in knowledge acquisition. \textcolor{red}{Should I describe examples of when one or the other occurs? IE: high cost of knowledge acquisition, low $\omega_r$ and low knowledge (so not worth it to acquire more knowledge) vs. low cost of effort, high knowledge and high $\omega_r$. It seems pretty unlikely that cost of knowledge acquisition is high when little knowledge has been acquired. Intuitively, it seems likely that $t_p^r$ increases The reality makes sense - $t_p^r$ increases. People spend less time acquiring knowledge by reading documentary if the documentation is messy and full of errors - instead, they invest that effort towards trying to solve the actual problem at hand.}
-    
-    We also know that regardless of the intricacies of the read rank contributor's cost and utility functions, $t_p^rF(k^r)$ cannot increase after an increase in $\frac{\partial c_r}{\partial k_r}$. Note also that if $k^r$ decreases, it doesn't make sense for $t_p^r$ to decrease - the read rank contributor wants to maintain the highest $t_p^rF(k^r)$ value it can while reaching the new optimal ratio of $k^r$ to $t_p^r$. 
-    
-\end{enumerate}
+Also described in \href{run:source/paper/utility_theory.tex}{utility\_theory.tex}
+
 \subsubsection{How write rank contributors allocate their time \& the organization's response}
 Finding $t_p^w, \beta_w$ requires simultaneously solving 
-$$t_p^w \text{ solves } \alpha_w \beta_w - \frac{\partial c_w}{\partial t_h^w} \frac{\partial t_h^w}{\partial \beta_w}\frac{\partial \beta_w}{\partial t_p^w} = \frac{\partial c_w}{\partial t_p^w} $$
+$$t_p^w \text{ solves } u_w' \cdot \beta_w - \frac{\partial c_w}{\partial t_h^w} \frac{\partial t_h^w}{\partial \beta_w}\frac{\partial \beta_w}{\partial t_p^w} = \frac{\partial c_w}{\partial t_p^w} $$
 and
 \begin{align}
-    \beta_w \text{ solves } \alpha_o(t_p^w- t_p^r + \beta_w \frac{\partial t_p^w}{\partial \beta_w} ) = \frac{\partial c_o}{\partial \beta_w} 
+    \beta_w \text{ solves } u_o' \cdot (t_p^w- t_p^r + \beta_w \frac{\partial t_p^w}{\partial \beta_w} ) = \frac{\partial c_o}{\partial \beta_w} 
 \end{align}
 Here's why trying to figure out how $t_p^w, \beta_w$ respond to an increase in $\frac{\partial c_r}{\partial k^r}$, the cost of knowledge acquisition for read-rank contributors, is complicated. 
 \begin{enumerate}
     \item  Suppose that production effort by read rank contributors $t_p^r$ increases, which is the most likely scenario. Let's first consider how the project responds, because the project's choice of $\beta_w$ determines the write rank contributor's choice of $t_p^w$. The project faces the following balancing act - write rank contributors are valuable because they help correct problem solutions and engage in production. On the other hand, they're costly for the project. Read rank contributors engage in production without incurring extra costs for the project. \\
     When production by read rank contributors increases, they become more valuable, relative to write rank contributors, so the marginal cost of a write rank contributor $\beta_w$ now exceeds the marginal benefit of the additional write rank contributor. To resolve this, the project has two options, both of which are situation dependent: increase or reduce the number of write rank contributors $\beta_w$. 
 \end{enumerate}
+\textcolor{red}{Needs to be rewritten - quite poor}
 If write rank contributors are very costly for the organization (high $\frac{\partial c_o}{\partial \beta_w}$), especially relative to the benefit of additional write rank contributors, $\beta_w$ may be reduced. Reducing $\beta_w$ reduces the organization's costs, on the RHS. It also reduces write rank contributor production (because write rank contributors now have helping responsibilities), which reduces the RHS. 
 
 In the context of open source, it seems implausible that $\frac{\partial c_o}{\partial \beta_w}$ is high, given than open source projects are always suffering from a lack of maintainers. If $\beta_w$ increases, while $\frac{\partial c_o}{\partial \beta_w}$ increases, it will not be large given that OSS projects always benefit from more contributors. Moreover, increasing $\beta_w$ increases write rank contributor production $t_p^w$ because it enables them to spend less time helping and more time on production. 
@@ -155,6 +135,6 @@ Suppose we want to analyze how an increase in $h$, the cost of communication, af
 They are not affected. 
 \subsubsection{How write rank contributors allocate their time \& the organization's response}
 Recall that $t_h^w = \frac{ h (1-\beta_w) t_p^r(1-F(k^r))}{\beta_w}$, so $\frac{\partial t_h^w}{\partial \beta_w} = -\frac{h t_p^r(1-F(k^r))}{\beta_w^2}$. 
-When communication costs increase, write rank contributors spend more effort correcting problems and engage in less production. This is a similar situation to earlier (increases in $\frac{\partial c_r}{\partial k6r}$), with the difference that instead of a $t_p^r$ increase you have a $t_p^w$ increase. Similar to earlier, I believe that $\beta_w$ will increase in response. 
+When communication costs increase, write rank contributors spend more effort correcting problems and engage in less production. This is a similar situation to earlier (increases in $\frac{\partial c_r}{\partial k^r}$), with the difference that instead of a $t_p^r$ increase you have a $t_p^w$ increase. Similar to earlier, I believe that $\beta_w$ will increase in response. 
 
 \end{document}
