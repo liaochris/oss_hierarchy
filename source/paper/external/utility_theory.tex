@@ -66,8 +66,33 @@ I've omitted the algebra for the optimal $k^r$ calculation and included it in
 \href{run:source/paper/math/quadratic.pdf}{quadratic.pdf}
 When $\alpha_k$, the cost of knowledge acquisition increases, $k^r$ decreases as $\frac{2\sqrt{k^r(e^{k^r} - 1)}}{1-e^{-k^r}}$ is increasing in $k^r$, per \ref{knowledge_quadratic}. Production effort decreases because while the marginal rate of substitution means we shift effort towards production, the negative effect of the increased cost in knowledge and the reduction in production's marginal benefit (because of a reduction in knowledge) is greater.  
 
+\textbf{Differences in $t_p^r$ functional form}
+Let us consider an example where the marginal value of $t_p^r$ is increasing in $t_p^r$. 
 
-\textbf{Then, I think we can describe how this would change with $u'', u'''$ that are non zero, and $P$ that are non-linear. I don't have the intuition for production and should try some functional forms... I also don't have intuition for knowledge and should try some functional forms... but this one will be harder (try quadratic of some form)}
+- Set up the scenario
+- Interested in understanding whether knowledge decreases more or less, and whether production decreases more or less
+1) When knowledge acquisition costs increase, knowledge decreases in both cases, no matter what. Basic economic principle - when costs increase, consumption decreases
+2) How much it decreases depends on how production levels respond. Since $P' e^{t_p^r} = P t_p^r$, if production didn't respond to knowledge, the two cases have identical marginal benefit curves
+3) The thing is that production does respond to knowledge because production and knowledge are complements. Consequently, decreases in knowledge also decrease production. What we're interested in is the magnitude of the decrease when $P(t_p^r) = P' e^{t_p^r}$ vs. $P(t_p^r) = P t_p^r$. 
+
+Suppose $P' e^{t_p^r}$ is above $P t_p^r$; that is, for all $1<t < t_p^r$, $P' e^t > Pt$. Then, the individual with $P(t') = P' e^{t'}$ can attain the same benefit from production as someone with $P(t'') = P t''$ at much lower levels of production effort so that $t' < t''$. \textcolor{red}{But now the problem is I don't know whether $P' e^{t'} \gtrless P t''$ even if I know $t' < t''$. The same is true with the opposite in the below curve case}
+
+\textcolor{red}{The intuition is helpful but I think I need to do the math to actually show what's going on. Using a marginally decreasing functional form is similar - it's pinned down by the above/below curve case}
+
+
+
+
+\textbf{Then, I think we can describe how this would change with $u'', u'''$ that are non zero}\\
+First of all, I really just want to assume away the $u''$ term. I can assume quadratic utility, or I can assume that $t_p^r$ is sufficiently large (which I prefer). 
+
+
+Define $k^r, t_p^r, k^{r*}, t_p^{r*}$, where $k^r, t_p^r$ are optimal knowledge and production for $P(t_p^r) = P t_p^r$ and $k^r, t_p^r$ are optimal knowledge and production for $P^*(t_p^r) = P^* e^{t_p^r}$. Now, suppose we define $P^*$ such that $k^r = k^{r*}$,  $t_p^r = t_p^{r*}$ and $P(t_p^r) = P^*(t_p^r)$ (assuming $\alpha_r, \alpha_p, \alpha_k$ are shared). When $\alpha_k$ decreases, \textbf{change depends on the shape of the lines }
+
+
+we expect production to decrease more in the case of $P^*$ because the relative loss of losing production is less (think $e^x$ above $x+1$ at $x=0$). This also decreases the marginal value of knowledge in the case of $P^*$ more than in the case of $P$ so knowledge will also decrease more. 
+
+
+{I don't have the intuition for production and should try some functional forms... I also don't have intuition for knowledge and should try some functional forms... but this one will be harder (try quadratic of some form)}
 \textcolor{red}{Ask Jesse if the $k^r<1$ is a problem - resolved by using $1-e^{-(x-1)}$ imo}
 
 \section{Old}
