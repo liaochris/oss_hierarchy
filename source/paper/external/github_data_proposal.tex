@@ -1,0 +1,169 @@
+%
+\documentclass[12pt,notitlepage]{article}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{epstopdf}
+\usepackage{pdflscape}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{dsfont}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usepackage{marvosym}
+\usepackage{multirow}
+\usepackage{pdflscape}
+\usepackage[hyphens]{url}
+\usepackage{setspace}
+\usepackage{epigraph}
+\usepackage{bm}
+\usepackage{textcomp}
+\usepackage{diagbox}
+\usepackage{bbm}
+\usepackage{verbatim}
+\usepackage[framemethod=tikz]{mdframed}
+\usepackage{subcaption}
+\usepackage{caption}
+\usepackage{lipsum}
+\usepackage{mathtools}
+\usepackage{scalerel}
+\usepackage{stackengine}
+\usepackage{amsthm}
+\usepackage{epsfig}
+\usepackage[
+backend=biber,
+style=authoryear-comp,
+sorting=ynt
+]{biblatex}
+\usepackage[colorlinks,allcolors=blue]{hyperref}
+\usepackage[shortlabels]{enumitem}
+\usepackage{subfiles} % Best loaded last in the preamble
+
+
+\setlength{\epigraphrule}{0pt}
+\setlength\parindent{0pt}
+\renewcommand{\baselinestretch}{1.25}
+
+\setcounter{MaxMatrixCols}{10}
+
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+
+
+
+\newcommand{\I}{\mathbb{I}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Ll}{\mathrm{L}}
+\newcommand{\R}{\mathbb{R}}
+\renewcommand{\L}{\mathbb{L}}
+\newcommand{\Var}{\mathrm{Var}}
+\newcommand{\Cov}{\mathrm{Cov}}
+\newcommand{\Corr}{\mathrm{Corr}}
+\newcommand{\Prob}{\mathbb{P}}
+\newcommand{\supp}{\mathrm{supp}}
+\newcommand{\notimplies}{\mathrel{{\ooalign{\hidewidth$\not\phantom{=}$\hidewidth\cr$\implies$}}}}
+\newcommand{\var}{\mathrm{var}}
+\newcommand{\Bias}{\mathrm{Bias}}
+\newcommand{\cov}{\mathrm{cov}}
+\newcommand{\corr}{\mathrm{corr}}
+\newcommand{\MSE}{\mathrm{MSE}}
+
+\topmargin=-1.5cm \textheight=23cm \oddsidemargin=0.5cm
+\evensidemargin=0.5cm \textwidth=15.5cm
+
+\newtheorem{theorem1}{Special Theorem}
+
+\newtheorem{ass}{Assumption}
+\newtheorem{definit}{Definition}
+\newtheorem{prop}{Proposition}
+\newtheorem{thm}{Theorem}
+\newtheorem{lem}{Lemma}
+\newtheorem{conj}{Conjecture}
+\newtheorem{cor}{Corollary}
+\newtheorem{rem}{Remark}
+
+\renewcommand{\thesubsection}{\arabic{section}.\arabic{subsection}}
+\renewcommand{\thesubsubsection}{\arabic{section}.\arabic{subsection}.\arabic{subsubsection}}
+
+\newcommand\dapprox{\stackrel{\mathclap{\tiny \mbox{d}}}{\approx}}
+\newcommand\papprox{\stackrel{\mathclap{\tiny \mbox{p}}}{\approx}}
+\newcommand\pconverge{\stackrel{\mathclap{\tiny \mbox{p}}}{\to}}
+\newcommand\dconverge{\stackrel{\mathclap{\tiny \mbox{d}}}{\to}}
+
+\addbibresource{source/paper/references.bib}
+
+
+\newcommand\independent{\protect\mathpalette{\protect\independenT}{\perp}}
+\def\independenT#1#2{\mathrel{\rlap{$#1#2$}\mkern2mu{#1#2}}}
+
+
+\hypersetup{
+	pdftitle={undergrad thesis},    % title
+	pdfauthor={Chris Liao},     % author
+	pdfnewwindow=true,      % links in new window
+	colorlinks=true,       % false: boxed links; true: colored links
+	linkcolor=blue,          % color of internal links
+	citecolor=red,        % color of links to bibliography
+	filecolor=black,      % color of file links
+	urlcolor=blue           % color of external links
+}
+
+\allowdisplaybreaks
+
+\begin{document}
+\section*{Goal}
+\textbf{Two options: Option 1) study oss through organizational sturcture lens, Option 2) Focus on the shocks}
+The goal of this research project is to study open source software development through an organizational structure lens. I do so by combining an understanding of the incentives of individual OSS contributors and the OSS organization to study two things: first, how the OSS organization determines the allocation of responsibilities to OSS contributors and second, how OSS contributors and the organization respond in tandem to project and platform changes. Studying OSS organizational structure is important because OSS development hinges on its OSS contributors, whose tasks, roles and ability are all affected by decisions made by the organization in response to its environment. 
+
+To do this, I proceed in two steps. First, I develop an economic model that describes how organizational sturcture affects OSS development. Then, I use granular, contributor-level data to test the hypotheses of that model. I'm interested in testing two hypotheses:
+\begin{itemize}
+    \item How does the departure of highly ranked OSS contributors impact the learning of new or fringe OSS contributors, and how do organizations respond?
+    \item When GitHub adopted issue and pull request templates, the cost of communicating between OSS contributors was reduced because communications became more organized. How did this affect learning by OSS contributors and the organization's allocation of contributors across ranks?
+\end{itemize}
+\textbf{describe my hypotheses in more detail. }
+To conduct this empirical analysis, I require time series data about the rank and contributions made by individual contributors to specific projects 
+
+\section*{Data}
+
+\subsection*{Observation}
+Individual-project level
+
+\subsection*{Timespan}
+2011-2024
+
+\subsection*{Observation set}
+Select some group of projects
+
+\subsection*{Covariates}
+\begin{itemize}
+    \item Date and rank where each individual was promoted/demoted in a project
+    \item For each day:
+    \begin{itemize}
+        \item \# of issues opened, closed, merged, commented on (unique IDs for each issue opened, closed, commented + number of characters in each comment)
+        \item \# of commits made (and lines of code changes/\# of commits for each file + whether each file was a markdown file or not), to which branch/PR the commit was made (I need unsquashed commits for each PR)
+        \item \# of (and which) issues/PRs they were assigned to as an assignee or reviewer
+        \item issue-PR links
+    \end{itemize}
+    \item Run \url{https://github.com/s2e-lab/BERT-Based-GitHub-Issue-Classification} to classify issues (on initial open)
+    \item \# of followers and following
+    \item \# of achievements completed
+    \item \# of programming languages coded in (and mix)
+    \item \# of years on GitHub
+    \item \# of overall commits on GitHub
+    \item \# of leadership roles in other projects
+    \item Overall \# of projects involved in (**probably want to add some timeframe to this**)
+    \item topics/tags of the projects they're involved in
+    \item **what does Nagle use? what does Roche use?**
+    \item Timezone they're committing from
+\end{itemize}
+
+\subsection*{For each project}
+\begin{itemize}
+    \item evolving truck factor
+    \item when did they adopt issue/pull request templates - whether there's a skip template option
+    \item Would be great if I had information on when they adopted Slack, GitHub Discussion, etc.
+\end{itemize}
+
+\end{document}
