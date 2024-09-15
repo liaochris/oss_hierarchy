@@ -2,72 +2,76 @@
 \begin{document}
 
 \subsection{Background}
-In my empirical analysis, I examine how changes in the cost of knowledge acquisition and communication across the hierarchy affect hierarchical structure and the work of OSS contributors. 
+In my empirical analysis, I examine how changes in the cost of knowledge acquisition and communication across the hierarchy affect hierarchical structure and the work of OSS contributors. I study the impact of increases in the cost of knowledge acquisition by examining knowledge turnover caused by contributor departures. I study the impact of decreases in communication cost by examining the impact of issue and pull request template adoption by projects. 
 
 \begin{enumerate}
-    \item GitHub Actions
     \item Contributor Turnover
     \item Issue \& Pull Request Templates
-    \item Codeowners file (perhaps later?)
 \end{enumerate}
 
-Focus first on what each of these does and then think about how it fits into the hierarchy. For each of the "predicted empirical effects" section highlight both my model's predictions and Garicano's predictions
-
-\subsection{GitHub Actions}
-\subsubsection{Summary}
-GitHub Actions, released in November 2019 (October 2018 beta) is "a new way for developers to automate workflows directly from their repositories". Notably, it offers powerful CI/CD tools, which automate several aspects of the software development pipeline and help increase the rate of software release by packaging software improvements into smaller increments. Github Actions fall into a variety of categories; below, I list some example categories of GitHub Actions
-\begin{itemize}
-    \item Utilities: Makes it easier to use various Github Actions in your pipeline
-    \item CI \& Deployment: Provides developers with pipieline for software deployment 
-    \item Code Quality \& Code Review: Provides reports and information on aspects where the code should be improved
-    \item Publishing: Helps automate part of the release cycle of software
-    \item Open Source Management: Automates communication and management of issues
-\end{itemize}
-GitHub Actions has heterogeneous effects on the hierarchy, depending on the action category. Actions like code quality, code review, open source management which interact with lower ranked contributors reduce communication costs. 
-For example, code quality and review actions highlight improvements automatically for developers, which; this saves time because they no longer have to comb through the file line by line, checking for style. CI \& Deployment, Publishing \& Utilities reduce knowledge acquisition costs for higher ranked OSS contributors. For example, developers also don't have to learn about each project's custom software publishing/deployment processes because a developer will have integrated a GitHub Action that handles that for them into the pipeline. 
-
-
-\subsubsection{Adoption and Treatment Notes}
-\begin{enumerate}
-    \item There are a few different initial adoption dates to consider and there may be underlying unobservable characteristics distinguishing projects that adopt GA during beta vs. at different points after release
-    \item One way to measure adoption is when the project first creates a `.yaml`/`.yml` file. 
-    \item There is heterogeneity in the initial treatment value because different projects adopt different GitHub Actions to begin with, so there are many possible treatment values. 
-    \item Projects add to their cache of GitHub Actions over times, which means that the treatment value changes over time. 
-    \item One possible solution is to define treatment based off the categories of the GitHub Actions they've adopted. 
-    \item The analysis is complicated because different categories have heterogeneous effects 
-    \item Note also that the previous popular CI tool, Travis CI, discontinued open source support in 2020 (https://blog.travis-ci.com/2020-11-02-travis-ci-new-billing). This may have caused an increase in the number of Github Actions users and might be relevant for treatment timing. 
-\end{enumerate}
-
-Existing studies don't consider changes in the treatment value, defend the RDD assumption, explore the impact on individualized work as opposed to project-wide aggregations, or analyze the aggregate project-wide effects as opposed to separate effects for merged or unmerged PRs. Moreover, no study considers the impact of GitHub Actions in a hierarchical context. However, GitHub Actions are more recent which makes it easier to analyze and more relevant. 
-\subsubsection{Predicted Empirical Effects}
-\textcolor{red}{WIP}
-\subsubsection{Literature}
-\textcolor{red}{WIP}
-\subsection{Misc}
-In all honesty, I'm not sure I'm that invested into analyzing GitHub Actions. The complexities of treatment values/adoption and the fact that it affects so many aspetcs of the hierarchy simultaneously makes it difficult. I think GitHub Actions is definitely interesting to analyze but maybe not under the hierarchies framework. We shall see though.
 \subsection{Knowledge Turnover}
-One of the major worries with OSS production is the reliance of projects on a few contributors, who, without a contractual obligation of a project, may disappear at a moments notice and bring with them the knowledge and skills necessary for key components of, or in some cases, the whole project, to function. One way to measure variation in the cost of knowledge acquisition in projects is to exploit OSS developer turnover. When a key contributor for an OSS project leaves, it is much harder for new contributors to acquire knowledge because a source of information is gone. 
+\textbf{Question}: What is the causal impact of knowledge turnover on OSS hierarchical structure and contributor time allocation? 
+
+\subsubsection{Context}
+One of the major worries with OSS development is the reliance of projects on a few contributors, who, without a contractual obligation of a project, may disappear at a moments notice and bring with them the knowledge and skills necessary for key components of, or in some cases, the whole project, to function. One way to measure variation in the cost of knowledge acquisition in projects is to exploit OSS developer turnover. When a key contributor for an OSS project leaves, it is much harder for new contributors to acquire knowledge about projects because a source of information is gone.\\
+\textcolor{red}{It would be good for me to explore some examples of this in the data, so I can tell an interesting story about the impact of contributor turnover. Some initial questions
+\begin{itemize}
+    \item How were areas where this contributor was involved in affected deferentially compared to other areas?
+    \item Do we observe evidence of reduced discussion in issues related to a PR (less learning?)
+    \item Do we observe evidence of less PR review comments \& slower PR reviews?
+    \item Do we observe evidence that future PRs by contributors who would be affected are rejected at higher rates?
+\end{itemize}
+}
 \subsubsection{Adoption and Treatment}
 \begin{enumerate}
-    \item There's not really an "adoption" timeline. 
     \item We can consider variation in turnover by examining the "truck" factor of projects, which measures the number of key members. There are also variants to this measure, such as looking at the identity of the person who wrote the last line of code, as opposed to total lines written per person. 
-    \item It will also be important to consider the presence of knowledge preservation tools. The impact of contributors leaving will be lessened by the presence of good documentation. For example, if a departing contributor wrote a lot of documentation count, that means that they probably did preserve their knowledge for future contributors so their departure will not impact knowledge acquisition by as much. 
-    \item I can use departures as either an indicator for a decrease in knowledge acquisition costs or as the endogenous variable that proxies for an increase in knowledge acquisition costs. 
+    \item I should also control for the presence of knowledge preservation tools. The impact of contributors leaving will be lessened by the presence of good documentation. For example, if a departing contributor wrote a lot of documentation count, that means that they probably did preserve their knowledge for future contributors so their departure will not impact knowledge acquisition by as much. I can measure this by looking at the amount of code for `.md`, `.rst` or other documentation files types that they wrote. 
 \end{enumerate}
 
-\subsubsection{Predited Empirical Effects}
-Do we observe increases in knowledge? Although knowledge acquisition costs and knowledge acquisition is unobserved, we can proxy for increases in knowledge by the \% of problems write rank contributors need to solve/correct. Example statistics include
+\subsubsection{Good Descriptive Facts}
 \begin{itemize}
-    \item \% of PRs that are merged (higher knowledge = more merged PRs)
-    \item \% of comments/reviews per PR (higher knowledge = less review comments needed)
-    \item After PR is opened, number of commits that are made (higher knowledge = less correction commits needed)
-    \item Controlling for PR size, \% of commits by PR reviewer (higher knowledge = less correction commits by reviewer needed)
-    \item Controlling for PR size, time it takes to wrap up a PR. (higher knowledge = less time to wrap up a PR). Note that since my shock involves exploiting exogenous variation in reviewers, we'll obviously see higher review times regardless of changes in knowledge. Two ideas to account for this are to subtract "PR reviewer assignment time" or control for the \# of active potential reviewers. 
-    \item Classify issues as bugs, enhancements and questions - then look at the \% of linked PRs that are about enhancements (higher knowledge = more enhancements, as enhancements are more challenging than bugs to implement)
+    \item What is the rate of turnover? Contextualize this with information about average project size. 
+    \item What does the distribution of importance (for departing contributors) look like? Can contexualize using a variety of measures such as LOC written (truck factor), issues commented on, PRs reviewed, etc
 \end{itemize}
 
+\subsubsection{Predicted Empirical Effects - Hierarchical Structure}
+I am interested in three metrics related to organizational structure
+\begin{enumerate}
+    \item Span: Ratio of higher to lower ranked contributors \\
+    \textcolor{blue}{Garicano's model predicts} that there will be more write rank contributors\\
+    \textcolor{olive}{What does my model predict?}
+    \item Frequency: \% of all problems solved at each layer\\
+    \textcolor{blue}{Garicano's model predicts} that more problems will be solved by highly ranked contributors \\
+    \textcolor{olive}{What does my model predict?}
+    \item Output: How many problems are being solved\\
+    \textcolor{blue}{Garicano's model predicts} that overall production will decrease. \\
+    \textcolor{olive}{What does my model predict?}
+\end{enumerate}
+\textbf{On span:} Since some organizations don't actively manage hierarchies, I may want to filter by "activeness" (separately, there may be something interesting to say about "activeness" versus actual hierarchy, along the lines of security). I may also want to just consider the numerator (write rank contributors) as the project can only control the quantity of promotions, not new contributors. \\
+\textbf{On frequency: } I define a problem as a pull request, although not all pull requests are created equal. In this case, I can weight pull requests by lines of code, files changed (removing moved files) or other measures (that I think of). Separately, since the flow of read-rank contributors cannot be controlled, I may want to just consider the \% of all problems solved by write rank contributors. I can start by assuming problems are solved individually and validate this by examining the proportion of code written/PR by one individual. It will also be interesting to break down where the changes in \% problems solved are coming from. \\
+\textbf{On output: } This is my opportunity to connect organizational structure outcomes to OSS development outcomes such as quantity or \% of PRs merged, and \% of opened issues that are closed. There may also be non-code related development metrics of interest. 
+\textcolor{red}{What are outcomes that organizations care about?}
+
+\subsubsection{Predicted Empirical Effects - Contributor Characteristics}
+I am interested in three metrics related to individual conrtibutors
+\begin{enumerate}
+    \item Individual Output: How many problems is each contributor solving?\\
+    \textcolor{blue}{Garicano's model predicts } that each read rank contributor will solve less problems and write rank contributor will solve more\\
+    \textcolor{olive}{What does my model predict?}
+    \item Individual Skill: How knowledgeable are they? \\
+    \textcolor{blue}{Garicano's model predicts } that each read rank contributor will lose skill and write rank contributors will gain skill\\
+    \textcolor{olive}{What does my model predict?}
+    \item Individual Value Added: What is the value of the problems they're solving
+    \textcolor{blue}{Garicano's model doesn't have a prediction for this}\\
+    \textcolor{olive}{I don't have a prediction for this either but I think it would be fun to answer. It's probably not the most important thing to spend time on though.}
+\end{enumerate}
+\textbf{On individual output:} I may encounter measurement issues due to integer constraints with "problems". This is a good place to incorporate ideas relating to problem weighting from the hierarchical structure section. \\
+\textbf{On individual skill:} Some examples of skill measures are the length of time required to solve a problem, the number of LOC someone has written (for a project), their quantity of GH badges. The problem is that problem difficulty is an unobserved confounder. Two fun ideas to measure problem difficulty are how close ChatGPT can answer the question and the cyclomatic complexity of the problem (former is hard to implement, latter has endogeneity issues). \\
+\textbf{On value: } One fun idea is to examine the text that's commonly observed in SO for this python library, and see how similar it is to a PR/issue - high value indicates high similarity (solving something people are asking about). 
 \subsubsection{Literature}
-\cite{rashid_exploring_2017} has a fairly good literature review on knowledge loss in OSS. \cite{nassif_revisiting_2017} provides interesting comparisons about different statistics for measuring knowledge loss
+\textbf{Economics}\\
+\textbf{OSS}\\
+\cite{rashid_exploring_2017} has a fairly good literature review on knowledge loss in OSS. \cite{nassif_revisiting_2017} provides interesting comparisons about different statistics for measuring knowledge loss. 
 
 Some papers that I'm hoping to read are
 \begin{enumerate}
@@ -81,20 +85,56 @@ Some papers that I'm hoping to read are
 \subsubsection{Summary}
 In February of 2016 (https://github.blog/?s=issue+templates), GitHub released issue and pull request templates. GitHub stated that "now project maintainers can add templates for Issues and Pull Requests to projects, helping contributors share the right details at the start of a thread". This is important because it ensures that OSS contributors have completed required checklist items before opening an issue/PR, and also makes it easier for reviewers to identify to find particular key pieces of information. 
 \subsubsection{Adoption and Treatment Notes}
-I can measure initial adoption of PR and Issue templates by looking at when an ISSUE\_TEMPLATE (optional ".md" extension?) file or PULL\_REQUEST\_TEMPLATE (optional ".md" extension?) was created. I can compare projects that adopted these templates during similar timeframes because while the particular timing of adoption might be adoption, adoption within a certain timerange tells us a lot about the attitudes of the OSS contributors towards improving their projects. In May 2018, users acquired the option to choose a template from (presumably) a variety of options when making a new issue (https://github.blog/changelog/2018-05-02-mutiple-template-choice/). However, while this implies that there may be multiple treatments, this is still easier to analyze because there are less possible combinations (less templates) and adoption is more spread out throughout time. 
+I can measure initial adoption of PR and Issue templates by looking at when an ISSUE\_TEMPLATE (optional ".md" extension?) file or PULL\_REQUEST\_TEMPLATE (optional ".md" extension?) was created. I can compare projects that adopted these templates during similar timeframes because while the particular timing of adoption might be adoption, adoption within a certain timerange tells us a lot about the attitudes of the OSS contributors towards improving their projects. In May 2018, users acquired the option to choose a template from (presumably) a variety of options when making a new issue (\href{https://github.blog/changelog/2018-05-02-mutiple-template-choice/}{source}). However, while this implies that there may be multiple treatments, this is still easier to analyze because there are less possible combinations (less templates) and adoption is more spread out throughout time. 
+\textcolor{red}{Are there any interesting stories I can tell wrt to issue/pr templates? }
+
+\subsubsection{Predicted Empirical Effects - Hierarchical Structure}
+I am interested in three metrics related to organizational structure
+\begin{enumerate}
+    \item Span: Ratio of higher to lower ranked contributors \\
+    \textcolor{blue}{Garicano's model predicts} that there will be more write rank contributors\\
+    \textcolor{olive}{What does my model predict?}
+    \item Frequency: \% of all problems solved at each layer\\
+    \textcolor{blue}{Garicano's model predicts} that more problems will be solved by highly ranked contributors \\
+    \textcolor{olive}{What does my model predict?}
+    \item Output: How many problems are being solved\\
+    \textcolor{blue}{Garicano's model predicts} that overall production will increase \\
+    \textcolor{olive}{What does my model predict?}
+\end{enumerate}
+
+\subsubsection{Predicted Empirical Effects - Contributor Characteristics}
+I am interested in three metrics related to individual conrtibutors
+\begin{enumerate}
+    \item Individual Output: How many problems is each contributor solving?\\
+    \textcolor{blue}{Garicano's model predicts } that each read rank contributor will solve less problems and write rank contributor will solve more\\
+    \textcolor{olive}{What does my model predict?}
+    \item Individual Skill: How knowledgeable are they? \\
+    \textcolor{blue}{Garicano's model predicts } that each read rank contributor will lose skill and write rank contributors will gain skill\\
+    \textcolor{olive}{What does my model predict?}
+    \item Individual Value Added: What is the value of the problems they're solving\\
+    \textcolor{blue}{Garicano's model doesn't have a prediction for this}\\
+    \textcolor{olive}{I don't have a prediction for this either but I think it would be fun to answer. It's probably not the most important thing to spend time on though.}
+\end{enumerate}
 
 
-\subsubsection{Predicted Empirical Effects}
-\textcolor{red}{WIP}
 \subsubsection{Literature} 
-\textcolor{red}{need to cite all and read}
-\hyperlink{https://dl.acm.org/doi/10.1145/3643673}{An Empirical Analysis of Issue Templates Usage in Large-Scale Projects on GitHub}
-\hyperlink{https://doi.org/10.1016/j.infsof.2021.106797}{Consistent or not? An investigation of using Pull Request Template in GitHub}
-\hyperlink{https://doi.org/10.1109/TSE.2022.3224053}{To Follow or Not to Follow: Understanding Issue/Pull-Request Templates on GitHub}
+\textbf{Economics}
+\textbf{OSS}
+Some papers that I'm hoping to read are
+\begin{enumerate}
+    \item \hyperlink{https://dl.acm.org/doi/10.1145/3643673}{An Empirical Analysis of Issue Templates Usage in Large-Scale Projects on GitHub}
+    \item \hyperlink{https://doi.org/10.1016/j.infsof.2021.106797}{Consistent or not? An investigation of using Pull Request Template in GitHub}
+    \item \hyperlink{https://doi.org/10.1109/TSE.2022.3224053}{To Follow or Not to Follow: Understanding Issue/Pull-Request Templates on GitHub}
+    \item \hyperlink{source/literature/e2120n2.pdf}{An empirical examination of newcomer contribution costs in established OSS communities: a knowledge-based perspective}
+\end{enumerate}
 
-
-barriers to contributing: how to contribute - see harvard pdf 
-
-
+\section{Other questions}
+\begin{enumerate}
+    \item How does task distribution efficiency change? How does task choice change?
+    \item What differences do I observe b/w corporate and non-corporate OSS?
+    \item Control for software project maturity, individual length of affiliation with project
+    \item What \% of assignees end up writing code/participating in discussion?
+    \item 
+\end{enumerate}
 
 \end{document}
