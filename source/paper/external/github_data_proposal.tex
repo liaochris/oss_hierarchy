@@ -114,42 +114,96 @@ sorting=ynt
 
 \begin{document}
 \section*{Goal}
-\textbf{Two options: Option 1) study oss through organizational sturcture lens, Option 2) Focus on the shocks}
-The goal of this research project is to study open source software development through an organizational structure lens. I do so by combining an understanding of the incentives of individual OSS contributors and the OSS organization to study two things: first, how the OSS organization determines the allocation of responsibilities to OSS contributors and second, how OSS contributors and the organization respond in tandem to project and platform changes. Studying OSS organizational structure is important because OSS development hinges on its OSS contributors, whose tasks, roles and ability are all affected by decisions made by the organization in response to its environment. 
+\textbf{Two options: Option 1) study oss through organizational sturcture lens, Option 2) Focus on the shocks}\\
+The goal of this research project is to study open source software development through an organizational structure lens. I do so by combining an understanding of the incentives of individual OSS contributors and the OSS organization to study two things: first, how the OSS organization determines the allocation of responsibilities to OSS contributors and second, how OSS contributors and the organization respond in tandem to changes in their environment. Studying OSS organizational structure is important because OSS development hinges on its OSS contributors, whose tasks, roles and abilities are all affected by decisions made by the organization's leadership (\cite{lerner_simple_2002}, \cite{lerner_economics_2005}). In particular, while it is well documented that OSS organizations are organized into hierarchies based off the knowledge of contributors,  (\cite{crowston_hierarchy_2006}, \cite{crowston_core_2006}, \cite{lerner_simple_2002}), to the extent that I am aware, my research is the first to apply an economic model of hierarchical structure towards the study of OSS development.
 
-To do this, I proceed in two steps. First, I develop an economic model that describes how organizational sturcture affects OSS development. Then, I use granular, contributor-level data to test the hypotheses of that model. I'm interested in testing two hypotheses:
+To do this, I proceed in two steps. First, I develop an economic model that describes how organizational structure affects OSS development. Then, I use granular, contributor-level data to test the hypotheses of that model. I'm interested in testing two hypotheses:
 \begin{itemize}
     \item How does the departure of highly ranked OSS contributors impact the learning of new or fringe OSS contributors, and how do organizations respond?
-    \item When GitHub adopted issue and pull request templates, the cost of communicating between OSS contributors was reduced because communications became more organized. How did this affect learning by OSS contributors and the organization's allocation of contributors across ranks?
+    \item How do GitHub platform improvements (like issue \& pull request templates) affect learning by OSS contributors and the organization's allocation of contributors across ranks?
 \end{itemize}
-\textbf{describe my hypotheses in more detail. }
-To conduct this empirical analysis, I require time series data about the rank and contributions made by individual contributors to specific projects 
+Economic models of knowledge hierarchies (\cite{garicano_hierarchies_2000}) are well suited for the first task for two reasons. First, they illuminate the economic forces that affect OSS development through their effect on the decisions made by organizations and subsequently, OSS contributors. Second, they provide a framework for analyzing how changes in economic forces affect OSS development by changing the decisions made by organizations and contributors. Knowledge hierarchies are present in many organizations and empirical studies of how organizations and their employees respond to economic environments (\cite{garicano_hierarchies_2012}, \cite{bloom_distinct_2014}) can helps us compare how OSS organizational dynamics compare to more traditional firm settings. \\
+
 
 \section*{Data}
 
-\subsection*{Observation}
-Individual-project level
 
-\subsection*{Timespan}
-2011-2024
+\begin{itemize}
+    \item \textbf{Timespan}: 2011-2024
+    \item \textbf{Frequency}: Daily
+    \item \textbf{Unit of Observation}: Individual-project level
+\end{itemize}
 
+Why do I need contributor-project level data? 
+\begin{enumerate}
+    \item Contributors have different associations with each project they're affiliated so distinguishing between them is important
+    \item Studying organizational structure requires knowing each individual's contribution to the broader project and their role. This also allows us to understand how their role affects their contributions and how their contribution to the project evolves as their role and environment changes.  
+\end{enumerate}
+
+\textbf{which projects am I interested in?}
 \subsection*{Observation set}
-Select some group of projects
+kSelect some group of projects - can provide a list, also can study projects Github wants to highlight as relevant
+Need at least 5000 projects
+Widely used (>1000 stars)
 
-\subsection*{Covariates}
+
+
+\textcolor{red}{When I'm back from my nap, I'm going to analyze these things. 1) Measurement related to the metrics I'm interested in, 2) Interesting supplemental questions, 3) what the existing theory predicts and 4) what my theory predicts}\\
+\begin{itemize}
+    \item Organization-level metrics
+    \begin{enumerate}
+        \item Span: Ratio of write to read rank contributors\\
+        \textcolor{olive}{Measurements: need rank and day of promotion}
+        \item Frequency: \% of all problems solved at each layer \\
+        \textcolor{olive}{Measurements: details about PRs}
+        \item Output: How many problems were they solving? \\ 
+        \textcolor{olive}{Measurements: details about PRs}
+    \end{enumerate}
+    \item Individual Contributors
+    \begin{enumerate}
+        \item Output: How many problems is each contributor solving?\\
+        \textcolor{olive}{Measurements: details about PRs they're opening, merging + other activities (replying on issues, updating the wiki)}
+        \item Skill: What is the difficulty of the problems they are solving? \\
+        \textcolor{olive}{Measurements: details about issue and PR resolution times, code files changed, etc} 
+        \item Value: What is the value of the problems they are solving?\\
+        \textcolor{olive}{Measurements: details about issue and PR resolution times, code files changed, etc}
+    \end{enumerate}
+\end{itemize}
+
+What are the questions I'm interested in? What does the hierarchy literature predict and what does my model predict? Can I describe in more detail what I think will happen?
+
+\begin{enumerate}
+    \item Following the release of PR and Issue Templates, how is OSS development affected? 
+    \item When projects lose key contributors, how is OSS development affected? 
+\end{enumerate}
+
+
+
+
+\subsection*{Covariates (daily level)}
+\begin{itemize}
+    \item Rank of each contributor in an OSS project 
+    \item need id of PRs opened, assigned to and merged (and linked issues). For each PR, I need the \# of commits, \# of lines of code added/deleted in each commit. When the PR is merged, if there is a codeowner's file, I need to know which codeowners will be affected. 
+\end{itemize}
+
+\textcolor{red}{OLD LIST}
 \begin{itemize}
     \item Date and rank where each individual was promoted/demoted in a project
     \item For each day:
     \begin{itemize}
         \item \# of issues opened, closed, merged, commented on (unique IDs for each issue opened, closed, commented + number of characters in each comment)
+        \item Need the order of comments on an issue, and details about reactions
+        \item precise date is really important 
         \item \# of commits made (and lines of code changes/\# of commits for each file + whether each file was a markdown file or not), to which branch/PR the commit was made (I need unsquashed commits for each PR)
         \item \# of (and which) issues/PRs they were assigned to as an assignee or reviewer
         \item issue-PR links
+        \item Tags for problems - trying to understand what types of problems are being solved
+        \item how is task distribution changing (answering issues vs pr's, etc)
     \end{itemize}
     \item Run \url{https://github.com/s2e-lab/BERT-Based-GitHub-Issue-Classification} to classify issues (on initial open)
     \item \# of followers and following
     \item \# of achievements completed
-    \item \# of programming languages coded in (and mix)
+    \item \# of programming languages coded in (and lines of code in each) 
     \item \# of years on GitHub
     \item \# of overall commits on GitHub
     \item \# of leadership roles in other projects
@@ -158,12 +212,25 @@ Select some group of projects
     \item **what does Nagle use? what does Roche use?**
     \item Timezone they're committing from
 \end{itemize}
+I can use PII information, but I need to know these
+
 
 \subsection*{For each project}
 \begin{itemize}
     \item evolving truck factor
     \item when did they adopt issue/pull request templates - whether there's a skip template option
     \item Would be great if I had information on when they adopted Slack, GitHub Discussion, etc.
+\end{itemize}
+
+\subsection{Measuring Knowledge} \label{measuring_knowledge}
+Do we observe increases in knowledge? Although knowledge acquisition costs and knowledge acquisition is unobserved, we can proxy for increases in knowledge by the \% of problems write rank contributors need to solve/correct. Example statistics include
+\begin{itemize}
+    \item \% of PRs that are merged (higher knowledge = more merged PRs)
+    \item \% of comments/reviews per PR (higher knowledge = less review comments needed)
+    \item After PR is opened, number of commits that are made (higher knowledge = less correction commits needed)
+    \item Controlling for PR size, \% of commits by PR reviewer (higher knowledge = less correction commits by reviewer needed)
+    \item Controlling for PR size, time it takes to wrap up a PR. (higher knowledge = less time to wrap up a PR). Note that since my shock involves exploiting exogenous variation in reviewers, we'll obviously see higher review times regardless of changes in knowledge. Two ideas to account for this are to subtract "PR reviewer assignment time" or control for the \# of active potential reviewers. 
+    \item Classify issues as bugs, enhancements and questions - then look at the \% of linked PRs that are about enhancements (higher knowledge = more enhancements, as enhancements are more challenging than bugs to implement)
 \end{itemize}
 
 \end{document}
