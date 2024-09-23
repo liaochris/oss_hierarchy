@@ -113,124 +113,275 @@ sorting=ynt
 \allowdisplaybreaks
 
 \begin{document}
-\section*{Goal}
-\textbf{Two options: Option 1) study oss through organizational sturcture lens, Option 2) Focus on the shocks}\\
-The goal of this research project is to study open source software development through an organizational structure lens. I do so by combining an understanding of the incentives of individual OSS contributors and the OSS organization to study two things: first, how the OSS organization determines the allocation of responsibilities to OSS contributors and second, how OSS contributors and the organization respond in tandem to changes in their environment. Studying OSS organizational structure is important because OSS development hinges on its OSS contributors, whose tasks, roles and abilities are all affected by decisions made by the organization's leadership (\cite{lerner_simple_2002}, \cite{lerner_economics_2005}). In particular, while it is well documented that OSS organizations are organized into hierarchies based off the knowledge of contributors,  (\cite{crowston_hierarchy_2006}, \cite{crowston_core_2006}, \cite{lerner_simple_2002}), to the extent that I am aware, my research is the first to apply an economic model of hierarchical structure towards the study of OSS development.
+	
+	\title{GitHub Data Proposal: Organizational Hierarchy in Open Source Software Development}
+	\author{\textsc{Chris Liao}\footnote{cliao@hbs.edu}}
+	
+	\maketitle
 
-To do this, I proceed in two steps. First, I develop an economic model that describes how organizational structure affects OSS development. Then, I use granular, contributor-level data to test the hypotheses of that model. I'm interested in testing two hypotheses:
+\section*{Project Summary}
+The objective of this research project is to understand the relationship between the organizational hierarchy of the Open Source Software (OSS) project and the development of open source software. By combining empirical data on the behavior of OSS contributors and the project with economic theory on knowledge-based organizational hierarchies, I can answer two questions. 
+\begin{enumerate}
+    \item First, how does the OSS organization allocate responsibilities to different OSS contributors.
+    \item Second, when the OSS development environment changes, how does project leadership respond and how does the behavior of OSS contributors evolve. 
+\end{enumerate} Studying the OSS organizational hierarchy is important because OSS development relies on OSS contributors, whose behavior is affected and whose role in the organizational hierarchy is directly determined by OSS project leadership (\cite{lerner_simple_2002}, \cite{lerner_economics_2005}). Given the economic importance of OSS, which is used in at least 70\% of all software (\cite{perlow_summary_2022}), there's great value in studying the organizational hierarchy underlying OSS development.  While it is well documented that OSS organizations are organized into hierarchies based on contributor knowledge (\cite{crowston_hierarchy_2006}, \cite{crowston_core_2006}, \cite{lerner_simple_2002}), my research is the first that seeks to apply microdata on OSS development and an economic model of knowledge hierarchy to quantitatively study OSS development.
+
+
+\section*{Analysis}
+I'm interested in testing two hypotheses using data
 \begin{itemize}
-    \item How does the departure of highly ranked OSS contributors impact the learning of new or fringe OSS contributors, and how do organizations respond?
-    \item How do GitHub platform improvements (like issue \& pull request templates) affect learning by OSS contributors and the organization's allocation of contributors across ranks?
+    \item How do OSS organizations and OSS contributors respond to the departure of highly ranked OSS contributors from the project?
+    \item How do OSS organizations and OSS contributors respond to GitHub platform improvements (like issue \& pull request templates) that improve communication?
 \end{itemize}
-Economic models of knowledge hierarchies (\cite{garicano_hierarchies_2000}) are well suited for the first task for two reasons. First, they illuminate the economic forces that affect OSS development through their effect on the decisions made by organizations and subsequently, OSS contributors. Second, they provide a framework for analyzing how changes in economic forces affect OSS development by changing the decisions made by organizations and contributors. Knowledge hierarchies are present in many organizations and empirical studies of how organizations and their employees respond to economic environments (\cite{garicano_hierarchies_2012}, \cite{bloom_distinct_2014}) can helps us compare how OSS organizational dynamics compare to more traditional firm settings. \\
+These are hypotheses that economic models of knowledge hierarchies (\cite{garicano_hierarchies_2000}) also study. Adapting existing models for OSS development can also illuminate the economic forces driving change in behavior and generalize the settings in my two hypotheses to broader classes of change. Moreover, using the knowledge hierarchies framework makes my results comparable to existing empirical studies of how traditional firms and their employees respond to shocks to their economic environment (\cite{garicano_hierarchies_2012}, \cite{bloom_distinct_2014}). \\
 
 
-\section*{Data}
+Next, I list the data that I require for this empirical analysis. I require five categories of data: contributor characteristics, OSS project characteristics, data on issues, data on pull requests, and data on pushes. Since I am analyzing contributor behavior over time, it is necessary to have granular, contributor-level data on how their behavior in a project evolves with their role in the project's hierarchy. In particular, the rank variable, which is a key component of my analysis, is not publicly available. Similarly, since I am studying the organizational hierarchy of a project, it is important to also understand the project itself and understand how that might affect the organizational hierarchy. Finally, data on issues, pull requests, and pushes provide measures of OSS development that I will need to objectively describe the behavior of OSS contributors and quantify project outcomes. Some of the variables that I am describing are not publicly available online, so I am willing and happy to work with anonymized data, and I welcome further discussion on data-specific details!  
 
 
+
+\iffalse
+\subsubsection{Predicted Empirical Effects - Hierarchical Structure}
+I am interested in two metrics related to hierarchical structure
+\begin{enumerate}
+    \item Span: Ratio of higher to lower ranked contributors at each rank  
+    \item Output: How many and what types of problems are being solved by the project
+\end{enumerate}
+\subsubsection{Predicted Empirical Effects - Contributor Behavior}
+I am interested in three metrics related to contributor behavior: . 
+\begin{enumerate}
+    \item Individual Effort: How much time are contributors investing into the project?
+    \item Individual Skill: How skilled is each contributor? 
+    \item Individual Value Added: What is the difficulty and value of the problems they're solving?
+\end{enumerate}
+\fi
+
+\section{Contributor Data} \label{contributor_data}
 \begin{itemize}
     \item \textbf{Timespan}: 2011-2024
-    \item \textbf{Frequency}: Daily
-    \item \textbf{Unit of Observation}: Individual-project level
+    \item \textbf{Frequency}: Daily (Monthly)
+    \item \textbf{Unit of Observation}: Contributor-project level
+    \item \textbf{Observation Set}: Popular Python projects (see attached list)
+    \item \textbf{Individuals of Interest}: All contributors who interacted with an issue or pull request
 \end{itemize}
-
-Why do I need contributor-project level data? 
-\begin{enumerate}
-    \item Contributors have different associations with each project they're affiliated so distinguishing between them is important
-    \item Studying organizational structure requires knowing each individual's contribution to the broader project and their role. This also allows us to understand how their role affects their contributions and how their contribution to the project evolves as their role and environment changes.  
-\end{enumerate}
-
-\textbf{which projects am I interested in?}
-\subsection*{Observation set}
-kSelect some group of projects - can provide a list, also can study projects Github wants to highlight as relevant
-Need at least 5000 projects
-Widely used (>1000 stars)
-
-
-
-\textcolor{red}{When I'm back from my nap, I'm going to analyze these things. 1) Measurement related to the metrics I'm interested in, 2) Interesting supplemental questions, 3) what the existing theory predicts and 4) what my theory predicts}\\
+\subsection*{Covariates}
+Each entry is uniquely identified by \textbf{Anonymous GitHub User ID}, \textbf{Anonymous GitHub Project ID} and \textbf{Date}
 \begin{itemize}
-    \item Organization-level metrics
+    \item \textbf{Anonymous GitHub User ID}
+    \item \textbf{Anonymous GitHub Project ID}
+    \item \textbf{Date} (Month-Year)
+    \item \href{https://docs.GitHub.com/en/organizations/collaborating-with-groups-in-organizations/about-organizations}{GitHub Project Owner Type (whether it's an organization or not)}
+    \item \href{https://docs.GitHub.com/en/get-started/learning-about-GitHub/access-permissions-on-GitHub}{Rank}
+    \item \href{https://GitHub.com/liaochris?tab=achievements}{\# of GitHub Achievements completed}
+    \item Country (when listed on their profile)
+    \item \href{https://GitHub.com/liaochris?tab=followers}{\# of followers}
+    \item \href{https://GitHub.com/liaochris?tab=following}{\# of following}
+    \item \% of all merged PRs (in project's history) authored by them 
+    \item \% of all lines of code (in project's history) authored by them 
+    \item \# months on GitHub
+    \item \# months where they have been involved as a contributor on this project
+    \item For the top 10 projects that they have the most PRs in, 
     \begin{enumerate}
-        \item Span: Ratio of write to read rank contributors\\
-        \textcolor{olive}{Measurements: need rank and day of promotion}
-        \item Frequency: \% of all problems solved at each layer \\
-        \textcolor{olive}{Measurements: details about PRs}
-        \item Output: How many problems were they solving? \\ 
-        \textcolor{olive}{Measurements: details about PRs}
+        \item Quantity of PRs (all time)
+        \item \% of all LOC (in project's history) authored by them 
+        \item \# of Stars
     \end{enumerate}
-    \item Individual Contributors
-    \begin{enumerate}
-        \item Output: How many problems is each contributor solving?\\
-        \textcolor{olive}{Measurements: details about PRs they're opening, merging + other activities (replying on issues, updating the wiki)}
-        \item Skill: What is the difficulty of the problems they are solving? \\
-        \textcolor{olive}{Measurements: details about issue and PR resolution times, code files changed, etc} 
-        \item Value: What is the value of the problems they are solving?\\
-        \textcolor{olive}{Measurements: details about issue and PR resolution times, code files changed, etc}
-    \end{enumerate}
+    \item Anonymous GitHub User ID of the contributor who promoted them/invited them
+\end{itemize}
+% the ones I really need are Rank, achievements, followers, following, \% of all commits and LOC authored
+
+\section{Project Data} \label{project_data}
+\begin{itemize}
+    \item \textbf{Timespan}: 2011-2024
+    \item \textbf{Frequency}: Monthly
+    \item \textbf{Unit of Observation}: Project level
+    \item \textbf{Observation Set}: All popular Python projects (see list)
+\end{itemize}
+\subsection*{Covariates}
+Each entry is uniquely identified by \textbf{GitHub Project ID} and \textbf{Date}. 
+This matches to the data described in Section~\ref{contributor_data} (\nameref{contributor_data}) through \textbf{Anonymous GitHub Project ID}
+\begin{itemize}
+    \item \textbf{Anonymous GitHub Project ID}
+    \item \textbf{Date} (Month-Year)
+    \item For each of the top 5 programming languages used in the project, the \% of the codebase that relies on that language
+    \item \href{https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/classifying-your-repository-with-topics}{Project topics}
+    \item Project license type
+    \item \# of Forks (cumulative)
+    \item \# of Stars (cumulative)
+    \item \# of Watchers (cumulative)
+    \item \href{https://GitHub.com/pandas-dev/pandas/network/dependencies}{\# Number of dependencies, cumulative}
+    \item \href{https://GitHub.com/pandas-dev/pandas/network/dependents}{\# of Dependents, cumulative}
+    \item \# of Releases (cumulative)
+    \item \# of Tags (cumulative)
+    \item Whether reviews are required on the PR
+    \item Whether auto-merge is on
+    \item Whether the project has a CONTRIBUTING.md or similar file
+    \item Whether the substring ``contribut" shows up in the README
+    
+\end{itemize}
+% Theo nes I really need are programming language, topics, forks, stars, watchers, dependencies, dependents
+
+\section{Issue Data} \label{issue_data}
+\begin{itemize}
+    \item \textbf{Timespan}: 2011-2024
+    \item \textbf{Unit of Observation}: Issue-Project level
+    \item \textbf{Observation Set}: All popular Python projects (see list)
+\end{itemize}
+\subsection*{Covariates}
+Each entry is uniquely identified by \textbf{Anonymous GitHub Project ID} and \textbf{Anonymous Issue ID}. This matches to the data described in Section~\ref{project_data} (\nameref{project_data}) through \textbf{GitHub Project ID}
+\begin{itemize}
+    \item \textbf{Anonymous GitHub Project ID}
+    \item \textbf{Anonymous Issue ID} (anonymized version of Issue \# on GitHub)
+    \item Issue Opener Anonymous GitHub User ID
+    \item Issue Closer Anonymous GitHub User ID
+    \item Date \& Time of issue opening (first time)
+    \item Date \& Time of issue closing (first time)
+    \item Whether issue was ever reopened 
+    \item Issue current status (open or closed)
+    \item A dictionary of all the times the issue tags for an issue were changed/assigned, with the date and time the issue tags were changed, the new cumulative tags assigned and the tag assignee Anonymous GitHub User ID.
+    \item A dictionary of all the times the assignees for an issue were changed/assigned, with the date \& time the assignees were changed/assigned, the new cumulative group of assignees and the assigner. All assignees and assigners are identified by their Anonymous GitHub User ID
+    \item Linked Anonymous Pull Request ID, if available
+    \item Date \& Time Pull Request was linked
+    \item Whether an issue development branch was created inside the project and if so, the anonymous branch ID
+    \item Number of characters in issue text (in the latest edit)
+    \item Latest edit date \& time of issue
+    \item Each Anonymous GitHub User ID that was mentioned in the issue text
+    \item Whether an Issue Template was used (if there are multiple issue templates, an anonymous id for the issue template based on the issue template filename)
+\end{itemize}
+% the ones I really need are tags and assignees
+
+\section*{Issue Comment Data}
+\begin{itemize}
+    \item \textbf{Timespan}: 2011-2024
+    \item \textbf{Unit of Observation}: Issue Comment-Project level
+    \item \textbf{Observation Set}: All popular Python projects (see list)
+\end{itemize}
+\subsection*{Covariates}
+Each entry is uniquely identified by \textbf{Anonymous GitHub Project ID}, \textbf{Anonymous Issue ID} and \textbf{Anonymous Issue ID Comment \#}. 
+This matches to the data described in Section~\ref{issue_data} (\nameref{issue_data}) through \textbf{GitHub Project ID} and \textbf{Issue \#} 
+\begin{itemize}
+    \item \textbf{Anonymous GitHub Project ID}
+    \item \textbf{Anonymous Issue ID}
+    \item \textbf{Anonymous Issue ID Comment \#}
+    \item Issue Commenter Anonymous GitHub User ID
+    \item Date \& Time of Issue Comment
+    \item Number of characters in issue comment text (latest edit)
+    \item Latest edit date \& time of issue
+    \item Each Anonymous GitHub User ID that was mentioned in the issue text
+    \item Reactions on Issue Comment (as of data collection)
 \end{itemize}
 
-What are the questions I'm interested in? What does the hierarchy literature predict and what does my model predict? Can I describe in more detail what I think will happen?
-
-\begin{enumerate}
-    \item Following the release of PR and Issue Templates, how is OSS development affected? 
-    \item When projects lose key contributors, how is OSS development affected? 
-\end{enumerate}
-
-
-
-
-\subsection*{Covariates (daily level)}
+\section{Pull Request Data} \label{pull_request_data}
 \begin{itemize}
-    \item Rank of each contributor in an OSS project 
-    \item need id of PRs opened, assigned to and merged (and linked issues). For each PR, I need the \# of commits, \# of lines of code added/deleted in each commit. When the PR is merged, if there is a codeowner's file, I need to know which codeowners will be affected. 
+    \item \textbf{Timespan}: 2011-2024
+    \item \textbf{Unit of Observation}: Pull Request-Project level
+    \item \textbf{Observation Set}: All popular Python projects (see list)
+\end{itemize}
+\subsection*{Covariates}
+Each entry is uniquely identified by \textbf{Anonymous GitHub Project ID}, \textbf{Anonymous Pull Request ID} 
+This matches to the data described in Section~\ref{project_data} (\nameref{project_data}) through \textbf{Anonymous GitHub Project ID} 
+\begin{itemize}
+    \item \textbf{Anonymous GitHub Project ID}
+    \item \textbf{Anonymous Pull Request ID}
+    \item Anonymous Issue ID
+    \item Pull Request Opener Anonymous GitHub User ID
+    \item Pull Request Merger/Closer Anonymous GitHub User ID
+    \item Date \& Time of Pull Request opening (first time)
+    \item Date \& Time of Pull Request closing or being merged (first time)
+    \item Date \& Time the issue was linked
+    \item Pull Request current status: Open, Closed or Merged
+    \item A dictionary of all the times the tags for a pull request were changed/assigned, the new cumulative tags assigned and the tag assignee Anonymous GitHub User ID.
+    \item A dictionary of all the times the assignees for a pull request were changed/assigned, with the date \& time the assignees were changed/assigned, the new cumulative group of assignees and the assigner. All assignees and assigners are identified by their Anonymous GitHub User ID
+    \item A dictionary of all the times the reviewers for a pull request were changed/assigned, with the date \& time the reviewers were changed/assigned, the new cumulative group of reviewers and the assigner. All reviewers and assigners are identified by their Anonymous GitHub User ID
+    \item Whether the Pull Request took place on a branch in the project and if so, the anonymous branch ID
+    \item How many GitHub Actions checks were run and how many passed (latest run)
+    \item Number of characters in the Pull Request Text (in the latest edit)
+    \item Latest edit date \& time of Pull Request Text
+    \item Each Anonymous GitHub User ID that was mentioned in the issue text
+    \item The \# of other Pull Requests that were mentioned in the issue text
+    \item The \# of other issues that were mentioned in the Pull Request text
+    \item Number of commits prior to Pull Request being opened
+    \item Number of commits after Pull Request was opened
+    \item \# LOC added \& removed in commits prior to Pull Request being opened
+    \item \# LOC added \& removed in commits after Pull Request was opened
+    \item \# files added \& removed in commits prior to Pull Request being opened
+    \item \# files added \& removed in commits after Pull Request was opened
+    \item Date and Time of First Commit
+    \item Date and Time of Last Commit (prior to Pull Request being opened)
+    \item Date and Time of Last Commit (prior to merge or closing)
+    \item Total number of PR review comments
+    \item Total number of PR comments
+    \item For each committer (identified by Anonymous GitHub User ID when possible), the number of commits, the \# of LOC added \& the \# of LOC removed
+    \item For each reviewer (referenced by Anonymous GitHub User ID), whether they approved and how many times they requested changes
+    \item Pull Request Target Branch: If Main/master, list that; otherwise, refer to the anonymous branch ID
 \end{itemize}
 
-\textcolor{red}{OLD LIST}
+\section*{Pull Request Comment Data}
 \begin{itemize}
-    \item Date and rank where each individual was promoted/demoted in a project
-    \item For each day:
+    \item \textbf{Timespan}: 2011-2024
+    \item \textbf{Unit of Observation}: Pull Request Comment-Project level
+    \item \textbf{Observation Set}: All popular Python projects (see list)
+\end{itemize}
+\subsection*{Covariates}
+Each entry is uniquely identified by \textbf{Anonymous GitHub Project ID}, \textbf{Anonymous Pull Request ID} and \textbf{Anonymous Pull Request Comment ID} 
+This matches to the data described in Section~\ref{pull_request_data} (\nameref{pull_request_data}) through \textbf{Anonymous GitHub Project ID} and  \textbf{Anonymous Pull Request ID}. In this dataset, only pull request comments are described (not pull request review comments). 
+\begin{itemize}
+    \item \textbf{Anonymous GitHub Project ID}
+    \item \textbf{Anonymous Pull Request ID}
+    \item \textbf{Anonymous Pull Request ID Comment \# }
+    \item Pull Request Commenter Anonymous GitHub User ID
+    \item Date \& Time of Pull Request Comment
+    \item Number of characters in pull request comment text (in the latest edit)
+    \item Latest edit date \& time of pull request comment
+    \item Each Anonymous GitHub User ID that was mentioned in the pull request comment text
+    \item Reactions on Pull Request Comment Text (as of data collection)
+\end{itemize}
+
+\section*{Pull Request Review Data}
+\begin{itemize}
+    \item \textbf{Timespan}: 2011-2024
+    \item \textbf{Unit of Observation}: Pull Request Review-Project level
+    \item \textbf{Observation Set}: All popular Python projects (see list)
+\end{itemize}
+\subsection*{Covariates}
+Each entry is uniquely identified by \textbf{Anonymous GitHub Project ID}, \textbf{Anonymous Pull Request ID} and \textbf{Anonymous Pull Request Review \#} 
+This matches to the data described in Section~\ref{pull_request_data} (\nameref{pull_request_data}) through \textbf{Anonymous GitHub Project ID} and \textbf{Anonymous Pull Request ID}. In this dataset, I describe aggregated pull request reviews
+\begin{itemize}
+    \item Anonymous GitHub Project ID
+    \item Anonymous Pull Request ID
+    \item Anonymous Pull Request Review \# 
+    \item Pull Request Reviewer
+    \item Date \& Time of Pull Request Review Completion
+    \item Number of characters in pull request review
+    \item Number of comments in pull request review
+    \item \# of pull request comments in pull request review
+    \item Pull Request Review Result
+    \item Each Anonymous GitHub User ID that was mentioned in the pull request review text 
+\end{itemize}
+
+\section{Push Data}
+\begin{itemize}
+    \item \textbf{Timespan}: 2011-2024
+    \item \textbf{Frequency}: Monthly
+    \item \textbf{Unit of Observation}: Branch-Project level
+    \item \textbf{Observation Set}: All popular Python projects (see list)
+\end{itemize}
+\subsection*{Covariates}
+Each entry is uniquely identified by \textbf{Anonymous GitHub Project ID}, \textbf{Anonymous Branch ID} and \textbf{Date}
+This matches to the data described in Section~\ref{project_data} (\nameref{project_data}) through \textbf{Anonymous GitHub Project ID} and \textbf{Date}. In this dataset, I describe aggregated pull request reviews
+\begin{itemize}
+    \item \textbf{Anonymous GitHub Project ID}
+    \item \textbf{Master, Main, or Anonymous Branch ID}
+    \item \textbf{Date (Month-Year)}
+    \item For each \textbf{Anonymous GitHub User ID} who committed to the branch in the past month, 
     \begin{itemize}
-        \item \# of issues opened, closed, merged, commented on (unique IDs for each issue opened, closed, commented + number of characters in each comment)
-        \item Need the order of comments on an issue, and details about reactions
-        \item precise date is really important 
-        \item \# of commits made (and lines of code changes/\# of commits for each file + whether each file was a markdown file or not), to which branch/PR the commit was made (I need unsquashed commits for each PR)
-        \item \# of (and which) issues/PRs they were assigned to as an assignee or reviewer
-        \item issue-PR links
-        \item Tags for problems - trying to understand what types of problems are being solved
-        \item how is task distribution changing (answering issues vs pr's, etc)
+        \item Number of commits
+        \item Number of LOC added/deleted (cumulative)
+        \item Number of files added, deleted, changed \& removed
     \end{itemize}
-    \item Run \url{https://github.com/s2e-lab/BERT-Based-GitHub-Issue-Classification} to classify issues (on initial open)
-    \item \# of followers and following
-    \item \# of achievements completed
-    \item \# of programming languages coded in (and lines of code in each) 
-    \item \# of years on GitHub
-    \item \# of overall commits on GitHub
-    \item \# of leadership roles in other projects
-    \item Overall \# of projects involved in (**probably want to add some timeframe to this**)
-    \item topics/tags of the projects they're involved in
-    \item **what does Nagle use? what does Roche use?**
-    \item Timezone they're committing from
-\end{itemize}
-I can use PII information, but I need to know these
-
-
-\subsection*{For each project}
-\begin{itemize}
-    \item evolving truck factor
-    \item when did they adopt issue/pull request templates - whether there's a skip template option
-    \item Would be great if I had information on when they adopted Slack, GitHub Discussion, etc.
+    \item Whether the branch is protected
 \end{itemize}
 
-\subsection{Measuring Knowledge} \label{measuring_knowledge}
-Do we observe increases in knowledge? Although knowledge acquisition costs and knowledge acquisition is unobserved, we can proxy for increases in knowledge by the \% of problems write rank contributors need to solve/correct. Example statistics include
-\begin{itemize}
-    \item \% of PRs that are merged (higher knowledge = more merged PRs)
-    \item \% of comments/reviews per PR (higher knowledge = less review comments needed)
-    \item After PR is opened, number of commits that are made (higher knowledge = less correction commits needed)
-    \item Controlling for PR size, \% of commits by PR reviewer (higher knowledge = less correction commits by reviewer needed)
-    \item Controlling for PR size, time it takes to wrap up a PR. (higher knowledge = less time to wrap up a PR). Note that since my shock involves exploiting exogenous variation in reviewers, we'll obviously see higher review times regardless of changes in knowledge. Two ideas to account for this are to subtract "PR reviewer assignment time" or control for the \# of active potential reviewers. 
-    \item Classify issues as bugs, enhancements and questions - then look at the \% of linked PRs that are about enhancements (higher knowledge = more enhancements, as enhancements are more challenging than bugs to implement)
-\end{itemize}
+
 
 \end{document}
