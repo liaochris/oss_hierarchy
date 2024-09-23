@@ -12,7 +12,7 @@ jobs:
       uses: xu-cheng/latex-action@3.2.0
       with:
           # The root LaTeX file to be compiled
-          root_file: source/paper/sections/introduction.tex  source/paper/sections/model.tex source/paper/sections/method.tex source/paper/main.tex source/paper/external/utility_theory.tex source/paper/external/model_shared_JMS.tex
+          root_file: source/paper/sections/introduction.tex  source/paper/sections/model.tex source/paper/sections/method.tex source/paper/main.tex source/paper/external/utility_theory.tex source/paper/external/model_shared_JMS.tex source/paper/method.tex source/paper/external/github_data_proposal.tex
 
     - name: Move Components
       run: |
@@ -24,7 +24,8 @@ jobs:
         mv main.pdf output/paper/main.pdf
         mv utility_theory.pdf output/paper/external/utility_theory.pdf
         mv model_shared_JMS.pdf output/paper/external/model_shared_JMS.pdf
-        
+        mv github_data_proposal.pdf output/paper/external/github_data_proposal.pdf
+
     - name: Commit compiled PDFs
       run: |
         git add *.pdf
