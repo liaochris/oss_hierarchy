@@ -3,7 +3,7 @@ import os
 import pandas as pd
 from datetime import datetime
 
-def main():
+def Main():
     LOWER_BOUND = datetime(2018,7,1)
     UPPER_BOUND = datetime(2023,9,1)
     NUM_MONTHS = (UPPER_BOUND.year - LOWER_BOUND.year) * 12 + UPPER_BOUND.month - LOWER_BOUND.month - 1
@@ -20,4 +20,4 @@ def main():
     downloaded_packages.to_csv('source/scrape/pypi_monthly_downloads/data/popular_python_packages.csv', index = False)
 
 if __name__ == '__main__':
-    main()
+    Main()
