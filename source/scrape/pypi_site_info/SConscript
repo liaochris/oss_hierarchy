@@ -1,0 +1,14 @@
+
+Import('*')
+import pandas as pd
+
+package_list = pd.read_csv('source/scrape/pypi_monthly_downloads/data/popular_python_packages.csv')['project'].tolist()
+
+target = []
+for package in package_list:
+    target.append(f'#drive/output/scrape/pypi_site_info/{package}.json')
+
+source = ['#source/scrape/pypi_site_info/docs/get_library_json.sh',
+          '#source/scrape/pypi_monthly_downloads/data/popular_python_packages.csv']
+
+env.Command(target, source)

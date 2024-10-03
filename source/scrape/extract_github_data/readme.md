@@ -20,14 +20,14 @@ In order to access the Google Cloud BigQuery data for python downloads, I used t
 ### Terms of Use
 From the [GitHub Archive repository website](https://github.com/igrigorik/gharchive.org) readme:
 
-```
-MIT, for code and documentation in this repository, see LICENSE.md.
 
-www.gharchive.org website content (gh-pages branch) is also released under CC-BY-4.0, which gives you permission to use the content for almost any purpose but does not grant you any trademark permissions, so long as you note the license and give credit, such as follows:
+> MIT, for code and documentation in this repository, see LICENSE.md.
+> 
+> www.gharchive.org website content (gh-pages branch) is also released under CC-BY-4.0, which gives you permission to use the content for almost any purpose but does not grant you any trademark permissions, so long as you note the license and give credit, such as follows:
+> 
+> Content based on www.gharchive.org used under the CC-BY-4.0 license.
+> Note this repository does not contain the GH Archive dataset (event archives/data). The dataset includes material that may be subject to third party rights.
 
-Content based on www.gharchive.org used under the CC-BY-4.0 license.
-Note this repository does not contain the GH Archive dataset (event archives/data). The dataset includes material that may be subject to third party rights.
-```
 
 ### Notes
 - Uses `output/derived/collect_github_repos/linked_pypi_github.csv` to filter GitHub repositories
