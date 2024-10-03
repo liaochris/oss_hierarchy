@@ -10,7 +10,7 @@ In order to access the Google Cloud BigQuery data for python downloads, I used t
    - For step 3, the BigQuery API is automatically enabled for new projects
    - For step 4, we're using `Client-Provided Authentication` so create a service account, download the `.json` file with your keys and then run `export GOOGLE_APPLICATION_CREDENTIALS=<<downloaded_json_location>>`
 2. I then installed `google-cloud-bigquery` in my virtual environment
-3. I ran the script `source/scrape/query_monthly_pip_downloads.py` to obtain monthly downloads data 
+3. I ran the script `source/scrape/docs/query_monthly_pip_downloads.py` to obtain monthly downloads data 
 
 ### Description
 - `drive/source/scrape/pypi_monthly_downloads.csv` contains the monthly download data 
