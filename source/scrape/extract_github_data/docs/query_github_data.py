@@ -178,7 +178,7 @@ def GetPullRequestReviewData(client, project_name, dataset_name, github_data_nam
     pull_request_review_query = client.query(pull_request_review_sql, job_config=pull_request_review_config) 
     pull_request_review_query.result()
 
-    GetSubsetData(client, project_name, dataset_name, 'pull_request_review')
+    GetSubsetData(client, project_name, dataset_name, 'pull_request_review_data')
 
 def GetPullRequestReviewCommentData(client, project_name, dataset_name, github_data_name):
     pull_request_review_comment_name = 'pull_request_review_comment'
@@ -233,7 +233,7 @@ def GetPullRequestReviewCommentData(client, project_name, dataset_name, github_d
     pull_request_review_comment_query = client.query(pull_request_review_comment_sql, job_config=pull_request_review_comment_config) 
     pull_request_review_comment_query.result()
 
-    GetSubsetData(client, project_name, dataset_name, 'pull_request_review_comment')
+    GetSubsetData(client, project_name, dataset_name, 'pull_request_review_comment_data')
 
 def GetPullRequestData(client, project_name, dataset_name, github_data_name):
     pull_request_name = 'pull_request'
@@ -289,7 +289,7 @@ def GetPullRequestData(client, project_name, dataset_name, github_data_name):
     pull_request_query = client.query(pull_request_sql, job_config=pull_request_config) 
     pull_request_query.result()
 
-    GetSubsetData(client, project_name, dataset_name, 'pull_request')
+    GetSubsetData(client, project_name, dataset_name, 'pull_request_data')
 
 def GetIssueData(client, project_name, dataset_name, github_data_name):
     issue_name = 'issue'
@@ -331,7 +331,7 @@ def GetIssueData(client, project_name, dataset_name, github_data_name):
     issue_query = client.query(issue_sql, job_config=issue_config) 
     issue_query.result()
 
-    GetSubsetData(client, project_name, dataset_name, 'issue')
+    GetSubsetData(client, project_name, dataset_name, 'issue_data')
 
 def GetIssueCommentData(client, project_name, dataset_name, github_data_name):
     issue_comment_name = 'issue_comment'
@@ -377,7 +377,7 @@ def GetIssueCommentData(client, project_name, dataset_name, github_data_name):
     issue_comment_query = client.query(issue_comment_sql, job_config=issue_comment_config) 
     issue_comment_query.result()
 
-    GetSubsetData(client, project_name, dataset_name, 'issue_comment')
+    GetSubsetData(client, project_name, dataset_name, 'issue_comment_data')
 
 def GetForkData(client, project_name, dataset_name, github_data_name):
     fork_name = 'fork'
@@ -400,7 +400,7 @@ def GetForkData(client, project_name, dataset_name, github_data_name):
     fork_query = client.query(fork_sql, job_config=fork_config) 
     fork_query.result()
 
-    GetSubsetData(client, project_name, dataset_name, 'fork')
+    GetSubsetData(client, project_name, dataset_name, 'fork_data')
 
 def GetDeleteData(client, project_name, dataset_name, github_data_name):
     delete_name = 'delete'
@@ -426,7 +426,7 @@ def GetDeleteData(client, project_name, dataset_name, github_data_name):
     delete_query = client.query(delete_sql, job_config=delete_config) 
     delete_query.result()
 
-    GetSubsetData(client, project_name, dataset_name, 'delete')
+    GetSubsetData(client, project_name, dataset_name, 'delete_data')
 
 def GetCreateData(client, project_name, dataset_name, github_data_name):
     create_name = 'create'
@@ -453,9 +453,13 @@ def GetCreateData(client, project_name, dataset_name, github_data_name):
     create_query = client.query(create_sql, job_config=create_config) 
     create_query.result()
 
-    GetSubsetData(client, project_name, dataset_name, 'create')
+    GetSubsetData(client, project_name, dataset_name, 'create_data')
 
 def GetSubsetData(client, project_name, dataset_name, subset_data_name):
+    outdir = f"drive/output/scrape/extract_github_data/{subset_data_name}"
+    if not os.path.exists(outdir):
+        os.mkdir(outdir)
+
     for subset_year in np.arange(2011, 2024, 1):
         for subset_month in np.arange(1, 13, 1):
             if (subset_year != 2023) or (subset_year == 2023 and subset_month < 9):
@@ -468,7 +472,8 @@ def GetSubsetData(client, project_name, dataset_name, subset_data_name):
                 """
                 subset_date_query = client.query(subset_date_sql)
                 df_subset = subset_date_query.to_dataframe()
-                df_subset.to_csv(f"drive/output/scrape/extract_github_data/{subset_data_name}/{subset_data_name}_{subset_year}_{subset_month}.csv")
+                df_subset = df_subset
+                df_subset.to_csv(f"drive/output/scrape/extract_github_data/{subset_data_name}/{subset_data_name.replace('_data','')}_{subset_year}_{subset_month}.csv")
                 print(f"{subset_data_name}/{subset_data_name}_{subset_year}_{subset_month}.csv extracted")
 
 def Main():
@@ -492,7 +497,7 @@ def Main():
     GetPushData(client, project_name, dataset_name, github_data_name)
     GetPullRequestReviewData(client, project_name, dataset_name, github_data_name)
     GetPullRequestReviewCommentData(client, project_name, dataset_name, github_data_name)
-    GetPullRequest(client, project_name, dataset_name, github_data_name)
+    GetPullRequestData(client, project_name, dataset_name, github_data_name)
     GetIssueData(client, project_name, dataset_name, github_data_name)
     GetIssueCommentData(client, project_name, dataset_name, github_data_name)
     GetForkData(client, project_name, dataset_name, github_data_name)
