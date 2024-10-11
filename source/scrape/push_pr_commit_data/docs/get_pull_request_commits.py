@@ -26,11 +26,12 @@ def Main():
         already_scraped_list = os.listdir(outdir_pull)
         if pr_data not in already_scraped_list:
             df_pull = pd.read_csv(indir_pull / pr_data)[['Unnamed: 0', 'repo_name','pr_commits_url']]
-            df_pull.to_csv(outdir_pull / pr_data) # as a placeholder
-            
-            df_pull['commit_list'] = df_pull.parallel_apply(lambda x: grabCommits(x['repo_name'], x['pr_commits_url']), axis = 1 )
-            print(f"Commits for pull_request_data_{subset_year}_{subset_month}.csv obtained")
             df_pull.to_csv(outdir_pull / pr_data.replace('pull_request','pull_request_data')) # as a placeholder
+            
+            if df_pull.empty != True:
+                df_pull['commit_list'] = df_pull.parallel_apply(lambda x: grabCommits(x['repo_name'], x['pr_commits_url']), axis = 1 )
+                print(f"Commits for pull_request_data_{subset_year}_{subset_month}.csv obtained")
+                df_pull.to_csv(outdir_pull / pr_data.replace('pull_request','pull_request_data')) # as a placeholder
 
 def grabCommits(repo, pr_commits_url):
     try:
