@@ -135,10 +135,9 @@ def getCommitData(library, commits_outdir, df_library):
                 subprocess.Popen(["git", "clone", f"git@github.com:{library}.git", f"{lib_renamed}"], cwd = commits_outdir / 'github_repos').communicate()
             print(f"Finished cloning {library}")
             df_commit_final = cleanCommitData(library, cloned_repo_location, df_library)
-            df_commit_final.to_csv(commits_outdir / f'commits_pr_{lib_renamed}.csv')
-
-            end = time.time()
             subprocess.Popen(["rm", "-rf", f"{lib_renamed}"], cwd = commits_outdir / 'github_repos').communicate()
+            df_commit_final.to_csv(commits_outdir / f'commits_pr_{lib_renamed}.csv')
+            end = time.time()
             print(f"{library} completed in {start - end}")
             return "success"
         except Exception as e:
