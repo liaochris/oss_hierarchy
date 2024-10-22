@@ -32,17 +32,23 @@ def GrabPullRequestData(repo_name, pull_request_number):
             page = sesh.get(scrape_url)
             page_text = str(page.text)
             
+        issue_link = 'missing'
+        title = 'missing'
+        text = 'missing'
         soup = BeautifulSoup(page.content, parse_only = product, features="html.parser")
         issue_links = soup.find_all("a", attrs={"data-hovercard-type":'issue'})
-        issue_link = issue_links[0]['href']
+        if len(issue_links)>0:
+            issue_link = issue_links[0]['href']
 
         soup_title = BeautifulSoup(page.content, parse_only = product_title, features="html.parser")        
         title_links = soup_title.find_all("bdi", attrs={"class":'js-issue-title'})
-        title = title_links[0].text
+        if len(title_links)>0:
+            title = title_links[0].text
 
         soup_text = BeautifulSoup(page.content, parse_only = product_text, features="html.parser")        
         text_links = soup_text.find_all("div", attrs={"class":'comment-body'})
-        text = text_links[0].text
+        if len(text_links)>0:
+            text = text_links[0].text
 
         return [issue_link, title, text]
     except Exception as e:
@@ -62,13 +68,13 @@ def Main():
     repo_list = sorted(repo_list)
 
     for repo in repo_list:
-        df_library = df_issue[df_issue['repo_name'] == repo]
+        df_library = df_pull_request[df_pull_request['repo_name'] == repo]
         lib_name = repo.replace("/","_")
         print(lib_name)
         fname = f"{lib_name}_linked_pull_request_to_issue.csv"
         if fname not in os.listdir(commit_outdir):
             df_library['linked_issue'] = df_library.parallel_apply(lambda x: 
-                grabIssue(x['repo_name'], x['pr_number']), axis = 1)
+                GrabPullRequestData(x['repo_name'], x['pr_number']), axis = 1)
             
             df_library['issue_link'] = df_library['linked_issue'].apply(lambda x: x[0] if type(x) == list else x)
             df_library['pull_request_title'] = df_library['linked_issue'].apply(lambda x: x[1] if type(x) == list else x)
