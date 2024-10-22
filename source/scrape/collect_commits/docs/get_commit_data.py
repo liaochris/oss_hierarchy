@@ -97,16 +97,49 @@ def returnCommitStats(x, repo):
         return []
     except:
         return []
-        
-def cleanCommitData(library, cloned_repo_location, df_library):
-    global repo
-    repo = Repository(cloned_repo_location)
-    df_library['parent_commit'] = df_library.parallel_apply(lambda x: getHead(x['commit_list'], x['pr_number'], cloned_repo_location) if not pd.isnull(x['pr_number']) else np.nan, axis = 1)
-    print(f"finished getting parent commits for {library}")
-    df_library['commit_groups'] = df_library.parallel_apply(lambda x: createCommitGroup(x['commit_list'], x['parent_commit']) if not pd.isnull(x['parent_commit']) else np.nan, axis = 1)
-    df_commit_groups = df_library[['repo_name', 'pr_number', 'pr_commits_url', 'parent_commit', 'commit_groups']].explode('commit_groups')
-    commit_data = df_commit_groups['commit_groups'].parallel_apply(lambda x: returnCommitStats(x, repo) if type(x) != float else x)
     
+def cleanCommitData(library, df_library, lib_renamed):
+    subprocess.Popen(["git", "clone", f"git@github.com:{library}.git", f"{lib_renamed}"], cwd = commits_outdir / 'github_repos').communicate()
+    print(f"COPYING {lib_renamed}")
+    subprocess.Popen(["cp", "-r", f"{lib_renamed}", f"{lib_renamed}_temp"], cwd = commits_outdir / 'github_repos').communicate()
+    print(f"Finished cloning {library}")
+
+    global repo
+    df_library.reset_index(drop = True, inplace = True)
+    df_library_index = list(df_library.index)
+    df_library_chunks = [df_library_index[x:x+3000] for x in range(0, len(df_library_index), 3000)]
+
+    print(len(df_library_index))
+    commit_data = pd.Series()
+    i = 0
+    df_commit_groups = pd.DataFrame(columns = ['repo_name', 'pr_number', 'pr_commits_url', 'parent_commit', 'commit_groups'])
+    for chunk in df_library_chunks:
+        start = time.time()
+        cloned_repo_location = Path(commits_outdir / 'github_repos' / lib_renamed)
+        repo = Repository(cloned_repo_location)
+        df_library_chunk = df_library.loc[chunk]
+        df_library_chunk['parent_commit'] = df_library_chunk.parallel_apply(lambda x: getHead(x['commit_list'], x['pr_number'], cloned_repo_location) if not pd.isnull(x['pr_number']) else np.nan, axis = 1)
+        print(f"finished getting parent commits for {library}, chunk {i+1}")
+        df_library_chunk['commit_groups'] = df_library_chunk.parallel_apply(lambda x: createCommitGroup(x['commit_list'], x['parent_commit']) if not pd.isnull(x['parent_commit']) else np.nan, axis = 1)
+        df_commit_groups_chunk = df_library_chunk[['repo_name', 'pr_number', 'pr_commits_url', 'parent_commit', 'commit_groups']].explode('commit_groups')
+        df_commit_groups = pd.concat([df_commit_groups, df_commit_groups_chunk])
+
+        commit_data_chunk = df_commit_groups_chunk['commit_groups'].parallel_apply(lambda x: returnCommitStats(x, repo) if type(x) != float else x)
+        commit_data = pd.concat([commit_data, commit_data_chunk])
+        print(f"NOW REMOVING {lib_renamed}")
+        while lib_renamed in os.listdir(commits_outdir / 'github_repos'):
+            subprocess.Popen(["rm", "-rf", f"{lib_renamed}"], cwd = commits_outdir / 'github_repos').communicate()
+        if i != len(df_library_chunks)-1:
+            print(f"COPYING {lib_renamed}_temp to {lib_renamed}")
+            subprocess.Popen(["cp", "-r", f"{lib_renamed}_temp", f"{lib_renamed}"], cwd = commits_outdir / 'github_repos').communicate()    
+        i+=1
+        end = time.time()
+        print(end - start)
+
+    print(f"NOW REMOVING {lib_renamed}_temp")
+    while f"{lib_renamed}_temp" in os.listdir(commits_outdir / 'github_repos'):
+        subprocess.Popen(["rm", "-rf", f"{lib_renamed}_temp"], cwd = commits_outdir / 'github_repos').communicate()
+
     commit_data_colnames = ['commit sha', 'commit author name', 'commit author email', 'committer name',
                                        'commmitter email', 'commit message', 'commit additions', 'commit deletions',
                                        'commit changes total', 'commit files changed count', 'commit file changes', 
@@ -126,21 +159,20 @@ def getCommitData(library, commits_outdir, df_library):
     print(library)
     lib_name = library.split("/")[1]
     lib_renamed = library.replace("/","_")
-    cloned_repo_location = Path(commits_outdir / 'github_repos' / lib_renamed)
     if f'commits_pr_{lib_renamed}.csv' not in os.listdir(commits_outdir):
         try:
             print(f"Starting {library}")
             start = time.time()
             if lib_renamed not in os.listdir(commits_outdir / 'github_repos'):
-                subprocess.Popen(["git", "clone", f"git@github.com:{library}.git", f"{lib_renamed}"], cwd = commits_outdir / 'github_repos').communicate()
-            print(f"Finished cloning {library}")
-            df_commit_final = cleanCommitData(library, cloned_repo_location, df_library)
-            subprocess.Popen(["rm", "-rf", f"{lib_renamed}"], cwd = commits_outdir / 'github_repos').communicate()
-            df_commit_final.to_csv(commits_outdir / f'commits_pr_{lib_renamed}.csv')
-            end = time.time()
-            print(f"{library} completed in {start - end}")
+                df_commit_final = cleanCommitData(library, df_library, lib_renamed)
+                df_commit_final.to_csv(commits_outdir / f'commits_pr_{lib_renamed}.csv')
+                end = time.time()
+                print(f"{library} completed in {start - end}")
+            else:
+                print(f"skipping {lib_renamed} because it's a concurrent process")
             return "success"
         except Exception as e:
+            print(e)
             return f"failure, {str(e)}"
     return 'success'
 
@@ -158,10 +190,13 @@ def importPullRequestData(pr_indir):
     df_pull_request['pr_number'] = df_pull_request['pr_commits_url'].parallel_apply(lambda x: x.split("/")[-2] if not pd.isnull(x) else x)
 
     return df_pull_request
+    
+
 
 if __name__ == '__main__':   
     pandarallel.initialize(progress_bar=True)
     warnings.filterwarnings("ignore")
+    tqdm.pandas()
 
     pr_indir = Path('drive/output/scrape/push_pr_commit_data/pull_request_data')
     commits_outdir = Path('drive/output/scrape/collect_commits')
