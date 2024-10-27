@@ -35,11 +35,11 @@ def Main():
 
     df_pr_selected = df_pr
     df_issue_selected = df_issue
-
-    issue_stats = GetIssueStats(df_issue_selected, df_pr_selected, table_list_length, repo_col)
-    ExportTable(OUTDIR / 'issue_stats.txt', project_stats, 'issue_stats')
-
-
+    
+    project_stats = GetProjectStats(df_issue_selected, df_pr_selected, table_list_length, repo_col)
+    ExportTable(OUTDIR / 'project_stats.txt', 
+            project_stats, 'project_stats',
+           fmt = "%s")
 
 def ReadPrIssueData(file_dirs, data_cols):
     df_final = pd.DataFrame(columns = data_cols)
@@ -62,34 +62,26 @@ def AddDates(df):
 def ReturnMeanMedStd(pd_series):
     return [pd_series.mean(), np.median(pd_series), np.std(pd_series)]
 
-def AddToTableList(table_list, add_list, length):
-    table_list = table_list.copy()
-    if len(add_list) != length:
-        add_list.extend([np.nan for i in range(length - len(add_list))])
-    table_list.append(add_list)
-
-    return table_list
-
-def GetIssueStats(df_issue_selected, df_pr_selected, table_list_length, repo_col):
-    
-    issue_stats = []
+def GetProjectStats(df_issue_selected, df_pr_selected, table_list_length, repo_col):
+    project_stats = []
     months_active = pd.concat([
         df_issue_selected[[repo_col, 'date']].drop_duplicates(),
         df_pr_selected[[repo_col, 'date']].drop_duplicates()
     ]).drop_duplicates().groupby(repo_col)['date'].count()
-    proj_activity = returnMeanMedStd(months_active)
+    proj_activity = [""]
+    proj_activity.extend(returnMeanMedStd(months_active))
 
-    issue_stats = AddToTableList(issue_stats, proj_activity, table_list_length)
+    project_stats = AddToTableList(project_stats, proj_activity, table_list_length)
 
     opened_activity = OpenCloseStats(df_issue_selected, 'issue_action == "opened"')
     closed_activity = OpenCloseStats(df_issue_selected, 'issue_action == "closed"')
     comment_activity = OpenCloseStats(df_issue_selected, 'type == "IssueCommentEvent"')
 
-    issue_stats = AddToTableList(issue_stats, opened_activity, table_list_length)
-    issue_stats = AddToTableList(issue_stats, closed_activity, table_list_length)
-    issue_stats = AddToTableList(issue_stats, comment_activity, table_list_length)
+    project_stats = AddToTableList(project_stats, opened_activity, table_list_length)
+    project_stats = AddToTableList(project_stats, closed_activity, table_list_length)
+    project_stats = AddToTableList(project_stats, comment_activity, table_list_length)
 
-    return issue_stats
+    return project_stats
 
 def OpenCloseStats(df, query_filter):
     df_filtered = df.query(query_filter)
