@@ -106,7 +106,7 @@ def insert_tables_lyx(args, tables):
 
                     elif re.match(r'^.*#\d+#', lyx_text[i]) or re.match(r'^.*#\d+,#', lyx_text[i]):
                         entry_tag = re.split('#', lyx_text[i])[1]
-                        if re.match('---', tables[tag][entry_count]):
+                        if re.match('---', tables[tag][entry_count]) or re.match('nan', tables[tag][entry_count]):
                             rounded_entry = '---'
                         else:
                             rounded_entry = round_entry(entry_tag, tables[tag][entry_count])
