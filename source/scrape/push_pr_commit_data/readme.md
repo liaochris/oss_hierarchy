@@ -2,10 +2,10 @@
 This folder contains code that scrapes GitHub and queries the Github API for commit sha's of pushes and pull requests
 
 ### Source
-Chris Liao scraped this data starting October 2nd, 2024. The process 
+Chris Liao scraped this data starting October 2nd, 2024. The process concluded that month. 
 
 ### When/where obtained & original form of files
-To obtain information on commits for pushes, I queried GitHub's API. To do so, you need a GitHub account and a [personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens). 
+To obtain information on commits for pushes, I queried GitHub's API. To do so, you need a GitHub account and a [personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens). I also set the environment variables `PRIMARY_GITHUB_USERNAME` to my GitHub username and `PRIMARY_GITHUB_TOKEN` to my GitHub personal access token. 
 
 To obtain information on commits for pull requests, I scraped GitHub. 
 
