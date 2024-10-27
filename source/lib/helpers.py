@@ -12,6 +12,6 @@ def AddToTableList(table_list, add_list, length):
 def ExportTable(filename, data, tablename):
     with open(filename, "w") as f:
         f.write(f'<tab:{tablename}>\n')
-        np.savetxt(f, data)
-    
+        np.savetxt(f, data, fmt='%f', delimiter = '\t')
+        
     print(f"{filename} has been saved!")
