@@ -1,4 +1,7 @@
 Import('env')
 
 
-#env.Tablefill(target, source)
+target = ['#output/tables/project_stats.lyx']
+source = ['#source/tables/project_stats.lyx',
+          '#output/analysis/descriptives/project_stats.txt']
+env.Tablefill(target, source)
