@@ -144,7 +144,7 @@ def GetIssueClosingStats(df_issue_selected, df_pr_selected, table_list_length, r
         lambda x: (x['closed_date']-x['opened_date']).total_seconds(), axis = 1)
     closing_time_days = df_merged_issues.groupby(repo_col)['closing_time'].mean().dropna()/86400
     closing_time_activity = [num_issues]
-    closing_time_activity = ReturnMeanMedStd(closing_time_days)
+    closing_time_activity.extend(ReturnMeanMedStd(closing_time_days))
     
     issue_closing_stats = AddToTableList(issue_closing_stats, closing_time_activity, table_list_length)
 
