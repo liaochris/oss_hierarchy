@@ -74,14 +74,12 @@ def ReturnMeanMedStd(pd_series):
 def GetIssueStats(df_issue_selected, df_pr_selected, table_list_length, repo_col):
     issue_stats = []
     
-    num_projects = len(pd.concat([df_issue_selected[repo_col], df_pr_selected[repo_col]]).unique())
-    issue_stats = AddToTableList(issue_stats, [num_projects], table_list_length)
-
     years_active = pd.concat([
         df_issue_selected[[repo_col, 'date']].drop_duplicates(),
         df_pr_selected[[repo_col, 'date']].drop_duplicates()
     ]).drop_duplicates().groupby(repo_col)['date'].count()/12
-    proj_activity = [""]
+    num_projects = len(pd.concat([df_issue_selected[repo_col], df_pr_selected[repo_col]]).unique())
+    proj_activity = [num_projects]
     proj_activity.extend(ReturnMeanMedStd(years_active))
 
     issue_stats = AddToTableList(issue_stats, proj_activity, table_list_length)
