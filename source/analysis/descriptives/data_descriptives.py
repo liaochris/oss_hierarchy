@@ -159,12 +159,12 @@ def GetIssueClosingStats(df_issue, df_pr, table_list_length, repo_col):
         df_subset_cond_mean = df_merged_issues.dropna().groupby(repo_col)[closed_timeline].mean()
         num_closed_cond = df_merged_issues.dropna()[closed_timeline].sum()
         closed_cond.extend([num_closed_cond])
-        closed_cond.extend(returnMeanMedStd(df_subset_cond_mean))
+        closed_cond.extend(ReturnMeanMedStd(df_subset_cond_mean))
                           
         df_subset_uncond_mean = df_merged_issues.groupby(repo_col)[closed_timeline].mean()
         num_closed_uncond = df_merged_issues.dropna()[closed_timeline].sum()
         closed_uncond.extend([num_closed_uncond])
-        closed_uncond.extend(returnMeanMedStd(df_subset_uncond_mean))
+        closed_uncond.extend(ReturnMeanMedStd(df_subset_uncond_mean))
 
     issue_closing_stats = AddToTableList(issue_closing_stats, closed_cond, table_list_length)
     issue_closing_stats = AddToTableList(issue_closing_stats, closed_uncond, table_list_length)
@@ -221,3 +221,7 @@ def GetIssueCommentStats(df_issue, df_pr, table_list_length, repo_col):
     issue_comment_stats = AddToTableList(issue_comment_stats, comment_days_mean, table_list_length)
 
     return issue_comment_stats
+
+if __name__ == '__main__':
+    Main()
+
