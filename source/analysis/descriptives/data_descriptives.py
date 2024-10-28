@@ -73,12 +73,16 @@ def ReturnMeanMedStd(pd_series):
 
 def GetIssueStats(df_issue_selected, df_pr_selected, table_list_length, repo_col):
     issue_stats = []
-    months_active = pd.concat([
+    
+    num_projects = len(pd.concat([df_issue_selected[repo_col], df_pr_selected[repo_col]]).unique())
+    issue_stats = AddToTableList(issue_stats, [num_projects], table_list_length)
+
+    years_active = pd.concat([
         df_issue_selected[[repo_col, 'date']].drop_duplicates(),
         df_pr_selected[[repo_col, 'date']].drop_duplicates()
-    ]).drop_duplicates().groupby(repo_col)['date'].count()
+    ]).drop_duplicates().groupby(repo_col)['date'].count()/12
     proj_activity = [""]
-    proj_activity.extend(ReturnMeanMedStd(months_active))
+    proj_activity.extend(ReturnMeanMedStd(years_active))
 
     issue_stats = AddToTableList(issue_stats, proj_activity, table_list_length)
 
@@ -161,7 +165,7 @@ def GetIssueClosingStats(df_issue_selected, df_pr_selected, table_list_length, r
         closed_cond.extend(ReturnMeanMedStd(df_subset_cond_mean))
                           
         df_subset_uncond_mean = df_merged_issues.groupby(repo_col)[closed_timeline].mean()
-        num_closed_uncond = df_merged_issues.dropna()[closed_timeline].sum()
+        num_closed_uncond = df_merged_issues[closed_timeline].sum()
         closed_uncond.extend([num_closed_uncond])
         closed_uncond.extend(ReturnMeanMedStd(df_subset_uncond_mean))
 
