@@ -63,8 +63,7 @@ def ReadPrIssueData(file_dirs, data_cols):
     return df_final
 
 def AddDates(df):
-    df['created_at'] = pd.to_datetime(df['created_at'], errors = 'coerce')
-    df = df[~df['created_at'].isna()]
+    df['created_at'] = pd.to_datetime(df['created_at'])
     df['date'] = df.parallel_apply(lambda x: f"{x['created_at'].year}-{x['created_at'].month}", axis = 1)
 
     return df
@@ -72,28 +71,28 @@ def AddDates(df):
 def ReturnMeanMedStd(pd_series):
     return [pd_series.mean(), np.median(pd_series), np.std(pd_series)]
 
-def GetIssueStats(df_issue, df_pr, table_list_length, repo_col):
+def GetIssueStats(df_issue_selected, df_pr_selected, table_list_length, repo_col):
     issue_stats = []
     months_active = pd.concat([
-        df_issue[[repo_col, 'date']].drop_duplicates(),
-        df_pr[[repo_col, 'date']].drop_duplicates()
+        df_issue_selected[[repo_col, 'date']].drop_duplicates(),
+        df_pr_selected[[repo_col, 'date']].drop_duplicates()
     ]).drop_duplicates().groupby(repo_col)['date'].count()
     proj_activity = [""]
     proj_activity.extend(ReturnMeanMedStd(months_active))
 
     issue_stats = AddToTableList(issue_stats, proj_activity, table_list_length)
 
-    opened_activity = OpenCloseStats(df_issue, 'issue_action == "opened"')
-    closed_activity = OpenCloseStats(df_issue, 'issue_action == "closed"')
-    comment_activity = OpenCloseStats(df_issue, 'type == "IssueCommentEvent"')
+    opened_activity = OpenCloseStats(df_issue_selected, 'issue_action == "opened"')
+    closed_activity = OpenCloseStats(df_issue_selected, 'issue_action == "closed"')
+    comment_activity = OpenCloseStats(df_issue_selected, 'type == "IssueCommentEvent"')
 
     issue_stats = AddToTableList(issue_stats, opened_activity, table_list_length)
     issue_stats = AddToTableList(issue_stats, closed_activity, table_list_length)
     issue_stats = AddToTableList(issue_stats, comment_activity, table_list_length)
 
-    opened_people = PeopleStats(df_issue, 'issue_action == "opened"')
-    closed_people = PeopleStats(df_issue, 'issue_action == "closed"')
-    comment_people = PeopleStats(df_issue, 'type == "IssueCommentEvent"')
+    opened_people = PeopleStats(df_issue_selected, 'issue_action == "opened"')
+    closed_people = PeopleStats(df_issue_selected, 'issue_action == "closed"')
+    comment_people = PeopleStats(df_issue_selected, 'type == "IssueCommentEvent"')
 
     issue_stats = AddToTableList(issue_stats, opened_people, table_list_length)
     issue_stats = AddToTableList(issue_stats, closed_people, table_list_length)
@@ -124,13 +123,13 @@ def PeopleStats(df, query_filter):
     return df_filtered_activity
 
 
-def GetIssueClosingStats(df_issue, df_pr, table_list_length, repo_col):
+def GetIssueClosingStats(df_issue_selected, df_pr_selected, table_list_length, repo_col):
     issue_closing_stats = []
     selcols = ['created_at',repo_col,'issue_number']
 
-    opened_issues = df_issue.query('issue_action == "opened"')[
+    opened_issues = df_issue_selected.query('issue_action == "opened"')[
         selcols].dropna().drop_duplicates().rename({'created_at':'opened_date'}, axis = 1)
-    closed_issues = df_issue.query('issue_action == "closed"')[
+    closed_issues = df_issue_selected.query('issue_action == "closed"')[
         selcols].dropna().drop_duplicates().rename({'created_at':'closed_date'}, axis = 1)
     df_merged_issues = pd.merge(opened_issues, closed_issues, how = 'left')
     df_merged_issues['closed'] = df_merged_issues['closed_date'].notna()
@@ -171,15 +170,15 @@ def GetIssueClosingStats(df_issue, df_pr, table_list_length, repo_col):
 
     return issue_closing_stats
 
-def GetIssueCommentStats(df_issue, df_pr, table_list_length, repo_col):
+def GetIssueCommentStats(df_issue_selected, df_pr_selected, table_list_length, repo_col):
     issue_comment_stats = []
     
-    df_issue_comments = df_issue.query('type == "IssueCommentEvent"')
-    df_issue_time = df_issue.query('issue_action == "opened"')[[repo_col,'issue_number','created_at']].dropna()
+    df_issue_comments = df_issue_selected.query('type == "IssueCommentEvent"')
+    df_issue_time = df_issue_selected.query('issue_action == "opened"')[[repo_col,'issue_number','created_at']].dropna()
     df_issue_time.rename({'created_at': 'opened_date'}, axis = 1, inplace = True)
     df_issue_comments_details = pd.merge(df_issue_time, df_issue_comments, how = 'left', on = [repo_col, 'issue_number'])
 
-    num_comments = df_issue_comments_details[[repo_col,'issue_comment_id']].drop_duplicates().shape[0]
+    num_comments = df_issue_comments_details[[repo_col,'issue_comment_id']].dropna().drop_duplicates().shape[0]
     num_issues = df_issue_comments_details[[repo_col,'issue_number']].drop_duplicates().shape[0]
     
     df_no_comments = df_issue_comments_details.query('issue_comment_id.isna()')[[repo_col,'issue_number']].assign(
@@ -195,16 +194,15 @@ def GetIssueCommentStats(df_issue, df_pr, table_list_length, repo_col):
         lambda x: (x['created_at']-x['opened_date']).total_seconds(), axis = 1)
     comment_time_days = df_issue_comments_details.groupby(repo_col)['comment_time'].mean().dropna()/86400
 
-    num_issues = df_issue_comments_details[[repo_col,'issue_comment_id']].dropna().drop_duplicates().shape[0]    
     comment_time_activity = [num_comments]
     comment_time_activity.extend(ReturnMeanMedStd(comment_time_days))
     issue_comment_stats = AddToTableList(issue_comment_stats, comment_time_activity, table_list_length)
 
     for days in [30, 60, 180]:
         df_issue_comments_details[f'comment_{days}_days'] = df_issue_comments_details['comment_time'] <= days * 86400
-    
-    comment_days_prop = []
-    comment_days_mean = []
+
+    comment_days_prop = [num_issues]
+    comment_days_mean = [num_issues]
     for days in [30, 60, 180]:
         comment_timeline = f'comment_{days}_days'
         df_closed_prop = df_issue_comments_details.groupby(repo_col)[comment_timeline].mean()
@@ -221,6 +219,7 @@ def GetIssueCommentStats(df_issue, df_pr, table_list_length, repo_col):
     issue_comment_stats = AddToTableList(issue_comment_stats, comment_days_mean, table_list_length)
 
     return issue_comment_stats
+
 
 if __name__ == '__main__':
     Main()
