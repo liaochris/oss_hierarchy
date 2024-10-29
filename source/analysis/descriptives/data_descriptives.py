@@ -71,22 +71,21 @@ def AddDates(df):
 def ReturnMeanMedStd(pd_series):
     return [pd_series.mean(), np.median(pd_series), np.std(pd_series)]
 
+
 def GetIssueStats(df_issue_selected, df_pr_selected, table_list_length, repo_col):
     issue_stats = []
-    
-    years_active = pd.concat([
+    months_active = pd.concat([
         df_issue_selected[[repo_col, 'date']].drop_duplicates(),
         df_pr_selected[[repo_col, 'date']].drop_duplicates()
-    ]).drop_duplicates().groupby(repo_col)['date'].count()/12
-    num_projects = len(pd.concat([df_issue_selected[repo_col], df_pr_selected[repo_col]]).unique())
-    proj_activity = [num_projects]
-    proj_activity.extend(ReturnMeanMedStd(years_active))
+    ]).drop_duplicates().groupby(repo_col)['date'].count()
+    proj_activity = [""]
+    proj_activity.extend(returnMeanMedStd(months_active))
 
     issue_stats = AddToTableList(issue_stats, proj_activity, table_list_length)
 
-    opened_activity = OpenCloseStats(df_issue_selected, 'issue_action == "opened"')
-    closed_activity = OpenCloseStats(df_issue_selected, 'issue_action == "closed"')
-    comment_activity = OpenCloseStats(df_issue_selected, 'type == "IssueCommentEvent"')
+    opened_activity = OpenCloseStats(df_issue_selected, 'issue_action == "opened"', [repo_col,'issue_number'])
+    closed_activity = OpenCloseStats(df_issue_selected, 'issue_action == "closed"', [repo_col,'issue_number'])
+    comment_activity = OpenCloseStats(df_issue_selected, 'type == "IssueCommentEvent"', [repo_col,'issue_number','issue_comment_id'])
 
     issue_stats = AddToTableList(issue_stats, opened_activity, table_list_length)
     issue_stats = AddToTableList(issue_stats, closed_activity, table_list_length)
@@ -102,14 +101,14 @@ def GetIssueStats(df_issue_selected, df_pr_selected, table_list_length, repo_col
     
     return issue_stats
 
-def OpenCloseStats(df, query_filter):
+def OpenCloseStats(df, query_filter, dup_cols):
     df_filtered = df.query(query_filter)
-    df_filtered_stats = df_filtered.groupby(repo_col)['type'].count()
+    df_filtered_stats = df_filtered.drop_duplicates([dup_cols]).groupby(repo_col)['type'].count()
     
-    df_filtered_month_stats = df_filtered.groupby([repo_col, 'date'])['type'].count()
+    df_filtered_month_stats = df_filtered.drop_duplicates([dup_cols]).groupby([repo_col, 'date'])['type'].count()
     df_filtered_activity = [df_filtered.shape[0]]
-    df_filtered_activity.extend(ReturnMeanMedStd(df_filtered_stats))
-    df_filtered_activity.extend(ReturnMeanMedStd(df_filtered_month_stats))
+    df_filtered_activity.extend(returnMeanMedStd(df_filtered_stats))
+    df_filtered_activity.extend(returnMeanMedStd(df_filtered_month_stats))
 
     return df_filtered_activity
 
@@ -125,13 +124,13 @@ def PeopleStats(df, query_filter):
     return df_filtered_activity
 
 
-def GetIssueClosingStats(df_issue_selected, df_pr_selected, table_list_length, repo_col):
+def GetIssueClosingStats(df_issue, df_pr, table_list_length, repo_col):
     issue_closing_stats = []
     selcols = ['created_at',repo_col,'issue_number']
 
-    opened_issues = df_issue_selected.query('issue_action == "opened"')[
+    opened_issues = df_issue.query('issue_action == "opened"')[
         selcols].dropna().drop_duplicates().rename({'created_at':'opened_date'}, axis = 1)
-    closed_issues = df_issue_selected.query('issue_action == "closed"')[
+    closed_issues = df_issue.query('issue_action == "closed"')[
         selcols].dropna().drop_duplicates().rename({'created_at':'closed_date'}, axis = 1)
     df_merged_issues = pd.merge(opened_issues, closed_issues, how = 'left')
     df_merged_issues['closed'] = df_merged_issues['closed_date'].notna()
@@ -172,11 +171,11 @@ def GetIssueClosingStats(df_issue_selected, df_pr_selected, table_list_length, r
 
     return issue_closing_stats
 
-def GetIssueCommentStats(df_issue_selected, df_pr_selected, table_list_length, repo_col):
+def GetIssueCommentStats(df_issue, df_pr, table_list_length, repo_col):
     issue_comment_stats = []
     
-    df_issue_comments = df_issue_selected.query('type == "IssueCommentEvent"')
-    df_issue_time = df_issue_selected.query('issue_action == "opened"')[[repo_col,'issue_number','created_at']].dropna()
+    df_issue_comments = df_issue.query('type == "IssueCommentEvent"')
+    df_issue_time = df_issue.query('issue_action == "opened"')[[repo_col,'issue_number','created_at']].dropna()
     df_issue_time.rename({'created_at': 'opened_date'}, axis = 1, inplace = True)
     df_issue_comments_details = pd.merge(df_issue_time, df_issue_comments, how = 'left', on = [repo_col, 'issue_number'])
 
