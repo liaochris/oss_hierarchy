@@ -10,9 +10,7 @@ import random
 import glob
 import subprocess
 from pygit2 import Object, Repository, GIT_SORT_TIME, enums, init_repository, Patch
-import sys
-sys.path.append('source/scrape/collect_commits/docs')
-from get_commit_data import importPullRequestData
+from source.scrape.collect_commits.docs.get_commit_data_pr import importPullRequestData
 import time
 import multiprocessing
 

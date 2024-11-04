@@ -17,7 +17,7 @@ pandarallel.initialize(progress_bar = True)
 
 
 def Main():
-    df_committers_full = pd.concat([ReadPullRequests(file) for file in glob.glob('drive/output/scrape/collect_commits/*.csv')])
+    df_committers_full = pd.concat([ReadPullRequests(file) for file in glob.glob('drive/output/scrape/collect_commits/pr/*.parquet')])
     df_committers_full.rename({'commmitter email':'committer email'}, axis = 1, inplace = True)
     df_committers_full, df_committers_match = CreateMatchDataset(df_committers_full)
 
@@ -40,10 +40,7 @@ def Main():
 def ReadPullRequests(file):
     print(file)
     selcols = ['pr_number', 'repo_name', 'commit author name', 'commit author email', 'committer name', 'commmitter email', 'commit sha']
-    try:
-        df_committers_full_subset = pd.read_csv(file, usecols = selcols, engine = 'pyarrow')
-    except:
-        df_committers_full_subset = pd.read_csv(file, usecols = selcols, engine="python", on_bad_lines = 'warn')        
+    df_committers_full_subset = pd.read_parquet(file, engine = 'fastparquet', on_bad_lines = 'warn')[selcols]
     df_committers_full_subset = df_committers_full_subset.drop_duplicates()
     return df_committers_full_subset
 
