@@ -40,7 +40,6 @@ def Main():
             
     print("Done!")
 
-push_commit_cols = ['repo_name', 'push_id', 'commit_list', 'push_before', 'push_head', 'commit_list_length']
 
 
 def importPullRequestData(pr_indir):
@@ -55,7 +54,6 @@ def importPullRequestData(pr_indir):
                     pass
     df_pull_request.drop('Unnamed: 0', axis = 1, inplace = True)
     df_pull_request['pr_number'] = df_pull_request['pr_commits_url'].parallel_apply(lambda x: x.split("/")[-2] if not pd.isnull(x) else x)
-
     return df_pull_request
     
 

@@ -34,7 +34,7 @@ def Main():
     random.shuffle(github_repos)
 
     push_commit_cols = ['repo_name', 'push_id', 'commit_list', 'push_before', 'push_head', 'commit_list_length', 'commit_groups']
-    
+
     for library in github_repos:
         print(library)
         df_library = df_push_commits[df_push_commits['repo_name'] == library]
