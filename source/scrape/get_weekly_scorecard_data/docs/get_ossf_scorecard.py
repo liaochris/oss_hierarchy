@@ -31,7 +31,7 @@ def Main():
     random.shuffle(github_repos)
 
 
-    with multiprocessing.Pool(4) as pool:
+    with multiprocessing.Pool(8) as pool:
         for result in pool.imap(GetScorecard, github_repos):
             print(result)
 
@@ -43,7 +43,7 @@ def GetScorecard(library):
     print(library)
     lib_name = library.split("/")[1]
     lib_renamed = library.replace("/","_")
-    if f'scorecard_{lib_renamed}.csv' not in os.listdir(scorecard_outdir):
+    if f'scorecard_{lib_renamed}.csv' not in os.listdir(scorecard_outdir / 'scorecard'):
         try:
             print(f"Starting {library}")
             start = time.time()
@@ -51,8 +51,8 @@ def GetScorecard(library):
                 df_commits_dict = IterateThroughCommits(library, lib_renamed, scorecard_outdir)
                 df_commits = pd.DataFrame(df_commits_dict)
                 df_commits.to_csv(scorecard_outdir / f'scorecard/scorecard_{lib_renamed}.csv')
-                subprocess.Popen([f"rm -rf scorecard_{lib_renamed}.json"], cwd = scorecard_outdir / 'scorecard').communicate()
-                subprocess.Popen([f"rm -rf {lib_renamed}"], cwd = scorecard_outdir / 'github_repos').communicate()
+                subprocess.Popen(["rm", "-rf", f"scorecard_{lib_renamed}.json"], cwd = scorecard_outdir / 'scorecard').communicate()
+                subprocess.Popen(["rm", "-rf", f"{lib_renamed}"], cwd = scorecard_outdir / 'github_repos').communicate()
                 end = time.time()
                 print(f"{library} completed in {start - end}")
             else:
@@ -129,7 +129,7 @@ def IterateThroughCommits(library, lib_renamed, scorecard_outdir):
     return df_commits_dict
 
 def GetProcessOutput(cmd, cwd):
-    process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+    process = subprocess.Popen(cmd, cwd = cwd, shell=True, stdout=subprocess.PIPE)
     process.wait()
     data, err = process.communicate()
     if process.returncode == 0:
