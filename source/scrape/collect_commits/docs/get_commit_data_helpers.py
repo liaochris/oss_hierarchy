@@ -127,42 +127,36 @@ def cleanCommitData(library, df_library, lib_renamed, github_repos_loc,
     i = 0
     df_commit_groups = pd.DataFrame(columns = df_commit_cols)
     for chunk in df_library_chunks:
-        if i>23 or library != 'pytorch/pytorch':
-            start = time.time()
-            cloned_repo_location = Path(commits_outdir / github_repos_loc / lib_renamed)
-            repo = Repository(cloned_repo_location)
-            df_library_chunk = df_library.loc[chunk]
-
-            if commit_type == "pr":
-                df_library_chunk['parent_commit'] = df_library_chunk.parallel_apply(lambda x: getHead(x['commit_list'], x['pr_number'], cloned_repo_location) if not pd.isnull(x['pr_number']) else np.nan, axis = 1)
-                print(f"finished getting parent commits for {library}, chunk {i+1}")
-                
-                df_library_chunk['commit_groups'] = df_library_chunk.parallel_apply(lambda x: createCommitGroupPr(x['commit_list'], x['parent_commit']) if not pd.isnull(x['parent_commit']) else np.nan, axis = 1)
-                id_col = 'pr_number'
-            if commit_type == "push":
-                id_col = 'push_id'
-
-                df_library_chunk['commit_groups'] = df_library_chunk.apply(lambda x: createCommitGroupPush(x['push_before'], x['push_head'], x['commit_list'], x['commit_list_length']) , axis = 1)
-
-            df_commit_groups_chunk = df_library_chunk[df_commit_cols].explode('commit_groups')
-            df_commit_groups = pd.concat([df_commit_groups, df_commit_groups_chunk])
-
-            commit_data_chunk = df_commit_groups_chunk['commit_groups'].parallel_apply(lambda x: returnCommitStats(x, repo) if type(x) != float else x)
-            commit_data = pd.concat([commit_data, commit_data_chunk])
-            print(f"NOW REMOVING {lib_renamed}")
-            while lib_renamed in os.listdir(commits_outdir / github_repos_loc):
-                try:
-                    shutil.rmtree(commits_outdir / github_repos_loc / lib_renamed)
-                except Exception as e:
-                    print(e)
-
-            if i != len(df_library_chunks)-1:
-                print(f"COPYING {lib_renamed}_temp to {lib_renamed}")
-                subprocess.Popen(["cp", "-r", f"{lib_renamed}_temp", f"{lib_renamed}"], cwd = commits_outdir / github_repos_loc).communicate()    
-            i+=1
-            end = time.time()
-            print(f"FINISHED CHUNK {i+1} of {lib_renamed}")
-            print(end - start)
+        start = time.time()
+        cloned_repo_location = Path(commits_outdir / github_repos_loc / lib_renamed)
+        repo = Repository(cloned_repo_location)
+        df_library_chunk = df_library.loc[chunk]
+        if commit_type == "pr":
+            df_library_chunk['parent_commit'] = df_library_chunk.parallel_apply(lambda x: getHead(x['commit_list'], x['pr_number'], cloned_repo_location) if not pd.isnull(x['pr_number']) else np.nan, axis = 1)
+            print(f"finished getting parent commits for {library}, chunk {i+1}")
+            df_library_chunk['commit_groups'] = df_library_chunk.parallel_apply(lambda x: createCommitGroupPr(x['commit_list'], x['parent_commit']) if not pd.isnull(x['parent_commit']) else np.nan, axis = 1)
+            id_col = 'pr_number'
+        if commit_type == "push":
+            id_col = 'push_id'
+            df_library_chunk['commit_groups'] = df_library_chunk.apply(lambda x: createCommitGroupPush(x['push_before'], x['push_head'], x['commit_list'], x['commit_list_length']) , axis = 1)
+        df_commit_groups_chunk = df_library_chunk[df_commit_cols].explode('commit_groups')
+        df_commit_groups = pd.concat([df_commit_groups, df_commit_groups_chunk])
+        commit_data_chunk = df_commit_groups_chunk['commit_groups'].parallel_apply(lambda x: returnCommitStats(x, repo) if type(x) != float else x)
+        commit_data = pd.concat([commit_data, commit_data_chunk])
+        commit_data_chunk.to_csv(f'temp/{lib_renamed}{i+2}_{commit_type}.csv')
+        print(f"NOW REMOVING {lib_renamed}")
+        while lib_renamed in os.listdir(commits_outdir / github_repos_loc):
+            try:
+                shutil.rmtree(commits_outdir / github_repos_loc / lib_renamed)
+            except Exception as e:
+                print(e)
+        if i != len(df_library_chunks)-1:
+            print(f"COPYING {lib_renamed}_temp to {lib_renamed}")
+            subprocess.Popen(["cp", "-r", f"{lib_renamed}_temp", f"{lib_renamed}"], cwd = commits_outdir / github_repos_loc).communicate()    
+        i+=1
+        end = time.time()
+        print(f"FINISHED CHUNK {i+1} of {lib_renamed}")
+        print(end - start)
 
     print(f"NOW REMOVING {lib_renamed}_temp")
     while f"{lib_renamed}_temp" in os.listdir(commits_outdir / github_repos_loc):
@@ -198,7 +192,7 @@ def getCommitData(library, commits_outdir, df_library, df_commit_cols, commit_ty
             if lib_renamed not in os.listdir(commits_outdir / github_repos_loc):
                 df_commit_final = cleanCommitData(library, df_library, lib_renamed, github_repos_loc,
                                                   df_commit_cols, commit_type, commits_outdir)
-                df_commit_final.to_parquet(commits_outdir / f'commits_{commit_type}_{lib_renamed}.csv')
+                df_commit_final.to_parquet(commits_outdir / f'commits_{commit_type}_{lib_renamed}.parquet')
                 end = time.time()
                 print(f"{library} completed in {end - start}")
             else:

@@ -1,0 +1,1 @@
+if i haven't already turn the .csv's into .parquet

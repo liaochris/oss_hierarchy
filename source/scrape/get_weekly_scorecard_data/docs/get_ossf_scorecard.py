@@ -15,6 +15,8 @@ import time
 import multiprocessing
 from bson import json_util
 import json
+import concurrent.futures
+
 
 def Main():
     warnings.filterwarnings("ignore")
@@ -28,10 +30,11 @@ def Main():
     github_repos = [library for library in github_repos if "/" in library]
     random.shuffle(github_repos)
 
-    with multiprocessing.Pool(8) as pool:
+
+    with multiprocessing.Pool(4) as pool:
         for result in pool.imap(GetScorecard, github_repos):
             print(result)
-    
+
     print("Done!")
 
 
@@ -48,7 +51,8 @@ def GetScorecard(library):
                 df_commits_dict = IterateThroughCommits(library, lib_renamed, scorecard_outdir)
                 df_commits = pd.DataFrame(df_commits_dict)
                 df_commits.to_csv(scorecard_outdir / f'scorecard/scorecard_{lib_renamed}.csv')
-                subprocess.Popen(["rm", "-rf", f"{lib_renamed}"], cwd = scorecard_outdir / 'github_repos').communicate()
+                subprocess.Popen([f"rm -rf scorecard_{lib_renamed}.json"], cwd = scorecard_outdir / 'scorecard').communicate()
+                subprocess.Popen([f"rm -rf {lib_renamed}"], cwd = scorecard_outdir / 'github_repos').communicate()
                 end = time.time()
                 print(f"{library} completed in {start - end}")
             else:
@@ -82,8 +86,22 @@ def IterateThroughCommits(library, lib_renamed, scorecard_outdir):
     df_commits = df_commits.sort_values('date', ascending = False).reset_index(drop = True)
     df_commits_dict = df_commits.to_dict('index')
 
+    for commit_num in  df_commits.index:
+        df_commits_dict[commit_num]['date'] = str(df_commits_dict[commit_num]['date'])
+
     print(f"Getting {df_commits.shape[0]} commits")
-    for commit_num in df_commits.index:
+    
+    commit_list = df_commits.index
+    if f'scorecard_{lib_renamed}.json' in os.listdir(scorecard_outdir / 'scorecard'):
+        with open(scorecard_outdir / f'scorecard/scorecard_{lib_renamed}.json', 'r') as file:
+            df_commits_dict = json.load(file)
+        i=0
+        while type(df_commits_dict[commit_num].get('scorecard_data', False) != bool):
+            df_commits_dict[commit_num]
+            i+=1
+        commit_list = commit_list[i:]
+    
+    for commit_num in commit_list:
         if commit_num % 10 == 0:
             print(commit_num)
         try:
@@ -95,6 +113,12 @@ def IterateThroughCommits(library, lib_renamed, scorecard_outdir):
             scorecard_json['repo']['commit'] = str(df_commits.loc[commit_num, 'commit_sha'])
             scorecard_json['scorecard']['commit'] = str(scorecard_json['scorecard']['commit'])
             df_commits_dict[commit_num]['scorecard_data'] = scorecard_json
+            
+            with open(scorecard_outdir / f'scorecard/scorecard_{lib_renamed}.json', "w") as outfile:
+                df_commits_dict[commit_num]['date'] = str(df_commits_dict[commit_num]['date'])
+                df_commits_dict_json = json.dumps(df_commits_dict)
+                outfile.write(df_commits_dict_json)
+        
         except Exception as e:
             print(e)
             continue

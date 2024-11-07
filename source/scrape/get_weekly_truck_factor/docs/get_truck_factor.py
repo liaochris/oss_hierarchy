@@ -27,7 +27,7 @@ def Main():
     random.shuffle(github_repos)
 
 
-    with multiprocessing.Pool(4) as pool:
+    with multiprocessing.Pool(8) as pool:
         for result in pool.imap(GetTruckFactor, github_repos):
             print(result)
 
@@ -49,7 +49,9 @@ def GetTruckFactor(library):
             if lib_renamed not in os.listdir(truckfactor_outdir / 'github_repos'):
                 df_commits = IterateThroughCommits(library, lib_renamed, truckfactor_outdir)
                 df_commits.to_csv(truckfactor_outdir / f'truckfactor_{lib_renamed}.csv')
-                subprocess.Popen(["rm", "-rf", f"{lib_renamed}"], cwd = truckfactor_outdir / 'github_repos').communicate()
+                subprocess.Popen([f"rm -rf truckfactor_{lib_renamed}_temp.csv"], cwd = truckfactor_outdir).communicate()
+
+                subprocess.Popen([f"rm -rf {lib_renamed}"], cwd = truckfactor_outdir / 'github_repos').communicate()
                 end = time.time()
                 print(f"{library} completed in {start - end}")
             else:
@@ -79,7 +81,13 @@ def IterateThroughCommits(library, lib_renamed, truckfactor_outdir):
     df_commits = df_commits.sort_values('date', ascending = False).reset_index(drop = True)
 
     print(f"Getting {df_commits.shape[0]} commits")
-    for commit_num in df_commits.index:
+    commit_list = df_commits.index
+    if f'truckfactor_{lib_renamed}_temp.csv' in os.listdir(truckfactor_outdir):
+        df_commits = pd.read_csv(truckfactor_outdir / f'truckfactor_{lib_renamed}_temp.csv', index_col = 0)
+        last_valid = df_commits.dropna().tail(1).index.values[0]
+        commit_list = commit_list[last_valid+1:]
+    
+    for commit_num in commit_list:
         if commit_num % 100 == 0:
             print(commit_num)
         try:
@@ -87,6 +95,8 @@ def IterateThroughCommits(library, lib_renamed, truckfactor_outdir):
             truckfactor, _, authors = main(cloned_repo_location)
             df_commits.loc[commit_num, ['truckfactor']] = truckfactor
             df_commits.loc[commit_num, ['authors']] = " | ".join(authors)
+
+            df_commits.to_csv(truckfactor_outdir / f'truckfactor_{lib_renamed}_temp.csv')
         except:
             continue
 
