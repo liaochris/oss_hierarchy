@@ -64,7 +64,7 @@ def GetTruckFactor(library):
 
 def IterateThroughCommits(library, lib_renamed, truckfactor_outdir):
     start = time.time()
-    subprocess.Popen(["git", "clone", f"git@github.com:{library}.git", f"{lib_renamed}"], cwd = truckfactor_outdir  / 'github_repos').communicate()
+    subprocess.Popen(["git", "clone", f"https://github.com/{library}.git", f"{lib_renamed}"], cwd = truckfactor_outdir  / 'github_repos').communicate()
 
     global repo
     cloned_repo_location = truckfactor_outdir / 'github_repos' / lib_renamed
