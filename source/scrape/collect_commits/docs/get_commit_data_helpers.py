@@ -7,11 +7,9 @@ import pandas as pd
 import numpy as np
 from pygit2 import Object, Repository, GIT_SORT_TIME
 from pygit2 import init_repository, Patch
-from tqdm import tqdm
 from pandarallel import pandarallel
 import subprocess
 import warnings
-from joblib import Parallel, delayed
 import os
 import multiprocessing
 import time
@@ -143,7 +141,7 @@ def cleanCommitData(library, df_library, lib_renamed, github_repos_loc,
         df_commit_groups = pd.concat([df_commit_groups, df_commit_groups_chunk])
         commit_data_chunk = df_commit_groups_chunk['commit_groups'].parallel_apply(lambda x: returnCommitStats(x, repo) if type(x) != float else x)
         commit_data = pd.concat([commit_data, commit_data_chunk])
-        commit_data_chunk.to_csv(f'temp/{lib_renamed}{i+2}_{commit_type}.csv')
+        commit_data_chunk.to_csv(f'drive/temp/{lib_renamed}{i+2}_{commit_type}.csv')
         print(f"NOW REMOVING {lib_renamed}")
         while lib_renamed in os.listdir(commits_outdir / github_repos_loc):
             try:
@@ -170,7 +168,7 @@ def cleanCommitData(library, df_library, lib_renamed, github_repos_loc,
                             'commit changes total', 'commit files changed count', 'commit file changes', 
                             'commit time']
     df_commit = pd.DataFrame(commit_data.apply(lambda x: [np.nan]* len(commit_data_colnames) if type(x) == float else x).tolist(),
-                            columns = commit_data_colnames)
+                             columns = commit_data_colnames)
 
     # In[ ]:
     df_commit_final = pd.concat([df_commit_groups.reset_index(drop = True), df_commit], axis = 1)
