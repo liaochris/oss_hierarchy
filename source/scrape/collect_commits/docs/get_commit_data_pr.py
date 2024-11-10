@@ -7,7 +7,6 @@ import pandas as pd
 import numpy as np
 from pygit2 import Object, Repository, GIT_SORT_TIME
 from pygit2 import init_repository, Patch
-from tqdm import tqdm
 from pandarallel import pandarallel
 import subprocess
 import warnings
