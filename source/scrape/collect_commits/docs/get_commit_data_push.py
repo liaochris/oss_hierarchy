@@ -1,27 +1,12 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from pathlib import Path
-import ast
-import pandas as pd
-import numpy as np
-from pygit2 import Object, Repository, GIT_SORT_TIME
-from pygit2 import init_repository, Patch
-from tqdm import tqdm
-from pandarallel import pandarallel
-import subprocess
-import warnings
-from joblib import Parallel, delayed
-import os
-import multiprocessing
-import time
-import random
+
 from source.scrape.collect_commits.docs.get_commit_data_helpers import getCommitData
 
 def Main():
     pandarallel.initialize(progress_bar=True)
     warnings.filterwarnings("ignore")
-    tqdm.pandas()
 
     push_indir = Path('drive/output/derived/filter_nonunique_push')
     commits_outdir = Path('drive/output/scrape/collect_commits/push')

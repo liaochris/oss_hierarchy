@@ -16,6 +16,7 @@ import multiprocessing
 from bson import json_util
 import json
 import concurrent.futures
+import shutil
 
 
 def Main():
@@ -52,7 +53,7 @@ def GetScorecard(library):
                 df_commits = pd.DataFrame(df_commits_dict)
                 df_commits.to_csv(scorecard_outdir / f'scorecard/scorecard_{lib_renamed}.csv')
                 subprocess.Popen(["rm", "-rf", f"scorecard_{lib_renamed}.json"], cwd = scorecard_outdir / 'scorecard').communicate()
-                subprocess.Popen(["rm", "-rf", f"{lib_renamed}"], cwd = scorecard_outdir / 'github_repos').communicate()
+                shutil.rmtree(scorecard_outdir / 'github_repos' / f"{lib_renamed}")
                 end = time.time()
                 print(f"{library} completed in {start - end}")
             else:
