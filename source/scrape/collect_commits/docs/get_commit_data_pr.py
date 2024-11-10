@@ -10,7 +10,6 @@ from pygit2 import init_repository, Patch
 from pandarallel import pandarallel
 import subprocess
 import warnings
-from joblib import Parallel, delayed
 import os
 import multiprocessing
 import time
