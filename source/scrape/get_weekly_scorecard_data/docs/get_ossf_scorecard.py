@@ -12,7 +12,7 @@ from pygit2 import Object, Repository, GIT_SORT_TIME, enums, init_repository, Pa
 import sys
 from source.scrape.collect_commits.docs.get_commit_data_pr import importPullRequestData
 import time
-import multiprocessing
+import multiprocess
 from bson import json_util
 import json
 import concurrent.futures
@@ -32,7 +32,7 @@ def Main():
     random.shuffle(github_repos)
 
 
-    with multiprocessing.Pool(8) as pool:
+    with multiprocess.Pool(8) as pool:
         for result in pool.imap(GetScorecard, github_repos):
             print(result)
 
@@ -66,7 +66,7 @@ def GetScorecard(library):
 
 def IterateThroughCommits(library, lib_renamed, scorecard_outdir):
     start = time.time()
-    subprocess.Popen(["git", "clone", f"git@github.com:{library}.git", f"{lib_renamed}"], cwd = scorecard_outdir  / 'github_repos').communicate()
+    subprocess.Popen(["git", "clone", f"https://github.com/{library}.git", f"{lib_renamed}"], cwd = scorecard_outdir  / 'github_repos').communicate()
 
     global repo
     cloned_repo_location = scorecard_outdir / 'github_repos' / lib_renamed
