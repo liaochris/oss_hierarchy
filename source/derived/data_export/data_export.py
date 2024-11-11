@@ -48,7 +48,7 @@ def read_csv(filename, commit_cols):
 
 def Main():
     outdir = Path('drive/output/derived/data_export')
-    """
+
     pr_data_indir = glob.glob('drive/output/scrape/extract_github_data/pull_request_data/*.csv')
     pr_data_indir.extend(glob.glob('drive/output/scrape/extract_github_data/pull_request_review_data/*.csv'))
     pr_data_indir.extend(glob.glob('drive/output/scrape/extract_github_data/pull_request_review_comment_data/*.csv'))
@@ -64,17 +64,17 @@ def Main():
                   'issue_action','issue_state', 'issue_comment_id', 'issue_user_id', 'issue_comment_body']
     df_issue = ReadPrIssueData(issue_data_indir, issue_cols)
     df_pr.to_parquet(outdir / 'df_issue.parquet')
-    """
+
     
     commit_cols = ['repo_name','commit author name','commit author email', 'commit additions',
                    'commit deletions','commit changes total','commit files changed count', 'commit file changes',
                    'commit time']
-    """
+
     df_pr_commits = pd.concat([read_parquet(filename, commit_cols + ['pr_number']) for filename in 
                                glob.glob('drive/output/scrape/collect_commits/pr/*')])
     df_pr_commits['commit file changes'] = df_pr_commits['commit file changes'].astype(str)
     df_pr_commits.to_parquet(outdir / 'df_pr_commits.parquet')
-    """
+
     
     df_push_commits = pd.concat([read_parquet(filename, commit_cols + ['push_id']) for filename in glob.glob('drive/output/scrape/collect_commits/push/*')])
     df_push_commits['commit file changes'] = df_push_commits['commit file changes'].astype(str)
