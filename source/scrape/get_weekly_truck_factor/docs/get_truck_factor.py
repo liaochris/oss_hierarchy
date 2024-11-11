@@ -64,7 +64,7 @@ def GetTruckFactor(library):
 
 def IterateThroughCommits(library, lib_renamed, truckfactor_outdir):
     start = time.time()
-    subprocess.Popen(["git", "clone", f"https://github.com/{library}.git", f"{lib_renamed}"], cwd = truckfactor_outdir  / 'github_repos').communicate()
+    subprocess.Popen(["git", "clone", f"git@github.com:{library}.git", f"{lib_renamed}"], cwd = truckfactor_outdir  / 'github_repos').communicate()
 
     global repo
     cloned_repo_location = truckfactor_outdir / 'github_repos' / lib_renamed
@@ -83,10 +83,14 @@ def IterateThroughCommits(library, lib_renamed, truckfactor_outdir):
     print(f"Getting {df_commits.shape[0]} commits")
     commit_list = df_commits.index
     if f'truckfactor_{lib_renamed}_temp.csv' in os.listdir(truckfactor_outdir):
-        df_commits = pd.read_csv(truckfactor_outdir / f'truckfactor_{lib_renamed}_temp.csv', index_col = 0)
-        last_valid = df_commits.dropna().tail(1).index.values[0]
-        commit_list = commit_list[last_valid+1:]
-    
+        try:
+            df_commits = pd.read_csv(truckfactor_outdir / f'truckfactor_{lib_renamed}_temp.csv', index_col = 0)
+            last_valid = df_commits.dropna().tail(1).index.values[0]
+            commit_list = commit_list[last_valid+1:]
+        except:
+            print("invalid temp file")
+            df_commits = df_commits
+
     for commit_num in commit_list:
         if commit_num % 100 == 0:
             print(commit_num)

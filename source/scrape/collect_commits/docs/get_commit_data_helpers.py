@@ -141,7 +141,6 @@ def cleanCommitData(library, df_library, lib_renamed, github_repos_loc,
         df_commit_groups = pd.concat([df_commit_groups, df_commit_groups_chunk])
         commit_data_chunk = df_commit_groups_chunk['commit_groups'].parallel_apply(lambda x: returnCommitStats(x, repo) if type(x) != float else x)
         commit_data = pd.concat([commit_data, commit_data_chunk])
-        commit_data_chunk.to_csv(f'drive/temp/{lib_renamed}{i+2}_{commit_type}.csv')
         print(f"NOW REMOVING {lib_renamed}")
         while lib_renamed in os.listdir(commits_outdir / github_repos_loc):
             try:
