@@ -57,12 +57,16 @@ def Main():
     general_pct_list = [0.25, 0.5, 0.75]
     time_period_months = [2, 3, 6, 12]
 
-    time_period_months.reverse()
-    with ThreadPoolExecutor(2) as pool:
+    """
+    with ThreadPoolExecutor(4) as pool:
         pool.map(OutputMajorContributors, itertools.repeat(committers_match), itertools.repeat(df_pr_commit_stats),
                  itertools.repeat(df_issue_selected), itertools.repeat(issue_comments), itertools.repeat(major_pct_list), itertools.repeat(general_pct_list), time_period_months, itertools.repeat(author_thresh), itertools.repeat(commit_cols), itertools.repeat(rolling_window))
-
     print("Done with pool")
+                 """
+    for time_period in time_period_months:
+        OutputMajorContributors(committers_match, df_pr_commit_stats, df_issue_selected, issue_comments, major_pct_list, general_pct_list, 
+                                time_period, author_thresh, commit_cols, rolling_window)
+    
 
 
 def CleanCommittersInfo(indir_committers_info):
@@ -157,14 +161,14 @@ def CalculateIssueCommentStats(issue_comments):
     ts_issue_comments = issue_comments.assign(issue_comments=1)
     ts_issue_comments['linked_pr_issue_comments'] = 1 - ts_issue_comments['linked_pr_number'].isna().astype(int)
     ts_issue_comments['linked_pr_issue_number'] = ts_issue_comments.apply(lambda x: x['issue_number'] if not pd.isnull(x['linked_pr_number']) else np.nan, axis = 1)
-    ts_issue_comments.groupby(['time_period','time_period_index', 'repo_name','actor_id'])\
+    ts_issue_comments = ts_issue_comments.groupby(['time_period','time_period_index', 'repo_name','actor_id'])\
         .agg({'issue_comments': 'sum','linked_pr_issue_comments': 'sum',
-              'issue_number': 'nunique', 'linked_pr_issue_number':'nunique'})
+              'issue_number': 'nunique', 'linked_pr_issue_number':'nunique'}).reset_index()
 
     return ts_issue_comments
 
 
-def CalculateColumnPercentile(df, repo, window, major_col_list, major_pct_list):   
+def CalculateColumnPercentile(df, repo, rolling_window, major_col_list, major_pct_list):   
     df_repo = df[df['repo_name'] == repo]
     df_quantile = df_repo.set_index('time_period')\
         [major_col_list].resample("1d")\
@@ -176,7 +180,7 @@ def CalculateColumnPercentile(df, repo, window, major_col_list, major_pct_list):
         df_quantile_subset.columns = [f'{major_col}_{int(pct*100)}th_pct' for major_col in major_col_list]
         df_quantile_wide = pd.concat([df_quantile_wide, df_quantile_subset], axis = 1)
     
-    df_all_pct = df_quantile_wide.rolling(window = window, min_periods = 1)\
+    df_all_pct = df_quantile_wide.rolling(window = rolling_window, min_periods = 1)\
         .mean()\
         .reset_index()
     
@@ -185,11 +189,11 @@ def CalculateColumnPercentile(df, repo, window, major_col_list, major_pct_list):
     return df_repo
 
 
-def CalculateColumnPercentileDF(df, window, major_col_list, major_pct_list, general_pct_list): 
+def CalculateColumnPercentileDF(df, rolling_window, major_col_list, major_pct_list, general_pct_list): 
     repo_list = df['repo_name'].unique().tolist()
     
     with ThreadPoolExecutor(8) as pool:
-        df = pd.concat(pool.map(CalculateColumnPercentile, itertools.repeat(df), repo_list, itertools.repeat(window), itertools.repeat(major_col_list), itertools.repeat(major_pct_list)))
+        df = pd.concat(pool.map(CalculateColumnPercentile, itertools.repeat(df), repo_list, itertools.repeat(rolling_window), itertools.repeat(major_col_list), itertools.repeat(major_pct_list)))
 
     df_quantile = df.set_index('time_period')\
         [major_col_list].resample("1d")\
@@ -201,7 +205,7 @@ def CalculateColumnPercentileDF(df, window, major_col_list, major_pct_list, gene
         df_quantile_subset.columns = [f'general_{major_col}_{int(pct*100)}th_pct' for major_col in major_col_list]
         df_quantile_wide = pd.concat([df_quantile_wide, df_quantile_subset], axis = 1)
     
-    df_all_pct = df_quantile_wide.rolling(window = window, min_periods = 1)\
+    df_all_pct = df_quantile_wide.rolling(window = rolling_window, min_periods = 1)\
         .mean()\
         .reset_index()
 
@@ -255,7 +259,7 @@ def RemovePeriodsPriorToJoining(major_contributors_data):
 
 
 def OutputMajorContributors(committers_match, df_pr_commit_stats, df_issue_selected, issue_comments, 
-                            major_pct_options, general_pct_options, time_period, author_thresh, commit_cols, 
+                            major_pct_list, general_pct_list, time_period, author_thresh, commit_cols, 
                             rolling_window):
     major_pr_col_list = ['pr'] + commit_cols + [f"{col} share" for col in commit_cols]
     df_pr_commit_stats = ImputeTimePeriod(df_pr_commit_stats, time_period)
@@ -264,13 +268,13 @@ def OutputMajorContributors(committers_match, df_pr_commit_stats, df_issue_selec
         .groupby(['time_period', 'time_period_index', 'repo_name','actor_id'])\
         [major_pr_col_list].sum()
     
-    pr_major_contributor_data = GetMajorContributorPostPercentile(ts_pr_authorship, rolling_window, major_pr_col_list, major_pct_options, general_pct_options)
+    pr_major_contributor_data = GetMajorContributorPostPercentile(ts_pr_authorship, rolling_window, major_pr_col_list, major_pct_list, general_pct_list)
     print("percentile for PRs obtained")
     issue_comments = ImputeTimePeriod(issue_comments, time_period)
     ts_issue_comments = CalculateIssueCommentStats(issue_comments)
     
     major_ic_col_list  = ['issue_comments','linked_pr_issue_comments', 'issue_number', 'linked_pr_issue_number']
-    ic_major_contributor_data = GetMajorContributorPostPercentile(ts_issue_comments, rolling_window, major_ic_col_list, major_pct_options, general_pct_options)
+    ic_major_contributor_data = GetMajorContributorPostPercentile(ts_issue_comments, rolling_window, major_ic_col_list, major_pct_list, general_pct_list)
     print("percentile for issues obtained")
     major_contributors_data = GenerateBalancedContributorsPanel(ic_major_contributor_data, pr_major_contributor_data)
 
@@ -284,13 +288,14 @@ def OutputMajorContributors(committers_match, df_pr_commit_stats, df_issue_selec
     major_contributors_data = GroupedFill(major_contributors_data, ['repo_name','time_period'], ['time_period_index'])
     major_contributors_data[major_cols] = major_contributors_data[major_cols].fillna(0)
 
-    print(f"Major PCT: {major_pct_options}, General PCT: {general_pct_options}, Time Period: {time_period} months")
+    print(f"Major PCT: {major_pct_list}, General PCT: {general_pct_list}, Time Period: {time_period} months")
     print(major_contributors_data[['repo_name','actor_id']].drop_duplicates().shape)
-    major_contributors_data.to_csv(f'issue/major_contributors_major_months{time_period}_window{rolling_window}.csv')
+    major_contributors_data = major_contributors_data.drop_duplicates()
+    major_contributors_data.to_parquet(f'issue/major_contributors_major_months{time_period}_window{rolling_window}.to_parquet')
     print("major contributors exported")
 
     return major_contributors_data
-
+    
 if __name__ == '__main__':
     Main()
 
