@@ -5,7 +5,7 @@ This folder contains data on the GitHub usernames for individuals who made commi
 Chris Liao queried the GitHub API starting October 21 to obtain this data. 
 
 ### When/where obtained & original form of files
-To obtain information on commits for pushes, I queried GitHub's API. To do so, you need a GitHub account and a [personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens). I also set the environment variables `PRIMARY_GITHUB_USERNAME` to my GitHub username and `PRIMARY_GITHUB_TOKEN` to my GitHub personal access token. 
+To obtain information on commits for pushes and pull requests, I queried GitHub's API. To do so, you need a GitHub account and a [personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens). I also set the environment variables `PRIMARY_GITHUB_USERNAME` to my GitHub username and `PRIMARY_GITHUB_TOKEN` to my GitHub personal access token. I use `BACKUP_GITHUB_USERNAME` and `BACKUP_GITHUB_TOKEN` to increase my rate limit request from 5,000/hour to 10,000/hour.
 
 ### Description
 - `docs/get_committers_profile.py` queries the Github API to retrieve information for committers based off the commit and repository information.
