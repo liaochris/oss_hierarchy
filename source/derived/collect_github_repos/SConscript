@@ -3,6 +3,8 @@ import os
 
 target = ['#output/derived/collect_github_repos/linked_pypi_github.csv']
 source = ['#source/derived/collect_github_repos/link_pypi_github.py']
+
+# note: this might be an overinclusive list... 
 for file in os.listdir('../../../drive/output/scrape/pypi_site_info'):
     source.append(f'#drive/output/scrape/pypi_site_info/{file}')
 

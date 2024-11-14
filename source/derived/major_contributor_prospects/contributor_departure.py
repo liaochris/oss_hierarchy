@@ -27,47 +27,48 @@ pandarallel.initialize(progress_bar = True)
 def Main():
     indir_committers_info = Path('drive/output/scrape/link_committers_profile')
     indir_data = Path('drive/output/derived/data_export')
+    outdir = Path('drive/output/derived/major_contributor_prospects/intermediary_files')
     
     commit_cols = ['commits','commit additions','commit deletions','commit changes total','commit files changed count']
     author_thresh = 1/3
-    rolling_window = '1828D'
-    
+    rolling_window_list = ['732D','1828D','367D','3654D']
+    time_period_months = [6, 3, 12, 2]
+
     df_issue = pd.read_parquet(indir_data / 'df_issue.parquet')
     df_pr = pd.read_parquet(indir_data / 'df_pr.parquet')
     df_pr_commits = pd.read_parquet(indir_data / 'df_pr_commits.parquet')
-    df_linked_issues = ReadFileList(glob('drive/output/scrape/link_issue_pull_request/linked_issue/*.csv'))
+    df_all_linked_issues = ReadFileList(glob('drive/output/scrape/link_issue_pull_request/linked_issue/*.csv'))
 
     df_issue['created_at'] = pd.to_datetime(df_issue['created_at'])
     df_pr['created_at'] = pd.to_datetime(df_pr['created_at'])
 
-
-
-    selected_repos = df_issue[['repo_name']].drop_duplicates()['repo_name'].tolist()
-    df_issue_selected = df_issue[(df_issue['repo_name'].isin(selected_repos)) & (df_issue['created_at']>='2015-01-01')]
-    df_pr_selected = df_pr[(df_pr['repo_name'].isin(selected_repos))  & (df_pr['created_at']>='2015-01-01')]
-    df_pr_commits_selected = df_pr_commits[(df_pr_commits['repo_name'].isin(selected_repos))]
-    df_linked_issues = df_linked_issues[(df_linked_issues['repo_name'].isin(selected_repos))]
-
-    committers_match = CleanCommittersInfo(indir_committers_info)
-    df_pr_commit_stats = LinkPRCommits(df_pr_selected, df_pr_commits_selected, committers_match, commit_cols)
-    df_issue_selected = LinkIssuePR(df_issue_selected, df_linked_issues)
-    issue_comments = FilterDuplicateIssues(df_issue_selected, 'type == "IssueCommentEvent"')
     
-    major_pct_list = [0.75, 0.9, 0.95]
-    general_pct_list = [0.25, 0.5, 0.75]
-    time_period_months = [2, 3, 6, 12]
+    all_repos = df_issue[['repo_name']].drop_duplicates()['repo_name']
+    chunk_size = 250 if time_period_months==2 else 500
+    chunk_count = int(np.ceil(len(all_repos)/chunk_size))
+    repo_chunks = np.array_split(all_repos, chunk_count)
 
-    """
-    with ThreadPoolExecutor(4) as pool:
-        pool.map(OutputMajorContributors, itertools.repeat(committers_match), itertools.repeat(df_pr_commit_stats),
-                 itertools.repeat(df_issue_selected), itertools.repeat(issue_comments), itertools.repeat(major_pct_list), itertools.repeat(general_pct_list), time_period_months, itertools.repeat(author_thresh), itertools.repeat(commit_cols), itertools.repeat(rolling_window))
-    print("Done with pool")
-                 """
     for time_period in time_period_months:
-        OutputMajorContributors(committers_match, df_pr_commit_stats, df_issue_selected, issue_comments, major_pct_list, general_pct_list, 
-                                time_period, author_thresh, commit_cols, rolling_window)
-    
-
+        for rolling_window in rolling_window_list:
+            for chunk in range(chunk_count):
+                sample_size = 'full'
+                selected_repos = repo_chunks[chunk]
+                df_issue_selected_unlinked = df_issue[(df_issue['repo_name'].isin(selected_repos)) & (df_issue['created_at']>='2015-01-01')]
+                df_pr_selected = df_pr[(df_pr['repo_name'].isin(selected_repos))  & (df_pr['created_at']>='2015-01-01')]
+                df_pr_commits_selected = df_pr_commits[(df_pr_commits['repo_name'].isin(selected_repos))]
+                df_linked_issues = df_all_linked_issues[(df_all_linked_issues['repo_name'].isin(selected_repos))]
+                
+                committers_match = CleanCommittersInfo(indir_committers_info)
+                df_pr_commit_stats = LinkPRCommits(df_pr_selected, df_pr_commits_selected, committers_match, commit_cols)
+                df_issue_selected = LinkIssuePR(df_issue_selected_unlinked, df_linked_issues)
+                issue_comments = FilterDuplicateIssues(df_issue_selected, 'type == "IssueCommentEvent"')
+                
+                major_pct_list = [0.1, 0.25, 0.5, 0.75, 0.9]
+                general_pct_list = [0.25, 0.5, 0.75]
+                OutputMajorContributors(committers_match, df_pr_commit_stats, df_issue_selected, issue_comments,
+                            major_pct_list, general_pct_list, time_period, author_thresh, commit_cols,
+                            rolling_window, sample_size, chunk+1, outdir)
+        
 
 def CleanCommittersInfo(indir_committers_info):
     # TODO: edit file so it can handle pushes
@@ -260,7 +261,7 @@ def RemovePeriodsPriorToJoining(major_contributors_data):
 
 def OutputMajorContributors(committers_match, df_pr_commit_stats, df_issue_selected, issue_comments, 
                             major_pct_list, general_pct_list, time_period, author_thresh, commit_cols, 
-                            rolling_window):
+                            rolling_window, sample_size, chunk, outdir):
     major_pr_col_list = ['pr'] + commit_cols + [f"{col} share" for col in commit_cols]
     df_pr_commit_stats = ImputeTimePeriod(df_pr_commit_stats, time_period)
     df_pr_commit_author_stats = AssignPRAuthorship(df_pr_commit_stats, author_thresh, commit_cols)
@@ -280,18 +281,20 @@ def OutputMajorContributors(committers_match, df_pr_commit_stats, df_issue_selec
 
     major_contributors_data = RemovePeriodsPriorToJoining(major_contributors_data)
 
-    pct_cols = [col for col in major_contributors_data.columns if 'pct' in col]
+    pct_cols = [col for col in major_contributors_data.columns if 'pct' in col and 'general' not in col]
+    general_pct_cols = [col for col in major_contributors_data.columns if 'pct' in col and 'general' in col]
     major_cols = major_pr_col_list
     major_cols.extend(major_ic_col_list)
     
     major_contributors_data = GroupedFill(major_contributors_data, ['repo_name','time_period'], pct_cols)
-    major_contributors_data = GroupedFill(major_contributors_data, ['repo_name','time_period'], ['time_period_index'])
+    major_contributors_data = GroupedFill(major_contributors_data, ['time_period'], general_pct_cols)
+    major_contributors_data = GroupedFill(major_contributors_data, ['time_period'], ['time_period_index'])
     major_contributors_data[major_cols] = major_contributors_data[major_cols].fillna(0)
 
     print(f"Major PCT: {major_pct_list}, General PCT: {general_pct_list}, Time Period: {time_period} months")
     print(major_contributors_data[['repo_name','actor_id']].drop_duplicates().shape)
     major_contributors_data = major_contributors_data.drop_duplicates()
-    major_contributors_data.to_parquet(f'issue/major_contributors_major_months{time_period}_window{rolling_window}.to_parquet')
+    major_contributors_data.to_parquet(outdir / f'major_contributors_major_months{time_period}_window{rolling_window}_sample{sample_size}_chunk{chunk}.parquet')
     print("major contributors exported")
 
     return major_contributors_data
