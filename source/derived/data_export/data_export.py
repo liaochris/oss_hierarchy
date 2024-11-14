@@ -13,39 +13,6 @@ warnings.filterwarnings("ignore")
 pd.set_option('display.max_columns', None)
 pandarallel.initialize(progress_bar = True)
 
-def ReadPrIssueData(file_dirs, data_cols):
-    df_final = pd.DataFrame(columns = data_cols)
-    for file in file_dirs:
-        df_part = pd.read_csv(file, nrows = 1)
-        df_part_cols = [col for col in data_cols if col in df_part.columns]
-        df_part = pd.read_csv(file, usecols = df_part_cols)
-        df_final = pd.concat([df_final, df_part]).drop_duplicates()
-
-    df_final = AddDates(df_final)
-
-    return df_final
-
-def AddDates(df):
-    df['created_at'] = pd.to_datetime(df['created_at'], errors = 'coerce')
-    df = df[~df['created_at'].isna()]
-    df['date'] = df.parallel_apply(lambda x: f"{x['created_at'].year}-{x['created_at'].month}", axis = 1)
-
-    return df
-
-def read_parquet(filename, commit_cols):
-    try:
-        df = pd.read_parquet(filename).drop_duplicates('commit sha')[commit_cols]
-        return df
-    except:
-        return 
-
-def read_csv(filename, commit_cols):
-    try:
-        df = pd.read_csv(filename, index_col = 0).drop_duplicates('commit sha')[commit_cols]
-        return df
-    except:
-        return 
-
 def Main():
     outdir = Path('drive/output/derived/data_export')
 
@@ -80,3 +47,39 @@ def Main():
     df_push_commits['commit file changes'] = df_push_commits['commit file changes'].astype(str)
     df_push_commits.to_parquet(outdir / 'df_push_commits.parquet')
     
+
+def ReadPrIssueData(file_dirs, data_cols):
+    df_final = pd.DataFrame(columns = data_cols)
+    for file in file_dirs:
+        df_part = pd.read_csv(file, nrows = 1)
+        df_part_cols = [col for col in data_cols if col in df_part.columns]
+        df_part = pd.read_csv(file, usecols = df_part_cols)
+        df_final = pd.concat([df_final, df_part]).drop_duplicates()
+
+    df_final = AddDates(df_final)
+
+    return df_final
+
+def AddDates(df):
+    df['created_at'] = pd.to_datetime(df['created_at'], errors = 'coerce')
+    df = df[~df['created_at'].isna()]
+    df['date'] = df.parallel_apply(lambda x: f"{x['created_at'].year}-{x['created_at'].month}", axis = 1)
+
+    return df
+
+def read_parquet(filename, commit_cols):
+    try:
+        df = pd.read_parquet(filename).drop_duplicates('commit sha')[commit_cols]
+        return df
+    except:
+        return 
+
+def read_csv(filename, commit_cols):
+    try:
+        df = pd.read_csv(filename, index_col = 0).drop_duplicates('commit sha')[commit_cols]
+        return df
+    except:
+        return 
+
+if __name__ == '__main__':
+    Main()
