@@ -19,6 +19,7 @@ import datetime
 import itertools
 import time
 from multiprocessing import pool
+import shutil
 
 warnings.filterwarnings("ignore")
 pd.set_option('display.max_columns', None)
@@ -28,7 +29,8 @@ def Main():
     indir_committers_info = Path('drive/output/scrape/link_committers_profile')
     indir_data = Path('drive/output/derived/data_export')
     outdir = Path('drive/output/derived/major_contributor_prospects/intermediary_files')
-    
+    outdir_final = Path('drive/output/derived/major_contributor_prospects')
+
     commit_cols = ['commits','commit additions','commit deletions','commit changes total','commit files changed count']
     author_thresh = 1/3
     rolling_window_list = ['732D','1828D','367D','3654D']
@@ -68,7 +70,18 @@ def Main():
                 OutputMajorContributors(committers_match, df_pr_commit_stats, df_issue_selected, issue_comments,
                             major_pct_list, general_pct_list, time_period, author_thresh, commit_cols,
                             rolling_window, sample_size, chunk+1, outdir)
-        
+
+    rolling_window_list = ['732D','1828D','367D','3654D']
+    time_period_months = [6, 3, 12, 2]
+
+    for window in rolling_window_list:
+        for major_months in time_period_months:
+            relevant_files = indir.glob(f'major_contributors_major_months{major_months}_window{window}_samplefull_chunk*.parquet')
+            df_major_contributors = pd.concat([pd.read_parquet(file) for file in relevant_files])
+            df_major_contributors.to_parquet(outdir_final / f'major_contributors_major_months{major_months}_window{window}_samplefull.parquet')
+    shutil.rmtree(outdir)
+    
+
 
 def CleanCommittersInfo(indir_committers_info):
     # TODO: edit file so it can handle pushes
