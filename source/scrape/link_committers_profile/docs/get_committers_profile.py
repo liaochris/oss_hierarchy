@@ -22,7 +22,7 @@ def Main():
     token = os.environ['PRIMARY_GITHUB_TOKEN']
 
     for file_type in ['push']:
-        df_committers_full = pd.concat([ReadInputFiles(file, file_type) for file in glob.glob(f'drive/output/scrape/collect_commits/{file_type}/*.parquet') if 'commits_push_pytorch_pytorch.parquet' not in file])
+        df_committers_full = pd.concat([ReadInputFiles(file, file_type) for file in glob.glob(f'drive/output/scrape/collect_commits/{file_type}/*.parquet') if 'commits_push_pytorch_pytorch.parquet' in file or 'commits_push_tensorflow_tensorflow.parquet' in file])
         df_committers_match, indices = PrepareMergeComponents(df_committers_full, ncount)
         IterateInBatch(df_committers_match, indices, username, token, file_type, ncount)
 
@@ -79,7 +79,7 @@ def IterateInBatch(df_committers_match, indices, username, token, file_type, nco
         print(f"Iter {i}")
         df_committers_match.loc[indices[i], 'committer_info'] = df_committers_match.loc[indices[i]].apply(
             lambda x: GetCommitterData(x['commit_repo'], x['user_type'], username, token) if type(x['commit_repo']) == list else np.nan, axis = 1)
-        df_committers_match.to_csv(f'drive/output/scrape/link_committers_profile/committers_info_{file_type}.csv')
+        df_committers_match.to_csv(f'drive/output/scrape/link_committers_profile/committers_info_{file_type}_special.csv')
         end = time.time()
         print(f"Scaled production/hour: {len(indices[i])/(end-start) * 3600}")
         print(f"Number of people linked {df_committers_match.loc[indices[i], 'committer_info'].apply(lambda x: 1 if type(x) == list else 0).sum()}")

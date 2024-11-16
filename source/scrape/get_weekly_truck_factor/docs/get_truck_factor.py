@@ -26,7 +26,7 @@ def Main():
     github_repos = [library for library in github_repos if "/" in library]
     random.shuffle(github_repos)
 
-    with multiprocessing.Pool(8) as pool:
+    with multiprocess.Pool(8) as pool:
         for result in pool.imap(GetTruckFactor, github_repos):
             print(result)
 
