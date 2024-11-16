@@ -12,7 +12,7 @@ import subprocess
 from pygit2 import Object, Repository, GIT_SORT_TIME, enums, init_repository, Patch
 from source.scrape.collect_commits.docs.get_commit_data_pr import importPullRequestData
 import time
-import multiprocessing
+import multiprocess
 
 def Main():
     warnings.filterwarnings("ignore")
@@ -25,7 +25,6 @@ def Main():
     github_repos = df_pull_request['repo_name'].unique().tolist()
     github_repos = [library for library in github_repos if "/" in library]
     random.shuffle(github_repos)
-
 
     with multiprocessing.Pool(8) as pool:
         for result in pool.imap(GetTruckFactor, github_repos):
@@ -64,7 +63,7 @@ def GetTruckFactor(library):
 
 def IterateThroughCommits(library, lib_renamed, truckfactor_outdir):
     start = time.time()
-    subprocess.Popen(["git", "clone", f"git@github.com:{library}.git", f"{lib_renamed}"], cwd = truckfactor_outdir  / 'github_repos').communicate()
+    subprocess.Popen(["git", "clone", f"https://github.com/{library}.git", f"{lib_renamed}"], cwd = truckfactor_outdir  / 'github_repos').communicate()
 
     global repo
     cloned_repo_location = truckfactor_outdir / 'github_repos' / lib_renamed
