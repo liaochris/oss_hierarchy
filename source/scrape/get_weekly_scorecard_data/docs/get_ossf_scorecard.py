@@ -67,7 +67,7 @@ def GetScorecard(library):
 def IterateThroughCommits(library, lib_renamed, scorecard_outdir):
     start = time.time()
     subprocess.Popen(["git", "clone", f"https://github.com/{library}.git", f"{lib_renamed}"], cwd = scorecard_outdir  / 'github_repos').communicate()
-
+    
     global repo
     cloned_repo_location = scorecard_outdir / 'github_repos' / lib_renamed
     repo = Repository(cloned_repo_location)
@@ -106,9 +106,12 @@ def IterateThroughCommits(library, lib_renamed, scorecard_outdir):
         if commit_num % 10 == 0:
             print(commit_num)
         try:
-            subprocess.Popen(["git", "reset", "--hard", str(df_commits.loc[commit_num, 'commit_sha'])], 
-                cwd = cloned_repo_location, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL).wait()
-            scorecard_command = "scorecard --local=. --show-details --format json"
+            #subprocess.Popen(["git", "reset", "--hard", str(df_commits.loc[commit_num, 'commit_sha'])], 
+            #    cwd = cloned_repo_location, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL).wait()
+            github_repo = f"github.com/{library}"
+            commit_sha = str(df_commits.loc[commit_num, 'commit_sha'])
+            scorecard_command = f"scorecard --repo {github_repo} --commit {commit_sha} --show-details --format json"
+            
             scorecard_json = json.loads(GetProcessOutput(scorecard_command, cloned_repo_location))
             scorecard_json['repo']['name'] = library
             scorecard_json['repo']['commit'] = str(df_commits.loc[commit_num, 'commit_sha'])

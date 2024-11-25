@@ -48,6 +48,7 @@ def Main():
     client = bigquery.Client(project=project_id)
     outdir = Path('drive/output/scrape/pypi_package_downloads')
     indir_github_projects = Path('output/derived/collect_github_repos')
+    
     df_python_projects = pd.read_csv(indir_github_projects / 'linked_pypi_github.csv', index_col = 0)
     python_projects = list(df_python_projects[df_python_projects['github repository'] != 'Unavailable']['package'].unique())
 

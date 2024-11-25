@@ -13,8 +13,6 @@ def Main():
     
     df_pr_commits = pd.concat([ReadPrCommits(filename) for filename in glob.glob('drive/output/scrape/push_pr_commit_data/pull_request_data/*')]).reset_index(drop = True)
     df_push_commits = pd.concat([ReadPushCommits(filename) for filename in glob.glob('drive/output/scrape/push_pr_commit_data/push_data/*')]).reset_index(drop = True)
-    
-
     repo_list = df_push_commits['repo_name'].dropna().unique().tolist()
 
     df_return = []

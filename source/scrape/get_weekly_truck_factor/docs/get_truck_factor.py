@@ -23,10 +23,12 @@ def Main():
     df_pull_request = importPullRequestData(pr_indir)
 
     github_repos = df_pull_request['repo_name'].unique().tolist()
-    github_repos = [library for library in github_repos if "/" in library]
+    github_repos = [library for library in github_repos if "/" in library and library not in 
+        ["allen/ai2thor", "InsightSoftwareConsortium/ITK"]]
+    #github_repos = [library for library in github_repos if "/" in library]
     random.shuffle(github_repos)
 
-    with multiprocess.Pool(8) as pool:
+    with multiprocess.Pool(4) as pool:
         for result in pool.imap(GetTruckFactor, github_repos):
             print(result)
 
@@ -63,7 +65,7 @@ def GetTruckFactor(library):
 
 def IterateThroughCommits(library, lib_renamed, truckfactor_outdir):
     start = time.time()
-    subprocess.Popen(["git", "clone", f"https://github.com/{library}.git", f"{lib_renamed}"], cwd = truckfactor_outdir  / 'github_repos').communicate()
+    subprocess.Popen(["git", "clone", f"git@github.com:{library}.git", f"{lib_renamed}"], cwd = truckfactor_outdir  / 'github_repos').communicate()
 
     global repo
     cloned_repo_location = truckfactor_outdir / 'github_repos' / lib_renamed
