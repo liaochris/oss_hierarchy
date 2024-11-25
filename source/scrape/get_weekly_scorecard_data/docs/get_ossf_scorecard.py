@@ -124,15 +124,16 @@ def IterateThroughCommits(library, lib_renamed, scorecard_outdir):
             print(e)
             continue
 
-    end = time.time()
-    print(end - start)
-    
     while lib_renamed in os.listdir(scorecard_outdir / 'github_repos'):
         try:
             shutil.rmtree(cloned_repo_location)
         except Exception as e:
             print(e)
 
+
+    end = time.time()
+    print(end - start)
+    
     return df_commits_dict
 
 def GetProcessOutput(cmd, cwd):
