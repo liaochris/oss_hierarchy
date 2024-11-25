@@ -1,0 +1,23 @@
+Import('*')
+import os
+
+target = []
+for window in rolling_window_list:
+    for major_months in time_period_months:
+        target.append(f'#drive/output/derived/major_contributor_prospects/contributor_data/major_contributors_major_months{major_months}_window{window}_samplefull.parquet')
+
+source = ['#drive/output/scrape/link_committers_profile/committers_info_pr.csv',
+          '#drive/output/scrape/link_committers_profile/committers_info_push.csv',
+          '#drive/output/derived/data_export/df_pr.parquet',
+          '#drive/output/derived/data_export/df_issue.parquet',
+          '#drive/output/derived/data_export/df_pr_commits.parquet',
+          '#drive/output/derived/data_export/df_push_commits.parquet']
+
+for file in os.listdir('../../../drive/output/scrape/link_issue_pull_request/linked_issue/*.csv'):
+    source.append(f'#drive/output/scrape/link_issue_pull_request/linked_issue/{file}')
+
+env.Python(target, source)
+
+
+# maybe read the ones below and use that to determine which are the created specs
+df_contributor_stats.to_csv(outdir / f'contributor_stats_summary_major_months{major_months}.csv')

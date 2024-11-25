@@ -168,8 +168,6 @@ def cleanCommitData(library, df_library, lib_renamed, github_repos_loc,
                             'commit time']
     df_commit = pd.DataFrame(commit_data.apply(lambda x: [np.nan]* len(commit_data_colnames) if type(x) == float else x).tolist(),
                              columns = commit_data_colnames)
-    #df_commit = pd.DataFrame(df.apply(lambda x: [np.nan]* len(commit_data_colnames) if type(x) == float else x).tolist(),
-    #                         columns = commit_data_colnames)
 
     # In[ ]:
     df_commit_final = pd.concat([df_commit_groups.reset_index(drop = True), df_commit], axis = 1)

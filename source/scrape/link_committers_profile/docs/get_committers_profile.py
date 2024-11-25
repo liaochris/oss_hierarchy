@@ -22,7 +22,7 @@ def Main():
     token = os.environ['PRIMARY_GITHUB_TOKEN']
 
     for file_type in ['push']:
-        df_committers_full = pd.concat([ReadInputFiles(file, file_type) for file in glob.glob(f'drive/output/scrape/collect_commits/{file_type}/*.parquet') if 'commits_push_pytorch_pytorch.parquet' in file or 'commits_push_tensorflow_tensorflow.parquet' in file])
+        df_committers_full = pd.concat([ReadInputFiles(file, file_type) for file in glob.glob(f'drive/output/scrape/collect_commits/{file_type}/*.parquet')])
         df_committers_match, indices = PrepareMergeComponents(df_committers_full, ncount)
         IterateInBatch(df_committers_match, indices, username, token, file_type, ncount)
 

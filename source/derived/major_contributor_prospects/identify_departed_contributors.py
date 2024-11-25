@@ -18,22 +18,22 @@ def Main():
     indir_committers = Path('drive/output/scrape/link_committers_profile')
     outdir = Path('drive/output/derived/major_contributor_prospects/departed_contributors')
     
-    major_months_list = [6]#[2,3,6]
-    window_list = [732, 1828] #window_list = [367, 732, 1828]
-    consecutive_periods_major_months_dict = {2: [9, 18],
-                                             3: [6, 12],
+    major_months_list = [2]
+    rolling_window_list = [367, 732, 1828] 
+    consecutive_periods_major_months_dict = {2: [3, 9, 18],
+                                             3: [3, 6, 12],
                                              6: [3, 6]}
     issue_col = 'issue_comments'
-    #pr_col = 'pr'
-    criteria_col_list = [issue_col, pr_col]
+    commit_col = 'commits'
+    criteria_col_list = [issue_col, commit_col]  
     criteria_pct_list = [75, 90]
-    general_pct_list = [25] #general_pct_list = [25, 50]
+    general_pct_list = [25] 
     
-    post_periods_major_months_dict = {2: [6, 12],
-                                      3: [4, 8],
+    post_periods_major_months_dict = {2: [3, 6, 12],
+                                      3: [2, 4, 8],
                                       6: [2, 4]}
-    decline_threshold_list = [.2]#decline_threshold_list = [.1, .2, .3]
-    decline_pct_list = [.25] #decline_pct_list = [.1, .25]
+    decline_threshold_list = [.1, .2] 
+    decline_pct_list = [.1, .25]  
     
     df_truckfactors_uq = GetUniqueTruckFactor(indir_truck)
     committers_merge_map = CleanCommittersInfo(indir_committers)
@@ -48,7 +48,7 @@ def Main():
                                                    'num_total_projects','num_projects_with_one_departure', 'truck_factor_pct'])
     
     for major_months in major_months_list:
-        for window in window_list:
+        for window in rolling_window_list:
             df_contributors = GetContributorData(indir, major_months, window)
             num_contributors = ContributorCount(df_contributors)
             for criteria_col in criteria_col_list:
@@ -56,18 +56,9 @@ def Main():
                     for general_pct in general_pct_list: 
                         criteria_analysis_col = f'{criteria_col}_{criteria_pct}th_pct'
                         criteria_general_col = f'general_{criteria_col}_{general_pct}th_pct'
-                        if criteria_col == 'pr':
-                            criteria_analysis_col = f"pr_{criteria_col}_{criteria_analysis_col}"
-                            criteria_general_col = f"pr_{criteria_col}_{criteria_general_col}"
                             
                         criteria_cols = [criteria_col, criteria_analysis_col, criteria_general_col]
                         criteria_analysis_decline_cols = [f'{criteria_col}_{int(100*decline_pct)}th_pct' for decline_pct in decline_pct_list]
-                        if criteria_col == 'pr':
-                            criteria_analysis_decline_cols = [f'pr_{col}' for col in criteria_analysis_decline_cols]
-                            if "pr_pr_pr_" in criteria_analysis_col:
-                                criteria_analysis_col = criteria_analysis_col.replace("pr_","", 1)
-                                criteria_general_col = criteria_general_col.replace("pr_","", 1)
-                                criteria_analysis_decline_cols = [col.replace("pr_","",1) for col in criteria_analysis_decline_cols]
                         criteria_cols.extend(criteria_analysis_decline_cols)
 
                         analysis_cols = identifiers + criteria_cols
@@ -124,14 +115,14 @@ def Main():
                                              post_period_length, decline_type, decline_stat, num_contributors, num_consecutive_periods,
                                              num_final_contributors, repo_count, one_departure_repos, pct_truck_factor]
     
-                                        filename = f'contributors_major_months{major_months}_window{window}criteria_{criteria_col}_{criteria_pct}pct_general{general_pct}pct_consecutive{consecutive_periods}_post_period{post_period_length}'
+                                        filename = f'contributors_major_months{major_months}_window{window}D_criteria_{criteria_col}_{criteria_pct}pct_general{general_pct}pct_consecutive{consecutive_periods}_post_period{post_period_length}'
                                         decline_suffix = f"threshold_mean_{decline_stat}" if decline_type == 'threshold_mean' else f"threshold_pct_{decline_stat}"
                                         decline_suffix = f"{decline_suffix}.parquet"
                                         filename = filename + decline_suffix
                                         df_candidates.to_parquet(outdir / filename)
                                         print(f"exported {filename}")
     
-    df_contributor_stats.to_csv(outdir / 'contributor_stats_summary.csv')
+        df_contributor_stats.to_csv(outdir / f'contributor_stats_summary_major_months{major_months}.csv')
 
 def GetContributorData(indir, major_months, window):
     df_contributors = pd.read_parquet(indir / f'major_contributors_major_months{major_months}_window{window}D_samplefull.parquet')
@@ -168,8 +159,6 @@ def ProcessCandidate(i, departure_candidates, df_potential_consecutive, post_per
                     return df_candidate
             if decline_type == "threshold_pct":
                 decline_analysis_col = f'{criteria_col}_{int(decline_stat * 100)}th_pct'
-                if criteria_col == "pr":
-                    decline_analysis_col = f'pr_{criteria_col}_{int(decline_stat * 100)}th_pct'
                 final_periods_fulfill = final_periods.query(f'{criteria_col}<{decline_analysis_col}')
                 if final_periods_fulfill.shape[0] == post_period_length:
                     return df_candidate
