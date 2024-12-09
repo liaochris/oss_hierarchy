@@ -24,7 +24,7 @@ def Main():
 
     github_repos = df_pull_request['repo_name'].unique().tolist()
     github_repos = [library for library in github_repos if "/" in library and library not in 
-        ["allen/ai2thor", "InsightSoftwareConsortium/ITK"]]
+        ["allen/ai2thor"]]
     #github_repos = [library for library in github_repos if "/" in library]
     random.shuffle(github_repos)
 

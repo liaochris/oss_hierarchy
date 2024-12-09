@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 import warnings
 
-def readPullRequests(pull_request_files):
+def ReadPullRequests(pull_request_files):
     df_pull_request = pd.concat([pd.read_csv(pull_request_file, usecols = ['repo_name','pr_number']) 
         for pull_request_file in pull_request_files]).drop_duplicates().dropna()
 
@@ -60,27 +60,41 @@ def Main():
     warnings.filterwarnings("ignore")
 
     pull_request_files = glob.glob('drive/output/scrape/extract_github_data/pull_request*/*')
-    commit_outdir = Path('drive/output/scrape/link_issue_pull_request/linked_pull_request')
+    commit_outdir = Path('drive/output/scrape/link_issue_pull_request')
 
-    df_pull_request = readPullRequests(pull_request_files)
+    df_pull_request = ReadPullRequests(pull_request_files)
     repo_list = df_pull_request['repo_name'].unique().tolist()
 
     repo_list = sorted(repo_list)
 
+    df_library_all = pd.DataFrame()
     for repo in repo_list:
         df_library = df_pull_request[df_pull_request['repo_name'] == repo]
         lib_name = repo.replace("/","_")
         print(lib_name)
-        fname = f"{lib_name}_linked_pull_request_to_issue.csv"
-        if fname not in os.listdir(commit_outdir):
-            df_library['linked_issue'] = df_library.parallel_apply(lambda x: 
-                GrabPullRequestData(x['repo_name'], x['pr_number']), axis = 1)
-            
-            df_library['issue_link'] = df_library['linked_issue'].apply(lambda x: x[0] if type(x) == list else x)
-            df_library['pull_request_title'] = df_library['linked_issue'].apply(lambda x: x[1] if type(x) == list else x)
-            df_library['pull_request_text'] = df_library['linked_issue'].apply(lambda x: x[2] if type(x) == list else x)
 
-            df_library.to_csv(commit_outdir / fname)
+        df_library['linked_issue'] = df_library.parallel_apply(lambda x: 
+            GrabPullRequestData(x['repo_name'], x['pr_number']), axis = 1)
+        
+        df_library['issue_link'] = df_library['linked_issue'].apply(lambda x: x[0] if type(x) == list else x)
+        df_library['pull_request_title'] = df_library['linked_issue'].apply(lambda x: x[1] if type(x) == list else x)
+        df_library['pull_request_text'] = df_library['linked_issue'].apply(lambda x: x[2] if type(x) == list else x)
+
+        df_library_all = pd.concat([df_library_all, df_library])
+    df_library_all.drop('Unnamed: 0', axis = 1).to_parquet(commit_outdir / 'linked_pull_request_to_issue.parquet', index = False)
+
+"""
+    for file in glob.glob('drive/output/scrape/link_issue_pull_request/linked_pull_request/*.csv'):
+        try:
+            df_library = pd.read_csv(file)
+            df_library_all = pd.concat([df_library_all, df_library])
+        except:
+            print("unavailable")
+    df_library_all['pr_number'] = pd.to_numeric(df_library_all['pr_number'], errors = 'coerce')
+    df_library_all['pull_request_title'] = df_library_all['pull_request_title'].astype(str)
+    df_library_all.drop('Unnamed: 0', axis = 1).to_parquet(commit_outdir / 'linked_pull_request_to_issue.parquet', index = False)
+"""
+
 
 if __name__ == '__main__':   
     Main()

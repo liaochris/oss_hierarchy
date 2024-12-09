@@ -1,0 +1,99 @@
+Import('*')
+import os
+import glob
+
+time_period_months = [2, 3, 6]
+rolling_window_list = [367, 732, 1828]
+
+data_source = ['#drive/output/scrape/link_committers_profile/committers_info_pr.csv',
+               '#drive/output/scrape/link_committers_profile/committers_info_push.csv',
+               '#drive/output/derived/data_export/df_pr.parquet',
+               '#drive/output/derived/data_export/df_issue.parquet',
+               '#drive/output/derived/data_export/df_pr_commits.parquet',
+               '#drive/output/derived/data_export/df_push_commits.parquet',
+               '#drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request.parquet']
+
+for time_period in time_period_months:
+    for rolling_window in rolling_window_list:
+        indir = "drive/output/derived/contributor_stats/contributor_data"
+        target = [f'#{indir}/major_contributors_major_months{time_period}_window{rolling_window}D_samplefull.parquet']
+        source = ['#source/derived/contributor_stats/calculate_contributions.py'] + data_source
+        env.Python(target, source, CL_ARG = f"{time_period} {rolling_window}")
+
+
+issue_col = 'issue_comments'
+commit_col = 'commits'
+criteria_col_list = [issue_col, commit_col]  
+criteria_pct_list = [75, 90]
+general_pct_list = [25] 
+consecutive_periods_major_months_dict = {2: [3, 9, 18],
+                                         3: [3, 6, 12],
+                                         6: [3, 6]}
+
+post_periods_major_months_dict = {2: [3, 6, 12],
+                                  3: [2, 4, 8],
+                                  6: [2, 4]}
+decline_type_list = ['threshold_mean'] #['threshold_mean','threshold_pct']
+decline_threshold_list = [0, 0.1, 0.2] 
+decline_pct_list = [.1, .25]  
+
+data_source = ['#drive/output/scrape/get_weekly_truck_factor/truckfactor.csv',
+               '#drive/output/scrape/link_committers_profile/committers_info_pr.csv', 
+               '#drive/output/scrape/link_committers_profile/committers_info_push.csv']
+
+for time_period in time_period_months:
+    for rolling_window in rolling_window_list:
+        for criteria_col in criteria_col_list:
+            for criteria_pct in criteria_pct_list:
+                for general_pct in general_pct_list:
+                    consecutive_periods_list = consecutive_periods_major_months_dict[time_period]
+                    post_period_length_list = post_periods_major_months_dict[time_period]
+
+                    for consecutive_periods in consecutive_periods_list:
+                        for post_period_length in post_period_length_list:
+                            if post_period_length <= consecutive_periods:
+                                for decline_type in decline_type_list:
+                                    decline_stat_list = decline_threshold_list if decline_type == "threshold_mean" else decline_pct_list
+                                    for decline_stat in decline_stat_list:
+                                        indir = "drive/output/derived/contributor_stats/contributor_data"
+                                        source = ['#source/derived/contributor_stats/identify_departed_contributors.py',
+                                            f'#{indir}/major_contributors_major_months{time_period}_window{rolling_window}D_samplefull.parquet'] + data_source
+
+                                        file = f'contributors_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct_general{general_pct}pct_consecutive{consecutive_periods}_post_period{post_period_length}_{decline_type}_{decline_stat}.parquet'
+
+                                        target = [f'#drive/output/derived/contributor_stats/departed_contributors/{file}']
+                                        make_major_contributors = 0
+                                        if post_period_length == min(post_period_length_list) and decline_type == decline_type_list[0] and decline_stat == min(decline_stat_list):
+                                            major_contributors_file = f'major_contributors_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct_general{general_pct}pct_consecutive{consecutive_periods}.parquet'
+                                            target.append([f'#drive/output/derived/contributor_stats/departed_contributors/{major_contributors_file}'])
+                                            make_major_contributors = 1
+
+                                        env.Python(target, source, CL_ARG = f"{time_period} {rolling_window} {criteria_col} {criteria_pct} {general_pct} {consecutive_periods} {post_period_length} {decline_type} {decline_stat} {make_major_contributors}")
+
+for time_period in time_period_months:
+    for rolling_window in rolling_window_list:
+        outdir = 'drive/output/derived/contributor_stats/contributor_rank_hierarchy'
+        target = [f'#{outdir}/contributor_rank_major_months{time_period}_window{rolling_window}D.parquet',
+                  f'#{outdir}/contributions_by_rank_major_months{time_period}_window{rolling_window}D.parquet',
+                  f'#{outdir}/hierarchy_measure_major_months{time_period}_window{rolling_window}D.parquet']
+
+        indir = '#drive/output/derived/contributor_stats/contributor_data'
+        data_source = ['#drive/output/scrape/link_committers_profile/committers_info_pr.csv', 
+            '#drive/output/scrape/link_committers_profile/committers_info_push.csv']
+        source = ['#source/derived/contributor_stats/calculate_rank_hierarchy.py', f'#{indir}/major_contributors_major_months{time_period}_window{rolling_window}D_samplefull.parquet'] + data_source
+        env.Python(target, source, CL_ARG = f"{time_period} {rolling_window}")
+
+minor_criteria_pct_list = [25]
+for time_period in time_period_months:
+    for rolling_window in rolling_window_list:
+        for criteria_col in criteria_col_list:
+            for criteria_pct in minor_criteria_pct_list:
+                indir = 'drive/output/derived/contributor_stats/contributor_data'
+                outdir = 'drive/output/derived/contributor_stats/minor_contributors'
+
+                source = ['#source/derived/contributor_stats/identify_minor_contributors.py',
+                    f'#{indir}/major_contributors_major_months{time_period}_window{rolling_window}D_samplefull.parquet']
+                target = [f'#{outdir}/minor_contributors_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct.csv']
+                env.Python(target, source, CL_ARG = f"{time_period} {rolling_window} {criteria_col} {criteria_pct}")
+
+

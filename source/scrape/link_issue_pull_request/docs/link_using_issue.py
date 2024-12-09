@@ -43,23 +43,25 @@ def Main():
     warnings.filterwarnings("ignore")
 
     issue_files = glob.glob('drive/output/scrape/extract_github_data/issue*/*')
-    commit_outdir = Path('drive/output/scrape/link_issue_pull_request/linked_issue')
+    commit_outdir = Path('drive/output/scrape/link_issue_pull_request')
 
     df_issue = readIssue(issue_files)
     repo_list = df_issue['repo_name'].unique().tolist()
 
     repo_list = sorted(repo_list)
 
+    df_library_all = pd.DataFrame()
     for repo in repo_list:
         df_library = df_issue[df_issue['repo_name'] == repo]
         lib_name = repo.replace("/","_")
         print(lib_name)
-        fname = f"{lib_name}_linked_issue_to_pull_request.csv"
-        if fname not in os.listdir(commit_outdir):
-            df_library['linked_pull_request'] = df_library.parallel_apply(lambda x: 
-                GrabIssueData(x['repo_name'], x['issue_number']), axis = 1)
-            
-            df_library.to_csv(commit_outdir / fname)
+        
+        
+        df_library['linked_pull_request'] = df_library.parallel_apply(lambda x: 
+            GrabIssueData(x['repo_name'], x['issue_number']), axis = 1)
+        
+        df_library_all = pd.concat([df_library_all, df_library])
+    df_library_all.drop('Unnamed: 0', axis = 1).to_parquet(commit_outdir / 'linked_issue_to_pull_request.parquet', index = False)
 
 if __name__ == '__main__':   
     Main()

@@ -1,35 +1,34 @@
 Import('*')
 import os
+import glob
 
 
 pr_data = []
-for file in os.listdir('../../../drive/output/scrape/extract_github_data/pull_request_data/*.csv'):
+for file in glob.glob('../../../drive/output/scrape/extract_github_data/pull_request_data/*.csv'):
     pr_data.append(f'#drive/output/scrape/extract_github_data/pull_request_data/{file}')
-for file in os.listdir('../../../drive/output/scrape/extract_github_data/pull_request_review_data/*.csv'):
+for file in glob.glob('../../../drive/output/scrape/extract_github_data/pull_request_review_data/*.csv'):
     pr_data.append(f'#drive/output/scrape/extract_github_data/pull_request_review_data/{file}')
-for file in os.listdir('../../../drive/output/scrape/extract_github_data/pull_request_review_comment_data/*.csv'):
+for file in glob.glob('../../../drive/output/scrape/extract_github_data/pull_request_review_comment_data/*.csv'):
     pr_data.append(f'#drive/output/scrape/extract_github_data/pull_request_review_comment_data/{file}')
 
 issue_data = []
-for file in os.listdir('../../../drive/output/scrape/extract_github_data/issue_data/*.csv'):
+for file in glob.glob('../../../drive/output/scrape/extract_github_data/issue_data/*.csv'):
     issue_data.append(f'#drive/output/scrape/extract_github_data/issue_data/{file}')
-for file in os.listdir('../../../drive/output/scrape/extract_github_data/issue_comment_data/*.csv'):
+for file in glob.glob('../../../drive/output/scrape/extract_github_data/issue_comment_data/*.csv'):
     issue_data.append(f'#drive/output/scrape/extract_github_data/issue_comment_data/{file}')
 
 pr_commit_data = []
-for file in os.listdir('../../../drive/output/scrape/collect_commits/pr/*'):
+for file in glob.glob('../../../drive/output/scrape/collect_commits/pr/*.parquet'):
     pr_commit_data.append(f'#drive/output/scrape/collect_commits/pr/{file}')
 
 push_commit_data = []
-for file in os.listdir('../../../drive/output/scrape/collect_commits/push/*'):
+for file in glob.glob('../../../drive/output/scrape/collect_commits/push/*.parquet'):
     push_commit_data.append(f'#drive/output/scrape/collect_commits/push/{file}')
-
-drive/output/scrape/collect_commits/push/*
 
 target = ['#drive/output/derived/data_export/df_pr.parquet',
           '#drive/output/derived/data_export/df_issue.parquet',
           '#drive/output/derived/data_export/df_pr_commits.parquet',
           '#drive/output/derived/data_export/df_push_commits.parquet']
 source = ['#source/derived/data_export/data_export.py'] + \
-    pr_data + issue_data + pr_commit_data + issue_comment_data
+    pr_data + issue_data + pr_commit_data + push_commit_data
 env.Python(target, source)

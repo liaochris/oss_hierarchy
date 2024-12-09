@@ -23,19 +23,14 @@ def Main():
     pd.set_option('display.max_columns', None)
     pandarallel.initialize(progress_bar = True)
 
-    indir_committers_info = Path('drive/output/scrape/link_committers_profile')
     indir_data = Path('drive/output/derived/data_export')
-    indir_committers_departure = Path('drive/output/derived/major_contributor_prospects/departed_contributors')
-    indir_committers_rank = Path('drive/output/derived/major_contributor_prospects/contributor_rank_panel')
     outdir_data = Path('drive/output/derived/project_outcomes')
     
-    
     commit_cols = ['commits','commit_additions','commit_deletions','commit_changes_total','commit_files_changed count']
-    author_thresh = 1/3
-    time_period_months = [2, 3, 6] 
-    rolling_window = [367, 732, 1828]
     SECONDS_IN_DAY = 86400
     closing_day_options = [30, 60, 90, 180, 360]
+
+    time_period = int(sys.argv[1])
     
     df_issue = pd.read_parquet(indir_data / 'df_issue.parquet')
     df_pr = pd.read_parquet(indir_data / 'df_pr.parquet')
@@ -47,13 +42,12 @@ def Main():
     df_issue_selected = df_issue[(df_issue['repo_name'].isin(selected_repos)) & (df_issue['created_at']>='2015-01-01')]
     df_pr_selected = df_pr[(df_pr['repo_name'].isin(selected_repos))  & (df_pr['created_at']>='2015-01-01')]
     
-    for time_period in time_period_months:
-        df_issue_selected = ImputeTimePeriod(df_issue_selected, time_period)
-        df_pr_selected = ImputeTimePeriod(df_pr_selected, time_period)
-        ConstructRepoPanel(df_issue_selected, df_pr_selected, time_period, SECONDS_IN_DAY, outdir_data, closing_day_options)
+    df_issue_selected = ImputeTimePeriod(df_issue_selected, time_period)
+    df_pr_selected = ImputeTimePeriod(df_pr_selected, time_period)
+    ConstructRepoPanel(df_issue_selected, df_pr_selected, time_period, SECONDS_IN_DAY, outdir_data, closing_day_options)
 
 
-def ConstructRepoPanel(df_issue_selected, df_pr_selected, time_period, SECONDS_IN_DAY, outdir, closing_day_options):
+def ConstructRepoPanel(df_issue_selected, df_pr_selected, time_period, SECONDS_IN_DAY, outdir_data, closing_day_options):
     df_repo_panel = pd.concat([df_issue_selected[['repo_name','time_period']].drop_duplicates(), 
                            df_pr_selected[['repo_name','time_period']].drop_duplicates()]).drop_duplicates()\
         .groupby('repo_name')\
@@ -72,7 +66,7 @@ def ConstructRepoPanel(df_issue_selected, df_pr_selected, time_period, SECONDS_I
     df_prs_stats = CreatePRStats(df_prs_complete)
     df_stats = pd.merge(df_issues_stats, df_prs_stats, how = 'outer')
     df_repo_panel_stats = pd.merge(df_repo_panel, df_stats, how = 'left')
-    df_repo_panel_stats.to_parquet(outdir / f'project_outcomes_{time_period}.parquet')
+    df_repo_panel_stats.to_parquet(outdir_data / f'project_outcomes_major_months{time_period}.parquet')
 
 def RemoveDuplicates(df, query, keepcols, duplicatecols, newcolname):
     df_uq = df.query(query).sort_values('created_at', ascending = True)[keepcols]\
