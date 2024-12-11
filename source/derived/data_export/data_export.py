@@ -39,7 +39,7 @@ def Main():
     df_issue.to_parquet(outdir / 'df_issue.parquet')
     print("DONE with creating df_issue.parquet")
 
-    commit_cols = ['repo_name','commit author name','commit author email', 'commit additions',
+    commit_cols = ['repo_name','commit sha','commit author name','commit author email', 'commit additions',
                    'commit deletions','commit changes total','commit files changed count', 'commit file changes',
                    'commit time']
     with concurrent.futures.ThreadPoolExecutor() as executor:
