@@ -38,11 +38,13 @@ def Main():
     post_period_length = int(sys.argv[7])
     decline_type = sys.argv[8]
     decline_stat = float(sys.argv[9])
+    if decline_stat == 0:
+        decline_stat = int(decline_stat)
 
     departure_candidates_rank_rolling = GenerateDepartureCandidateRank(indir_committers_departure, indir_committers_rank, time_period, rolling_window, consecutive_periods, post_period_length, criteria_col, criteria_pct, general_pct, decline_type, decline_stat)
     df_repo_panel_stats_hierarchy = GenerateRepoHierarchyStats(indir_project_outcomes, indir_committers_rank, time_period, rolling_window)
     df_repo_sample = ConstructRepoContributorPanel(departure_candidates_rank_rolling, df_repo_panel_stats_hierarchy, time_period)
-    df_repo_sample.to_csv(outdir_panel / f'project_panel_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct_general{general_pct}pct_consecutive{consecutive_periods}_post_period{post_period_length}{decline_type}_{decline_stat}.csv') 
+    df_repo_sample.to_csv(outdir_panel / f'project_panel_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct_general{general_pct}pct_consecutive{consecutive_periods}_post_period{post_period_length}_{decline_type}_{decline_stat}.csv') 
 
 def ConstructRepoContributorPanel(departure_candidates_rank_rolling, df_repo_panel_stats_hierarchy, time_period):
     df_repo_sample = FilterForTreatedOnce(departure_candidates_rank_rolling, df_repo_panel_stats_hierarchy)
@@ -102,7 +104,7 @@ def GetConsecutiveSum(df):
     return df
 
 def GenerateDepartureCandidateRank(indir_committers_departure, indir_committers_rank, time_period, rolling_window, consecutive_periods, post_period_length, criteria_col, criteria_pct, general_pct, decline_type, decline_stat):
-    departure_candidates = pd.read_parquet(indir_committers_departure / f'contributors_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct_general{general_pct}pct_consecutive{consecutive_periods}_post_period{post_period_length}_{decline_type}_{decline_stat}.parquet')
+    departure_candidates = pd.read_parquet(indir_committers_departure / f'departed_contributors_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct_general{general_pct}pct_consecutive{consecutive_periods}_post_period{post_period_length}_{decline_type}_{decline_stat}.parquet')
     df_committers_rank = pd.read_parquet(indir_committers_rank / f'contributor_rank_major_months{time_period}_window{rolling_window}D.parquet')
     departure_candidates_rank = pd.merge(departure_candidates, df_committers_rank[['repo_name','actor_id','time_period','user_type','rank']],
                                         how = 'left')
