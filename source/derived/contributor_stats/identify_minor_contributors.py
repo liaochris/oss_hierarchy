@@ -7,10 +7,10 @@ def Main():
     indir = Path('drive/output/derived/contributor_stats/contributor_data')
     outdir = Path('drive/output/derived/contributor_stats/minor_contributors')
 
-    time_period = sys.argv[1]
-    rolling_window = sys.argv[2]
+    time_period = int(sys.argv[1])
+    rolling_window = int(sys.argv[2])
     criteria_col = sys.argv[3]
-    criteria_pct = sys.argv[4]
+    criteria_pct = int(sys.argv[4])
     
     df_contributors = pd.read_parquet(indir / f'major_contributors_major_months{time_period}_window{rolling_window}D_samplefull.parquet')
     min_appearances = 3 # how to let this vary with "major months", one idea below

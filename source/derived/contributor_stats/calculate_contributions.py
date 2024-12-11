@@ -55,6 +55,9 @@ def Main():
 
     for chunk in range(chunk_count):
         sample_size = 'full'
+
+        if f'major_contributors_major_months{time_period}_window{rolling_window}D_sample{sample_size}_chunk{chunk+1}.parquet' in os.listdir(outdir):
+            continue
         selected_repos = repo_chunks[chunk]
         df_issue_selected_unlinked = df_issue[(df_issue['repo_name'].isin(selected_repos)) & (df_issue['created_at']>='2015-01-01')]
         df_pr_selected = df_pr[(df_pr['repo_name'].isin(selected_repos))  & (df_pr['created_at']>='2015-01-01')]
@@ -77,9 +80,6 @@ def Main():
     relevant_files = outdir.glob(f'major_contributors_major_months{time_period}_window{rolling_window}D_samplefull_chunk*.parquet')
     df_major_contributors = pd.concat([pd.read_parquet(file) for file in relevant_files])
     df_major_contributors.to_parquet(outdir_final / f'major_contributors_major_months{time_period}_window{rolling_window}D_samplefull.parquet')
-    
-    for file in relevant_files:
-        os.remove(file)
 
 
 def CleanCommittersInfo(indir_committers_info):
