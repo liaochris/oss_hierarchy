@@ -17,6 +17,7 @@ def Main():
     pandarallel.initialize(progress_bar = True)
     
     outdir = Path('drive/output/derived/data_export')
+    """
     pr_data_indir = glob.glob('drive/output/scrape/extract_github_data/pull_request_data/*.csv')
     pr_data_indir.extend(glob.glob('drive/output/scrape/extract_github_data/pull_request_review_data/*.csv'))
     pr_data_indir.extend(glob.glob('drive/output/scrape/extract_github_data/pull_request_review_comment_data/*.csv'))
@@ -29,6 +30,7 @@ def Main():
 
     df_pr.to_parquet(outdir / 'df_pr.parquet')
     print("DONE with creating df_pr.parquet")
+    
 
     issue_data_indir = glob.glob('drive/output/scrape/extract_github_data/issue_data/*.csv')
     issue_data_indir.extend(glob.glob('drive/output/scrape/extract_github_data/issue_comment_data/*.csv'))
@@ -38,7 +40,8 @@ def Main():
     df_issue['repo_id'] = df_issue['repo_id'].astype(str)
     df_issue.to_parquet(outdir / 'df_issue.parquet')
     print("DONE with creating df_issue.parquet")
-
+    """
+    
     commit_cols = ['repo_name','commit sha','commit author name','commit author email', 'commit additions',
                    'commit deletions','commit changes total','commit files changed count', 'commit file changes',
                    'commit time']
