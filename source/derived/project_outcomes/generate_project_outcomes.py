@@ -18,6 +18,8 @@ import time
 from multiprocessing import pool
 from source.lib.helpers import *
 
+### I want to merge in df_ranked_activity_share
+
 def Main():
     warnings.filterwarnings("ignore")
     pd.set_option('display.max_columns', None)
@@ -121,7 +123,7 @@ def CreateIssueStats(df_issues):
 
 def CreatePRSansReviewsStats(df_pr_selected):
     pr_keepcols = ['repo_name','pr_number','time_period', 'created_at']
-    pr_merge_keepcols = ['repo_name','pr_number','time_period', 'created_at', 'pr_merged_by_type']
+    pr_merge_keepcols = ['repo_name','pr_number','time_period', 'created_at', 'pr_merged_by_type', 'pr_comments']
     pr_idcols = ['repo_name','pr_number']
     df_opened_prs = RemoveDuplicates(df_pr_selected,'pr_action == "opened"', pr_keepcols, pr_idcols, 'opened_pr')
     df_closed_prs = RemoveDuplicates(df_pr_selected,'pr_action == "closed" & pr_merged_by_id.isna()', pr_keepcols, pr_idcols, 'closed_unmerged_pr')\
@@ -158,6 +160,7 @@ def CreateFullPRDatasetWithReviews(df_pr_selected, df_prs_sans_reviews, SECONDS_
 def CreatePRStats(df_prs_complete):
     df_prs_stats = df_prs_complete.groupby(['repo_name','time_period'])\
         .agg({'opened_pr': 'sum','merged_pr':['sum','mean'],
+              'pr_comments':'sum',
               'pr_review': ['sum','mean'], 'pr_review_comment': ['sum','mean'],
               'review_state_commented':'mean', 'review_state_approved': 'mean',
               'review_state_changes_requested': 'mean',
@@ -167,6 +170,7 @@ def CreatePRStats(df_prs_complete):
     df_prs_stats = df_prs_stats.reset_index()\
         .rename(columns = {('opened_pr','sum'): 'opened_prs',
                            ('merged_pr','sum'): 'merged_prs',
+                           ('pr_comments','sum'):'pr_comments',
                            ('merged_pr','mean'): 'p_prs_merged',
                            ('pr_review','sum'): 'pr_reviews',
                            ('pr_review','mean'): 'mean_reviews_per_pr',

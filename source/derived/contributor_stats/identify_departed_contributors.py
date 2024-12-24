@@ -20,21 +20,22 @@ def Main():
     indir_committers = Path('drive/output/scrape/link_committers_profile')
     outdir = Path('drive/output/derived/contributor_stats/departed_contributors')
     
+    comment_col = 'comments'
     issue_col = 'issue_comments'
     commit_col = 'commits'
-    criteria_col_list = [issue_col, commit_col]  
+    criteria_col_list = [comment_col, issue_col, commit_col]  
     criteria_pct_list = [75, 90]
     general_pct_list = [25] 
     consecutive_periods_major_months_dict = {2: [3, 9, 18],
                                             3: [3, 6, 12],
-                                            6: [3, 6]}
+                                            6: [2, 3, 4, 5, 6]}
 
     post_periods_major_months_dict = {2: [3, 6, 12],
                                     3: [2, 4, 8],
                                     6: [2, 4]}
-    decline_type_list = ['threshold_mean'] #['threshold_mean','threshold_pct']
+    decline_type_list = ['threshold_mean', 'threshold_gap_qty'] #['threshold_mean','threshold_pct']
     decline_threshold_list = [0.2, 0.1, 0]
-    decline_pct_list = [.1, .25]  
+    decline_gap_qty_list = [0, 5]
 
     time_period = int(sys.argv[1])
     rolling_window = int(sys.argv[2])
@@ -46,6 +47,7 @@ def Main():
     identifiers = ['repo_name','actor_id','time_period']
 
     df_contributors = GetContributorData(indir, time_period, rolling_window)
+    
     num_contributors = ContributorCount(df_contributors)
 
     summary_cols = ['time_period','rolling_window','criteria_col','criteria_pct','general_pct',
@@ -83,7 +85,7 @@ def Main():
                     for post_period_length in post_period_length_list:
                         if post_period_length <= consecutive_periods:
                             for decline_type in decline_type_list:
-                                decline_stat_list = decline_threshold_list if decline_type == "threshold_mean" else decline_pct_list
+                                decline_stat_list = decline_threshold_list if decline_type == "threshold_mean" else decline_gap_qty_list
                                 for decline_stat in decline_stat_list:
 
                                     make_major_contributors = 0
@@ -118,21 +120,14 @@ def Main():
                                         post_period_length, decline_type, decline_stat, num_contributors, num_consecutive_periods,
                                         num_final_contributors, repo_count, one_departure_repos, pct_truck_factor_dep, pct_truck_factor]
 
-                                    filename = f'departed_contributors_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct_general{general_pct}pct_consecutive{consecutive_periods}_post_period{post_period_length}'
-                                    decline_suffix = f"_{decline_type}_{decline_stat}.parquet" 
-                                    filename = filename + decline_suffix
-                                    df_candidates.to_parquet(outdir / filename)
-
-                                    if make_major_contributors == 1:
-                                        filename = f'major_contributors_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct_general{general_pct}pct_consecutive{consecutive_periods}.parquet'
-                                        major_contributors.to_parquet(outdir / filename)
-                                    
                                     print(f"exported {filename}")
     df_contributor_stats.to_csv(outdir / f'departed_contributors_specification_summary_major_months{time_period}_window{rolling_window}D.csv', index = False)
 
 
 def GetContributorData(indir, time_period, rolling_window):
     df_contributors = pd.read_parquet(indir / f'major_contributors_major_months{time_period}_window{rolling_window}D_samplefull.parquet')
+    last_tp = df_contributors['time_period'].max()
+    df_contributors = df_contributors[df_contributors['time_period']<last_tp]
     return df_contributors
     
 def ContributorCount(df):
@@ -140,7 +135,21 @@ def ContributorCount(df):
 
 def ImputeConsecutivePeriods(df_analysis, potential_major_contributors, criteria_col, criteria_analysis_col):
     df_potential = pd.merge(df_analysis, potential_major_contributors, on = ['actor_id','repo_name'])
+
+    all_actors = df_potential[['repo_name','actor_id']].drop_duplicates()
+    time_periods_uq = df_potential['time_period'].unique().tolist()
+    all_actors['time_period'] = [time_periods_uq for i in range(all_actors.shape[0])]
+    all_actors = all_actors.explode('time_period')
+    df_potential['first_period'] = df_potential.groupby(['repo_name','actor_id'])['time_period'].transform('min')
+    df_potential = pd.merge(all_actors, df_potential, how = 'left')
+    df_potential.sort_values(['repo_name','actor_id','time_period'],inplace = True)
+    df_potential['grouped_index'] = df_potential.groupby(['repo_name','actor_id']).cumcount()+1
+    df_potential[['first_period']] = df_potential.groupby(['repo_name','actor_id'])[['first_period']].ffill().bfill()
+    df_potential = df_potential.query('time_period >= first_period')
+    df_potential[criteria_col] = df_potential[criteria_col].fillna(0)
+
     df_potential = df_potential.assign(criteria_exceed = (df_potential[criteria_col]>df_potential[criteria_analysis_col]).astype(int))
+    df_potential['criteria_exceed'] = df_potential['criteria_exceed'].fillna(0)
     df_potential = df_potential.sort_values(['actor_id', 'repo_name', 'time_period'])
     group_keys = (
         (df_potential['actor_id'] != df_potential['actor_id'].shift()) |
@@ -149,39 +158,66 @@ def ImputeConsecutivePeriods(df_analysis, potential_major_contributors, criteria
     ).cumsum()
     df_potential['consecutive_periods'] = df_potential.groupby(group_keys)['criteria_exceed'].cumsum()
     df_potential.loc[df_potential['criteria_exceed'] == 0, 'consecutive_periods'] = 0
-
     return df_potential
 
 def GetCandidates(major_contributors, df_potential_consecutive, post_period_length, criteria_analysis_col, criteria_col, decline_type, decline_stat):
     df_candidates_all = pd.merge(df_potential_consecutive, major_contributors.rename({'consecutive_periods':'total_consecutive_periods'}, axis = 1))
-    df_candidates_all.sort_values(['repo_name','actor_id','time_period'], inplace = True)
+    df_candidates_all.sort_values(['repo_name','actor_id','time_period'], inplace = True)    
 
     df_candidates_all['post_final_period'] = df_candidates_all['time_period']>df_candidates_all['final_period']
     df_candidates_all['sum_post_final_period'] = df_candidates_all.groupby(['repo_name','actor_id'])['post_final_period'].transform('sum')
-    df_candidates_all = df_candidates_all.query(f'sum_post_final_period>={post_period_length}')
-    df_candidates_all['active_indicator'] = (df_candidates_all[criteria_analysis_col].notna()) & (df_candidates_all['post_final_period'])
-    df_candidates_all['sum_active'] = df_candidates_all.groupby(['repo_name','actor_id'])['active_indicator'].transform('sum')
-    df_candidates_all = df_candidates_all.query('sum_active>0')
-    df_candidates_all['grouped_index'] = df_candidates_all.groupby(['repo_name','actor_id']).cumcount()+1
-    df_candidates_final_index = df_candidates_all.query('consecutive_periods == total_consecutive_periods')[['repo_name','actor_id','grouped_index']]
-    df_candidates_final_index['final_index'] = df_candidates_final_index['grouped_index']
-    df_candidates_all = pd.merge(df_candidates_all, df_candidates_final_index.drop('grouped_index', axis = 1))
 
-    prior_periods = df_candidates_all.query("time_period <= final_period & final_index-grouped_index < total_consecutive_periods").groupby(['repo_name','actor_id'])[criteria_col].mean().reset_index()
-    post_periods = df_candidates_all.query(f"time_period > final_period & grouped_index - final_index <= {post_period_length}").groupby(['repo_name','actor_id'])[criteria_col].mean().reset_index()
+    if decline_type == "threshold_mean":
+        df_candidates_all = df_candidates_all.query(f'sum_post_final_period>={post_period_length}')
+        df_candidates_all['active_indicator'] = (df_candidates_all[criteria_analysis_col].notna()) & (df_candidates_all['post_final_period'])
+        df_candidates_all['sum_active'] = df_candidates_all.groupby(['repo_name','actor_id'])['active_indicator'].transform('sum')
+        df_candidates_all = df_candidates_all.query('sum_active>0')
+        df_candidates_all['grouped_index'] = df_candidates_all.groupby(['repo_name','actor_id']).cumcount()+1
+        df_candidates_final_index = df_candidates_all.query('consecutive_periods == total_consecutive_periods')[['repo_name','actor_id','grouped_index']]
+        df_candidates_final_index['final_index'] = df_candidates_final_index['grouped_index']
+        df_candidates_all = pd.merge(df_candidates_all, df_candidates_final_index.drop('grouped_index', axis = 1))
 
-    df_candidates_all = df_candidates_all.merge(post_periods.rename({criteria_col:f'post_periods_{criteria_col}'}, axis = 1))\
-        .merge(prior_periods.rename({criteria_col:f'prior_periods_{criteria_col}'}, axis = 1))
+        prior_periods = df_candidates_all.query("time_period <= final_period & final_index-grouped_index < total_consecutive_periods").groupby(['repo_name','actor_id'])[criteria_col].mean().reset_index()
+        post_periods = df_candidates_all.query(f"time_period > final_period & grouped_index - final_index <= {post_period_length}").groupby(['repo_name','actor_id'])[criteria_col].mean().reset_index()
 
-    df_candidates = df_candidates_all.query(f"post_periods_{criteria_col} <= prior_periods_{criteria_col} * {decline_stat}")
-    dropcols = ['post_final_period','sum_post_final_period','active_indicator','sum_active','grouped_index','final_index']
-    return df_candidates.drop(dropcols, axis = 1) 
+        df_candidates_all = df_candidates_all.merge(post_periods.rename({criteria_col:f'post_periods_{criteria_col}'}, axis = 1))\
+            .merge(prior_periods.rename({criteria_col:f'prior_periods_{criteria_col}'}, axis = 1))
 
+        df_candidates = df_candidates_all.query(f"post_periods_{criteria_col} <= prior_periods_{criteria_col} * {decline_stat}")
+    elif decline_type == "threshold_gap_qty":      
+        # max gap is post_period  
+        gap_range = post_period_length
+        threshold_qty = decline_stat
 
+        df_candidates_all['below_qty'] = df_candidates_all[criteria_col]<=threshold_qty
+        final_period_index = df_candidates_all.query('time_period > final_period').groupby(['repo_name','actor_id']).head(1)\
+            [['repo_name','actor_id','grouped_index']].rename({'grouped_index':'first_post_period_index'}, axis = 1)
+        df_candidates_all = pd.merge(df_candidates_all, final_period_index)
+        df_candidates_all.sort_values(['repo_name','actor_id','time_period'],inplace = True)
+
+        for gap in range(gap_range+1):
+            df_candidates_gap = df_candidates_all.query(
+                f'grouped_index>=first_post_period_index+{gap}').groupby(['repo_name','actor_id'])['below_qty'].mean()\
+                .reset_index().rename({'below_qty':f'below_qty_mean_gap{gap}'}, axis = 1)
+            df_candidates_all = pd.merge(df_candidates_all, df_candidates_gap)
+        df_candidates_all[[col for col in df_candidates_all.columns if "gap" in col]]
+        keep = df_candidates_all[[col for col in df_candidates_all.columns if "gap" in col]].apply(lambda x: any(x==1), axis = 1)
+        df_candidates = df_candidates_all[keep]
+
+    df_candidates = PostProcessCleaning(df_candidates)
+
+    return df_candidates
+
+def PostProcessCleaning(df_candidates):
+    dropcols = ['post_final_period', 'sum_post_final_period', 'first_post_period_index']
+    df_candidates = df_candidates.drop([col for col in dropcols if col in df_candidates.columns], axis = 1)
+    df_candidates['consecutive_periods'] = df_candidates['consecutive_periods'].fillna(0)
+    df_candidates['total_consecutive_periods'] = df_candidates.groupby(['repo_name','actor_id'])['total_consecutive_periods'].transform('ffill')
+    df_candidates['total_consecutive_periods'] = df_candidates.groupby(['repo_name','actor_id'])['total_consecutive_periods'].transform('bfill')
+    return df_candidates
 
 def GetUniqueTruckFactor(indir_truck):
     df_truckfactor = pd.read_csv(indir_truck / 'truckfactor.csv')
-
     df_truckfactor['repo'] = df_truckfactor['repo_name'].apply(lambda x: str(x).replace('drive/output/scrape/get_weekly_truck_factor/truckfactor_','').replace('.csv','').replace("_","/",1))
     df_truckfactors_uq = df_truckfactor[['repo','authors']].drop_duplicates().dropna()
     df_truckfactors_uq['authors_list'] = df_truckfactors_uq['authors'].apply(lambda x: x.split(" | "))

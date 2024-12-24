@@ -97,17 +97,12 @@ def CleanCommittersInfo(indir_committers_info):
 
 def LinkCommits(df_selected, df_commits_selected, committers_match, commit_cols, commit_type):
     # TODO: what % of commits were dropped because nobody could be found
-    if commit_type == 'pr':
-        matched_commits = pd.merge(df_commits_selected, committers_match,
-                                how = 'inner', left_on = ['commit author name','commit author email'],
-                                right_on = ['name','email'])
-    else:
-        df_commits_selected['created_at'] = pd.to_datetime(df_commits_selected['commit time'], unit = 's')
-        df_commits_selected = df_commits_selected[df_commits_selected['created_at'] >= '2015-01-01']
-        matched_commits = pd.merge(df_commits_selected, committers_match,
-                                how = 'inner', left_on = ['commit author name','commit author email'],
-                                right_on = ['name','email'])
-    matched_commits = matched_commits.assign(commits=1)
+    df_commits_selected['created_at'] = pd.to_datetime(df_commits_selected['commit time'], unit = 's')
+    df_commits_selected = df_commits_selected[df_commits_selected['created_at'] >= '2015-01-01']
+    matched_commits = pd.merge(df_commits_selected, committers_match,
+        how = 'inner', left_on = ['commit author name','commit author email'],
+        right_on = ['name','email'])\
+        .assign(commits=1)
     selected_id = 'push_id' if commit_type == 'push' else 'pr_number'
     if commit_type == 'pr':
         matched_commits_total = matched_commits.groupby(['repo_name',selected_id])\
@@ -119,22 +114,19 @@ def LinkCommits(df_selected, df_commits_selected, committers_match, commit_cols,
         for col in commit_cols:
             matched_commits_share[f"{col} share"] = matched_commits_share[col]/matched_commits_share[f"{col} total"]
         final_agg_cols = commit_cols + [f"{col} share" for col in commit_cols]
-        commit_stats = matched_commits_share\
-            .assign(commits=1)\
-            .groupby(['repo_name',selected_id,'commit_author_id'])\
-            [final_agg_cols].sum().reset_index()
     else:
         matched_commits_share = matched_commits
         final_agg_cols = commit_cols
-        commit_stats = matched_commits_share\
-            .assign(commits=1)\
-            .groupby(['repo_name',selected_id,'commit_author_id','created_at'])\
-            [final_agg_cols].sum().reset_index()
+        
+    commit_stats = matched_commits_share\
+        .assign(commits=1)\
+        .groupby(['repo_name',selected_id,'commit_author_id','created_at'])\
+        [final_agg_cols].sum().reset_index()
     # TODO: what % of commits had truncated information bc 250 max - also, is that push or PR? 
     # TODO: what % of commits could we not get information for
     if commit_type == 'pr':
         merged_commits = df_selected.query('pr_action == "closed" & ~pr_merged_by_id.isna()')
-        df_commit_stats = pd.merge(merged_commits, commit_stats, on = ['repo_name',selected_id])
+        df_commit_stats = pd.merge(merged_commits.rename({'created_at':'pr_opened_at'}, axis = 1), commit_stats, on = ['repo_name',selected_id])
     else:
         df_commit_stats = commit_stats      
     return df_commit_stats
@@ -170,7 +162,6 @@ def AssignPRAuthorship(df_pr_commit_stats, author_thresh, commit_cols):
     df_pr_commit_author_stats = df_pr_commit_stats[commit_author_bool]
     return df_pr_commit_author_stats
 
-
 def AddPROpener(df_pr_commit_author_stats, df_pr_selected):
     pr_opener = df_pr_selected.query('pr_action == "opened"')[['repo_name','pr_number','actor_id']]\
         .rename({'actor_id':'pr_opener_actor_id'}, axis = 1).drop_duplicates()
@@ -192,17 +183,31 @@ def CombinePushPR(ts_pr_authorship, ts_push_authorship, commit_cols):
     ts_pr_authorship.columns = [f"pr_{col}" if col in commit_cols else col for col in ts_pr_authorship.columns]
     ts_commit_authorship = ts_pr_authorship.join(ts_push_authorship, how = 'outer')
     for col in commit_cols:
-        ts_commit_authorship[col] = ts_commit_authorship[f"push_{col}"] + ts_commit_authorship[f"pr_{col}"]
+        ts_commit_authorship[col] = ts_commit_authorship[f"push_{col}"].fillna(0) + ts_commit_authorship[f"pr_{col}"].fillna(0)
     return ts_commit_authorship
     
-def CalculateIssueCommentStats(issue_comments):        
-    issue_comments['issue_comments'] = 1
+def CalculateIssueCommentStats(issue_comments, df_pr_selected):        
+    pr_data = df_pr_selected[['repo_name','pr_number']].drop_duplicates()
+    pr_opener_data = df_pr_selected.query('pr_action == "opened"')[['repo_name','pr_number','actor_id']].drop_duplicates()\
+        .rename({'actor_id':'pr_opener_id'})
+    issue_comments = issue_comments.merge(pr_data, how = 'left', left_on = ['repo_name','issue_number'], right_on = ['repo_name','pr_number'])
+    issue_comments = issue_comments.merge(pr_opener_data, how = 'left', left_on = ['repo_name','issue_number'], right_on = ['repo_name','pr_number'])
+
+
+    issue_comments['comments'] = 1
+    issue_comments['issue_comments'] = issue_comments['pr_number'].isna().astype(int)
+    issue_comments['pr_comments'] = 1 - issue_comments['issue_comments']
     issue_comments['linked_pr_issue_comments'] = 1 - issue_comments['linked_pr_number'].isna().astype(int)
     issue_comments['linked_pr_issue_number'] = issue_comments.apply(lambda x: x['issue_number'] if not pd.isnull(x['linked_pr_number']) else np.nan, axis = 1)
-    issue_comments['own_issue_comments'] = (issue_comments['issue_user_id'] == issue_comments['actor_id']).astype(int)
+    issue_comments['own_issue_comments'] = ((issue_comments['issue_user_id'] == issue_comments['actor_id']) & (issue_comments['issue_comments'] == 1)).astype(int)
+    issue_comments['helping_issue_comments'] = issue_comments['issue_comments'] - issue_comments['own_issue_comments']
+    issue_comments['own_pr_comments'] = ((issue_comments['pr_opener_id'] == issue_comments['actor_id']) & (issue_comments['pr_comments'] == 1)).astype(int)
+    issue_comments['helping_pr_comments'] = issue_comments['pr_comments'] - issue_comments['own_pr_comments']
+
     ts_issue_comments = issue_comments.groupby(['time_period', 'repo_name','actor_id'])\
-        .agg({'issue_comments': 'sum', 'own_issue_comments': 'sum', 'linked_pr_issue_comments': 'sum',
-              'issue_number': 'nunique', 'linked_pr_issue_number':'nunique'}).reset_index()
+        .agg({'comments': 'sum', 'issue_comments': 'sum', 'pr_comments': 'sum', 'own_issue_comments': 'sum', 'helping_issue_comments': 'sum',
+              'own_pr_comments':'sum','helping_pr_comments':'sum', 'linked_pr_issue_comments': 'sum', 'issue_number': 'nunique', 
+              'linked_pr_issue_number':'nunique'}).reset_index()
     return ts_issue_comments
 
 
@@ -291,7 +296,7 @@ def AddMajorContributorNonPercentileActivity(major_contributors_data_pct, df_pr_
         .assign(prs_merged = 1)\
         .groupby(['actor_id','user_type','repo_name','time_period'])\
         [['prs_merged']].sum().reset_index().set_index(['actor_id','repo_name','time_period'])
-    issue_closers = df_issue_data.query('type == "IssueEvent" & issue_action == "closed"')[['repo_name','issue_number','time_period','actor_id']]\
+    issue_closers = df_issue_data.query('type == "IssuesEvent" & issue_action == "closed"')[['repo_name','issue_number','time_period','actor_id']]\
         .sort_values('time_period').drop_duplicates(['repo_name','issue_number', 'time_period'])\
         .assign(issues_closed = 1)\
         .groupby(['actor_id','repo_name','time_period'])\
@@ -301,6 +306,21 @@ def AddMajorContributorNonPercentileActivity(major_contributors_data_pct, df_pr_
     major_contributors_data = major_contributors_data.join(pr_merges, how = 'outer')
     major_contributors_data = major_contributors_data.join(issue_closers, how = 'outer')
     return major_contributors_data
+
+def FillNaAndReorder(major_contributors_data):
+    val_cols =[col for col in major_contributors_data.columns if 'pct' not in col and col != 'user_type']
+    pct_cols = [col for col in major_contributors_data.columns if 'pct' in col]
+    major_contributors_data_reordered = major_contributors_data[['user_type'] + val_cols + pct_cols]
+
+    major_contributors_data[pct_cols] = \
+        major_contributors_data.groupby(['repo_name','time_period'])[pct_cols].transform('bfill')
+    major_contributors_data[pct_cols] = \
+        major_contributors_data.groupby(['repo_name','time_period'])[pct_cols].transform('ffill')
+    major_contributors_data['user_type'] = major_contributors_data.groupby(['actor_id'])['user_type'].transform('bfill')
+    major_contributors_data['user_type'] = major_contributors_data.groupby(['actor_id'])['user_type'].transform('ffill')
+
+    return major_contributors_data
+
 
 def OutputMajorContributors(committers_match, df_pr_commit_stats, df_pr_selected, df_push_commit_stats, df_issue_selected, issue_comments,
                             major_pct_list, general_pct_list, time_period, author_thresh, commit_cols,
@@ -323,8 +343,9 @@ def OutputMajorContributors(committers_match, df_pr_commit_stats, df_pr_selected
     print("percentile for PR + push commits obtained")
 
     issue_comments = ImputeTimePeriod(issue_comments, time_period)
-    ts_issue_comments = CalculateIssueCommentStats(issue_comments)
-    major_ic_col_list  = ['issue_comments', 'own_issue_comments', 'linked_pr_issue_comments', 'issue_number', 'linked_pr_issue_number']
+    ts_issue_comments = CalculateIssueCommentStats(issue_comments, df_pr_selected)
+    major_ic_col_list  = ['comments', 'issue_comments', 'pr_comments', 'own_issue_comments', 'helping_issue_comments', 'own_pr_comments','helping_pr_comments',
+        'linked_pr_issue_comments', 'issue_number', 'linked_pr_issue_number']
     ic_major_contributor_data = GetMajorContributorPostPercentile(ts_issue_comments, str(rolling_window)+"D", major_ic_col_list, major_pct_list, general_pct_list)
     print("percentile for issues obtained")
     major_contributors_data_pct = GenerateBalancedContributorsPanel(ic_major_contributor_data, commit_major_contributor_data, time_period)
@@ -345,6 +366,9 @@ def OutputMajorContributors(committers_match, df_pr_commit_stats, df_pr_selected
     print(major_contributors_data[['repo_name','actor_id']].drop_duplicates().shape)
     major_contributors_data.drop_duplicates(inplace = True)
     major_contributors_data.columns = [col.replace(" ","_") for col in major_contributors_data.columns]
+
+    major_contributors_data = FillNaAndReorder(major_contributors_data)
+
     major_contributors_data.to_parquet(outdir / f'major_contributors_major_months{time_period}_window{rolling_window}D_sample{sample_size}_chunk{chunk}.parquet')
     print("major contributors exported")
 

@@ -65,9 +65,9 @@ def ReadCommitterData(indir, committers_match, time_period, rolling_window):
     return df_committers
 
 def RankContributors(df_committers):
-    user_cols = ['repo_name', 'actor_id', 'time_period', 'user_type']
+    user_cols = ['repo_name', 'actor_id', 'time_period', 'user_type', 'comments']
     active_user_cols = ['issue_number','linked_pr_issue_number','issue_comments','linked_pr_issue_comments', 'own_issue_comments']
-    developer_pr_cols = ['pr','pr_commits','pr_commit_additions','pr_commit_deletions','pr_commit_changes_total','pr_commit_files_changed_count']
+    developer_pr_cols = ['pr','pr_comments','pr_commits','pr_commit_additions','pr_commit_deletions','pr_commit_changes_total','pr_commit_files_changed_count']
     developer_push_cols = ['push_commits','push_commit_additions','push_commit_deletions','push_commit_changes_total','push_commit_files_changed_count']
     developer_cols = developer_pr_cols + developer_push_cols
     reviewer_cols = ['pr_reviews','pr_review_comments','prs_merged','issues_closed']
@@ -85,8 +85,8 @@ def CreateRankSharePanel(df_committers_rank):
     df_committers_rank['commits'] = df_committers_rank['pr_commits'] + df_committers_rank['push_commits']
     df_ranked_agg_actvity = df_committers_rank.assign(user_count = 1).groupby(['repo_name','time_period', 'rank'])\
         .agg({'user_count': 'sum', 'issue_number': 'sum', 'linked_pr_issue_number':'sum', 'own_issue_comments': 'sum',
-              'issue_comments': 'sum', 'linked_pr_issue_comments':'sum','pr': 'sum', 
-              'commits': 'sum','pr_commits':'sum','push_commits':'sum', 'pr_reviews': 'sum', 'pr_review_comments':'sum', 'prs_merged': 'sum',
+              'comments':'sum', 'issue_comments': 'sum', 'linked_pr_issue_comments':'sum','pr': 'sum', 
+              'commits': 'sum','pr_commits':'sum', 'pr_comments': 'sum', 'push_commits':'sum', 'pr_reviews': 'sum', 'pr_review_comments':'sum', 'prs_merged': 'sum',
               'issues_closed': 'sum'})\
         .rename({'issue_number':'opened_issues'}, axis = 1)
     df_agg_activity = df_ranked_agg_actvity.reset_index(level = 2).drop('rank', axis = 1).groupby(level = [0,1]).sum().add_prefix('total_')
@@ -106,10 +106,10 @@ def AboveRankActivity(df_ranked_activity_share):
         df_activeuser_activities.loc[df_activeuser_activities.query(f'{col} != 0 & share_{col}.isna()').index, f'share_{col}'] = 0
     
     share_maintainer = df_ranked_activity_share.query('rank != "developer" & rank != "active user"')\
-        .groupby(level = [0, 1])[['share_commits', 'share_pr']].sum()
-    total_maintainer_activities = df_ranked_activity_share.groupby(level = [0, 1])[['commits','pr']].sum()
+        .groupby(level = [0, 1])[['share_commits', 'share_pr', 'share_pr_comments']].sum()
+    total_maintainer_activities = df_ranked_activity_share.groupby(level = [0, 1])[['commits','pr','pr_comments']].sum()
     df_maintainer_activities = share_maintainer.join(total_maintainer_activities, how = 'left')
-    for col in ['commits','pr']:
+    for col in ['commits','pr', 'pr_comments']:
         df_maintainer_activities.loc[df_maintainer_activities.query(f'{col} == 0').index, f'share_{col}'] = np.nan
         df_maintainer_activities.loc[df_maintainer_activities.query(f'{col} != 0 & share_{col}.isna()').index, f'share_{col}'] = 0
     
@@ -122,7 +122,8 @@ def AboveRankActivity(df_ranked_activity_share):
     df_shares['issue_comments_hr'] = df_shares['issue_comments'] * .07
     df_shares['commits_hr'] = df_shares['commits'] * .10
     df_shares['pr_hr'] = df_shares['pr'] * .77
-    hour_cols = ['opened_issues_hr','issue_comments_hr','commits_hr','pr_hr']
+    df_shares['pr_comments_hr'] = df_shares['pr_comments'] * .07
+    hour_cols = ['opened_issues_hr','issue_comments_hr','commits_hr','pr_hr','pr_comments_hr']
     share_cols = [f"share_{col.replace("_hr","")}" for col in hour_cols] 
     df_shares['project_hierarchy_rank'] = (df_shares[hour_cols].fillna(0).values * df_shares[share_cols].fillna(0).values).sum(axis = 1)/df_shares[hour_cols].sum(axis = 1)
     df_shares['active_user_hierarchy_rank'] = (df_shares[hour_cols[:2]].fillna(0).values * df_shares[share_cols[:2]].fillna(0).values).sum(axis = 1)/df_shares[hour_cols[:2]].sum(axis = 1)
