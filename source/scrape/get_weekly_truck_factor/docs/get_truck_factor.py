@@ -32,9 +32,20 @@ def Main():
         for result in pool.imap(GetTruckFactor, github_repos):
             print(result)
 
-    #for library in github_repos:
-    #    GetTruckFactor(library)
-    
+    truckfactor_csvs = glob.glob('drive/output/scrape/get_weekly_truck_factor/truckfactor_*.csv')
+    df_truckfactor = pd.DataFrame()
+    for file in truckfactor_csvs:
+        df_repo_truckfactor = pd.read_csv(file).assign(repo_name = file)
+        df_truckfactor = pd.concat([df_truckfactor, df_repo_truckfactor])
+        os.remove(file)
+
+    df_truckfactor = df_truckfactor.drop('Unnamed: 0', axis = 1).reset_index(drop = True)
+    df_truckfactor.to_csv('drive/output/scrape/get_weekly_truck_factor/truckfactor.csv', index = False)
+
+    for file in truckfactor_csvs:
+        if "temp" not in file:
+            os.remove(file)
+
     print("Done!")
 
 
