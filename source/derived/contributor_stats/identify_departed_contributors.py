@@ -25,7 +25,6 @@ def Main():
     commit_col = 'commits'
     criteria_col_list = [comment_col, issue_col, commit_col]  
     criteria_pct_list = [75, 90]
-    general_pct_list = [25] 
     consecutive_periods_major_months_dict = {2: [3, 9, 18],
                                             3: [3, 6, 12],
                                             6: [2, 3, 4, 5, 6]}
@@ -50,7 +49,7 @@ def Main():
     
     num_contributors = ContributorCount(df_contributors)
 
-    summary_cols = ['time_period','rolling_window','criteria_col','criteria_pct','general_pct',
+    summary_cols = ['time_period','rolling_window','criteria_col','criteria_pct',
             'consecutive_periods','post_period_length','decline_type','decline_stat',
             'total_contributors','total_contributors_consecutive_criteria','total_final_candidates',
             'num_total_projects','num_projects_with_one_departure','truck_factor_pct_departure','truck_factor_pct_all']
@@ -58,54 +57,52 @@ def Main():
 
     for criteria_col in criteria_col_list:
         for criteria_pct in criteria_pct_list:
-            for general_pct in general_pct_list:
-                criteria_analysis_col = f'{criteria_col}_{criteria_pct}th_pct'
-                criteria_general_col = f'general_{criteria_col}_{general_pct}th_pct'     
-                criteria_cols = [criteria_col, criteria_analysis_col, criteria_general_col]
-                analysis_cols = identifiers + criteria_cols
-                df_analysis = df_contributors[analysis_cols]
+            criteria_analysis_col = f'{criteria_col}_{criteria_pct}th_pct'
+            criteria_cols = [criteria_col, criteria_analysis_col]
+            analysis_cols = identifiers + criteria_cols
+            df_analysis = df_contributors[analysis_cols]
+            
+            potential_major_contributors = df_analysis.query(f'{criteria_col}>{criteria_analysis_col}')\
+                [['actor_id','repo_name']].drop_duplicates()
+            consecutive_periods_list = consecutive_periods_major_months_dict[time_period]
+            post_period_length_list = post_periods_major_months_dict[time_period]
+
+            df_potential = ImputeConsecutivePeriods(df_analysis, potential_major_contributors, criteria_col, criteria_analysis_col)
+            for consecutive_periods in consecutive_periods_list:
+                has_consecutive_periods = df_potential.query(f'consecutive_periods>={consecutive_periods}')[['actor_id','repo_name']].drop_duplicates()
+                df_potential_consecutive = pd.merge(df_potential, has_consecutive_periods)
+                num_consecutive_periods = ContributorCount(df_potential_consecutive)
                 
-                potential_major_contributors = df_analysis.query(f'{criteria_col}>{criteria_analysis_col} & {criteria_col}>{criteria_general_col}')\
-                    [['actor_id','repo_name']].drop_duplicates()
-                consecutive_periods_list = consecutive_periods_major_months_dict[time_period]
-                post_period_length_list = post_periods_major_months_dict[time_period]
+                major_contributors = df_potential_consecutive[['actor_id','repo_name', 'consecutive_periods', 'time_period']]\
+                    .sort_values('consecutive_periods', ascending = False)\
+                    .drop_duplicates(['actor_id','repo_name'])\
+                    .reset_index(drop = True)\
+                    .rename({'time_period':'final_period'}, axis = 1)
+                
+                for post_period_length in post_period_length_list:
+                    if post_period_length <= consecutive_periods:
+                        for decline_type in decline_type_list:
+                            decline_stat_list = decline_threshold_list if decline_type == "threshold_mean" else decline_gap_qty_list
+                            for decline_stat in decline_stat_list:
 
-                df_potential = ImputeConsecutivePeriods(df_analysis, potential_major_contributors, criteria_col, criteria_analysis_col)
-                for consecutive_periods in consecutive_periods_list:
-                    has_consecutive_periods = df_potential.query(f'consecutive_periods>={consecutive_periods}')[['actor_id','repo_name']].drop_duplicates()
-                    df_potential_consecutive = pd.merge(df_potential, has_consecutive_periods)
-                    num_consecutive_periods = ContributorCount(df_potential_consecutive)
-                    
-                    major_contributors = df_potential_consecutive[['actor_id','repo_name', 'consecutive_periods', 'time_period']]\
-                        .sort_values('consecutive_periods', ascending = False)\
-                        .drop_duplicates(['actor_id','repo_name'])\
-                        .reset_index(drop = True)\
-                        .rename({'time_period':'final_period'}, axis = 1)
-                    
-                    for post_period_length in post_period_length_list:
-                        if post_period_length <= consecutive_periods:
-                            for decline_type in decline_type_list:
-                                decline_stat_list = decline_threshold_list if decline_type == "threshold_mean" else decline_gap_qty_list
-                                for decline_stat in decline_stat_list:
+                                make_major_contributors = 0
+                                if post_period_length == min(post_period_length_list) and decline_type == decline_type_list[0] and decline_stat == min(decline_stat_list):
+                                    make_major_contributors = 1
 
-                                    make_major_contributors = 0
-                                    if post_period_length == min(post_period_length_list) and decline_type == decline_type_list[0] and decline_stat == min(decline_stat_list):
-                                        make_major_contributors = 1
+                                print("analyzing potential departure candidates")
+                                df_candidates = GetCandidates(major_contributors, df_potential_consecutive, post_period_length, criteria_analysis_col, criteria_col, decline_type, decline_stat)
+                                filename = f'departed_contributors_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct_consecutive{consecutive_periods}_post_period{post_period_length}'
+                                decline_suffix = f"_{decline_type}_{decline_stat}.parquet" 
+                                filename = filename + decline_suffix
+                                df_candidates.to_parquet(outdir / filename)
 
-                                    print("analyzing potential departure candidates")
-                                    df_candidates = GetCandidates(major_contributors, df_potential_consecutive, post_period_length, criteria_analysis_col, criteria_col, decline_type, decline_stat)
-                                    filename = f'departed_contributors_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct_general{general_pct}pct_consecutive{consecutive_periods}_post_period{post_period_length}'
-                                    decline_suffix = f"_{decline_type}_{decline_stat}.parquet" 
-                                    filename = filename + decline_suffix
-                                    df_candidates.to_parquet(outdir / filename)
+                                if make_major_contributors == 1:
+                                    filename = f'major_contributors_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct_consecutive{consecutive_periods}.parquet'
+                                    major_contributors.to_parquet(outdir / filename)
 
-                                    if make_major_contributors == 1:
-                                        filename = f'major_contributors_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct_general{general_pct}pct_consecutive{consecutive_periods}.parquet'
-                                        major_contributors.to_parquet(outdir / filename)
-
-                                    if df_candidates.shape[0] == 0:
-                                        continue
-
+                                if df_candidates.shape[0] == 0:
+                                    num_final_contributors = repo_count = uq_candidates = uq_candidates_all = one_departure_repos = pct_truck_factor_dep = pct_truck_factor = 0
+                                else:
                                     num_final_contributors = ContributorCount(df_candidates)
                                     repo_count = df_candidates[['repo_name']].drop_duplicates().shape[0]
                                     uq_candidates = df_candidates[['actor_id','repo_name']].drop_duplicates()
@@ -114,13 +111,14 @@ def Main():
 
                                     pct_truck_factor_dep = GetTruckFactorPct(df_candidates, truck_indivs)
                                     pct_truck_factor = GetTruckFactorPct(major_contributors, truck_indivs)
-                                    append_index = df_contributor_stats.shape[0]
-                                    df_contributor_stats.loc[append_index, summary_cols] = \
-                                        [time_period, rolling_window, criteria_col, criteria_pct, general_pct, consecutive_periods,
-                                        post_period_length, decline_type, decline_stat, num_contributors, num_consecutive_periods,
-                                        num_final_contributors, repo_count, one_departure_repos, pct_truck_factor_dep, pct_truck_factor]
+                                
+                                append_index = df_contributor_stats.shape[0]
+                                df_contributor_stats.loc[append_index, summary_cols] = \
+                                    [time_period, rolling_window, criteria_col, criteria_pct, consecutive_periods,
+                                    post_period_length, decline_type, decline_stat, num_contributors, num_consecutive_periods,
+                                    num_final_contributors, repo_count, one_departure_repos, pct_truck_factor_dep, pct_truck_factor]
 
-                                    print(f"exported {filename}")
+                                print(f"exported {filename}")
     df_contributor_stats.to_csv(outdir / f'departed_contributors_specification_summary_major_months{time_period}_window{rolling_window}D.csv', index = False)
 
 
