@@ -6,10 +6,9 @@ import glob
 import warnings
 import random
 from pandarallel import pandarallel
-from source.lib.JMSLab import autofill
-from source.lib.helpers import ExportTable, AddToTableList
 import concurrent.futures
 import itertools
+import gc
 
 def Main():
     warnings.filterwarnings("ignore")
@@ -29,6 +28,8 @@ def Main():
         df_pr[col] = pd.to_numeric(df_pr[col])
 
     df_pr.to_parquet(outdir / 'df_pr.parquet')
+    del df_pr
+    gc.collect()
     print("DONE with creating df_pr.parquet")
     
 
@@ -39,6 +40,8 @@ def Main():
     df_issue = ReadPrIssueData(issue_data_indir, issue_cols)
     df_issue['repo_id'] = df_issue['repo_id'].astype(str)
     df_issue.to_parquet(outdir / 'df_issue.parquet')
+    del df_issue
+    gc.collect()
     print("DONE with creating df_issue.parquet")
 
     commit_cols = ['repo_name','commit sha','commit author name','commit author email', 'commit additions',
@@ -50,7 +53,10 @@ def Main():
     df_pr_commits = pd.concat(results)
     df_pr_commits['commit file changes'] = df_pr_commits['commit file changes'].astype(str)
     df_pr_commits.to_parquet(outdir / 'df_pr_commits.parquet')
+    del df_pr_commits
+    gc.collect()
     print("DONE with creating df_pr_commits.parquet")
+
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         results = executor.map(ReadParquet, glob.glob('drive/output/scrape/collect_commits/push/*'), itertools.repeat(commit_cols + ['push_id']))
@@ -58,7 +64,6 @@ def Main():
     df_push_commits['commit file changes'] = df_push_commits['commit file changes'].astype(str)
     df_push_commits.to_parquet(outdir / 'df_push_commits.parquet')
     print("DONE with creating df_push_commits.parquet")
-
 
 def ReadPrIssueData(file_dirs, data_cols):
     df_final = pd.DataFrame(columns=data_cols)
@@ -84,14 +89,16 @@ def ReadParquet(filename, commit_cols):
     try:
         df = pd.read_parquet(filename).drop_duplicates('commit sha')[commit_cols]
         return df
-    except:
+    except Exception as e:
+        print(e)
         return 
 
 def ReadCsv(filename, commit_cols):
     try:
         df = pd.read_csv(filename, index_col = 0).drop_duplicates('commit sha')[commit_cols]
         return df
-    except:
+    except Exception as e:
+        print(e)
         return 
 
 if __name__ == '__main__':
