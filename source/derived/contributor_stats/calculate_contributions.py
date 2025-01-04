@@ -49,7 +49,7 @@ def Main():
 
     
     all_repos = df_issue[['repo_name']].drop_duplicates()['repo_name']
-    chunk_size = 100 if time_period<6 else 200
+    chunk_size = 100 if time_period<6 else 300
     chunk_count = int(np.ceil(len(all_repos)/chunk_size))
     repo_chunks = np.array_split(all_repos, chunk_count)
 
@@ -188,10 +188,9 @@ def CombinePushPR(ts_pr_authorship, ts_push_authorship, commit_cols):
 def CalculateIssueCommentStats(issue_comments, df_pr_selected):        
     pr_data = df_pr_selected[['repo_name','pr_number']].drop_duplicates()
     pr_opener_data = df_pr_selected.query('pr_action == "opened"')[['repo_name','pr_number','actor_id']].drop_duplicates()\
-        .rename({'actor_id':'pr_opener_id'})
+        .rename({'actor_id':'pr_opener_id'}, axis = 1)
     issue_comments = issue_comments.merge(pr_data, how = 'left', left_on = ['repo_name','issue_number'], right_on = ['repo_name','pr_number'])
-    issue_comments = issue_comments.merge(pr_opener_data, how = 'left', left_on = ['repo_name','issue_number'], right_on = ['repo_name','pr_number'])
-
+    issue_comments = issue_comments.merge(pr_opener_data, how = 'left', on = ['repo_name','pr_number'])
 
     issue_comments['comments'] = 1
     issue_comments['issue_comments'] = issue_comments['pr_number'].isna().astype(int)
@@ -346,7 +345,7 @@ def OutputMajorContributors(committers_match, df_pr_commit_stats, df_pr_selected
     major_contributors_data = GroupedFill(major_contributors_data, ['repo_name','time_period'], pct_cols)
 
     major_contributors_data[major_cols] = major_contributors_data[major_cols].fillna(0)
-    print(f"Major PCT: {major_pct_list}, Time Period: {time_period} months")
+    print(f"Major PCT: {major_pct_list},  Time Period: {time_period} months")
     print(major_contributors_data[['repo_name','actor_id']].drop_duplicates().shape)
     major_contributors_data.drop_duplicates(inplace = True)
     major_contributors_data.columns = [col.replace(" ","_") for col in major_contributors_data.columns]

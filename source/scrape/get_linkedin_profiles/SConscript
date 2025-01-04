@@ -1,0 +1,17 @@
+Import('*')
+from pathlib import Path
+from glob import glob
+
+
+target = ['#drive/output/scrape/get_linkedin_profiles/departed_github_profiles.csv',
+    '#drive/output/scrape/get_linkedin_profiles/departed_linkedin_profiles.parquet',
+    '#drive/output/scrape/get_linkedin_profiles/departed_linkedin_positions.parquet']
+source = ['#source/scrape/get_linkedin_profiles/docs/get_linkedin_profiles.py',
+    '#drive/output/derived/contributor_stats/departed_contributors.csv']
+
+indir_departures = Path('drive/output/derived/contributor_stats/departed_contributors')
+departure_files = [f'#{file.as_posix()}' for file in indir_departures.glob("*commits*.parquet")]
+source.extend(departure_files)
+
+env.Python(target, source)
+

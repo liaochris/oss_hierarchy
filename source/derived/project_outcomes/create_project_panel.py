@@ -33,11 +33,10 @@ def Main():
     rolling_window = int(sys.argv[2])
     criteria_col = sys.argv[3]
     criteria_pct = int(sys.argv[4])
-    general_pct = int(sys.argv[5])
-    consecutive_periods = int(sys.argv[6])
-    post_period_length = int(sys.argv[7])
-    decline_type = sys.argv[8]
-    decline_stat = float(sys.argv[9])
+    consecutive_periods = int(sys.argv[5])
+    post_period_length = int(sys.argv[6])
+    decline_type = sys.argv[7]
+    decline_stat = float(sys.argv[8])
     if decline_type == "threshold_gap_qty":
         decline_stat = int(decline_stat)
 

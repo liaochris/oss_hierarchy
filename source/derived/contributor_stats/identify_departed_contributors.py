@@ -223,7 +223,6 @@ def GetUniqueTruckFactor(indir_truck):
     return df_truckfactors_uq
 
 def CleanCommittersInfo(indir_committers):
-    # TODO: edit file so it can handle pushes
     df_committers_info = pd.concat([pd.read_csv(indir_committers / 'committers_info_pr.csv', index_col = 0).dropna(),
                                     pd.read_csv(indir_committers / 'committers_info_push.csv', index_col = 0).dropna()])
     df_committers_info['committer_info'] = df_committers_info['committer_info'].apply(literal_eval)
