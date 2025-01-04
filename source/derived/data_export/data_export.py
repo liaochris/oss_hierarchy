@@ -57,7 +57,6 @@ def Main():
     gc.collect()
     print("DONE with creating df_pr_commits.parquet")
 
-
     with concurrent.futures.ThreadPoolExecutor() as executor:
         results = executor.map(ReadParquet, glob.glob('drive/output/scrape/collect_commits/push/*'), itertools.repeat(commit_cols + ['push_id']))
     df_push_commits = pd.concat(results)
