@@ -21,9 +21,7 @@ def Main():
     geolocator = GoogleV3(api_key=os.environ['GMAPS_TOKEN'])
     github_profile_locations = df_departed_committers[['location']].drop_duplicates()
     github_profile_locations = GetStandardizedLocation(github_profile_locations, 'location')
-
     github_profile_locations.to_csv(outdir / "standardized_locations_github.csv")
-
 
     linkedin_profile_locations = df_linkedin_profiles[['user_location','user_country']].drop_duplicates()\
         .query('~user_location.isna()')
@@ -31,9 +29,8 @@ def Main():
         lambda x: x['user_location']+", " + x['user_country'] if 
         not pd.isnull(x['user_country']) and not x['user_location'].endswith(x['user_country']) else
         x['user_location'], axis = 1)
-
     linkedin_profile_locations = GetStandardizedLocation(linkedin_profile_locations, 'user_complete_location')
-    linkedin_profile_locations.to_csv("issue/standardized_locations_linkedin.csv")
+    linkedin_profile_locations.to_csv(outdir / "standardized_locations_linkedin.csv")
 
 def GetStandardizedLocation(df, loc_col):    
     df['standardized_location'] = df[loc_col].apply(
