@@ -26,6 +26,7 @@ def Main():
     pandarallel.initialize(progress_bar = True)
 
     indir_data = Path('drive/output/derived/data_export')
+    indir_contributors = Path('drive/output/derived/contributor_stats/contributor_data')
     outdir_data = Path('drive/output/derived/project_outcomes')
     
     commit_cols = ['commits','commit_additions','commit_deletions','commit_changes_total','commit_files_changed count']
@@ -33,41 +34,50 @@ def Main():
     closing_day_options = [30, 60, 90, 180, 360]
 
     time_period = int(sys.argv[1])
-    
     df_issue = pd.read_parquet(indir_data / 'df_issue.parquet')
     df_pr = pd.read_parquet(indir_data / 'df_pr.parquet')
     
     df_issue['created_at'] = pd.to_datetime(df_issue['created_at'])
     df_pr['created_at'] = pd.to_datetime(df_pr['created_at'])
     
-    selected_repos = df_issue[['repo_name']].drop_duplicates()['repo_name'].tolist()
-    df_issue_selected = df_issue[(df_issue['repo_name'].isin(selected_repos)) & (df_issue['created_at']>='2015-01-01')]
-    df_pr_selected = df_pr[(df_pr['repo_name'].isin(selected_repos))  & (df_pr['created_at']>='2015-01-01')]
+    df_issue_selected = df_issue[df_issue['created_at']>='2015-01-01']
+    df_pr_selected = df_pr[df_pr['created_at']>='2015-01-01']
     
     df_issue_selected = ImputeTimePeriod(df_issue_selected, time_period)
     df_pr_selected = ImputeTimePeriod(df_pr_selected, time_period)
-    ConstructRepoPanel(df_issue_selected, df_pr_selected, time_period, SECONDS_IN_DAY, outdir_data, closing_day_options)
+
+    df_contributor_panel = pd.read_parquet(indir_contributors / f"major_contributors_major_months{time_period}_window732D_samplefull.parquet")
+    val_cols = [col for col in df_contributor_panel.columns if 'pct' in col]
+    df_contributor_panel = df_contributor_panel.drop(val_cols, axis = 1)
+
+    ConstructRepoPanel(df_contributor_panel, df_issue_selected, df_pr_selected, time_period, SECONDS_IN_DAY, outdir_data, closing_day_options)
 
 
-def ConstructRepoPanel(df_issue_selected, df_pr_selected, time_period, SECONDS_IN_DAY, outdir_data, closing_day_options):
-    df_repo_panel = pd.concat([df_issue_selected[['repo_name','time_period']].drop_duplicates(), 
-                           df_pr_selected[['repo_name','time_period']].drop_duplicates()]).drop_duplicates()\
-        .groupby('repo_name')\
-        .agg({'time_period': ['min','max']})\
-        .reset_index()\
-        .rename({('time_period','min'): 'earliest-date',
-                 ('time_period','max'): 'latest_date'}, axis = 1)
-    df_repo_panel.columns = ['repo_name','earliest_date','latest_date']
-    df_repo_panel['time_period'] = df_repo_panel.apply(lambda x: pd.date_range(x['earliest_date'], x['latest_date'] , freq=f'{time_period}MS').tolist(), axis = 1)
-    df_repo_panel = df_repo_panel.drop(['earliest_date', 'latest_date'], axis = 1).explode('time_period')
+def ConstructRepoPanel(df_contributor_panel, df_issue_selected, df_pr_selected, time_period, SECONDS_IN_DAY, outdir_data, closing_day_options):
+    df_repo_panel = df_contributor_panel.drop(['pr_opener','user_type','actor_id'], axis = 1)\
+        .rename({'issue_number':'issues_opened','linked_pr_issue_number':'issues_opened_with_linked_pr','pr':'prs_opened'}, axis = 1)\
+        .groupby(['repo_name','time_period']).sum()\
+        .reset_index()
+    df_repo_panel['first_period'] = df_repo_panel.groupby(['repo_name'])['time_period'].transform('min')
+    df_repo_panel['final_period'] = df_repo_panel.groupby(['repo_name'])['time_period'].transform('max')
+    time_periods = df_repo_panel['time_period'].sort_values().unique().tolist()
+    df_balanced = df_repo_panel[['repo_name']].drop_duplicates()
+    df_balanced['time_period'] = [time_periods for i in range(df_balanced.shape[0])]
+    df_balanced = df_balanced.explode('time_period')
+    df_repo_panel_full = pd.merge(df_balanced, df_repo_panel, how = 'left')
+    df_repo_panel_full[['first_period','final_period']] = df_repo_panel_full.groupby(['repo_name'])[['first_period','final_period']].ffill()
+    df_repo_panel_full = df_repo_panel_full.query('time_period >= first_period')
+    df_repo_panel_full = df_repo_panel_full.fillna(0)
+            
     df_issues_sans_comments = CreateIssueSansCommentsStats(df_issue_selected)
     df_issues = CreateFullIssueDatasetWithComments(df_issue_selected, df_issues_sans_comments, SECONDS_IN_DAY, closing_day_options)
     df_issues_stats = CreateIssueStats(df_issues)
+
     df_prs_sans_reviews = CreatePRSansReviewsStats(df_pr_selected)
     df_prs_complete = CreateFullPRDatasetWithReviews(df_pr_selected, df_prs_sans_reviews, SECONDS_IN_DAY, closing_day_options)
     df_prs_stats = CreatePRStats(df_prs_complete)
     df_stats = pd.merge(df_issues_stats, df_prs_stats, how = 'outer')
-    df_repo_panel_stats = pd.merge(df_repo_panel, df_stats, how = 'left')
+    df_repo_panel_stats = pd.merge(df_repo_panel_full, df_stats, how = 'left')
     df_repo_panel_stats.to_parquet(outdir_data / f'project_outcomes_major_months{time_period}.parquet')
 
 def RemoveDuplicates(df, query, keepcols, duplicatecols, newcolname):
@@ -103,34 +113,31 @@ def CreateFullIssueDatasetWithComments(df_issue_selected, df_issues_sans_comment
     
 def CreateIssueStats(df_issues):
     df_issues_stats = df_issues.groupby(['repo_name','time_period'])\
-        .agg({'opened_issue': 'sum','closed_issue':['sum','mean'],
-              'issue_comments':['sum', 'mean'],
-              'closed_in_30_days':'mean', 'closed_in_60_days':'mean','closed_in_90_days':'mean',
+        .agg({'closed_issue':'mean', 'closed_in_30_days':'mean', 
+              'closed_in_60_days':'mean','closed_in_90_days':'mean',
               'closed_in_180_days':'mean', 'closed_in_360_days':'mean'})
     df_issues_stats.columns = df_issues_stats.columns.to_flat_index()
     df_issues_stats = df_issues_stats.reset_index()\
-        .rename(columns = {('opened_issue','sum'): 'opened_issues',
-                 ('closed_issue', 'sum'): 'closed_issues',
-                 ('closed_issue', 'mean'): 'p_issues_closed',
-                 ('issue_comments', 'sum'): 'issue_comments',
-                 ('issue_comments', 'mean'): 'avg_issue_commments',
-                 ('closed_in_30_days', 'mean'): 'p_issues_closed_30d',
-                 ('closed_in_60_days', 'mean'): 'p_issues_closed_60d',
-                 ('closed_in_90_days', 'mean'): 'p_issues_closed_90d',
-                 ('closed_in_180_days', 'mean'): 'p_issues_closed_180d',
-                 ('closed_in_360_days', 'mean'): 'p_issues_closed_360d'})
+        .rename(columns = {('closed_issue','mean'): 'p_issues_closed',
+            ('closed_in_30_days', 'mean'): 'p_issues_closed_30d',
+            ('closed_in_60_days', 'mean'): 'p_issues_closed_60d',
+            ('closed_in_90_days', 'mean'): 'p_issues_closed_90d',
+            ('closed_in_180_days', 'mean'): 'p_issues_closed_180d',
+            ('closed_in_360_days', 'mean'): 'p_issues_closed_360d'})
+
     return df_issues_stats
 
 def CreatePRSansReviewsStats(df_pr_selected):
     pr_keepcols = ['repo_name','pr_number','time_period', 'created_at']
-    pr_merge_keepcols = ['repo_name','pr_number','time_period', 'created_at', 'pr_merged_by_type', 'pr_comments']
+    pr_merge_keepcols = ['repo_name','pr_number','time_period', 'created_at', 'pr_merged_by_type']
     pr_idcols = ['repo_name','pr_number']
+    
     df_opened_prs = RemoveDuplicates(df_pr_selected,'pr_action == "opened"', pr_keepcols, pr_idcols, 'opened_pr')
     df_closed_prs = RemoveDuplicates(df_pr_selected,'pr_action == "closed" & pr_merged_by_id.isna()', pr_keepcols, pr_idcols, 'closed_unmerged_pr')\
         .rename({'time_period':'closed_unmerged_time_period','created_at':'closed_unmerged_at'}, axis = 1)
-    df_merged_prs = RemoveDuplicates(df_pr_selected,'pr_action=="closed" & ~pr_merged_by_id.isna()',pr_merge_keepcols,
-                                     pr_idcols,'merged_pr')\
+    df_merged_prs = RemoveDuplicates(df_pr_selected,'pr_action=="closed" & ~pr_merged_by_id.isna()',pr_merge_keepcols, pr_idcols,'merged_pr')\
         .rename({'time_period':'merged_time_period','created_at':'merged_at'}, axis = 1)
+
     df_prs_sans_reviews = pd.merge(df_opened_prs, df_closed_prs, how = 'left').merge(df_merged_prs, how = 'left')
     return df_prs_sans_reviews
 
@@ -138,20 +145,16 @@ def CreateFullPRDatasetWithReviews(df_pr_selected, df_prs_sans_reviews, SECONDS_
     pr_review_keepcols = ['repo_name','pr_number','time_period', 'created_at','pr_review_id','pr_review_state']
     pr_review_idcols = ['repo_name','pr_number','pr_review_id']
     df_pr_reviews = RemoveDuplicates(df_pr_selected,'type == "PullRequestReviewEvent"',pr_review_keepcols,pr_review_idcols, 'pr_review')
+    
     for col in ['commented','approved','changes_requested']:
         df_pr_reviews[f'review_state_{col}'] = pd.to_numeric(df_pr_reviews['pr_review_state']==col).astype(int)
     df_pr_review_stats = df_pr_reviews.groupby(['repo_name','pr_number'])\
-        [['pr_review','review_state_commented','review_state_approved','review_state_changes_requested']].sum().reset_index()
-    pr_rc_keepcols = ['repo_name','pr_number','time_period', 'created_at','pr_review_comment_body']
-    pr_rc_idcols = ['repo_name','pr_number','pr_review_comment_body'] #don't have review comment id's i believe
-    df_pr_review_comments = RemoveDuplicates(df_pr_selected,'type == "PullRequestReviewCommentEvent"',pr_rc_keepcols, pr_rc_idcols, 'pr_review_comment')
-    df_pr_review_comments_stats = df_pr_review_comments.groupby(['repo_name','pr_number'])\
-        [['pr_review_comment']].sum().reset_index()
-    df_prs_complete = pd.merge(df_prs_sans_reviews, df_pr_review_stats, how = 'left').merge(df_pr_review_comments_stats, how = 'left')
-    for col in ['closed_unmerged_pr', 'merged_pr', 'pr_review','review_state_commented',
-                'review_state_approved','review_state_changes_requested','pr_review_comment']:    
+        [['review_state_commented','review_state_approved','review_state_changes_requested']].sum().reset_index()
+    
+    df_prs_complete = pd.merge(df_prs_sans_reviews, df_pr_review_stats, how = 'left')
+    for col in ['closed_unmerged_pr', 'merged_pr','review_state_commented',
+                'review_state_approved','review_state_changes_requested']:    
         df_prs_complete[col] = df_prs_complete[col].fillna(0)
-    df_prs_complete['pr_review_comments_total'] = df_prs_complete['pr_review']+df_prs_complete['pr_review_comment']
     df_prs_complete['days_to_merge'] = (df_prs_complete['merged_at'] - df_prs_complete['created_at']).apply(lambda x: x.total_seconds()/SECONDS_IN_DAY)
     for day in closing_day_options:
         df_prs_complete[f'merged_in_{day}_days'] = pd.to_numeric(df_prs_complete['days_to_merge']<day).astype(int)
@@ -159,28 +162,19 @@ def CreateFullPRDatasetWithReviews(df_pr_selected, df_prs_sans_reviews, SECONDS_
 
 def CreatePRStats(df_prs_complete):
     df_prs_stats = df_prs_complete.groupby(['repo_name','time_period'])\
-        .agg({'opened_pr': 'sum','merged_pr':['sum','mean'],
-              'pr_comments':'sum',
-              'pr_review': ['sum','mean'], 'pr_review_comment': ['sum','mean'],
+        .agg({'closed_unmerged_pr':['sum','mean'], 'merged_pr':'mean',
               'review_state_commented':'mean', 'review_state_approved': 'mean',
               'review_state_changes_requested': 'mean',
               'merged_in_30_days':'mean', 'merged_in_60_days':'mean','merged_in_90_days':'mean',
               'merged_in_180_days':'mean', 'merged_in_360_days':'mean'})
     df_prs_stats.columns = df_prs_stats.columns.to_flat_index()
     df_prs_stats = df_prs_stats.reset_index()\
-        .rename(columns = {('opened_pr','sum'): 'opened_prs',
-                           ('merged_pr','sum'): 'merged_prs',
-                           ('pr_comments','sum'):'pr_comments',
+        .rename(columns = {('closed_unmerged_pr','sum'): 'prs_closed',
+                           ('closed_unmerged_pr','mean'): 'p_prs_closed',
                            ('merged_pr','mean'): 'p_prs_merged',
-                           ('pr_review','sum'): 'pr_reviews',
-                           ('pr_review','mean'): 'mean_reviews_per_pr',
-                           ('pr_review_comment','sum'):'pr_review_comments',
-                           ('pr_review_comment','mean'):'mean_review_comments_per_pr',
                            ('review_state_commented','mean'):'p_review_state_commented',
                            ('review_state_approved','mean'):'p_review_state_approved',
                            ('review_state_changes_requested','mean'):'p_review_state_changes_requested',
-                           ('closed_issue', 'sum'): 'closed_issues',
-                           ('closed_issue', 'mean'): 'p_issues_closed',
                            ('merged_in_30_days', 'mean'): 'p_prs_merged_30d',
                            ('merged_in_60_days', 'mean'): 'p_prs_merged_60d',
                            ('merged_in_90_days', 'mean'): 'p_prs_merged_90d',
