@@ -3,31 +3,67 @@
 
 \textbf{Paragraphs 1-2: Motivation. After reading these paragraphs a reader in any field of economics should believe that if you answer your research question your paper will make an important contribution.}
 
-The development of open source software (OSS), software that can be accessed, modified and redistributed without additional cost, is an \$8.8 trillion industry (\cite{hoffmann_value_2024}). OSS components are present in 70-90\% of all software and have been adopted by businesses across many industries, such as tech, retail and auto (\cite{nagle_open_2017}). This paper was produced using OSS such as LaTeX, Overleaf and Python. The distribution of OSS sans cost means that many organizations that develop OSS software projects are unlike traditional firms because their "employees" --- OSS contributors who help build the software --- are volunteers. Consequently, 
-the full time job of many OSS contributors is not developing OSS, so their contribution time to OSS is their choice. However, as volunteers, OSS contributors also have time freedom, as they, not the firm, determines how to allocate their time across different tasks. OSS organizations aren't totally unrecognizable when compared with traditional firms either. OSS organizations have multiple layers of hierarchy. Both the organizational structure and the contributors in the organization are affected by technological advances, ranging from economy-wide developments such as the advent of artificial intelligence to OSS-specific shocks platform improvements by OSS hosting sites like GitHub.
+\begin{enumerate}
+    \item OSS is economically important. Cite usage + value statistic
+    \item A major problem encountered by OSS is developer turnover. Cite project damage statistic 
+    %Andreas Schilling, Sven Laumer, and Tim Weitzel. Who will remain? an evaluation of actual person-job and person-team fit to predict developer retention in FLOSS projects. In HICCS, pages 3446–3455. IEEE, 2012.
+    \item Development of an OSS project can be conceptualized as the strategy adopted by an organization. Economics tells us that an organization's structure affects its strategy and outcomes. This suggests that we can say something interesting about how organizational structure allows organizations to be more resilient against a departure
+\end{enumerate}
 
-\qquad While OSS development has been studied extenively, the relationship between OSS organizational structure and OSS development, and the impact of technological advancement on that dynamic is not well understood. Developing an economic model that can help us better understand OSS development is crucial because of the importance of OSS in the economy. Using the lens of OSS organizational structure to study OSS development is important because OSS cannot be produced without the work of its contributors, whose tasks and roles are affected by OSS organizational structure. Moreover, understanding how technological advances affect the relationship between OSS organizational structure and OSS development is also important for two reasons. First, the digital and technology-focused nature of OSS development means that OSS contributors, and hence, the organization, are likely to be among the first affected by technological advances. Moreover, understanding the impact of technological advances can help policymakers and OSS stakeholders make more informed decisions about OSS. The hierarchical nature of OSS organizations makes it tempting to apply models of hierarchy from the economics literature (\cite{garicano_hierarchies_2000}); however, those models are insufficient because they are inspired by traditional firms with typical employment structures. 
+\textbf{old text, may or may not be helpful} \\
+The development of open source software (OSS), software that can be accessed, modified and redistributed without additional cost, is an \$8.8 trillion industry (\cite{hoffmann_value_2024}). Open source software is a component of 70-90\% of all software used and is an integral component in the technological workflow of businesses across a wide range of industries, from the tech sector to auto and retail (\cite{nagle_open_2017}). 
+
+
+Since OSS is distributed for free, organizations that develop OSS cannot generate revenue from OSS by selling software licenses. 
+
+
+A major problem encountered by these organizations is developer turnover; they rely on developers who join the organization to help contribute to the creation and maintenance of OSS. Developers join for a myriad of reasons; while some are formally employed by the organization 
+
+
+Instead, OSS developers help contribute to the creation and maintenance of OSS for a myriad of reasons, such as personal software use, as part of their employment, for their own personal enjoyment, or to develop or signal their programming ability. 
+
+
+many OSS developers are volunteers whose ability to contribute is much more variable than someone whose job is to develop OSS. Departures are caused by a variety of reasons, such as major life changes that reduce free time or a loss of motivation. Moreover, developer turnover may even be a problem for OSS projects maintained by companies that employ developers to work on them, given the high turnover rates in the technology industry. 
+
+Developer turnover negatively affects a project's survival likelihood and code quality; approximately 80\% of all OSS project failures can be attributed to turnover related problems. Software is a form of economic capital that depreciates over time and when less labor is available to maintain it, the backlog of unanswered user questions and unreviewed code improvements grows. Even onboarding new developers may become more difficult if the work done by the contributor they're taking over for is not clearly documented and organized. 
+
+Open source software development can be modeled using economic models of knowledge hierarchies, but these tell us how organizations should optimally adapt in the presence of negative shocks, not how an organization's outcomes or adaptation ability depends on its organizational structure. There is a substantial literature in information systems on developer turnover in OSS and  the existing work on mitigating the impact of developer turnover provides useful case studies for a few projects, but is largely descriptive and limited in scale and scope of analysis. 
+
 
 \textbf{Paragraphs 3-4: Challenges. These paragraphs explain why your research question has not already been answered, i.e., what are the central challenges a researcher must tackle to answer this question.}
+\textcolor{red}{I feel like these aren't really challenges...}
+Understanding how an OSS project's organizational structure contributes to resilience in the face of developer turnover is a two-step process. First, a set of important contributors to OSS projects and the subset of those contributors that ultimately depart the project must be identified. To ensure the causal validity of my analysis, it is crucial that the specific timing of the contributor's departure is quasi-random and unrelated to organizational structure characteristics. For example, departures caused by external factors unrelated to the project such as changing jobs or the sudden loss of free time are more likely to have quasi-random timing. The second step is to identify causally what key organizational structures distinguish resilient from less resilient organizations. Collecting microdata on OSS contributions can help show the direct pathway by which particular organizational characteristics cause resilience. 
 
-\qquad The organizational structure of OSS development has been widely documented by researchers as a hierarchical process, but how that hierarchy affects OSS development have not been widely studied (\cite{crowston_hierarchy_2006}). Economists have modelled hierarchical structure in traditional firms, but modelling hierarchical structure in OSS development requires solving two challenges that existing models are not equipped for (\cite{garicano_hierarchies_2000}). First, the model must incorporate the constrained nature of an OSS contributor's contribution time and their time freedom. Existing models fail because they model traditional firms that determine what tasks their employees do and how much time they spend on the job. In OSS development, contributors choose what tasks to work on, and their total contribution time is their choice, not the OSS organization's choice (\cite{lerner_simple_2002}). Second, the model must describe the decision making process of OSS organizations, which differ from traditional firms. Traditional firms decide how to allocate employees across the hierarchy after observing employee wages and training costs, which they incur. OSS organizations also determine the allocation of employees across the hierarchy, but wages and training costs are not part of their decision making function as they incur none of those. 
+\qquad The described empirical analysis will help inform an economic model of organizational hierarchy that describes how OSS projects respond to negative shocks like contributor departures. The existing economic model of hierarchy can inform us how organizations redistribute employees to new roles when faced with negative shocks such as developer turnover and a decrease in the accessibility of knowledge. However, an open puzzle is how the existing organizational structure of an OSS project might have differential effects on problem solving ability when projects encounter greater barriers to redistributing contributors. This better captures the reality of OSS development, as some OSS contributors are volunteers who cannot be assigned a mandate and even firms may encounter hiring or promotion frictions when reorganizing teams in the short-term.
 
-\qquad A model that solves both of these challenges will allow us to characterize the decisions that OSS contributors and organizations make. These changes are necessary because existing models of hierarchy produce puzzling results when applied to OSS organizations. One notable result from the hierarchy literature, applied to OSS development, is that OSS contributors ranked higher on the hierarchy should never be the ones writing code to solve new tasks. This is not true in OSS software development, as the data shows plenty of highly ranked contributors solving newly encountered problems. 
 
+\qquad An economic analysis done using the framework above will allow us to understand why some OSS projects persist and even thrive despite the departure of major contributors, while others slowly fade into irrelevance or end up abandoned. Given the global economic value of OSS, it is important for developers to understand how they can protect their organization, and for users of OSS to understand what types of organizations they can rely on to produce the software solutions they need. 
 
 \textbf{Paragraph 5: This Paper. This paragraph states in a nutshell what the paper accomplishes and how. }
 
-In this paper, I develop a model of hierarchical structure in OSS development, where OSS contributors have time freedom and OSS organizations, who aren't responsible for paying or assigning tasks to contributors, determine the hierarchy's structure. Solving for the equilibrium OSS contributors' and organization's decision functions is the key to characterizing how hierarchical structure affects OSS development, my first aim. Using these equilibrium results, I follow the hierarchy literature in examining how technological advances - specifically, the cost of knowledge acquisition and the cost of communication - affects organizational structure and subsequently OSS development, accomplishing my second aim. Finally, I use novel microdata on OSS development from GitHub, the world's largest OSS hosting platform to compare my model's predictions to the empirical reality of OSS development. 
+In this paper, I analyze the empirical effect of contributor departure on OSS development and how projects are affected differentially depending on their organizational structure. I do so using novel microdata on OSS development from GitHub, the world's largest OSS hosting platform. I then use these insights to develop a formal economic model that can describe more broadly, how hierarchical organizations that face frictions to reallocation respond to the departure of key employees. 
 
 \textbf{Paragraphs 6-7: Model. Summarize the key formal assumptions you will maintain in your analysis.}
-
-\qquad The hierarchical model I propose features two layers of hierarchy. OSS contributors in both ranks are risk neutral and choose between spending time acquiring knowledge, or performing various tasks that help further develop the OSS. Following the hierarchy literature, OSS contributors within a rank are homogeneous (\cite{garicano_hierarchies_2000}). OSS contributor incentives differ by rank; while lower rank contributors are mostly concerned with finding a problem solution, higher rank contributors prioritize the project's overall welfare. OSS organizations want to promote the optimal number of highly rank contributors to maximize output; however, while they do not pay wages or assign tasks, they do incur costs for hiring and coordinating with lots of highly ranked OSS contributors. 
+Don't know yet, if this is about the economic model
 
 \textbf{Paragraphs 8-9: Data. Explain where you obtain your data and how you measure the concepts that are central to your study.}
+\begin{itemize}
+    \item Data: GitHub
+    \item Setting: Major Python projects, from 2015 onwards
+    \item Major Contributor: 18 months (3 6-month periods) where they are in the 75th percentile or above of contributors
+    \item Departure: Within 6 months of no longer being a "major contributor", their contributions are 0 (forever)
+    \item I study a variety of outcomes; outcomes that relate to a projects problem solving ability directly (how many questions they answer, code changes they review) and consumer-side outcomes (downloads) 
+\end{itemize}
 
 \textbf{Paragraphs 10-11: Methods. Explain how you take your model to the data and how you overcome the challenges you raised in paragraphs 3-4.}
+What are the confounders and how do I deal with them? 
 
 \textbf{Paragraphs 12-13: Findings. Describe the key findings. Make sure they connect clearly to the motivation in paragraphs 1-2.}
 
+
 \textbf{Paragraphs 14-15: Literature. Lay out the two main ways your paper contributes to the literature. Each paragraph should center around one contribution and should explain precisely how your paper differs from the most closely related recent work.}
+\begin{enumerate}
+    \item Empirics: large scale analysis of departure's impact and how it varies across orgs
+    \item Model: how orgs respond when constrained
+\end{enumerate}
 \end{document}
