@@ -1,0 +1,223 @@
+\documentclass[source/paper/main.tex]{subfiles}
+\begin{document}
+
+\subsection{Background}
+In my empirical analysis, I examine how changes in the cost of knowledge acquisition and communication across the hierarchy affect hierarchical structure and the work of OSS contributors. I study the impact of increases in the cost of knowledge acquisition by examining knowledge turnover caused by contributor departures. I study the impact of decreases in communication cost by examining the impact of issue and pull request template adoption by projects. 
+
+\begin{enumerate}
+    \item Contributor Turnover
+    \item Issue \& Pull Request Templates
+\end{enumerate}
+
+\subsection{Knowledge Turnover}
+\textbf{Question}: What is the causal impact of knowledge turnover on OSS hierarchical structure and contributor time allocation? 
+
+\subsubsection{Context}
+One of the major worries with OSS development is the reliance of projects on a few contributors, who, without a contractual obligation of a project, may disappear at a moments notice and bring with them the knowledge and skills necessary for key components of, or in some cases, the whole project, to function. One way to measure variation in the cost of knowledge acquisition in projects is to exploit OSS developer turnover. When a key contributor for an OSS project leaves, it is much harder for new contributors to acquire knowledge about projects because a source of information is gone.\\
+\textcolor{red}{It would be good for me to explore some examples of this in the data, so I can tell an interesting story about the impact of contributor turnover. Some initial questions
+\begin{itemize}
+    \item How were areas where this contributor was involved in affected deferentially compared to other areas?
+    \item Do we observe evidence of reduced discussion in issues related to a PR (less learning?)
+    \item Do we observe evidence of less PR review comments \& slower PR reviews?
+    \item Do we observe evidence that future PRs by contributors who would be affected are rejected at higher rates?
+\end{itemize}
+}
+\subsubsection{Adoption and Treatment}
+\begin{enumerate}
+    \item We can consider variation in turnover by examining the "truck" factor of projects, which measures the number of key members. There are also variants to this measure, such as looking at the identity of the person who wrote the last line of code, as opposed to total lines written per person. 
+    \item I should also control for the presence of knowledge preservation tools. The impact of contributors leaving will be lessened by the presence of good documentation. For example, if a departing contributor wrote a lot of documentation count, that means that they probably did preserve their knowledge for future contributors so their departure will not impact knowledge acquisition by as much. I can measure this by looking at the amount of code for `.md`, `.rst` or other documentation files types that they wrote. 
+\end{enumerate}
+
+\subsubsection{Good Descriptive Facts}
+\begin{itemize}
+    \item What is the rate of turnover? Contextualize this with information about average project size. 
+    \item What does the distribution of importance (for departing contributors) look like? Can contexualize using a variety of measures such as LOC written (truck factor), issues commented on, PRs reviewed, etc
+\end{itemize}
+
+\subsubsection{Predicted Empirical Effects - Hierarchical Structure}
+I am interested in three metrics related to organizational structure
+\begin{enumerate}
+    \item Span: Ratio of higher to lower ranked contributors \\
+    \textcolor{blue}{Garicano's model predicts} that there will be more write rank contributors\\
+    \textcolor{olive}{What does my data show?}
+    \item Frequency: \% of all problems solved at each layer\\
+    \textcolor{blue}{Garicano's model predicts} that more problems will be solved by highly ranked contributors \\
+    \textcolor{olive}{What does my data show?}
+    \item Output: How many problems are being solved\\
+    \textcolor{blue}{Garicano's model predicts} that overall production will decrease. \\
+    \textcolor{olive}{What does my data show?}
+\end{enumerate}
+\textbf{On span:} Since some organizations don't actively manage hierarchies, I may want to filter by "activeness" (separately, there may be something interesting to say about "activeness" versus actual hierarchy, along the lines of security). I may also want to just consider the numerator (write rank contributors) as the project can only control the quantity of promotions, not new contributors. \\
+\textbf{On frequency: } I define a problem as a pull request, although not all pull requests are created equal. In this case, I can weight pull requests by lines of code, files changed (removing moved files) or other measures (that I think of). Separately, since the flow of read-rank contributors cannot be controlled, I may want to just consider the \% of all problems solved by write rank contributors. I can start by assuming problems are solved individually and validate this by examining the proportion of code written/PR by one individual. It will also be interesting to break down where the changes in \% problems solved are coming from. \\
+\textbf{On output: } This is my opportunity to connect organizational structure outcomes to OSS development outcomes such as quantity or \% of PRs merged, and \% of opened issues that are closed. There may also be non-code related development metrics of interest. 
+\textcolor{red}{What are outcomes that organizations care about?}
+
+\subsubsection{Predicted Empirical Effects - Contributor Characteristics}
+I am interested in three metrics related to individual conrtibutors
+\begin{enumerate}
+    \item Individual Output: How many problems is each contributor solving?\\
+    \textcolor{blue}{Garicano's model predicts } that each read rank contributor will solve less problems and write rank contributor will solve more\\
+    \textcolor{olive}{What does my data show?}
+    \item Individual Skill: How knowledgeable are they? \\
+    \textcolor{blue}{Garicano's model predicts } that each read rank contributor will lose skill and write rank contributors will gain skill\\
+    \textcolor{olive}{What does my data show?}
+    \item Individual Value Added: What is the value of the problems they're solving
+    \textcolor{blue}{Garicano's model doesn't have a prediction for this}\\
+    \textcolor{olive}{I don't have a prediction for this either but I think it would be fun to answer. It's probably not the most important thing to spend time on though.}
+\end{enumerate}
+\textbf{On individual output:} I may encounter measurement issues due to integer constraints with "problems". This is a good place to incorporate ideas relating to problem weighting from the hierarchical structure section. \\
+\textbf{On individual skill:} Some examples of skill measures are the length of time required to solve a problem, the number of LOC someone has written (for a project), their quantity of GH badges. The problem is that problem difficulty is an unobserved confounder. Two fun ideas to measure problem difficulty are how close ChatGPT can answer the question and the cyclomatic complexity of the problem (former is hard to implement, latter has endogeneity issues). \\
+\textbf{On value: } One fun idea is to examine the text that's commonly observed in SO for this python library, and see how similar it is to a PR/issue - high value indicates high similarity (solving something people are asking about). 
+\subsubsection{Literature}
+\textbf{Economics}\\
+\textbf{OSS}\\
+\cite{rashid_exploring_2017} has a fairly good literature review on knowledge loss in OSS. \cite{nassif_revisiting_2017} provides interesting comparisons about different statistics for measuring knowledge loss. 
+
+Some papers that I'm hoping to read are
+\begin{enumerate}
+    \item \href{https://ieeexplore.ieee.org/abstract/document/8870181?casa_token=1rqBePn8XnoAAAAA:wCuFXN7TQeUjCVEXfs2M_qX3gKmeMLGoDVqKENez8n-CNViaN8n-_20B3PaSKabeFN2vp5ZX}{https://ieeexplore.ieee.org/abstract/document/8870181?casa\_token=1rqBePn8XnoAAAAA:wCuFXN7TQeUjCVEXfs2M\_qX3gKmeMLGoDVqKENez8n-CNViaN8n-\_20B3PaSKabeFN2vp5ZX}
+    \item \href{https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=4755634}{https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=\&arnumber=4755634} (need to cite)
+    \item \href{https://doras.dcu.ie/29119/1/RashidIJIMPaper-RevisionFollowingPeerReview.pdf}{https://doras.dcu.ie/29119/1/RashidIJIMPaper-RevisionFollowingPeerReview.pdf} (need to cite)
+    \item Managing knowledge assets for open innovation: a systematic literature review (need to cite)
+    \item Exploring the Foundations of Cumulative Innovation: Implications for Organization Science (need to cite)
+\end{enumerate}
+\subsection{Issue \& Pull Request Templates}
+\subsubsection{Summary}
+In February of 2016 (https://github.blog/?s=issue+templates), GitHub released issue and pull request templates. GitHub stated that "now project maintainers can add templates for Issues and Pull Requests to projects, helping contributors share the right details at the start of a thread". This is important because it ensures that OSS contributors have completed required checklist items before opening an issue/PR, and also makes it easier for reviewers to identify to find particular key pieces of information. 
+\subsubsection{Adoption and Treatment Notes}
+I can measure initial adoption of PR and Issue templates by looking at when an ISSUE\_TEMPLATE (optional ".md" extension?) file or PULL\_REQUEST\_TEMPLATE (optional ".md" extension?) was created. I can compare projects that adopted these templates during similar timeframes because while the particular timing of adoption might be adoption, adoption within a certain timerange tells us a lot about the attitudes of the OSS contributors towards improving their projects. In May 2018, users acquired the option to choose a template from (presumably) a variety of options when making a new issue (\href{https://github.blog/changelog/2018-05-02-mutiple-template-choice/}{source}). However, while this implies that there may be multiple treatments, this is still easier to analyze because there are less possible combinations (less templates) and adoption is more spread out throughout time. 
+\textcolor{red}{Are there any interesting stories I can tell wrt to issue/pr templates? }
+
+\subsubsection{Predicted Empirical Effects - Hierarchical Structure}
+I am interested in three metrics related to organizational structure
+\begin{enumerate}
+    \item Span: Ratio of higher to lower ranked contributors \\
+    \textcolor{blue}{Garicano's model predicts} that there will be more write rank contributors\\    
+    \item Frequency: \% of all problems solved at each layer\\
+    \textcolor{blue}{Garicano's model predicts} that more problems will be solved by highly ranked contributors \\
+    \textcolor{olive}{What does my data show?}
+    \item Output: How many problems are being solved\\
+    \textcolor{blue}{Garicano's model predicts} that overall production will increase \\
+    \textcolor{olive}{What does my data show?}
+\end{enumerate}
+
+\subsubsection{Predicted Empirical Effects - Contributor Characteristics}
+I am interested in three metrics related to individual conrtibutors
+\begin{enumerate}
+    \item Individual Output: How many problems is each contributor solving?\\
+    \textcolor{blue}{Garicano's model predicts } that each read rank contributor will solve less problems and write rank contributor will solve more\\
+    \textcolor{olive}{What does my data show?}
+    \item Individual Skill: How knowledgeable are they? \\
+    \textcolor{blue}{Garicano's model predicts } that each read rank contributor will lose skill and write rank contributors will gain skill\\
+    \textcolor{olive}{What does my data show?}
+    \item Individual Value Added: What is the value of the problems they're solving\\
+    \textcolor{blue}{Garicano's model doesn't have a prediction for this}\\
+    \textcolor{olive}{I don't have a prediction for this either but I think it would be fun to answer. It's probably not the most important thing to spend time on though.}
+\end{enumerate}
+
+
+\subsubsection{Literature} 
+Some papers that I'm hoping to read are\\
+\textbf{Economics}
+\begin{enumerate}
+    \item \hyperlink{https://www.hbs.edu/ris/Publication\%20Files/23-061_d9d37062-d3d7-4377-a959-81f75337916d.pdf}{Organizational Responses to Product Cycles}\\
+    The main contribution of this paper is to show how organizations respond when problems become more complex but their capacity to expand is constrained. The setting they consider is automobile manufacturing, which is affected by product cycles. Every few years, a new car model is released and producing it introduces complex problems, because the factory is new to the production process for that model. The theory of hierarchy predicts that when problems get harder, more hierarchical layers are introduced because workers on lower layers are able to solve a smaller proportion of of problems. The authors observe in the data that the number of layers actually reduces, as the firm trains middle-layer workers to become higher-layer workers, and then postpones the filling of open middle-layer position. This brings lower-layer workers involved in production closer to higher-layer workers, who have been trained to now have the knowledge to handle these increasingly complex problems. When problem complexity is reduced, middle-layer positions are filled. They develop a new theory (\textcolor{red}{which I have to read}) to support this. 
+    \item \hyperlink{https://academic.oup.com/restud/article-abstract/88/2/574/5922651?redirectedFrom=fulltext}{Face-to-Face Communication in Organizations}
+    \item \hyperlink{https://spinup-000d1a-wp-offload-media.s3.amazonaws.com/faculty/wp-content/uploads/sites/40/2019/06/AFPH.pdf}{The Anatomy of French Production Hierarchies}
+    \item \hyperlink{https://academic.oup.com/qje/article/137/2/1091/6481649}{Firm Organization with Multiple Establishments}
+    \item \hyperlink{https://www.nber.org/papers/w30224}{Training, Communications Patterns, and Spillovers Inside Organizations}
+    \item \hyperlink{https://academic.oup.com/oxrep/article-abstract/37/2/231/6311333?redirectedFrom=fulltext}{The World Management Survey at 18: lessons and the way forward}
+    \item \hyperlink{https://worldmanagementsurvey.org/wp-content/uploads/2016/07/w22327.pdf}{Management as a Technology?}
+    \item \hyperlink{https://drive.google.com/file/d/0B49txSZyKZcFV0lnYTZSa3l0Y1U/view?resourcekey=0-VT4ZQPV2aUJU-_PJ95pPKw}{The Incentive Effect of Scores: Randomized Evidence from Credit Committees}
+    \item \hyperlink{https://www.dropbox.com/scl/fi/vvclf3nl45h9ngwimpmyd/PACE_dec2021.pdf?rlkey=pvsydc2bnd2nxyph4aixuzlov&e=1&dl=0}{Returns to On-the-job Soft Skills Training}
+\end{enumerate}
+\textbf{OSS}
+\begin{enumerate}
+    \item \hyperlink{https://dl.acm.org/doi/10.1145/3643673}{An Empirical Analysis of Issue Templates Usage in Large-Scale Projects on GitHub}
+    \item \hyperlink{https://doi.org/10.1016/j.infsof.2021.106797}{Consistent or not? An investigation of using Pull Request Template in GitHub}
+    \item \hyperlink{https://doi.org/10.1109/TSE.2022.3224053}{To Follow or Not to Follow: Understanding Issue/Pull-Request Templates on GitHub}
+    \item \hyperlink{source/literature/e2120n2.pdf}{An empirical examination of newcomer contribution costs in established OSS communities: a knowledge-based perspective}
+\end{enumerate}
+
+\section{Specific Roadmap}
+\begin{itemize}
+    \item Open source software development on GitHub takes place within a hierarchy 
+    \item Why do we need a hierarchy? On GitHub, it's because not everyone is suited to handle all tasks. For example, we don't want any programmer to be able to change the codebase by approving a pull request.
+    \item Focusing on pull requests, there are likely many reasons why we don't want any programmer approving pull requests, but suppose that all programmers are well-intentioned. Even so, we don't want any programmer approving pull requests because they might not have the knowledge to catch mistakes or the time to check whether the code does everything it claims to. I define this as their ability to handle certain tasks for brevity. 
+    \item On GitHub, we have a hierarchy where contributors are organized onto different ranks. Mechanically, higher ranked contributors only differ from lower ranked contributors in having a large choice set of actions. 
+    \item This leads me to my descriptive analysis. My first question is how do OSS contributors differ across ranks? In particular, I'm interested in the following characteristics
+    \begin{itemize}
+        \item How much time do they spend on a project (can I use the "average 13 hours on contributing" technique)? This captures \textbf{effort}
+        \item How do they allocate their time in a project? (straightforward - PRs, issues, issue comments, pushes, PR reviewing)
+        \item What is their ability?   \\
+        Various measures of contributor skill derived from measures unrelated to "problem solving": \# of GH followers, \# of GH achievements, \% of codebase authored, \# YOE on GitHub, \# YOE in the project, \# of merged PRs in other projects (weighted by stars), \# of merged PRs in this project. These are absolute measures of skill, although I can make all of them relative by adding project fixed effects.\\
+        \# of merged PRs in other projects (weighted by stars) and \# of merged PRs in this project worry me because they're affected by problem difficulty - what if someone only chooses to solve hard problems. More broadly, I'm not a huge fan of any of these because I want something that I can observe "evolve" as a direct consequence of time investment someone puts in learning about the project, and none of these fit that category - one can define this as "project-specific problem solving ability" which is related to but not exactly the proxies for skill I've defined here. I haven't been able to come up with a proxy for skill that can evolve and is not confounded by unobserved problem difficulty or is not a direct measure of output. Some of the biased ones are \% of PRs that are merged, \# of commits made after a PR is opened, \% of commits made by PR reviewer,
+        \item How hard are the tasks they're solving (conditional on task identity)?  \\
+        Various measures of problem difficulty: time for PR to be closed/merged, \# of PR review comments or \# of comments, \# of reviewers, \# of LOC, \# of commits, length of text in a PR description, length of corresponding linked issue, \# of files changed, \# of PR tags, \# of PR reviewers who approved. Note that skill might bias some of these metrics downwards. 
+    \end{itemize}
+    We can also regress the probability a problem is assigned to a high ranked contributor on problem characteristics and evaluate what characteristics are positively associated with a higher ranked contributor being assigned. If we assume highly ranked contributors are assigned to difficult problems, we can observe what characteristics determine problem difficulty.\\
+    Similarly, if we control for problem difficulty, we can see what problem solution characteristics are positively associated with a high ranked contributor (who is skilled).
+    \item Note that effort, skill and problem difficulty metrics are interrelated. If someone's handling very little tasks, is it because those are hard tasks, they lack skill, or they're putting in little effort? 
+    \item I can simplify my setting by making some assumptions
+    \begin{enumerate}
+        \item \textcolor{olive}{For example, one assumption (that admittedly I am not a big fan of and don't have a clear idea of how to make) is to simplify the distinction between skill and problem difficulty}. For example, we know problem difficulty is the lower bound estimate for skill. Perhaps we can make it the upper bound too?
+        \item I don't need to establish absolute measures of skill across projects (although it would be great if I could do so). I only need to compare relative levels of skill held within a project and over time. 
+    \end{enumerate}
+    \item My second question is what does the OSS organization look like? I'm interested in the following questions (and more)
+    \begin{itemize}
+        \item On span: Ratio of higher to lower ranked contributors at each rank
+        \begin{enumerate}
+            \item Start broadly by focusing on the whole hierarchy. What are general project-level trends I see?
+            \item How do these trends change when I focus on active contributors?
+            \item What if I observe just \# of contributors at each rank?
+            \item What if I split up contributor types by action (Read rank: whose opening PRs vs. whose opening issues vs. whose also commenting on other people's issues?, Higher rank: whose reviewing \& merging vs. opening PRs?)
+    \end{enumerate}
+        \item On output: How many and what types of problems are being solved by the project
+        \begin{enumerate}
+            \item How many issues are being opened, and how many are being resolved
+            \item How many PRs are being opened and how many are being closed, merged or left open
+            \item What is issue resolution time? What about PR resolution time?
+            \item How many reviewers/assignees are assigned to each PR/issue? What \% of them actually participate? How much do they participate (conditional on participation)?
+            \item How long is each issue comment? Issue? 
+            \item How much code is in each PR (commits, LOC, additions/deletions).
+    \end{enumerate}
+    \end{itemize}
+    \item Now that we've established the differences between contributors and what the organization looks like, we want to understand how the organization and contributors change as a consequence of two specific shocks: changes in knowledge acquisition costs and changes in communication costs.
+    \item \textcolor{blue}{Flesh out empirical strategy, etc}
+    \item First, on organizational structure:
+    \begin{enumerate}
+        \item How does the hierarchy change (span)?
+        \item How does output change?
+        \item How do promotion requirements change? Levels of skill is the primary measure, but experience or past output could also be of relevance. 
+    \end{enumerate}
+    \item Second, on contributor behavior
+    \begin{enumerate}
+        \item How does individual contribution behavior change? Effort, skill and problem difficulty encountered. Problem difficulty is relevant because maybe people don't try to solve hard problems as much. 
+        \item How does the contribution behavior of newer project individuals change?\
+        \item A really cool figure would be a timeline of how a contributor's skill/problem difficulty evolves over time.
+        \item 
+    \end{enumerate}
+    \item Now, for the theory - the goal is to see to reconcile my results with the hierarchy literature. Are the hierarchy models predictions borne out in the data and if not, what puzzles do we need to address?
+    \item A few additional puzzles I need my model to also address:
+    \begin{enumerate}
+        \item Why do top contributors code? (perhaps examine really big vs. smaller projects - this might be an organizational flexibility constraint)
+        \item How do organizations adapt when people don't have the ability to be promoted? Do they not promote or do they lower their standards?
+        \item How do the predictions play out with contributors who have much more freedom, and organizations who have much less choice (aka the OSS setting)?
+    \end{enumerate}
+    
+\end{itemize}
+
+Are they using the issue template
+whose being tagged
+
+
+\section{Other questions}
+\begin{enumerate}
+    \item How does task distribution efficiency change? How does task choice change?
+    \item What differences do I observe b/w corporate and non-corporate OSS?
+    \item Control for software project maturity, individual length of affiliation with project
+    \item What \% of assignees end up writing code/participating in discussion?
+    \item 
+\end{enumerate}
+
+\end{document}
