@@ -16,9 +16,40 @@
 \subsection{Identifying departure}
 
 \subsection{Applying causal forest to event studies}
-Empirical papers that have combined causal forest with diff-in-diff
+Literature
 \begin{itemize}
-    \item 
+    \item \textbf{Empirical: } \cite{iyengar_impact_2022}, \cite{cui_tax-induced_2022}, \cite{guo_effect_2021}
+    \item \textbf{Theoretical:} \href{https://pure.au.dk/ws/portalfiles/portal/198663023/Nicolaj_Mu_hlbach_PhD_dissertation.pdf}{See Section 2.3.3 for causal forest event study}, \href{https://arxiv.org/pdf/1610.01271}{GRF}
 \end{itemize}
+
+\subsubsection{Goal}
+For each project $i$, in each time period $t$, we have an outcome $Y_{it}$, treatment status $D_{it}$ and covariates $X_{it} \in \mathcal{X}$.
+
+Our currently estimated parameters are $\delta_k$, where $k$ is the time period relative to the treatment. Our goal is to estimate $\delta_k(x)$ for some $x \in \mathcal{X}$, which is the heterogeneous treatment effect. Now, define a moment equation $\psi $ such that
+\begin{align}
+    E[\psi_{\delta_k(x)}(( \boldsymbol{Y_i, D_i})) \mid X_i = x] = 0, \forall x \in \mathcal{X} 
+\end{align}
+is equivalent to identifying $\delta_k(x)$. \textbf{I believe} that the moment equation will instruct us how to transform \textbf{$Y_i, D_i$} such that the inputs into the causal forest $g_{y,t}(Y_i), g_{d,t}(D_i)$ are conditionally exogenous; that is
+\begin{align}
+    g_{y,t}(Y_i) \independent g_{d,t}(D_i) \mid X_{it} 
+\end{align}
+This should be the same as estimating the event-study specification that also produces $\delta_k$ with special project-time weights. Once I have the moment $\psi$ and transformations $g$ defined, I should think about whether I need to change how my controls enter. 
+
+Once I have all the $\delta_k(x)$'s, I should aggregate them to $\delta_k$ but make sure I'm using a doubly robust estimator? (\href{https://grf-labs.github.io/grf/reference/get_scores.causal_forest.html}{DR from GRF guide, but not sure if this is correct}) and Chernozhukov et. al 2018 might be helpful
+
+Here's a few cool things about this
+\begin{enumerate}
+    \item Following the procedure above means I can adapt use one causal forest routine (for each $k$). This is not something I see other papers do, and actually is quite important because connecting your moment condition (which relies on the conditional exogeneity assumption) to the inputs into the causal forest ensures that you properly estimate quantities
+    \item Consistency and asymptotics should immediately follow from the generalized random forest paper
+    \item This \textbf{should} allow me to use time-varying controls, whch is not something I've seen before in applications of causal forest to event studies
+\end{enumerate}
+
+\subsubsection{Next Steps}
+\begin{enumerate}
+    \item \textbf{Moment condition}: Which event study estimator am I going to use (Abraham and Sun, Shapiro), and how do I transform that into my moment condition and the transformation of the treatment + outcome. \textbf{I should probably test Abraham and Sun on my current event studies before deciding}
+    \item \textbf{Data collection}: Obtain all covariates, divide into hierarchy measures and controls
+    \item \textbf{Code}: Write out what code would be \textbf{supposing I had all my variables}
+    \item \textbf{Paper}: Outline the methods section in detail (Here's what we do, this is why we do it)
+\end{enumerate}
 
 \end{document}
