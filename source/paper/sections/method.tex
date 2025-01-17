@@ -8,8 +8,8 @@
         \end{enumerate}
     \item Applying causal forest to event studies
     \begin{enumerate}
-        \item Matching to control
-        \item Obtaining heterogeneous treatment effects
+        \item Describe procedure
+        \item How we identify heterogeneity
     \end{enumerate}
 \end{enumerate}
 
@@ -22,8 +22,42 @@ Literature
     \item \textbf{Theoretical:} \href{https://pure.au.dk/ws/portalfiles/portal/198663023/Nicolaj_Mu_hlbach_PhD_dissertation.pdf}{See Section 2.3.3 for causal forest event study}, \href{https://arxiv.org/pdf/1610.01271}{GRF}
 \end{itemize}
 
+Note that this procedure would be very simple if I used a diff-in-diff with one pre-period and one treatment period because the moment condition would be fairly straightforward (just solve the diff-in-diff equation??) and the transformation of the outcomes/treatment would just be differences. 
+
 \subsubsection{Goal}
-For each project $i$, in each time period $t$, we have an outcome $Y_{it}$, treatment status $D_{it}$ and covariates $X_{it} \in \mathcal{X}$.
+Each project $i$ is observed at each time period $t$ and we observe outcomes $Y_{it}$, treatment status $D_{it}$ and covariates $X_{it} \in \mathcal{X}$. If project $i$ is treated at time $g$, then $i \in G_g$. If project $i$ is never treated, then $i \in C$. Define $N_C = |C|, N_g = |G_g|$
+
+Our goal is to estimate $ATT_{k}(x)$, the treatment effect after $k$ periods. Formally, 
+\begin{align}
+    ATT_{k}(x) = E[ATT_{g,t}(x) \mid x, t-g = k] \text{ for all } x \in \mathcal{X}
+\end{align}
+I first show how we estimate $ATT_{g,t}(x)$ for all valid $(g, t)$. Attaining a point estimate $\widehat{ATT}_{k}(x)$ can be done by calculating a simple weighted average. Inference on $\widehat{ATT}_{k}(x)$ can be done in two ways. One approach is to use the multivariate delta method (which I will not do because the distributions of the different components of $\widehat{ATT}_{k}(x)$ are correlated since they use the same set of controls). Another approach is to use the bayesian bootstrap (which sounds very computationally intensive so perhaps I will use the delta method).
+
+We know by the definition of the conditional ATT the relevant moment condition is
+\begin{align}
+    E[Y_{i,t}(1, x) - Y_{i,t}(0, x) - ATT_{g,t}(x) \mid x, i \in G_g] = 0
+\end{align}
+where $Y_{i,t}(T_{i,t}, x)$ is the potential outcome notation for an individual $i$ in treatment group $G_g$ at time $t$ with treatment $T_{i,t}$. Definitionally, $T_{i,t} = 1$ if $g \geq t$. Now, for some diff-in-diff magic. Assuming $t\geq g$, then \textcolor{red}{Write out conditional parallel trends assumption}
+\begin{align*}
+    &E[Y_{i,t}(1, x) - Y_{i,t}(0, x)  \mid x, i \in G_g]\\
+    &= E[Y_{i,t}(1, x) \mid x] - E[Y_{i,t}(0, x) \mid x, i \in G_g]  \\
+    &= E[Y_{i,t}(x) \mid x, i \in G_g] - E[Y_{i,t}(0, x) \mid x, i \in G_g] \\
+    &= E[Y_{i,t}(x) \mid x, i \in G_g] - (E[Y_{i,g-1}(0, x) \mid x, i \in G_g] + E[Y_{i',t}(0, x) - Y_{i',g-1}(0, x) \mid x, i' \in C] )\\
+    &\text{by the parallel trends assumption, using never-treated as a control}\\
+    &= E[Y_{i,t}(x) - Y_{i,g-1}(x) \mid x, i \in G_g] - E[Y_{i',t}(x) - Y_{i',g-1}(x) \mid x, i' \in C] )
+\end{align*}
+Moreover, note that $\E[ATT(x) \mid x] = ATT(x)$
+Following the framework of GRF, we can say that
+\begin{align*}
+    \widehat{ATT}_{g,t}(x) \text{ solves } \frac{1}{N_g}  \sum_{i \in G_g} \alpha_i(X_{i, g-1}) \left(Y_{i,t} - Y_{i,g-1} -  \frac{1}{N_C} \sum_{i' \in C} (Y_{i',t} - Y_{i',g-1})\right) = \widehat{ATT}(x)
+\end{align*}
+Note that the causal forest-determined weights $\alpha_i(X_{i, g-1})$ use, for the treated group, the last pre-period covariates to determine the weights. Those are the covariates we will be calculating CATEs with respect to. \textcolor{red}{How can I connect the moment more clearly to the estimation procedure?}
+
+To calculate CATEs, we require that the outcome $Y$ fed into the causal forest is independent of treatment $T$ conditional on covariates $X$. Conditional parallel trends tells us that
+\begin{align}
+    Y_{i, t} - Y_{i, g-1} \independent T_{i,t} \mid X_{i, g-1}
+\end{align}
+Thus, differencing our outcome wrt to the time $g-1$ outcome will allow us to properly estimate our parameter of interest. 
 
 Our currently estimated parameters are $\delta_k$, where $k$ is the time period relative to the treatment. Our goal is to estimate $\delta_k(x)$ for some $x \in \mathcal{X}$, which is the heterogeneous treatment effect. Now, define a moment equation $\psi $ such that
 \begin{align}
