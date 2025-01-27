@@ -204,8 +204,13 @@ def CalculateIssueCommentStats(issue_comments, df_pr_selected):
 
     ts_issue_comments = issue_comments.groupby(['time_period', 'repo_name','actor_id'])\
         .agg({'comments': 'sum', 'issue_comments': 'sum', 'pr_comments': 'sum', 'own_issue_comments': 'sum', 'helping_issue_comments': 'sum',
-              'own_pr_comments':'sum','helping_pr_comments':'sum', 'linked_pr_issue_comments': 'sum', 'issue_number': 'nunique', 
+              'own_pr_comments':'sum','helping_pr_comments':'sum', 'linked_pr_issue_comments': 'sum', 
               'linked_pr_issue_number':'nunique'}).reset_index()
+    ts_issue = issue_comments.query('issue_comments == 1').groupby(['time_period', 'repo_name','actor_id'])\
+        .agg({'issue_number':'nunique'})
+    ts_issue_comments = pd.merge(ts_issue_comments, ts_issue, how = 'left')
+    ts_issue_comments['issue_number'] = ts_issue_comments['issue_number'].fillna(0)
+
     return ts_issue_comments
 
 
