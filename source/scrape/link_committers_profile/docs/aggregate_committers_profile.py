@@ -159,7 +159,7 @@ def ScrapeGitHubProfile(profile_url):
         "blog_url": blog_url
     }
 
-def ParseGitHubProfile(soup, attr)
+def ParseGitHubProfile(soup, attr):
     tag = soup.select_one(attr)
     val = tag.get_text(strip=True) if tag else None
     return val
