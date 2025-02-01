@@ -1,24 +1,103 @@
-# RENAME TO CAUSAL FOREST
-
-library(eventstudyr)
-library(tidyverse)
-library(ggplot2)
-library(egg)
-library(gtable)
-library(foreach)
 library(data.table)
-library(grid)
-library(arrow)
-library(scales)
+library(Matrix)
 library(grf)
 library(doParallel)
-library(future.apply)
-library(Matrix)
+library(foreach)
+library(arrow)
+library(progressr)
+library(tidyverse)
 
-plan(multisession, workers = parallel::detectCores() - 1)
-`%ni%` = Negate(`%in%`)
+`%ni%` <- Negate(`%in%`)
+handlers(global = TRUE)
+handlers("txtprogressbar")
+num_cores <- parallel::detectCores() - 1
 
-# import outcomes?
+
+ConvertProjectIDToRow <- function(data_gt, t, sample_ids) {
+  project_id_vector <- data_gt[time_index == t, project_id]
+  match(sample_ids, project_id_vector)
+}
+
+GenerateTreeWeights <- function(gt_obs, x_obs, i, row_sample1_ids, row_sample2_ids,
+                                leaf_nodes_sample1, leaf_nodes_sample2, forest2_X, forest1_X,
+                                forest1_numtrees, forest2_numtrees) {
+  M_i <- Matrix(0, nrow = gt_obs, ncol = x_obs, sparse = TRUE)
+  
+  if (length(row_sample1_ids) > 0 & i <= forest2_numtrees) {
+    leaf_nodes1 <- leaf_nodes_sample1[[i]]
+    forest2_X_i <- forest2_X[[i]]
+    forest2_map <- split(seq_along(forest2_X_i), forest2_X_i)
+    matched_cols_list <- forest2_map[as.character(leaf_nodes1)]
+    valid_matches <- !sapply(matched_cols_list, is.null)
+    
+    rows_to_set <- rep(row_sample1_ids[valid_matches], lengths(matched_cols_list[valid_matches]))
+    cols_to_set <- unlist(matched_cols_list[valid_matches], use.names = FALSE)
+    
+    M_i[cbind(rows_to_set, cols_to_set)] <- 1 / forest2_numtrees
+  }
+  
+  if (length(row_sample2_ids) > 0 & i <= forest1_numtrees) {    
+    leaf_nodes2 <- leaf_nodes_sample2[[i]]
+    forest1_X_i <- forest1_X[[i]]
+    forest1_map <- split(seq_along(forest1_X_i), forest1_X_i)
+    matched_cols_list <- forest1_map[as.character(leaf_nodes2)]
+    valid_matches <- !sapply(matched_cols_list, is.null)
+    
+    rows_to_set <- rep(row_sample2_ids[valid_matches], lengths(matched_cols_list[valid_matches]))
+    cols_to_set <- unlist(matched_cols_list[valid_matches], use.names = FALSE)
+    
+    M_i[cbind(rows_to_set, cols_to_set)] <- 1 / forest1_numtrees
+  }
+  
+  return(M_i)
+}
+SplitProjectIDs <- function(project_ids) {
+  sample_size <- floor(length(project_ids) / 2)
+  sample1 <- sample(project_ids, size = sample_size)
+  sample2 <- project_ids[!project_ids %in% sample1]
+  list(sample1 = sample1, sample2 = sample2)
+}
+
+
+InputData <- function(data, g, t, outcome) {
+  set.seed(1234)
+  
+  data_gt <- data[treatment_time_index == g | is.na(treatment_time_index), ]
+  data_gt <- data_gt[, .(project_appears = sum(time_index == (g - 1) | time_index == t)), by = repo_name]
+  data_gt <- data_gt[project_appears == 2, ]
+  data_gt <- merge(data_gt, data, by = "repo_name")[time_index == (g - 1) | time_index == t]
+  setorder(data_gt, project_id)
+  data_gt[, project_appears := NULL]
+  
+  unique_projects <- unique(data_gt[, .(project_id, treated_project)])
+  control_project_ids <- unique_projects[treated_project == 0, project_id]
+  treated_project_ids <- unique_projects[treated_project == 1, project_id]
+  control_samples <- SplitProjectIDs(control_project_ids)
+  treated_samples <- SplitProjectIDs(treated_project_ids)
+  
+  sample1_ids <- c(control_samples$sample1, treated_samples$sample1)
+  sample2_ids <- c(control_samples$sample2, treated_samples$sample2)
+  
+  data_gt_x <- data_gt[time_index == (g - 1), .SD, .SDcols = c(org_covars, org_structure, contributor_covars, "time_index", "project_id", "row")]
+  
+  if (t>=g) {
+    data_d <- data_gt %>% mutate(D = treatment)
+  } else {
+    data_d <- data_gt %>% mutate(D = treated_project)
+  }
+  data_d <- data_d[time_index == t,] %>%select(project_id, D)
+  
+  pre_treatment_y <- data_gt[time_index == (g - 1), .(repo_name, outcome_pre_treatment = get(outcome))]
+  
+  data_y <- merge(data_gt[time_index == t, .(outcome = get(outcome), repo_name, project_id)], pre_treatment_y, by = "repo_name", all.x = TRUE)
+  data_y[, outcome_diff := outcome - outcome_pre_treatment]
+  data_y <- data_y[, .(outcome_diff, project_id)]
+  
+  list(data_gt = data_gt, data_gt_x = data_gt_x, data_gt_d = data_d, data_gt_y = data_y,
+       sample1_ids = sample1_ids, sample2_ids = sample2_ids)
+}
+
+
 indir <- "drive/output/derived/project_outcomes"
 indir_departed <- "drive/output/derived/contributor_stats/filtered_departed_contributors"
 issue_tempdir <- "issue"
@@ -30,389 +109,194 @@ criteria_pct <- 75
 consecutive_periods <- 3
 post_periods <- 2
 
-df_project_outcomes <- read_parquet(file.path(indir, paste0("project_outcomes_major_months",time_period,".parquet"))) %>% 
-  mutate(time_period = as.Date(time_period)) 
-df_departed_contributors <- read_parquet(
-  file.path(indir_departed, paste0("filtered_departed_contributors_major_months",time_period,"_window",
-                                   rolling_window,"D_criteria_commits_",criteria_pct,"pct_consecutive",consecutive_periods,
-                                   "_post_period",post_periods,"_threshold_gap_qty_0.parquet")))
-df_project_covariates <- read_parquet(file.path(issue_tempdir, "project_covariates.parquet")) %>%
-  mutate(time_period = as.Date(time_period))
-df_contributor_covariates <- read_parquet(file.path(issue_tempdir, "contributor_covariates.parquet")) %>%
-  mutate(departed_actor_id = actor_id,
-         time_period = as.Date(time_period)) %>%
-  select(-actor_id)
-
-
-
-df_departed <- df_departed_contributors %>% 
-  filter(year(treatment_period)<2023 & !abandoned_scraped & !abandoned_consecutive_req3_permanentTrue) %>%
-  group_by(repo_name) %>% 
-  mutate(repo_count = n()) %>%
-  ungroup() %>%
-  mutate(departed_actor_id = actor_id,
-         abandoned_date = as.Date(abandoned_date_consecutive_req2_permanentTrue)) %>%
-  filter(repo_count == 1) %>%
-  select(repo_name,departed_actor_id,last_pre_period,treatment_period,abandoned_date)
-
-treatment_inelg <- df_departed_contributors %>% 
-  filter(repo_name %ni% df_departed$repo_name)
-
-treated_more_than_once <- df_departed_contributors %>% 
-  filter(year(treatment_period)<2023 & !abandoned_scraped & !abandoned_consecutive_req3_permanentTrue) %>%
-  group_by(repo_name) %>% 
-  mutate(repo_count = n()) %>%
-  filter(repo_count > 1) %>% pull(repo_name)
-
-df_project <- df_project_outcomes %>%
-  filter(year(time_period)<2023 | (year(time_period) == 2023 & month(time_period) == 1)) %>%
-  filter(repo_name %ni% treated_more_than_once) %>%
-  mutate(time_index = dense_rank(time_period))
-
-df_project_departed <- df_project %>%
-  left_join(df_departed) %>%
-  mutate(treated_project = 1-as.numeric(is.na(last_pre_period)),
-         treatment = as.numeric(treated_project & time_period>=treatment_period)) %>%
-  left_join(df_project_covariates) %>%
-  mutate(final_period = as.Date(final_period),
-         last_pre_period = as.Date(last_pre_period)) %>%
-  left_join(df_contributor_covariates)
-
-df_project_departed <- df_project_departed %>% 
-  mutate(project_age = (181 + as.numeric(time_period - as.Date(created_at)))) %>%
-  group_by(repo_name) %>%
-  mutate(smallest_age = min(project_age)) %>%
-  ungroup() %>%
-  mutate(project_age = ifelse(smallest_age < 0, NA, project_age)) %>%
-  mutate(project_id = dense_rank(repo_name))  %>%
-  mutate(row = row_number()) 
-
-df_project_departed <- df_project_departed %>%
-  group_by(repo_name) %>%
-  mutate(treatment_time_index = case_when(
-    any(treatment == 1) ~ min(time_index[treatment == 1], na.rm = TRUE),
-    .default = NA
-    )
-  ) %>%
-  ungroup()
-
-
-all_projects <- df_project_departed %>% pull(repo_name) %>% unique()
-treated_projects <- df_project_departed %>% filter(treatment == 1) %>% pull(repo_name) %>% unique()
-treated_projects_count <- length(treated_projects)
-control_projects <- df_project_departed %>%
-  filter(repo_name %ni% treated_projects) %>% pull(repo_name) %>% unique()
-control_projects_count <- length(control_projects)
-
-print(paste("Project Count:", length(all_projects)))
-print(paste("Control Projects:", control_projects_count))
-print(paste("Treated Projects:", treated_projects_count))
-
-org_covars <- c(
-  "stars_accumulated",
-  "forks_gained",
-  "truckfactor",
-  "contributors",
-  "org_status",
-  "project_age"
-)
-org_covars_long <- c(
-  org_covars, 
-  "corporate_pct",
-  "educational_pct",
-  "apache_software_license",
-  "bsd_license",
-  "gnu_general_public_license",
-  "mit_license"
-)
-
-contributor_covars <- c(
-  "truckfactor_member",
-  "max_rank",
-  "total_share",
-  "comments_share_avg_wt",
-  "comments_hhi_avg_wt",
-  "pct_cooperation_comments"
-)
-contributor_covars_long <- c(
-  contributor_covars,
-  "contributor_email_educational",
-  "contributor_email_corporate",
-  "problem_identification_share",
-  "problem_discussion_share",
-  "coding_share",
-  "problem_approval_share",
-  "comments_share_avg_wt",
-  "comments_hhi_avg_wt",
-  "pct_cooperation_comments"
-) 
-
-org_structure <- c(
-  "min_layer_count",
-  "problem_discussion_higher_layer_work",
-  "coding_higher_layer_work",
-  "total_HHI",
-  "contributors_comments_wt",
-  "comments_cooperation_pct"
-)
-
-org_structure_long <- c(
-  org_structure,
-  "layer_count",
-  "problem_identification_layer_contributor_pct",
-  "problem_discussion_layer_contributor_pct",
-  "coding_layer_contributor_pct",
-  "problem_approval_layer_contributor_pct",
-  "problem_discussion_higher_layer_contributor_overlap",
-  "coding_higher_layer_contributor_overlap",
-  "problem_identification_HHI",
-  "problem_discussion_HHI",
-  "coding_HHI",
-  "hhi_comments",
-  "problem_approval_HHI"
-)
-
-
-outcome <- "commits"
-norm_outcome <- df_project_departed %>% 
-  filter(time_period <= last_pre_period) %>% 
-  summarise(mean(get(outcome), na.rm = T)) %>% 
-  pull()
-df_project_departed[[outcome]] <- df_project_departed[[outcome]]/norm_outcome
-
-
-g_list <- sort(df_project_departed %>% filter(treatment == 1) %>% pull(time_index) %>% unique())
-t_list <- sort(unique(df_project_departed$time_index))
-
-X_space <- df_project_departed %>%
-  select(all_of(c(org_covars, org_structure, contributor_covars, "time_index","project_id","row"))) %>%
-  unique()
-X_space_mat <- X_space %>%
-  select(-c(time_index,project_id, row)) %>%
-  as.matrix()
-
-
-InputData <- function(data, g, t) {
-  set.seed(123)
-  
-  data_gt <- data %>% group_by(repo_name) %>% 
-    filter(treatment_time_index == g | is.na(treatment_time_index)) %>%
-    mutate(project_appears = sum((time_index == g-1) | (time_index== t))) %>% 
-    filter(project_appears == 2 & ((time_index == g-1) | (time_index == t))) %>%
-    select(-project_appears) %>% 
-    arrange(project_id) %>%
-    ungroup()
-
-  project_ids <- sort(unique(data_gt$project_id))
-  sample1_ids <- sample(project_ids, size = floor(length(project_ids)/2))
-  sample2_ids <- project_ids[project_ids %ni% sample1_ids]
-  
-  # for pre period filtering I'd want to change it to be only untreated and not yet treated
-  data_gt_x <- data_gt %>%
-    filter(time_index == g-1)  %>% 
-    arrange(project_id) %>%
-    select(all_of(c(org_covars, org_structure, contributor_covars,"time_index", "project_id", "row")))
-  
-  data_d <- data_gt %>%
-    filter(time_index == t) %>% 
-    arrange(project_id)
-  if (t>=g) {
-    data_d <- data_d  %>%
-      select(treatment, project_id) 
-  } else {
-    data_d <- data_d  %>%
-      select(treated_project, project_id)     
-  }
- 
-  pre_treatment_y <- data_gt %>% filter(time_index == g-1) %>%
-    select(all_of(c("repo_name", outcome))) %>%
-    mutate(outcome_pre_treatment = get(outcome)) %>%
-    select(-outcome)
-  
-  data_y <- data_gt %>% 
-    filter(time_index == t) %>%
-    left_join(pre_treatment_y) %>%
-    mutate(outcome_diff = get(outcome) - outcome_pre_treatment) %>%
-    arrange(project_id) %>%
-    select(outcome_diff, project_id) 
-  
-  return(list(data_gt = data_gt, data_gt_x = data_gt_x, data_gt_d = data_d, data_gt_y = data_y,
-              sample1_ids = sample1_ids, sample2_ids = sample2_ids))
+fread_parquet <- function(path) {
+  as.data.table(read_parquet(path))
 }
 
+df_project_outcomes <- fread_parquet(file.path(indir, paste0("project_outcomes_major_months", time_period, ".parquet")))[
+  , time_period := as.Date(time_period)
+]
+df_departed_contributors <- fread_parquet(
+  file.path(indir_departed, paste0("filtered_departed_contributors_major_months", time_period,
+                                   "_window", rolling_window, "D_criteria_commits_", criteria_pct,
+                                   "pct_consecutive", consecutive_periods,
+                                   "_post_period", post_periods, "_threshold_gap_qty_0.parquet")))
+df_project_covariates <- fread_parquet(file.path(issue_tempdir, "project_covariates.parquet"))[
+  , time_period := as.Date(time_period)
+]
+df_contributor_covariates <- fread_parquet(file.path(issue_tempdir, "contributor_covariates.parquet"))[
+  , `:=`(departed_actor_id = actor_id, time_period = as.Date(time_period))
+][, actor_id := NULL]
+df_departed <- df_departed_contributors[
+  year(treatment_period) < 2023 & !abandoned_scraped & !abandoned_consecutive_req3_permanentTrue
+][
+  , repo_count := .N, by = repo_name
+][
+  repo_count == 1, .(repo_name, departed_actor_id = actor_id,
+                     last_pre_period, treatment_period,
+                     abandoned_date = as.Date(abandoned_date_consecutive_req2_permanentTrue))
+]
+treated_more_than_once <- df_departed_contributors[
+  year(treatment_period) < 2023 & !abandoned_scraped & !abandoned_consecutive_req3_permanentTrue
+][
+  , .N, by = repo_name
+][N > 1, repo_name]
 
-# for (t in t_list) {
-#   for (g in g_list) {
-#   }
-# }
+df_project <- df_project_outcomes[
+  year(time_period) < 2023 | (year(time_period) == 2023 & month(time_period) == 1)
+][
+  repo_name %ni% treated_more_than_once
+][
+  , time_index := frank(time_period, ties.method = "dense")
+]
+
+df_project_departed <- merge(df_project, df_departed, by = "repo_name", all.x = TRUE)
+df_project_departed <- merge(df_project_departed, df_project_covariates, by = c("repo_name", "time_period"), all.x = TRUE)
+df_project_departed <- merge(df_project_departed, df_contributor_covariates, by = c("departed_actor_id", "repo_name", "time_period"), all.x = TRUE)
+
+df_project_departed[
+  , `:=`(treated_project = 1 - as.numeric(is.na(last_pre_period)))
+][
+  , `:=`(treatment = as.numeric(treated_project & time_period >= treatment_period))
+][
+  , c("final_period", "last_pre_period") := .(as.Date(final_period), as.Date(last_pre_period))
+][
+  , project_age := 181 + as.numeric(time_period - as.Date(created_at))
+][
+  , smallest_age := min(project_age, na.rm = TRUE), by = repo_name
+][
+  , project_age := fifelse(smallest_age < 0, NA_real_, project_age)
+][
+  , project_id := frank(repo_name, ties.method = "dense")
+][
+  , row := .I
+][
+  , treatment_time_index := ifelse(any(treatment == 1), min(time_index[treatment == 1], na.rm = TRUE), NA_real_), by = repo_name
+]
+
+all_projects <- unique(df_project_departed$repo_name)
+treated_projects <- unique(df_project_departed[treatment == 1, repo_name])
+control_projects <- unique(df_project_departed[repo_name %ni% treated_projects, repo_name])
+
+cat("Project Count:", length(all_projects), "\n",
+    "Control Projects:", length(control_projects), "\n",
+    "Treated Projects:", length(treated_projects), "\n")
+
+org_covars <- c("stars_accumulated", "forks_gained", "truckfactor", "contributors", "org_status", "project_age")
+org_structure <- c("min_layer_count", "problem_discussion_higher_layer_work", "coding_higher_layer_work",
+                   "total_HHI", "contributors_comments_wt", "comments_cooperation_pct")
+contributor_covars <- c("truckfactor_member", "max_rank", "total_share", "comments_share_avg_wt",
+                        "comments_hhi_avg_wt", "pct_cooperation_comments")
+
+outcome <- "commits"
+norm_outcome <- df_project_departed[time_period <= last_pre_period, mean(get(outcome), na.rm = TRUE)]
+df_project_departed[, (outcome) := get(outcome) / norm_outcome]
+
+g_list <- sort(unique(df_project_departed[treatment == 1, time_index]))
+t_list <- sort(unique(df_project_departed$time_index))
+
+X_space <- unique(df_project_departed[, .SD, .SDcols = c(org_covars, org_structure, contributor_covars, "time_index", "project_id", "row")])
+X_space_mat <- as.matrix(X_space[, !c("time_index", "project_id", "row"), with = FALSE])
 
 t <- 3
 g <- 6
 num_trees <- 20000
-tree_indices <- 1:num_trees
 
-data_obj <- InputData(data = df_project_departed, g = g, t = t)
+data_obj <- InputData(data = df_project_departed, g = g, t = t, outcome = outcome)
 data_gt <- data_obj$data_gt
 sample1_ids <- sort(data_obj$sample1_ids)
 sample2_ids <- sort(data_obj$sample2_ids)
 
-data_gt_x_sample1 <- data_obj$data_gt_x %>% 
-  filter(project_id %in% sample1_ids)
-X_sample1 <- data_gt_x_sample1 %>%
-  select(-c(time_index,project_id, row)) %>%
-  as.matrix()
-Y_sample1 <- data_obj$data_gt_y %>% 
-  filter(project_id %in% sample1_ids) %>%
-  select(-project_id) %>% 
-  as.matrix()
-D_sample1 <- data_obj$data_gt_d %>% 
-  filter(project_id %in% sample1_ids) %>%
-  select(-project_id) %>% 
-  as.matrix()
+tree_min_threshold <- 1000
+
+data_gt_x_sample1 <- data_obj$data_gt_x[project_id %in% sample1_ids]
+X_sample1 <- as.matrix(data_gt_x_sample1[, !c("time_index", "project_id", "row"), with = FALSE])
+Y_sample1 <- as.matrix(data_obj$data_gt_y[project_id %in% sample1_ids, outcome_diff])
+D_sample1 <- as.matrix(data_obj$data_gt_d[project_id %in% sample1_ids, D])
+
+data_gt_x_sample2 <- data_obj$data_gt_x[project_id %in% sample2_ids]
+X_sample2 <- as.matrix(data_gt_x_sample2[, !c("time_index", "project_id", "row"), with = FALSE])
+Y_sample2 <- as.matrix(data_obj$data_gt_y[project_id %in% sample2_ids, outcome_diff])
+D_sample2 <- as.matrix(data_obj$data_gt_d[project_id %in% sample2_ids, D])
 
 
-forest1 <- causal_forest(X = X_sample1, Y = Y_sample1, W = D_sample1, num.trees = num_trees, tune.parameters = "all")
 
 
-data_gt_x_sample2 <- data_obj$data_gt_x %>% 
-  filter(project_id %in% sample2_ids)
-X_sample2 <- data_gt_x_sample2 %>%
-  select(-c(time_index,project_id, row)) %>%
-  as.matrix()
-Y_sample2 <- data_obj$data_gt_y %>% 
-  filter(project_id %in% sample2_ids) %>%
-  select(-project_id) %>% 
-  as.matrix()
-D_sample2 <- data_obj$data_gt_d %>% 
-  filter(project_id %in% sample2_ids) %>%
-  select(-project_id) %>% 
-  as.matrix()
 
-forest2 <- causal_forest(X = X_sample2, Y = Y_sample2, W = D_sample2, num.trees = num_trees, tune.parameters = "all")
+forest1 <- causal_forest(X = X_sample1, Y = Y_sample1, W = D_sample1, num.trees = num_trees,
+                         tune.parameters = c("mtry", "honesty.fraction", "alpha",
+                                             "tune.num.trees" = num_trees*0.2))
+forest2 <- causal_forest(X = X_sample2, Y = Y_sample2, W = D_sample2, num.trees = num_trees,
+                         tune.parameters = c( "mtry", "honesty.fraction", "alpha",
+                                              "tune.num.trees"= num_trees*0.2))
 
-extract_leaf_nodes <- function(forest, X_matrix, tree_indices) {
-  leaf_list <- future_lapply(tree_indices, function(i) {
+
+ExtractLeafNodes <- function(forest, X_matrix, tree_indices, index = TRUE) {
+  cl <- makeCluster(num_cores)
+  registerDoParallel(cl)
+  leaf_list <- foreach(i=tree_indices, .packages = "grf") %dopar% {
     tree <- get_tree(forest, i)
     if (!tree$nodes[[1]]$is_leaf) {
-      return(get_leaf_node(tree, X_matrix))
-    } else {
-      return(NULL) 
+      get_leaf_node(tree, X_matrix)
     }
-  })
-  leaf_list <- leaf_list[!sapply(leaf_list,is.null)]
-  return(leaf_list)
+  }
+  valid_tree_indices <- tree_indices[!sapply(leaf_list, is.null)]
+  leaf_list <- leaf_list[!sapply(leaf_list, is.null)]
+  stopCluster(cl)
+  if (index) {
+    return(list(leaf_list = leaf_list, valid_tree_indices = valid_tree_indices))
+  } else {
+    return(leaf_list)
+  }
 }
 
-leaf_nodes_sample1 <- extract_leaf_nodes(forest = forest2, 
-                                         X_matrix = X_sample1, 
-                                         tree_indices = tree_indices)
-leaf_nodes_sample2 <- extract_leaf_nodes(forest = forest1, 
-                                         X_matrix = X_sample2, 
-                                         tree_indices = tree_indices)
-forest1_X <- extract_leaf_nodes(forest = forest1, 
-                                X_matrix = X_space_mat, 
-                                tree_indices = tree_indices)
-forest2_X <- extract_leaf_nodes(forest = forest2, 
-                                X_matrix = X_space_mat, 
-                                tree_indices = tree_indices)
-
-
-
-gt_obs <- nrow(data_obj$data_gt_x)
-x_obs <- nrow(X_space_mat)
-matrix_list <- vector("list", length = num_trees)
-
-ConvertProjectIDToRow <- function(data_gt, t, sample_ids) {
-  project_id_vector <- data_gt %>% filter(time_index == t) %>% pull(project_id)
-  return(match(sample_ids, project_id_vector))
-}
-
-row_sample1_ids <- ConvertProjectIDToRow(data_gt, t, sample1_ids)
-row_sample2_ids <- ConvertProjectIDToRow(data_gt, t, sample2_ids)
-matrix_list_vectorized <- vector("list", length = num_trees)
+leaf_nodes_sample1_obj <- ExtractLeafNodes(forest2, X_sample1, 1:num_trees)
+leaf_nodes_sample1 <- leaf_nodes_sample1_obj$leaf_list
+leaf_nodes_sample2_obj <- ExtractLeafNodes(forest1, X_sample2, 1:num_trees)
+leaf_nodes_sample2 <- leaf_nodes_sample2_obj$leaf_list
+system.time(forest1_X <- ExtractLeafNodes(forest1, X_space_mat, leaf_nodes_sample2_obj$valid_tree_indices, index = FALSE))
+system.time(forest2_X <- ExtractLeafNodes(forest2, X_space_mat, leaf_nodes_sample1_obj$valid_tree_indices, index = FALSE))
 forest1_numtrees <- length(forest1_X)
 forest2_numtrees <- length(forest2_X)
 
-  
-# https://chatgpt.com/share/e/679c6fc0-a358-800e-a903-edfef6721bd8 
-# AMEND THE PROCESS SO X derived from SAMPLE 2 is 0 in the below example
+### MAYBE DO THE ABOVE ITERATIVELY UNTIL I HAVE SOME THRESHOLD NUMBER OF TREES...
 
-print(paste("g:",g,"t:",t,"forest 2 tree count:",forest2_numtrees,
-            "forest 1 tree count:",forest1_numtrees, "# trees:",num_trees))
+gt_obs <- nrow(data_obj$data_gt_x)
+x_obs <- nrow(X_space_mat)
 
-GenerateTreeWeights <- function(gt_obs, x_obs, i, row_sample1_ids, row_sample2_ids,
-                                leaf_nodes_sample1, leaf_nodes_sample2, forest2_X, forest1_X,
-                                forest1_numtrees, forest2_numtrees) {
-  M_i <- Matrix(0, nrow = gt_obs, ncol = x_obs, sparse = TRUE)
-  
-  if (length(row_sample1_ids) > 0 & i <= forest2_numtrees) {
-    leaf_nodes1 <- leaf_nodes_sample1[[i]]
-    forest2_X_i <- forest2_X[[i]]
-    
-    # Convert to character vectors for consistent naming in the map
-    leaf_nodes1_char <- as.character(leaf_nodes1)
-    forest2_X_i_char <- as.character(forest2_X_i)
-    
-    forest2_map <- split(seq_along(forest2_X_i_char), forest2_X_i_char)
-    matched_cols_list <- forest2_map[leaf_nodes1_char]
-    valid_matches <- !sapply(matched_cols_list, is.null)
-    
-    row_sample1_ids_valid <- row_sample1_ids[valid_matches]
-    matched_cols_valid <- matched_cols_list[valid_matches]
-    
-    rows_to_set <- rep(as.integer(row_sample1_ids_valid), times = lengths(matched_cols_valid))
-    cols_to_set <- as.integer(unlist(matched_cols_valid, use.names = FALSE))
-    
-    M_i[cbind(rows_to_set, cols_to_set)] <- 1/forest2_numtrees
-  }
-  if (length(row_sample2_ids) > 0 & i <= forest1_numtrees) {    
-    leaf_nodes2 <- leaf_nodes_sample2[[i]]
-    forest1_X_i <- forest1_X[[i]]
-    
-    # Convert to character vectors for consistent naming in the map
-    leaf_nodes2_char <- as.character(leaf_nodes2)
-    forest1_X_i_char <- as.character(forest1_X_i)
-    
-    forest1_map <- split(seq_along(forest1_X_i_char), forest1_X_i_char)
-    matched_cols_list <- forest1_map[leaf_nodes2_char]
-    valid_matches <- !sapply(matched_cols_list, is.null)
-    
-    row_sample2_ids_valid <- row_sample2_ids[valid_matches]
-    matched_cols_valid <- matched_cols_list[valid_matches]
-    
-    rows_to_set <- rep(as.integer(row_sample2_ids_valid), times = lengths(matched_cols_valid))
-    cols_to_set <- as.integer(unlist(matched_cols_valid, use.names = FALSE))
-    
-    M_i[cbind(rows_to_set, cols_to_set)] <- 1/forest1_numtrees
-  }
-  return(M_i)
-}
+row_sample1_ids <- ConvertProjectIDToRow(data_gt, t, sample1_ids)
+row_sample2_ids <- ConvertProjectIDToRow(data_gt, t, sample2_ids)
+forest1_numtrees <- length(forest1_X)
+forest2_numtrees <- length(forest2_X)
 
-num_cores <- parallel::detectCores() - 1
+cat(sprintf("g:%d t:%d forest2_tree_count:%d forest1_tree_count:%d # trees:%d\n",
+            g, t, forest2_numtrees, forest1_numtrees, num_trees))
+
 cl <- makeCluster(num_cores)
 registerDoParallel(cl)
 
-batch_size <- 10
+batch_size <- 5
 total_trees <- max(forest1_numtrees, forest2_numtrees)
-num_batches <- ceiling(total_trees / batch_size)
 batches <- split(1:total_trees, ceiling(seq_along(1:total_trees) / batch_size))
 
-matrix_list_vectorized <- foreach(batch = batches, .packages = "Matrix", .combine = 'c') %dopar% {
-  batch_matrices <- lapply(batch, function(i) {
-    GenerateTreeWeights(gt_obs, x_obs, i, row_sample1_ids, row_sample2_ids,
-                        leaf_nodes_sample1, leaf_nodes_sample2, forest2_X, forest1_X,
-                        forest1_numtrees, forest2_numtrees)
-  })
-  sum_batch_matrices <- Reduce(`+`, batch_matrices)
-  print(paste("Batch", batch,"done"))
-  sum_batch_matrices
-}
+with_progress({
+  p <- progressor(along = batches)
+  matrix_list_vectorized <- foreach(batch = batches, .packages = "Matrix", .combine = 'c') %dopar% {
+    batch_matrices <- lapply(batch, function(i) {
+      GenerateTreeWeights(gt_obs, x_obs, i, row_sample1_ids, row_sample2_ids,
+                          leaf_nodes_sample1, leaf_nodes_sample2, forest2_X, forest1_X,
+                          forest1_numtrees, forest2_numtrees)
+    })
+    sum_batch_matrices <- Reduce(`+`, batch_matrices)
+    p()
+    list(sum_batch_matrices)
+  }
+})
+
 stopCluster(cl)
 
 sum_M <- Reduce(`+`, matrix_list_vectorized)
-# rescaling by column sum
-sum_M@x <- sum_M@x / rep.int(colSums(sum_M), diff(sum_M@p)) 
+#col_sums <- colSums(sum_M)
+#sum_M@x <- sum_M@x / rep.int(col_sums, diff(sum_M@p))
 
-# Define the full file path with .rds extension
-saveRDS(sum_M, file = file.path(issue_tempdir,paste0("g",g,"_","t",t,"_","trees",num_trees,".rds")))
-
+saveRDS(sum_M, file = file.path(issue_tempdir, sprintf("g%d_t%d_trees%d.rds", g, t, num_trees)))
