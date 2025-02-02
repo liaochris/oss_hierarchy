@@ -257,8 +257,8 @@ X_space <- unique(df_project_departed[, .SD, .SDcols = c(org_covars, org_structu
 X_space_mat <- as.matrix(X_space[, !c("time_index", "project_id", "row"), with = FALSE])
 
 args = commandArgs(trailingOnly=TRUE)
-g <- args[1]
-t <- args[2]
+g <- as.numeric(args[1])
+t <- as.numeric(args[2])
 num_trees <- 2000
 tree_min_threshold <- 100
 
