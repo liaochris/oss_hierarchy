@@ -256,11 +256,10 @@ t_list <- sort(unique(df_project_departed$time_index))
 X_space <- unique(df_project_departed[, .SD, .SDcols = c(org_covars, org_structure, contributor_covars, "time_index", "project_id", "row")])
 X_space_mat <- as.matrix(X_space[, !c("time_index", "project_id", "row"), with = FALSE])
 
-#t <- 3
-t <- 7
+t <- 3
 g <- 6
 num_trees <- 2000
-tree_min_threshold <- 10
+tree_min_threshold <- 1000
 
 data_obj <- InputData(data = df_project_departed, g = g, t = t, outcome = outcome)
 data_gt <- data_obj$data_gt
@@ -310,36 +309,38 @@ ComputeSparseMatrixBatched <- function(gt_obs, x_obs, row_sample1_ids, row_sampl
   system.time({M <- sparseMatrix(i = integer(0), j = integer(0), x = numeric(0),
                     dims = c(gt_obs, x_obs))})
   print("sparse matrix created")
-  foreach (start = seq(1, max_trees, by = batch_size)) %do% {
-    system.time({end <- min(start + batch_size - 1, max_trees)
-    print(paste(start, end))
-    
-    rows_batch <- integer(0)
-    cols_batch <- integer(0)
-    vals_batch <- numeric(0)
-    
-    for (i in seq.int(start, end)) {
-      leaf_nodes1 <- leaf_nodes_sample1[[i]]
-      forest2_X_i <- forest2_X[[i]]
-      leaf_nodes2 <- leaf_nodes_sample2[[i]]
-      forest1_X_i <- forest1_X[[i]]
-        
-      idx_list <- GenerateTreeWeights(i, row_sample1_ids, row_sample2_ids,
-                                             leaf_nodes1, leaf_nodes2,
-                                             forest2_X_i, forest1_X_i,
-                                             forest1_numtrees, forest2_numtrees)
-
-      rows_batch <- c(rows_batch, idx_list$rows)
-      cols_batch <- c(cols_batch, idx_list$cols)
-      vals_batch <- c(vals_batch, idx_list$vals)
-    }
-    
-    partial_M <- sparseMatrix(i = rows_batch, j = cols_batch, x = vals_batch, dims = c(gt_obs, x_obs))
-    M <- M + partial_M
-    
-    rm(partial_M, rows_batch, cols_batch, vals_batch)
-    gc()
-    p()})
+  for (start in seq(1, max_trees, by = batch_size)) {
+    system.time({
+      end <- min(start + batch_size - 1, max_trees)
+      print(paste(start, end))
+      
+      rows_batch <- integer(0)
+      cols_batch <- integer(0)
+      vals_batch <- numeric(0)
+      
+      for (i in seq.int(start, end)) {
+        leaf_nodes1 <- leaf_nodes_sample1[[i]]
+        forest2_X_i <- forest2_X[[i]]
+        leaf_nodes2 <- leaf_nodes_sample2[[i]]
+        forest1_X_i <- forest1_X[[i]]
+          
+        idx_list <- GenerateTreeWeights(i, row_sample1_ids, row_sample2_ids,
+                                               leaf_nodes1, leaf_nodes2,
+                                               forest2_X_i, forest1_X_i,
+                                               forest1_numtrees, forest2_numtrees)
+  
+        rows_batch <- c(rows_batch, idx_list$rows)
+        cols_batch <- c(cols_batch, idx_list$cols)
+        vals_batch <- c(vals_batch, idx_list$vals)
+      }
+      
+      partial_M <- sparseMatrix(i = rows_batch, j = cols_batch, x = vals_batch, dims = c(gt_obs, x_obs))
+      M <- M + partial_M
+      
+      rm(partial_M, rows_batch, cols_batch, vals_batch)
+      gc()
+      p()
+    })
   }
   col_sums <- colSums(M)
   M@x <- M@x / rep.int(col_sums, diff(M@p))
