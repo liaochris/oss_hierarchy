@@ -34,6 +34,13 @@ num_trees <- 1000
 tree_min_threshold <- 200
 
 
+org_covars <- c("stars_accumulated", "forks_gained", "truckfactor", "contributors", "org_status", "project_age")
+org_structure <- c("min_layer_count", "problem_discussion_higher_layer_work", "coding_higher_layer_work",
+                   "total_HHI", "contributors_comments_wt", "comments_cooperation_pct")
+contributor_covars <- c("truckfactor_member", "max_rank", "total_share", "comments_share_avg_wt",
+                        "comments_hhi_avg_wt", "pct_cooperation_comments")
+
+
 Main <- function() {
   df_project_departed <- CreateDepartedProjectsPanel()
   
@@ -44,13 +51,7 @@ Main <- function() {
   cat("Project Count:", length(all_projects), "\n",
       "Control Projects:", length(control_projects), "\n",
       "Treated Projects:", length(treated_projects), "\n")
-  
-  org_covars <- c("stars_accumulated", "forks_gained", "truckfactor", "contributors", "org_status", "project_age")
-  org_structure <- c("min_layer_count", "problem_discussion_higher_layer_work", "coding_higher_layer_work",
-                     "total_HHI", "contributors_comments_wt", "comments_cooperation_pct")
-  contributor_covars <- c("truckfactor_member", "max_rank", "total_share", "comments_share_avg_wt",
-                          "comments_hhi_avg_wt", "pct_cooperation_comments")
-  
+
   norm_outcome <- df_project_departed[time_period <= last_pre_period, mean(get(outcome), na.rm = TRUE)]
   df_project_departed[, (outcome) := get(outcome) / norm_outcome]
   
