@@ -5,7 +5,7 @@ library(doParallel)
 library(foreach)
 library(arrow)
 library(progressr)
-library(tidyverse)
+library(dplyr)
 
 `%ni%` <- Negate(`%in%`)
 handlers(global = TRUE)
@@ -252,8 +252,8 @@ X_space_mat <- as.matrix(X_space[, !c("time_index", "project_id", "row"), with =
 
 t <- 3
 g <- 6
-num_trees <- 5000
-tree_min_threshold <- 1000
+num_trees <- 2000
+tree_min_threshold <- 500
 
 data_obj <- InputData(data = df_project_departed, g = g, t = t, outcome = outcome)
 data_gt <- data_obj$data_gt
@@ -298,20 +298,22 @@ batches <- split(1:total_trees, ceiling(seq_along(1:total_trees) / batch_size))
 
 with_progress({
   p <- progressor(along = batches)
-  matrix_list_vectorized <- foreach(batch = batches, .packages = "Matrix") %dopar% {
-    print("Getting tree weights for batch")
-    print(batch)
-    
-    batch_matrices <- lapply(batch, function(i) {
-      GenerateTreeWeights(gt_obs, x_obs, i, row_sample1_ids, row_sample2_ids,
-                          leaf_nodes_sample1, leaf_nodes_sample2, forest2_X, forest1_X,
-                          forest1_numtrees, forest2_numtrees)
-    })
+  matrix_list_vectorized <- foreach(batch = batches, .packages = "Matrix") %do% {
+    system.time({
+      print("Getting tree weights for batch")
+      print(batch)
+      batch_matrices <- lapply(batch, function(i) {
+        GenerateTreeWeights(gt_obs, x_obs, i, row_sample1_ids, row_sample2_ids,
+                            leaf_nodes_sample1, leaf_nodes_sample2, forest2_X, forest1_X,
+                            forest1_numtrees, forest2_numtrees)
+        })
+      })
     sum_batch_matrices <- Reduce(`+`, batch_matrices)
     p()
     sum_batch_matrices
   }
 })
+
 
 stopCluster(cl)
 
