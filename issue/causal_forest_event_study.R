@@ -359,7 +359,7 @@ MinTreesExtractLeafNodes <- function(data_obj, train_sample_ids,
                                      evaluate_sample_ids,
                                      num_trees,
                                      tree_min_threshold,
-                                     X_space_mat,) {
+                                     X_space_mat) {
   num_valid_trees <- 0
   num_total_trees <- 0
   forest_list <- list()
