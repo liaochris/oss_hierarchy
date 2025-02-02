@@ -30,8 +30,8 @@ outcome <- "commits"
 args = commandArgs(trailingOnly=TRUE)
 g <- as.numeric(args[1])
 t <- as.numeric(args[2])
-num_trees <- 2000
-tree_min_threshold <- 100
+num_trees <- 1000
+tree_min_threshold <- 200
 
 
 Main <- function() {
