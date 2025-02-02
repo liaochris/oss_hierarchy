@@ -10,7 +10,7 @@ library(tidyverse)
 `%ni%` <- Negate(`%in%`)
 handlers(global = TRUE)
 handlers("txtprogressbar")
-num_cores <- parallel::detectCores() - 1
+num_cores <- parallel::detectCores() - 2
 
 
 ConvertProjectIDToRow <- function(data_gt, t, sample_ids) {
@@ -95,6 +95,58 @@ InputData <- function(data, g, t, outcome) {
   
   list(data_gt = data_gt, data_gt_x = data_gt_x, data_gt_d = data_d, data_gt_y = data_y,
        sample1_ids = sample1_ids, sample2_ids = sample2_ids)
+}
+
+
+
+ExtractLeafNodes <- function(forest, X_matrix, tree_indices, index = TRUE) {
+  cl <- makeCluster(num_cores, outfile = "")
+  registerDoParallel(cl)
+  leaf_list <- foreach(i=tree_indices, .packages = "grf") %dopar% {
+    tree <- get_tree(forest, i)
+    if (!tree$nodes[[1]]$is_leaf) {
+      get_leaf_node(tree, X_matrix)
+    }
+  }
+  valid_tree_indices <- tree_indices[!sapply(leaf_list, is.null)]
+  leaf_list <- leaf_list[!sapply(leaf_list, is.null)]
+  stopCluster(cl)
+  if (index) {
+    return(list(leaf_list = leaf_list, valid_tree_indices = valid_tree_indices))
+  } else {
+    return(leaf_list)
+  }
+}
+
+MinTreesExtractLeafNodes <- function(train_sample_ids, evaluate_sample_ids, num_trees, tree_min_threshold, X_space_mat) {
+  num_valid_trees <- 0
+  num_total_trees <- 0
+  forest_list <- list()
+  
+  data_gt_x_sample <- data_obj$data_gt_x[project_id %in% train_sample_ids]
+  X_sample <- as.matrix(data_gt_x_sample[, !c("time_index", "project_id", "row"), with = FALSE])
+  Y_sample <- as.matrix(data_obj$data_gt_y[project_id %in% train_sample_ids, outcome_diff])
+  D_sample <- as.matrix(data_obj$data_gt_d[project_id %in% train_sample_ids, D])
+  
+  data_gt_x_evaluate <- data_obj$data_gt_x[project_id %in% evaluate_sample_ids]
+  X_evaluate <- as.matrix(data_gt_x_evaluate[, !c("time_index", "project_id", "row"), with = FALSE])
+  
+  while (num_valid_trees < tree_min_threshold) {
+    forest_sample <- causal_forest(
+      X = X_sample, Y = Y_sample, W = D_sample, num.trees = num_trees, 
+      tune.parameters = c("mtry", "honesty.fraction", "alpha", "tune.num.trees" = num_trees * 0.2))
+    
+    leaf_nodes_eval_obj <- ExtractLeafNodes(forest_sample, X_evaluate, 1:num_trees)
+    leaf_nodes_eval <- leaf_nodes_eval_obj$leaf_list
+    num_valid_trees <- num_valid_trees + length(leaf_nodes_eval_obj$valid_tree_indices)
+    num_total_trees <- num_total_trees + num_trees
+    forest_list[[length(forest_list) + 1]] <- forest_sample
+  }
+
+  forests_all <- merge_forests(forest_list)
+  leaf_nodes_eval_obj <- ExtractLeafNodes(forests_all, X_evaluate, 1:num_total_trees)
+  forests_X <- ExtractLeafNodes(forests_all, X_space_mat, leaf_nodes_eval_obj$valid_tree_indices, index = FALSE)
+  return(list(leaf_list = leaf_nodes_eval_obj$leaf_list, forests_X = forests_X, forests_all = forests_all))
 }
 
 
@@ -200,88 +252,56 @@ X_space_mat <- as.matrix(X_space[, !c("time_index", "project_id", "row"), with =
 
 t <- 3
 g <- 6
-num_trees <- 20000
+num_trees <- 5000
+tree_min_threshold <- 1000
 
 data_obj <- InputData(data = df_project_departed, g = g, t = t, outcome = outcome)
 data_gt <- data_obj$data_gt
 sample1_ids <- sort(data_obj$sample1_ids)
 sample2_ids <- sort(data_obj$sample2_ids)
-
-tree_min_threshold <- 1000
-
-data_gt_x_sample1 <- data_obj$data_gt_x[project_id %in% sample1_ids]
-X_sample1 <- as.matrix(data_gt_x_sample1[, !c("time_index", "project_id", "row"), with = FALSE])
-Y_sample1 <- as.matrix(data_obj$data_gt_y[project_id %in% sample1_ids, outcome_diff])
-D_sample1 <- as.matrix(data_obj$data_gt_d[project_id %in% sample1_ids, D])
-
-data_gt_x_sample2 <- data_obj$data_gt_x[project_id %in% sample2_ids]
-X_sample2 <- as.matrix(data_gt_x_sample2[, !c("time_index", "project_id", "row"), with = FALSE])
-Y_sample2 <- as.matrix(data_obj$data_gt_y[project_id %in% sample2_ids, outcome_diff])
-D_sample2 <- as.matrix(data_obj$data_gt_d[project_id %in% sample2_ids, D])
-
-
-
-
-
-forest1 <- causal_forest(X = X_sample1, Y = Y_sample1, W = D_sample1, num.trees = num_trees,
-                         tune.parameters = c("mtry", "honesty.fraction", "alpha",
-                                             "tune.num.trees" = num_trees*0.2))
-forest2 <- causal_forest(X = X_sample2, Y = Y_sample2, W = D_sample2, num.trees = num_trees,
-                         tune.parameters = c( "mtry", "honesty.fraction", "alpha",
-                                              "tune.num.trees"= num_trees*0.2))
-
-
-ExtractLeafNodes <- function(forest, X_matrix, tree_indices, index = TRUE) {
-  cl <- makeCluster(num_cores)
-  registerDoParallel(cl)
-  leaf_list <- foreach(i=tree_indices, .packages = "grf") %dopar% {
-    tree <- get_tree(forest, i)
-    if (!tree$nodes[[1]]$is_leaf) {
-      get_leaf_node(tree, X_matrix)
-    }
-  }
-  valid_tree_indices <- tree_indices[!sapply(leaf_list, is.null)]
-  leaf_list <- leaf_list[!sapply(leaf_list, is.null)]
-  stopCluster(cl)
-  if (index) {
-    return(list(leaf_list = leaf_list, valid_tree_indices = valid_tree_indices))
-  } else {
-    return(leaf_list)
-  }
-}
-
-leaf_nodes_sample1_obj <- ExtractLeafNodes(forest2, X_sample1, 1:num_trees)
-leaf_nodes_sample1 <- leaf_nodes_sample1_obj$leaf_list
-leaf_nodes_sample2_obj <- ExtractLeafNodes(forest1, X_sample2, 1:num_trees)
-leaf_nodes_sample2 <- leaf_nodes_sample2_obj$leaf_list
-system.time(forest1_X <- ExtractLeafNodes(forest1, X_space_mat, leaf_nodes_sample2_obj$valid_tree_indices, index = FALSE))
-system.time(forest2_X <- ExtractLeafNodes(forest2, X_space_mat, leaf_nodes_sample1_obj$valid_tree_indices, index = FALSE))
-forest1_numtrees <- length(forest1_X)
-forest2_numtrees <- length(forest2_X)
-
-### MAYBE DO THE ABOVE ITERATIVELY UNTIL I HAVE SOME THRESHOLD NUMBER OF TREES...
-
 gt_obs <- nrow(data_obj$data_gt_x)
 x_obs <- nrow(X_space_mat)
+
+system.time(forest1_X_obj <- MinTreesExtractLeafNodes(train_sample_ids = sample1_ids, evaluate_sample_ids = sample2_ids, 
+                                                  num_trees = num_trees, tree_min_threshold = tree_min_threshold, 
+                                                  X_space_mat = X_space_mat))
+forest1_X <- forest1_X_obj$forests_X
+leaf_nodes_sample2 <- forest1_X_obj$leaf_list
+forest1_cf <- forest1_X_obj$forests_all
+
+system.time(forest2_X_obj <- MinTreesExtractLeafNodes(train_sample_ids = sample2_ids, evaluate_sample_ids = sample1_ids, 
+                                                  num_trees = num_trees, tree_min_threshold = tree_min_threshold, 
+                                                  X_space_mat = X_space_mat))
+forest2_X <- forest2_X_obj$forests_X
+leaf_nodes_sample1 <- forest2_X_obj$leaf_list
+forest2_cf <- forest2_X_obj$forests_all
 
 row_sample1_ids <- ConvertProjectIDToRow(data_gt, t, sample1_ids)
 row_sample2_ids <- ConvertProjectIDToRow(data_gt, t, sample2_ids)
 forest1_numtrees <- length(forest1_X)
 forest2_numtrees <- length(forest2_X)
 
-cat(sprintf("g:%d t:%d forest2_tree_count:%d forest1_tree_count:%d # trees:%d\n",
-            g, t, forest2_numtrees, forest1_numtrees, num_trees))
+cat(sprintf("g:%d t:%d forest2_tree_count:%d forest1_tree_count:%d",
+            g, t, forest2_numtrees, forest1_numtrees))
 
-cl <- makeCluster(num_cores)
+causal_forest_estimation_obj <- list(data_gt = data_gt, forest1_cf = forest1_cf,
+                                     forest2_cf = forest2_cf, sample1_ids = sample1_ids, sample2_ids = sample2_ids)
+saveRDS(causal_forest_estimation_obj, 
+        file = file.path(issue_tempdir, sprintf("g%d_t%d_causal_forest.rds", g, t)))
+
+cl <- makeCluster(num_cores, outfile = "")
 registerDoParallel(cl)
-
-batch_size <- 5
+  
+batch_size <- 10
 total_trees <- max(forest1_numtrees, forest2_numtrees)
 batches <- split(1:total_trees, ceiling(seq_along(1:total_trees) / batch_size))
 
 with_progress({
   p <- progressor(along = batches)
-  matrix_list_vectorized <- foreach(batch = batches, .packages = "Matrix", .combine = 'c') %dopar% {
+  matrix_list_vectorized <- foreach(batch = batches, .packages = "Matrix") %dopar% {
+    print("Getting tree weights for batch")
+    print(batch)
+    
     batch_matrices <- lapply(batch, function(i) {
       GenerateTreeWeights(gt_obs, x_obs, i, row_sample1_ids, row_sample2_ids,
                           leaf_nodes_sample1, leaf_nodes_sample2, forest2_X, forest1_X,
@@ -289,14 +309,16 @@ with_progress({
     })
     sum_batch_matrices <- Reduce(`+`, batch_matrices)
     p()
-    list(sum_batch_matrices)
+    sum_batch_matrices
   }
 })
 
 stopCluster(cl)
 
 sum_M <- Reduce(`+`, matrix_list_vectorized)
-#col_sums <- colSums(sum_M)
-#sum_M@x <- sum_M@x / rep.int(col_sums, diff(sum_M@p))
+col_sums <- colSums(sum_M)
+sum_M@x <- sum_M@x / rep.int(col_sums, diff(sum_M@p))
 
-saveRDS(sum_M, file = file.path(issue_tempdir, sprintf("g%d_t%d_trees%d.rds", g, t, num_trees)))
+#EXPORT 
+saveRDS(sum_M, file = file.path(issue_tempdir, sprintf("g%d_t%d_trees%d_f1_%d_f2_%d.rds", g, t, tree_min_threshold,
+                                                       forest1_numtrees, forest2_numtrees)))
