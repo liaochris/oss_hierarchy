@@ -259,7 +259,7 @@ X_space_mat <- as.matrix(X_space[, !c("time_index", "project_id", "row"), with =
 t <- 3
 g <- 6
 num_trees <- 2000
-tree_min_threshold <- 1000
+tree_min_threshold <- 100
 
 data_obj <- InputData(data = df_project_departed, g = g, t = t, outcome = outcome)
 data_gt <- data_obj$data_gt
@@ -319,11 +319,16 @@ ComputeSparseMatrixBatched <- function(gt_obs, x_obs, row_sample1_ids, row_sampl
       vals_batch <- numeric(0)
       
       for (i in seq.int(start, end)) {
-        leaf_nodes1 <- leaf_nodes_sample1[[i]]
-        forest2_X_i <- forest2_X[[i]]
-        leaf_nodes2 <- leaf_nodes_sample2[[i]]
-        forest1_X_i <- forest1_X[[i]]
-          
+        forest2_X_i <- leaf_nodes1 <- leaf_nodes2 <- forest1_X_i <- NA
+        if (i <= forest2_numtrees) {
+          forest2_X_i <- forest2_X[[i]]
+          leaf_nodes1 <- leaf_nodes_sample1[[i]]
+        }
+        if (i <= forest1_numtrees) {
+          leaf_nodes2 <- leaf_nodes_sample2[[i]]
+          forest1_X_i <- forest1_X[[i]]
+        }
+
         idx_list <- GenerateTreeWeights(i, row_sample1_ids, row_sample2_ids,
                                                leaf_nodes1, leaf_nodes2,
                                                forest2_X_i, forest1_X_i,
