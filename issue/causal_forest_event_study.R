@@ -256,8 +256,9 @@ t_list <- sort(unique(df_project_departed$time_index))
 X_space <- unique(df_project_departed[, .SD, .SDcols = c(org_covars, org_structure, contributor_covars, "time_index", "project_id", "row")])
 X_space_mat <- as.matrix(X_space[, !c("time_index", "project_id", "row"), with = FALSE])
 
-t <- 3
-g <- 6
+args = commandArgs(trailingOnly=TRUE)
+g <- args[1]
+t <- args[2]
 num_trees <- 2000
 tree_min_threshold <- 100
 
