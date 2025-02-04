@@ -39,12 +39,11 @@ df_departed_contributors <- read_parquet(
                                    "_post_period",post_periods,"_threshold_gap_qty_0.parquet")))
 df_project_covariates <- read_parquet(file.path(issue_tempdir, "project_covariates.parquet")) %>%
   mutate(time_period = as.Date(time_period))
+         
 df_contributor_covariates <- read_parquet(file.path(issue_tempdir, "contributor_covariates.parquet")) %>%
   mutate(departed_actor_id = actor_id,
          time_period = as.Date(time_period)) %>%
   select(-actor_id)
-
-
 
 df_departed <- df_departed_contributors %>% 
   filter(year(treatment_period)<2023 & !abandoned_scraped & !abandoned_consecutive_req3_permanentTrue) %>%
@@ -58,6 +57,7 @@ df_departed <- df_departed_contributors %>%
 
 treatment_inelg <- df_departed_contributors %>% 
   filter(repo_name %ni% df_departed$repo_name)
+treatment_elg <- unique(df_departed$repo_name)
 
 df_project <- df_project_outcomes %>%
   filter(year(time_period)<2023 | (year(time_period) == 2023 & month(time_period) == 1)) %>%
@@ -81,6 +81,29 @@ df_project_departed <- df_project_departed %>%
   mutate(project_age = ifelse(smallest_age < 0, NA, project_age)) %>%
   mutate(project_id = dense_rank(repo_name))
 
+df_project_departed <- df_project_departed %>%
+  group_by(repo_name, time_period) %>%
+  mutate(treatment_group = if (any(treatment == 1)) 
+    {min(time_index[treatment == 1])} else {NA}) %>%
+  ungroup()
+
+df_project_departed <- df_project_departed %>%
+  rename(
+    problem_id_layer_contr_pct              = problem_identification_layer_contributor_pct,
+    problem_disc_layer_contr_pct            = problem_discussion_layer_contributor_pct,
+    coding_layer_contr_pct                  = coding_layer_contributor_pct,
+    problem_app_layer_contr_pct             = problem_approval_layer_contributor_pct,
+    problem_id_layer_contr_cnt              = problem_identification_layer_contributor_count,
+    problem_disc_layer_contr_cnt            = problem_discussion_layer_contributor_count,
+    conding_layer_contr_cnt                 = coding_layer_contributor_count,
+    problem_app_layer_contr_cnt             = problem_approval_layer_contributor_count,
+    problem_id_hl_contr_ov        = problem_identification_higher_layer_contributor_overlap,
+    problem_id_hl_work            = problem_identification_higher_layer_work,
+    problem_disc_hl_work          = problem_discussion_higher_layer_work,
+    problem_disc_hl_contr_ov      = problem_discussion_higher_layer_contributor_overlap,
+    coding_hl_contr_ov            = coding_higher_layer_contributor_overlap,
+    pct_coop_commits_100_count              = pct_cooperation_commits_100_count
+  )
 
 all_projects <- df_project_departed %>% pull(repo_name) %>% unique()
 treated_projects <- df_project_departed %>% filter(treatment == 1) %>% pull(repo_name) %>% unique()
@@ -101,6 +124,7 @@ print(paste("Treated Projects:", treated_projects_count))
 # training_data <- df_project_departed %>% filter(repo_name %in% training_projects)
 # testing_data <- df_project_departed %>% filter(repo_name %in% testing_projects)
 
+project_covars <- c("repo_name","time_period","treated_project","treatment","time_index","treatment_group")
 org_covars <- c(
   "stars_accumulated",
   "forks_gained",
@@ -142,8 +166,8 @@ contributor_covars_long <- c(
 
 org_structure <- c(
   "min_layer_count",
-  "problem_discussion_higher_layer_work",
-  "coding_higher_layer_work",
+  "problem_discussion_hl_work",
+  "coding_hl_work",
   "total_HHI",
   "contributors_comments_wt",
   "comments_cooperation_pct"
@@ -152,12 +176,12 @@ org_structure <- c(
 org_structure_long <- c(
   org_structure,
   "layer_count",
-  "problem_identification_layer_contributor_pct",
-  "problem_discussion_layer_contributor_pct",
+  "problem_id_layer_contr_pct",
+  "problem_disc_layer_contr_pct",
   "coding_layer_contributor_pct",
-  "problem_approval_layer_contributor_pct",
-  "problem_discussion_higher_layer_contributor_overlap",
-  "coding_higher_layer_contributor_overlap",
+  "problem_app_layer_contr_pct",
+  "problem_disc_layer_contr_cnt",
+  "coding_hl_contr_ov",
   "problem_identification_HHI",
   "problem_discussion_HHI",
   "coding_HHI",
@@ -165,6 +189,19 @@ org_structure_long <- c(
   "problem_approval_HHI"
 )
 
+
+median_var_list <- c(org_structure[org_structure!="min_layer_count"],
+                     contributor_covars[contributor_covars %ni% c("truckfactor_member","max_rank")])
+
+df_combined <- bind_cols(
+  df_project_departed %>% filter(treatment == 0) %>%
+    summarise(across(all_of(var_list), ~ median(.x, na.rm = TRUE), .names = "{.col}_nyt_med")),
+  df_project_departed %>%
+    filter(treated_project == 1, treatment == 0) %>%
+    summarise(across(all_of(var_list), ~ median(.x, na.rm = TRUE), .names = "{.col}_all_med")))
+
+df_project_departed <- cbind(df_project_departed, df_combined)
+write_dta(df_project_departed, "issue/df_project_departed.dta")
 
 EventStudyAnalysis <- function(df, outcome, post, pre, title, norm_outcome, fillna)  {
   results <- EstimateEventStudy(df, outcome, post, pre, norm_outcome, fillna)
@@ -190,9 +227,7 @@ EstimateEventStudy <- function(df, outcome, post, pre, norm_outcome, fillna) {
                                      idvar = "repo_name",
                                      timevar = "time_index",
                                      post = post,
-                                     pre = pre,
-                                     overidpost = 3,
-                                     overidpre = 3)
+                                     pre = pre)
   return(results)
 }
 
@@ -205,135 +240,19 @@ PlotEventStudy <- function(results, title) {
 }
 
 EventStudyGrid <- function(df,outcome, post, pre, title, fillna = T,
-                           ymin, ymax, num_breaks) {
-  full_samp <- EventStudyAnalysis(df, outcome, post, pre, MakeTitle(title, "Full Sample", df),
+                           ymin, ymax, num_breaks, policyvar) {
+  full_samp <- EventStudyAnalysis(df, outcome, post, pre, MakeTitle(title, "Never-treated", df),
                                   norm_outcome = T, fillna = fillna)
-  df_early <- df %>% filter(time_period <= final_period)
-  early_samp <- EventStudyAnalysis(df_early, outcome, post, pre, MakeTitle(title, "Dropout Sample", df_early),
+  df_nyt <- df %>% filter(treated_project == 1)
+  nyt_samp <- EventStudyAnalysis(df_nyt, outcome, post, pre, MakeTitle(title, "Not-yet treated", df_nyt),
                                    norm_outcome = T, fillna = fillna)
   
-  median_contributors <- 10
-  #df %>% 
-  #filter(time_period < treatment_period | is.na(treatment_period)) %>% 
-  #summarise(median(contributor_count, na.rm = T)) %>% 
-  #pull() + 7
-  # 
-  # mean_sid_all <- df %>% 
-  #   filter(time_period < treatment_period | is.na(treatment_period)) %>% 
-  #   summarise(mean(solve_and_incorporate_and_discuss, na.rm = T)) %>% 
-  #   pull() %>%
-  #   round(2)
-  # 
-  # mean_hhi_all <- 0.5
-  #df %>% 
-  #filter(time_period < treatment_period | is.na(treatment_period)) %>% 
-  #summarise(mean(commits_hhi, na.rm = T)) %>% 
-  #pull() %>%
-  #round(2) - 0.2
-  # 
-  # mean_commits_share_all <- df %>% 
-  #   filter(time_period < treatment_period | is.na(treatment_period)) %>% 
-  #   summarise(mean(commits_share, na.rm = T)) %>% 
-  #   pull() %>%
-  #   round(2) 
-  # 
-  # df_summary <- df %>% group_by(repo_name) %>%
-  #   filter(time_period<treatment_period | is.na(treatment_period)) %>%
-  #   summarise(mean_contributor_count = mean(contributor_count),
-  #             mean_sid = mean(solve_and_incorporate_and_discuss),
-  #             mean_hhi = mean(commits_hhi,na.rm = TRUE),
-  #             mean_commits_share = mean(commits_share,na.rm = TRUE),
-  #             median_contributor_count = median(contributor_count),
-  #             median_sid = median(solve_and_incorporate_and_discuss),
-  #             median_hhi = median(commits_hhi, na.rm = TRUE),
-  #             contributor_count_pre_period = sum(contributor_count * as.numeric(time_period == last_pre_period)),
-  #             sid_pre_period = sum(solve_and_incorporate_and_discuss * as.numeric(time_period == last_pre_period)),
-  #             hhi_pre_period = sum(commits_hhi * as.numeric(time_period == last_pre_period)))
-  # 
-  # 
-  # df <- df %>% 
-  #   left_join(df_summary)
-  # df_big <- df %>% filter(mean_contributor_count>median_contributors)
-  # above_samp <- EventStudyAnalysis(
-  #   df_big, outcome, post, pre, 
-  #   MakeTitle(title, paste0("Mean Size>",median_contributors), df_big),    
-  #   norm_outcome = T, fillna = fillna)
-  # df_small <- df %>% filter(mean_contributor_count<=median_contributors)
-  # below_samp <- EventStudyAnalysis(
-  #   df_small, outcome, post, pre, 
-  #   MakeTitle(title, paste0("Mean Size<=",median_contributors), df_small),
-  #   norm_outcome = T, fillna = fillna)
-  # 
-  # 
-  # df_high_hhi <- df %>% filter(mean_hhi>mean_hhi_all)
-  # high_hhi <- EventStudyAnalysis(
-  #   df_high_hhi, outcome, post, pre, 
-  #   MakeTitle(title, paste0("Mean Commit HHI>",mean_hhi_all), df_high_hhi),
-  #   norm_outcome = T, fillna = fillna)
-  # df_low_hhi <- df %>% filter(mean_hhi<=mean_hhi_all)
-  # low_hhi <- EventStudyAnalysis(
-  #   df_low_hhi, outcome, post, pre, 
-  #   MakeTitle(title, paste0("Mean Commit HHI <=",mean_hhi_all), df_low_hhi),    
-  #   norm_outcome = T, fillna = fillna)
-  # 
-  # df_high_spread <- df %>% filter(mean_sid>mean_sid_all)
-  # high_spread <- EventStudyAnalysis(
-  #   df_high_spread, outcome, post, pre, 
-  #   MakeTitle(title, paste0("Prop. S,I,D>",mean_sid_all), df_high_spread),
-  #   norm_outcome = T, fillna = fillna)
-  # df_low_spread <- df %>% filter(mean_sid<=mean_sid_all)
-  # low_spread <- EventStudyAnalysis(
-  #   df_low_spread, outcome, post, pre, 
-  #   MakeTitle(title, paste0("Prop. S,I,D<=",mean_sid_all), df_low_spread),    
-  #   norm_outcome = T, fillna = fillna)
-  # 
-  # 
-  # df_high_commit_share <- df %>% filter(mean_commits_share>mean_commits_share_all | is.na(mean_commits_share))
-  # high_commit_share <- EventStudyAnalysis(
-  #   df_high_commit_share, outcome, post, pre, 
-  #   MakeTitle(title, paste0("Indiv. Commit Share>",mean_commits_share_all), df_high_commit_share),
-  #   norm_outcome = T, fillna = fillna)
-  # df_low_commit_share <- df %>% filter(mean_commits_share<=mean_commits_share_all | is.na(mean_commits_share))
-  # low_commit_share <- EventStudyAnalysis(
-  #   df_low_commit_share, outcome, post, pre, 
-  #   MakeTitle(title, paste0("Indiv. Commit Share<=",mean_commits_share_all), df_low_commit_share),    
-  #   norm_outcome = T, fillna = fillna)
-  # 
   p1 <- full_samp$plot
-  p2 <- early_samp$plot
-  # p3 <- above_samp$plot
-  # p4 <- below_samp$plot
-  # p5 <- high_spread$plot
-  # p6 <- low_spread$plot
-  # p7 <- high_hhi$plot
-  # p8 <- low_hhi$plot
-  # p9 <- high_commit_share$plot
-  # p10 <- low_commit_share$plot
-  
-  # Update each plot to have the same y-axis limits
+  p2 <- nyt_samp$plot
   p1 <- p1 + scale_y_continuous(breaks = pretty_breaks(n = num_breaks)) + 
     coord_cartesian(ylim = c(ymin, ymax))
   p2 <- p2 + scale_y_continuous(breaks = pretty_breaks(n = num_breaks)) + 
     coord_cartesian(ylim = c(ymin, ymax))
-  # p3 <- p3 + scale_y_continuous(breaks = pretty_breaks(n = num_breaks)) + 
-  #   coord_cartesian(ylim = c(ymin, ymax))
-  # p4 <- p4 + scale_y_continuous(breaks = pretty_breaks(n = num_breaks)) + 
-  #   coord_cartesian(ylim = c(ymin, ymax))
-  # p5 <- p5 + scale_y_continuous(breaks = pretty_breaks(n = num_breaks)) + 
-  #   coord_cartesian(ylim = c(ymin, ymax))
-  # p6 <- p6 + scale_y_continuous(breaks = pretty_breaks(n = num_breaks)) + 
-  #   coord_cartesian(ylim = c(ymin, ymax))
-  # p7 <- p7 + scale_y_continuous(breaks = pretty_breaks(n = num_breaks)) + 
-  #   coord_cartesian(ylim = c(ymin, ymax))
-  # p8 <- p8 + scale_y_continuous(breaks = pretty_breaks(n = num_breaks)) + 
-  #   coord_cartesian(ylim = c(ymin, ymax))
-  # p9 <- p9 + scale_y_continuous(breaks = pretty_breaks(n = num_breaks)) + 
-  #   coord_cartesian(ylim = c(ymin, ymax))
-  # p10 <- p10 + scale_y_continuous(breaks = pretty_breaks(n = num_breaks)) + 
-  #   coord_cartesian(ylim = c(ymin, ymax))
-  # 
-  # plot_grid <- grid.arrange(p1, p3, p5, p7, p9, p2, p4, p6, p8, p10, ncol = 5)
-  # ggsave(plot = plot_grid, filename = file.path(outdir,paste0(outcome,".png")), w = 24, h = 8)
   plot_grid <- grid.arrange(p1, p2, ncol = 2)
 }
 
@@ -345,14 +264,14 @@ MakeTitle <- function(title, title_str, df) {
 }
 
 
-# Problem identification
+
 EventStudyGrid(
-  df_project_departed, "issues_opened", 2, 1,
+  df_project_departed, "issues_opened", 3, 0,
   "Opened Issues ", fillna = T, 
   ymin = -1.5, ymax = 0.75, num_breaks = 5)
 
 EventStudyGrid(
-  df_project_departed, "issue_comments", 2, 1,
+  df_project_departed, "issue_comments", 3, 0,
   "Issue Comments", fillna = T, 
   ymin = -1.5, ymax = 0.75, num_breaks = 5)
 
@@ -360,46 +279,46 @@ df_project_departed <- df_project_departed %>%
   mutate(avg_issue_comments = issue_comments/issues_opened)
 
 a_ic <- EventStudyGrid(
-  df_project_departed, "avg_issue_comments", 2, 1,
+  df_project_departed, "avg_issue_comments", 3, 0,
   "Average Issue Comments", fillna = F, 
   ymin = -.75, ymax = 0.5, num_breaks = 5)
 
 o_ic <- EventStudyGrid(
-  df_project_departed, "own_issue_comments", 2, 1,
+  df_project_departed, "own_issue_comments", 3, 0,
   "Issue Comments (Own)", fillna = T, 
   ymin = -1.5, ymax = 0.75, num_breaks = 5)
 
 # Problem solving - discussion
 h_ic <- EventStudyGrid(
-  df_project_departed, "helping_issue_comments", 2, 1,
+  df_project_departed, "helping_issue_comments", 3, 0,
   "Issue Comments (helping)", fillna = T, 
   ymin = -1.5, ymax = 0.75, num_breaks = 5)
 
 # why is activity particularly elevated???
 pr_c <- EventStudyGrid(
-  df_project_departed, "pr_comments", 2, 1,
+  df_project_departed, "pr_comments", 3, 0,
   "PR Comments", fillna = T, 
   ymin = -1.5, ymax = 0.75, num_breaks = 5)
 
 # Problem solving - code
 opened_prs <- EventStudyGrid(
-  df_project_departed, "prs_opened", 2, 1,
+  df_project_departed, "prs_opened", 3, 0,
   "PRs opened", fillna = T, 
   ymin = -1.5, ymax = 0.75, num_breaks = 5)
 
 commits <- EventStudyGrid(
-  df_project_departed, "commits", 2, 1,
+  df_project_departed, "commits", 3, 0,
   "Commit Count", fillna = T, 
   ymin = -1.5, ymax = 0.75, num_breaks = 5)
 
 # Solution Incorporation
 merged_prs <- EventStudyGrid(
-  df_project_departed, "prs_merged", 2, 1,
+  df_project_departed, "prs_merged", 3, 0,
   "PRs merged", fillna = T, 
   ymin = -1.5, ymax = 0.75, num_breaks = 5)
 
 closed_i <- EventStudyGrid(
-  df_project_departed, "closed_issue", 2, 1,
+  df_project_departed, "closed_issue", 3, 0,
   "Closed Issues", fillna = T, 
   ymin = -1, ymax = 0.5, num_breaks = 5)
 
