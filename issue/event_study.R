@@ -82,7 +82,7 @@ df_project_departed <- df_project_departed %>%
   mutate(project_id = dense_rank(repo_name))
 
 df_project_departed <- df_project_departed %>%
-  group_by(repo_name, time_period) %>%
+  group_by(repo_name) %>%
   mutate(treatment_group = min(treatment*time_index),
          treatment_group = ifelse(treatment_group == 0, NA, treatment_group)) %>%
   ungroup()
