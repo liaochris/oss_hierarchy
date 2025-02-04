@@ -83,8 +83,8 @@ df_project_departed <- df_project_departed %>%
 
 df_project_departed <- df_project_departed %>%
   group_by(repo_name, time_period) %>%
-  mutate(treatment_group = if (any(treatment == 1)) 
-    {min(time_index[treatment == 1])} else {NA}) %>%
+  mutate(treatment_group = min(treatment*time_index),
+         treatment_group = ifelse(treatment_group == 0, NA, treatment_group)) %>%
   ungroup()
 
 df_project_departed <- df_project_departed %>%
@@ -190,7 +190,7 @@ org_structure_long <- c(
   "problem_approval_HHI"
 )
 
-outcomes <- c("issues_opened","issue_comments","avg_issue_comments","own_issue_comments",
+outcomes <- c("issues_opened","issue_comments","own_issue_comments",
               "helping_issue_comments","pr_comments","prs_opened", "commits", "prs_merged",
               "closed_issue")
 
