@@ -100,6 +100,7 @@ df_project_departed <- df_project_departed %>%
     problem_id_hl_contr_ov        = problem_identification_higher_layer_contributor_overlap,
     problem_id_hl_work            = problem_identification_higher_layer_work,
     problem_disc_hl_work          = problem_discussion_higher_layer_work,
+    coding_hl_work = coding_higher_layer_work,
     problem_disc_hl_contr_ov      = problem_discussion_higher_layer_contributor_overlap,
     coding_hl_contr_ov            = coding_higher_layer_contributor_overlap,
     pct_coop_commits_100_count              = pct_cooperation_commits_100_count
@@ -166,7 +167,7 @@ contributor_covars_long <- c(
 
 org_structure <- c(
   "min_layer_count",
-  "problem_discussion_hl_work",
+  "problem_disc_hl_work",
   "coding_hl_work",
   "total_HHI",
   "contributors_comments_wt",
@@ -178,7 +179,7 @@ org_structure_long <- c(
   "layer_count",
   "problem_id_layer_contr_pct",
   "problem_disc_layer_contr_pct",
-  "coding_layer_contributor_pct",
+  "coding_layer_contr_pct",
   "problem_app_layer_contr_pct",
   "problem_disc_layer_contr_cnt",
   "coding_hl_contr_ov",
@@ -189,18 +190,24 @@ org_structure_long <- c(
   "problem_approval_HHI"
 )
 
+outcomes <- c("issues_opened","issue_comments","avg_issue_comments","own_issue_comments",
+              "helping_issue_comments","pr_comments","prs_opened", "commits", "prs_merged",
+              "closed_issue")
+
+
 
 median_var_list <- c(org_structure[org_structure!="min_layer_count"],
                      contributor_covars[contributor_covars %ni% c("truckfactor_member","max_rank")])
 
 df_combined <- bind_cols(
   df_project_departed %>% filter(treatment == 0) %>%
-    summarise(across(all_of(var_list), ~ median(.x, na.rm = TRUE), .names = "{.col}_nyt_med")),
+    summarise(across(all_of(median_var_list), ~ median(.x, na.rm = TRUE), .names = "{.col}_nyt_med")),
   df_project_departed %>%
     filter(treated_project == 1, treatment == 0) %>%
-    summarise(across(all_of(var_list), ~ median(.x, na.rm = TRUE), .names = "{.col}_all_med")))
+    summarise(across(all_of(median_var_list), ~ median(.x, na.rm = TRUE), .names = "{.col}_all_med")))
 
-df_project_departed <- cbind(df_project_departed, df_combined)
+df_project_departed <- cbind(df_project_departed, df_combined) %>%
+  select(all_of(c(project_covars, org_covars_long, org_structure_long, outcomes)))
 write_dta(df_project_departed, "issue/df_project_departed.dta")
 
 EventStudyAnalysis <- function(df, outcome, post, pre, title, norm_outcome, fillna)  {
