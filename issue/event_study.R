@@ -81,11 +81,11 @@ df_project_departed <- df_project_departed %>%
   mutate(project_age = ifelse(smallest_age < 0, NA, project_age)) %>%
   mutate(project_id = dense_rank(repo_name))
 
-df_project_departed <- df_project_departed %>%
+df_treatment_group <- df_project_departed %>%
+  filter(treatment == 1) %>%
   group_by(repo_name) %>%
-  mutate(treatment_group = min(treatment*time_index),
-         treatment_group = ifelse(treatment_group == 0, NA, treatment_group)) %>%
-  ungroup()
+  summarize(treatment_group = min(treatment*time_index))
+df_project_departed <- df_project_departed %>% left_join(df_treatment_group)
 
 df_project_departed <- df_project_departed %>%
   rename(
@@ -103,7 +103,10 @@ df_project_departed <- df_project_departed %>%
     coding_hl_work = coding_higher_layer_work,
     problem_disc_hl_contr_ov      = problem_discussion_higher_layer_contributor_overlap,
     coding_hl_contr_ov            = coding_higher_layer_contributor_overlap,
-    pct_coop_commits_100_count              = pct_cooperation_commits_100_count
+    pct_coop_commits_100_count              = pct_cooperation_commits_100_count,
+    pct_coop_commits_count              = pct_cooperation_commits_count,
+    pct_coop_comments = pct_cooperation_comments,
+    problem_id_HHI = problem_identification_HHI
   )
 
 all_projects <- df_project_departed %>% pull(repo_name) %>% unique()
@@ -149,20 +152,19 @@ contributor_covars <- c(
   "max_rank",
   "total_share",
   "comments_share_avg_wt",
-  "comments_hhi_avg_wt",
-  "pct_cooperation_comments"
-)
-contributor_covars_long <- c(
-  contributor_covars,
-  "contributor_email_educational",
-  "contributor_email_corporate",
   "problem_identification_share",
   "problem_discussion_share",
   "coding_share",
   "problem_approval_share",
-  "comments_share_avg_wt",
   "comments_hhi_avg_wt",
-  "pct_cooperation_comments"
+  "pct_coop_comments",
+  "pct_coop_commits_count"
+)
+
+contributor_covars_long <- c(
+  contributor_covars,
+  "contributor_email_educational",
+  "contributor_email_corporate"
 ) 
 
 org_structure <- c(
@@ -171,7 +173,15 @@ org_structure <- c(
   "coding_hl_work",
   "total_HHI",
   "contributors_comments_wt",
-  "comments_cooperation_pct"
+  "comments_cooperation_pct",
+  "problem_disc_hl_contr_ov",
+  "coding_hl_contr_ov",
+  "problem_id_HHI",
+  "problem_discussion_HHI",
+  "problem_approval_HHI",
+  "coding_HHI",
+  "hhi_comments",
+  "hhi_commits_count"
 )
 
 org_structure_long <- c(
@@ -181,13 +191,7 @@ org_structure_long <- c(
   "problem_disc_layer_contr_pct",
   "coding_layer_contr_pct",
   "problem_app_layer_contr_pct",
-  "problem_disc_layer_contr_cnt",
-  "coding_hl_contr_ov",
-  "problem_identification_HHI",
-  "problem_discussion_HHI",
-  "coding_HHI",
-  "hhi_comments",
-  "problem_approval_HHI"
+  "problem_disc_layer_contr_cnt"
 )
 
 outcomes <- c("issues_opened","issue_comments","own_issue_comments",
@@ -196,228 +200,67 @@ outcomes <- c("issues_opened","issue_comments","own_issue_comments",
 
 
 
-median_var_list <- c(org_structure[org_structure!="min_layer_count"],
+avg_var_list <- c(org_structure,
                      contributor_covars[contributor_covars %ni% c("truckfactor_member","max_rank")])
 
 df_combined <- bind_cols(
-  df_project_departed %>% filter(treatment == 0) %>%
-    summarise(across(all_of(median_var_list), ~ median(.x, na.rm = TRUE), .names = "{.col}_nyt_med")),
+  df_project_departed %>% filter(treated_project == 1 & treatment == 0) %>%
+    summarise(across(all_of(avg_var_list), ~ mean(.x, na.rm = TRUE), .names = "{.col}_nyt_avg")),
   df_project_departed %>%
-    filter(treated_project == 1, treatment == 0) %>%
-    summarise(across(all_of(median_var_list), ~ median(.x, na.rm = TRUE), .names = "{.col}_all_med")))
+    filter(treatment == 0) %>%
+    summarise(across(all_of(avg_var_list), ~ mean(.x, na.rm = TRUE), .names = "{.col}_all_avg")))
+
+for (outcome in outcomes) {
+  norm_outcome <- df_project_departed %>% 
+    filter(time_index < treatment_group) %>% 
+    summarise(mean(get(outcome), na.rm = T)) %>% 
+    pull()
+  df_project_departed[[outcome]] <- df_project_departed[[outcome]]/norm_outcome
+}
 
 df_project_departed <- cbind(df_project_departed, df_combined) %>%
-  select(all_of(c(project_covars, org_covars_long, org_structure_long, outcomes)))
-write_dta(df_project_departed, "issue/df_project_departed.dta")
+  select(all_of(c(project_covars, contributor_covars_long, org_covars_long, org_structure_long, outcomes,
+                  paste0(avg_var_list,"_nyt_avg"))))
 
-EventStudyAnalysis <- function(df, outcome, post, pre, title, norm_outcome, fillna)  {
-  results <- EstimateEventStudy(df, outcome, post, pre, norm_outcome, fillna)
-  plot <- PlotEventStudy(results, title)
-  return(list(plot = plot, results = results))
-}
+make_bins <- c("total_share","comments_hhi_avg_wt","pct_coop_comments","pct_coop_commits_count",
+               "min_layer_count","problem_disc_hl_contr_ov","coding_hl_contr_ov","problem_disc_hl_work",
+               "coding_hl_work","total_HHI","problem_discussion_HHI","coding_HHI","problem_approval_HHI",
+               "hhi_comments","hhi_commits_count", "contributors", "problem_identification_share",
+               "problem_discussion_share", "coding_share","problem_approval_share")
 
-EstimateEventStudy <- function(df, outcome, post, pre, norm_outcome, fillna) {
-  if (fillna == T) {
-    df[[outcome]] <- ifelse(is.na(df[[outcome]]), 0,  df[[outcome]])
-  }
-  if (norm_outcome == T) {
-    norm_outcome <- df %>% 
-      filter(time_period <= last_pre_period) %>% 
-      summarise(mean(get(outcome), na.rm = T)) %>% 
-      pull()
-    df[[outcome]] <- df[[outcome]]/norm_outcome
-  }
-  results <- eventstudyr::EventStudy(estimator = "OLS",
-                                     data = df,
-                                     outcomevar = outcome,
-                                     policyvar = "treatment",
-                                     idvar = "repo_name",
-                                     timevar = "time_index",
-                                     post = post,
-                                     pre = pre)
-  return(results)
-}
+df_bin2 <- df_project_departed %>%
+  filter(time_index >= treatment_group - 2 & time_index < treatment_group) %>%
+  group_by(repo_name) %>%
+  summarize(across(all_of(make_bins), list(
+           bin_2 = ~ if_else(mean(.x, na.rm=TRUE) > get(paste0(cur_column(), "_nyt_avg")), 1, 0)
+         ), .names = "{.col}_{.fn}")) %>%
+  unique()
+df_bin3 <- df_project_departed %>%
+  filter(time_index >= treatment_group - 3 & time_index < treatment_group) %>%
+  group_by(repo_name) %>%
+  summarize(across(all_of(make_bins), list(
+    bin_3 = ~ if_else(mean(.x, na.rm=TRUE) > get(paste0(cur_column(), "_nyt_avg")), 1, 0)
+  ), .names = "{.col}_{.fn}")) %>%
+  unique()
+df_project_departed <- df_project_departed %>% left_join(df_bin2) %>% left_join(df_bin3)
 
-PlotEventStudy <- function(results, title) {
-  plot <- EventStudyPlot(estimates = results,
-                         ytitle = "Coefficient",
-                         xtitle = "Event time") + 
-    ggtitle(label = title)
-  return(plot)
-}
-
-EventStudyGrid <- function(df,outcome, post, pre, title, fillna = T,
-                           ymin, ymax, num_breaks, policyvar) {
-  full_samp <- EventStudyAnalysis(df, outcome, post, pre, MakeTitle(title, "Never-treated", df),
-                                  norm_outcome = T, fillna = fillna)
-  df_nyt <- df %>% filter(treated_project == 1)
-  nyt_samp <- EventStudyAnalysis(df_nyt, outcome, post, pre, MakeTitle(title, "Not-yet treated", df_nyt),
-                                   norm_outcome = T, fillna = fillna)
-  
-  p1 <- full_samp$plot
-  p2 <- nyt_samp$plot
-  p1 <- p1 + scale_y_continuous(breaks = pretty_breaks(n = num_breaks)) + 
-    coord_cartesian(ylim = c(ymin, ymax))
-  p2 <- p2 + scale_y_continuous(breaks = pretty_breaks(n = num_breaks)) + 
-    coord_cartesian(ylim = c(ymin, ymax))
-  plot_grid <- grid.arrange(p1, p2, ncol = 2)
-}
-
-MakeTitle <- function(title, title_str, df) {
-  full_title_str <- paste(title, paste0("(",title_str,")"), 
-                          "\n",dim(df)[1],"obs, PC:",length(unique(df$repo_name)),
-                          "T:",length(unique(df[df$treatment==1,]$repo_name)))
-  return(full_title_str)
-}
+df_project_departed %>%
+  write_dta("issue/df_project_departed.dta")
 
 
+summarized_share_situation <- summarized_data <- df_project_departed %>%
+  filter(time_index >= (treatment_group - 2) & time_index < treatment_group) %>%
+  group_by(total_share_bin_2) %>%
+  summarize(across(c(project_age, contributors, commits, min_layer_count, treatment_group),
+                   ~ mean(.x, na.rm = TRUE), .names = "avg_{.col}")) %>%
+  arrange(total_share_bin_2)
 
-EventStudyGrid(
-  df_project_departed, "issues_opened", 3, 0,
-  "Opened Issues ", fillna = T, 
-  ymin = -1.5, ymax = 0.75, num_breaks = 5)
+kable_output <- summarized_data %>%
+  mutate(across(starts_with("avg_"), ~ round(.x, 1)) ) %>%
+  kable(caption = "Summary of Projects by Share Bin", 
+        col.names = c("Above Avg. Total Share", "Average Project Age", "Average Contributors", "Average Commits", "Average Layers", "Average Treatment Date"),
+        format = "html", table.attr = "style='width:50%;'") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE, position = "left")
 
-EventStudyGrid(
-  df_project_departed, "issue_comments", 3, 0,
-  "Issue Comments", fillna = T, 
-  ymin = -1.5, ymax = 0.75, num_breaks = 5)
-
-df_project_departed <- df_project_departed %>%
-  mutate(avg_issue_comments = issue_comments/issues_opened)
-
-a_ic <- EventStudyGrid(
-  df_project_departed, "avg_issue_comments", 3, 0,
-  "Average Issue Comments", fillna = F, 
-  ymin = -.75, ymax = 0.5, num_breaks = 5)
-
-o_ic <- EventStudyGrid(
-  df_project_departed, "own_issue_comments", 3, 0,
-  "Issue Comments (Own)", fillna = T, 
-  ymin = -1.5, ymax = 0.75, num_breaks = 5)
-
-# Problem solving - discussion
-h_ic <- EventStudyGrid(
-  df_project_departed, "helping_issue_comments", 3, 0,
-  "Issue Comments (helping)", fillna = T, 
-  ymin = -1.5, ymax = 0.75, num_breaks = 5)
-
-# why is activity particularly elevated???
-pr_c <- EventStudyGrid(
-  df_project_departed, "pr_comments", 3, 0,
-  "PR Comments", fillna = T, 
-  ymin = -1.5, ymax = 0.75, num_breaks = 5)
-
-# Problem solving - code
-opened_prs <- EventStudyGrid(
-  df_project_departed, "prs_opened", 3, 0,
-  "PRs opened", fillna = T, 
-  ymin = -1.5, ymax = 0.75, num_breaks = 5)
-
-commits <- EventStudyGrid(
-  df_project_departed, "commits", 3, 0,
-  "Commit Count", fillna = T, 
-  ymin = -1.5, ymax = 0.75, num_breaks = 5)
-
-# Solution Incorporation
-merged_prs <- EventStudyGrid(
-  df_project_departed, "prs_merged", 3, 0,
-  "PRs merged", fillna = T, 
-  ymin = -1.5, ymax = 0.75, num_breaks = 5)
-
-closed_i <- EventStudyGrid(
-  df_project_departed, "closed_issue", 3, 0,
-  "Closed Issues", fillna = T, 
-  ymin = -1, ymax = 0.5, num_breaks = 5)
-
-
-EventStudyAnalysis <- function(df, outcome, post, pre, title, norm_outcome, fillna)  {
-  results <- EstimateEventStudy(df, outcome, post, pre, norm_outcome, fillna)
-  plot <- PlotEventStudy(results, title)
-  return(list(plot = plot, results = results))
-}
-
-
-
-
-RandomTreatmentTime <- function(df, outcome_list, post, pre, fillna) {
-  df_random_time <- df %>% filter(treated_project == 1) %>%
-    group_by(repo_name) %>%
-    slice_sample(n = 1) %>%
-    select(time_period) %>%
-    rename(last_pre_period = time_period)
-  
-  df_random_treatment_time <- df %>% filter(treated_project == 1) %>%
-    select(-last_pre_period) %>% 
-    left_join(df_random_time) %>%
-    mutate(treatment = ifelse(time_period > last_pre_period, 1, 0))
-  
-  df_random <- rbind(df_random_treatment_time, df %>% filter(treated_project == 0))
-  
-  bal_samp_list <- list()
-  for (outcome in outcome_list) {
-    bal_samp <- EstimateEventStudy(df_random, outcome, post, pre, norm_outcome = T, fillna = fillna)
-    bal_samp_coefs <- bal_samp$output$coefficients
-    bal_samp_list[[length(bal_samp_list)+1]] <- bal_samp_coefs
-  }
-  df_bal_samp <- data.frame(do.call(rbind, bal_samp_list))
-  df_bal_samp$outcome <- outcome_list
-  
-  return(df_bal_samp)
-}
-
-SummaryPermutedTreatmentTime <- function(df, outcome_list, post, pre, fillna, iter) {
-  random_coefs <- foreach(i=1:iter, .combine = "rbind", .packages = c("dplyr"),
-                          .export = c("RandomTreatmentTime", "EstimateEventStudy")) %dopar% {
-                            RandomTreatmentTime(df, outcome_list, post, pre, fillna)
-                          }
-  random_coefs <- data.frame(random_coefs)
-  val_cols <- colnames(random_coefs)[colnames(random_coefs) != "outcome"]
-  random_coefs_summ_mean <- random_coefs %>% group_by(outcome) %>%
-    summarise_at(val_cols, mean)
-  random_coefs_summ_ci_lb <- random_coefs %>% group_by(outcome) %>%
-    summarise_at(val_cols, function (x) quantile(x, 0.025))
-  random_coefs_summ_ci_ub <- random_coefs %>% group_by(outcome) %>%
-    summarise_at(val_cols, function (x) quantile(x, 0.975))
-  random_coefs_summ_ci_sd <- random_coefs %>% group_by(outcome) %>%
-    summarise_at(val_cols, sd)
-  
-  random_coefs_summ_list <- list()
-  for (outcome_var in outcome_list) {
-    random_coefs_summ <- rbind(random_coefs_summ_mean %>% filter(outcome == outcome_var) %>% as.numeric(),
-                               random_coefs_summ_ci_lb %>% filter(outcome == outcome_var) %>% as.numeric(),
-                               random_coefs_summ_ci_ub %>% filter(outcome == outcome_var) %>% as.numeric(),
-                               random_coefs_summ_ci_sd %>% filter(outcome == outcome_var) %>% as.numeric())
-    random_coefs_summ <- t(random_coefs_summ)[-1,]
-    colnames(random_coefs_summ) <- c("mean", "LB", "UB", "sd")
-    random_coefs_summ_list[[outcome_var]] <- random_coefs_summ
-  }
-  return(random_coefs_summ_list)
-}
-
-PlotPermutedTreatmentTime <- function(random_summ, title) {
-  xlabels <- c("-5+", -4:2, "3+") 
-  names(xlabels) <- -5:3
-  
-  random_plot <- rbind(data.frame(random_summ) %>% mutate(index = c(-5, -4, -3, -1, 0, 1, 2, 3)),
-                       treatment_fd_lead2 = c(0, 0, 0,0, -2)) %>%
-    arrange(index) %>%
-    ggplot(aes(x = index, y = mean)) +
-    geom_point(color = "darkgreen") + 
-    geom_linerange(aes(ymin=LB, ymax=UB), colour="black") +
-    geom_errorbar(aes(ymin=mean-1.96*sd, ymax=mean+1.96*sd), colour="black", width=.1) +
-    geom_hline(yintercept = 0, linetype = 'dashed', color = 'green') +
-    labs(title = title, x = "Event time", y = "Coefficient") +
-    theme_bw() + 
-    theme(panel.grid.minor = element_blank(), 
-          panel.grid.major = element_blank(), axis.line = element_line(colour = "black"),
-          panel.border = element_rect(colour = "black", fill=NA)) + 
-    scale_x_continuous(breaks = -5:3, labels = xlabels)
-  
-  return(random_plot)
-}
-
-df_random_summ <- SummaryPermutedTreatmentTime(
-  df_project_departed, c("issue_comments","opened_issues","closed_issues","opened_prs","merged_prs"), 2, 1, T, 100) 
-
-PlotPermutedTreatmentTime(df_random_summ$opened_issues, "# of issues opened that period")
-PlotPermutedTreatmentTime(df_random_summ$issue_comments, "Issue Comments on Opened Issues")
+df_project_departed
+df_project_departed %>% filter(time_period == final_period)
