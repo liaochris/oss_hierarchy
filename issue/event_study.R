@@ -36,7 +36,8 @@ df_project_outcomes <- read_parquet(file.path(indir, paste0("project_outcomes_ma
 df_departed_contributors <- read_parquet(
   file.path(indir_departed, paste0("filtered_departed_contributors_major_months",time_period,"_window",
                                    rolling_window,"D_criteria_commits_",criteria_pct,"pct_consecutive",consecutive_periods,
-                                   "_post_period",post_periods,"_threshold_gap_qty_0.parquet")))
+                                   "_post_period",post_periods,"_threshold_gap_qty_0.parquet")))  %>% 
+  filter(present_one_after == 0)
 df_project_covariates <- read_parquet(file.path(issue_tempdir, "project_covariates.parquet")) %>%
   mutate(time_period = as.Date(time_period))
          
@@ -106,7 +107,9 @@ df_project_departed <- df_project_departed %>%
     pct_coop_commits_100_count              = pct_cooperation_commits_100_count,
     pct_coop_commits_count              = pct_cooperation_commits_count,
     pct_coop_comments = pct_cooperation_comments,
-    problem_id_HHI = problem_identification_HHI
+    problem_id_HHI = problem_identification_HHI,
+    problem_id_share = problem_identification_share,
+    problem_disc_share = problem_discussion_share
   )
 
 all_projects <- df_project_departed %>% pull(repo_name) %>% unique()
@@ -128,7 +131,7 @@ print(paste("Treated Projects:", treated_projects_count))
 # training_data <- df_project_departed %>% filter(repo_name %in% training_projects)
 # testing_data <- df_project_departed %>% filter(repo_name %in% testing_projects)
 
-project_covars <- c("repo_name","time_period","treated_project","treatment","time_index","treatment_group")
+project_covars <- c("repo_name","time_period","treated_project","treatment","time_index","treatment_group","departed_actor_id")
 org_covars <- c(
   "stars_accumulated",
   "forks_gained",
@@ -152,8 +155,8 @@ contributor_covars <- c(
   "max_rank",
   "total_share",
   "comments_share_avg_wt",
-  "problem_identification_share",
-  "problem_discussion_share",
+  "problem_id_share",
+  "problem_disc_share",
   "coding_share",
   "problem_approval_share",
   "comments_hhi_avg_wt",
@@ -201,22 +204,15 @@ outcomes <- c("issues_opened","issue_comments","own_issue_comments",
 
 
 avg_var_list <- c(org_structure,
-                     contributor_covars[contributor_covars %ni% c("truckfactor_member","max_rank")])
+                     contributor_covars[contributor_covars %ni% c("truckfactor_member","max_rank")],
+                  "contributors")
 
 df_combined <- bind_cols(
-  df_project_departed %>% filter(treated_project == 1 & treatment == 0) %>%
+  df_project_departed %>% filter(treated_project == 1 & treatment == 0 & time_index >= treatment_group - 2 & time_index < treatment_group) %>%
     summarise(across(all_of(avg_var_list), ~ mean(.x, na.rm = TRUE), .names = "{.col}_nyt_avg")),
   df_project_departed %>%
     filter(treatment == 0) %>%
     summarise(across(all_of(avg_var_list), ~ mean(.x, na.rm = TRUE), .names = "{.col}_all_avg")))
-
-for (outcome in outcomes) {
-  norm_outcome <- df_project_departed %>% 
-    filter(time_index < treatment_group) %>% 
-    summarise(mean(get(outcome), na.rm = T)) %>% 
-    pull()
-  df_project_departed[[outcome]] <- df_project_departed[[outcome]]/norm_outcome
-}
 
 df_project_departed <- cbind(df_project_departed, df_combined) %>%
   select(all_of(c(project_covars, contributor_covars_long, org_covars_long, org_structure_long, outcomes,
@@ -225,8 +221,9 @@ df_project_departed <- cbind(df_project_departed, df_combined) %>%
 make_bins <- c("total_share","comments_hhi_avg_wt","pct_coop_comments","pct_coop_commits_count",
                "min_layer_count","problem_disc_hl_contr_ov","coding_hl_contr_ov","problem_disc_hl_work",
                "coding_hl_work","total_HHI","problem_discussion_HHI","coding_HHI","problem_approval_HHI",
-               "hhi_comments","hhi_commits_count", "contributors", "problem_identification_share",
-               "problem_discussion_share", "coding_share","problem_approval_share")
+               "hhi_comments","hhi_commits_count", "contributors", "problem_id_share",
+               "problem_disc_share", "coding_share","problem_approval_share",
+               "comments_cooperation_pct", "contributors_comments_wt","comments_share_avg_wt")
 
 df_bin2 <- df_project_departed %>%
   filter(time_index >= treatment_group - 2 & time_index < treatment_group) %>%
@@ -244,23 +241,24 @@ df_bin3 <- df_project_departed %>%
   unique()
 df_project_departed <- df_project_departed %>% left_join(df_bin2) %>% left_join(df_bin3)
 
-df_project_departed %>%
+df_project_departed %>% filter(treated_project == 1) %>%
   write_dta("issue/df_project_departed.dta")
+
+df_project_departed %>% filter(treated_project == 1) %>%
+  write_parquet("issue/df_project_departed.parquet")
 
 
 summarized_share_situation <- summarized_data <- df_project_departed %>%
   filter(time_index >= (treatment_group - 2) & time_index < treatment_group) %>%
   group_by(total_share_bin_2) %>%
-  summarize(across(c(project_age, contributors, commits, min_layer_count, treatment_group),
+  summarize(across(c(project_age, contributors, prs_opened, min_layer_count, treatment_group),
                    ~ mean(.x, na.rm = TRUE), .names = "avg_{.col}")) %>%
   arrange(total_share_bin_2)
 
 kable_output <- summarized_data %>%
   mutate(across(starts_with("avg_"), ~ round(.x, 1)) ) %>%
   kable(caption = "Summary of Projects by Share Bin", 
-        col.names = c("Above Avg. Total Share", "Average Project Age", "Average Contributors", "Average Commits", "Average Layers", "Average Treatment Date"),
+        col.names = c("Above Avg. Total Share", "Average Project Age", "Average Contributors", "Average PRs", "Average Layers", "Average Treatment Date"),
         format = "html", table.attr = "style='width:50%;'") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE, position = "left")
 
-df_project_departed
-df_project_departed %>% filter(time_period == final_period)
