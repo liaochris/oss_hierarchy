@@ -175,6 +175,12 @@ df_bin3 <- df_project_departed %>%
   unique()
 df_project_departed <- df_project_departed %>% left_join(df_bin2) %>% left_join(df_bin3)
 
+NormalizeOutcome <- function(df, outcome, outcome_norm) {
+  pretreatment_mean <- df %>% filter(time_index < treatment_group) %>% 
+    summarize(mean(get(outcome))) %>% pull()
+  df[[outcome_norm]] <- df[[outcome]]/pretreatment_mean
+  return(df)
+}
 
 GenerateEventStudyGrids <- function(df, outcomes, bin_vars, post, pre, fillna = T, plots_per_grid = 8, num_breaks) {
   bins_per_grid <- (plots_per_grid - 2) / 2  
@@ -185,13 +191,15 @@ GenerateEventStudyGrids <- function(df, outcomes, bin_vars, post, pre, fillna = 
     print(outcome)
     outdir_outcome <- file.path(outdir, outcome)
     dir.create(outdir_outcome)
+    outcome_norm <- paste0(outcome,"_norm")
     
     if (fillna == T) {
       df[[outcome]] <- ifelse(is.na(df[[outcome]]), 0,  df[[outcome]])
     }
-    full_samp <- EventStudyAnalysis(df, outcome, post, pre, MakeTitle(outcome, paste0(outcome, " - Full Sample"), df))
-    df_early <- df %>% filter(time_period <= final_period)
-    early_samp <- EventStudyAnalysis(df_early, outcome, post, pre, MakeTitle(outcome, paste0(outcome, " - Dropout Sample"), df_early))
+    df <- NormalizeOutcome(df, outcome, outcome_norm)
+    full_samp <- EventStudyAnalysis(df, outcome_norm, post, pre, MakeTitle(outcome, paste0(outcome, " - Full Sample"), df))
+    df_early <- NormalizeOutcome(df %>% filter(time_period <= final_period), outcome, outcome_norm)
+    early_samp <- EventStudyAnalysis(df_early, outcome_norm, post, pre, MakeTitle(outcome, paste0(outcome, " - Dropout Sample"), df_early))
     
 
 
@@ -209,12 +217,13 @@ GenerateEventStudyGrids <- function(df, outcomes, bin_vars, post, pre, fillna = 
       
       counter <- 3
       for (bin_var in subset_bins) {
-
-        df_high <- df %>% filter(get(paste0(bin_var, "_bin_2")) == 1) 
-        df_low <- df %>% filter(get(paste0(bin_var, "_bin_2")) == 0)
         
-        high_bin <- EventStudyAnalysis(df_high, outcome, post, pre, MakeTitle(outcome, paste0(bin_var, " > mean"), df_high))
-        low_bin <- EventStudyAnalysis(df_low, outcome, post, pre, MakeTitle(outcome, paste0(bin_var, " <= mean"), df_low))
+        
+        df_high <- NormalizeOutcome(df %>% filter(get(paste0(bin_var, "_bin_2")) == 1), outcome, outcome_norm)
+        df_low <- NormalizeOutcome(df %>% filter(get(paste0(bin_var, "_bin_2")) == 0), outcome, outcome_norm)
+        
+        high_bin <- EventStudyAnalysis(df_high, outcome_norm, post, pre, MakeTitle(outcome, paste0(bin_var, " > mean"), df_high))
+        low_bin <- EventStudyAnalysis(df_low, outcome_norm, post, pre, MakeTitle(outcome, paste0(bin_var, " <= mean"), df_low))
         plot_list[[which(desired_order==counter+1)]] <- low_bin$plot
         
         add_layer <- low_bin$plot$layers[[3]]
