@@ -9,6 +9,7 @@ library(data.table)
 library(grid)
 library(arrow)
 library(scales)
+library(grf)
 
 set.seed(1234)
 cl <- parallel::makeCluster(6)
