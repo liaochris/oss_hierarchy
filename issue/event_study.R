@@ -183,7 +183,7 @@ NormalizeOutcome <- function(df, outcome, outcome_norm) {
 }
 
 GenerateEventStudyGrids <- function(df, outcomes, bin_vars, post, pre, fillna = T, plots_per_grid = 8, num_breaks) {
-  bins_per_grid <- (plots_per_grid - 2) / 2  
+  bins_per_grid <- (plots_per_grid - 2) 
   total_bins <- length(bin_vars)  
   num_grids <- ceiling(total_bins / bins_per_grid)  
   
@@ -224,17 +224,55 @@ GenerateEventStudyGrids <- function(df, outcomes, bin_vars, post, pre, fillna = 
         
         high_bin <- EventStudyAnalysis(df_high, outcome_norm, post, pre, MakeTitle(outcome, paste0(bin_var, " > mean"), df_high))
         low_bin <- EventStudyAnalysis(df_low, outcome_norm, post, pre, MakeTitle(outcome, paste0(bin_var, " <= mean"), df_low))
-        plot_list[[which(desired_order==counter+1)]] <- low_bin$plot
         
-        add_layer <- low_bin$plot$layers[[3]]
-        add_layer$aes_params$color <- "blue"
-        add_layer$data$label_num <- add_layer$data$label_num +0.2
+        df_plot <- rbind(
+          tidy(high_bin$results$output) %>% mutate(group = paste(bin_var, "> mean")),
+          tidy(low_bin$results$output) %>% mutate(group = paste(bin_var, "<= mean"))
+        ) %>%
+          mutate(event_time = case_when(
+            term == "treatment_lead3" ~ -4,  # Ensure lead3 maps to -4
+            str_detect(term, "lead") ~ -as.numeric(str_extract(term, "\\d+")),
+            term == "treatment_fd" ~ 0,
+            str_detect(term, "lag") ~ as.numeric(str_extract(term, "\\d+"))
+          )) %>%
+          mutate(event_time_label = case_when(
+            event_time == min(event_time) ~ paste0(event_time, "+"),
+            event_time == max(event_time) ~ paste0(event_time, "+"),
+            TRUE ~ as.character(event_time)
+          ))
+        df_plot <- data.table::rbindlist(list(df_plot, 
+                                              data.frame(list(estimate = 0, event_time = -1, event_time_label = "-1"))), 
+                                         fill = T)
+        ggplot(df_plot, aes(x = event_time, y = estimate, color = group)) +
+          geom_pointrange(aes(ymin = conf.low, ymax = conf.high), 
+                          position = position_dodge(width = 0.5)) +
+          geom_errorbar(aes(ymin = estimate - 1.96 * std.error, ymax = estimate + 1.96 * std.error), 
+                        width = 0.2, size = 1, position = position_dodge(width = 0.5)) +
+          geom_hline(yintercept = 0, linetype = "dashed", color = "green") + 
+          labs(
+            x = "Event time",
+            y = "Coefficient",
+            caption = paste0("Large ", bin_var, " (", length(unique(df_high$repo_name)), " projects): ", high_bin$plot$labels$caption, "\n",
+                             "Small ", bin_var, " (", length(unique(df_low$repo_name)), " projects): ", low_bin$plot$labels$caption) 
+          ) +
+          theme_minimal() +
+          theme(legend.title = element_blank()) + 
+          labs(
+            title = outcome,  # Title is now the outcome variable
+            x = "Event time",
+            y = "Coefficient",
+            caption = paste0(
+              "Large ", bin_var, " (", length(unique(df_high$repo_name)), " projects): ", high_bin$plot$labels$caption, "\n",
+              "Small ", bin_var, " (", length(unique(df_low$repo_name)), " projects): ", low_bin$plot$labels$caption
+            ) 
+          ) +
+          theme_minimal() +
+          theme(
+            legend.title = element_blank(),
+            plot.caption = element_text(hjust = 0)  # Left-align caption
+          )
         
-        add_layer2 <- low_bin$plot$layers[[2]]
-        add_layer2$aes_params$color <- "blue"
-        add_layer2$data$label_num <- add_layer2$data$label_num +0.2
-        plot_list[[which(desired_order==counter)]] <- high_bin$plot + add_layer + add_layer2
-        counter <- counter+2
+        
       }
       plot_list <- AdjustYScaleByRow(plot_list)
       final_plot <- grid.arrange(grobs = plot_list, ncol = 2)
