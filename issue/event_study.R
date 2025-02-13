@@ -284,7 +284,7 @@ GenerateEventStudyGrids <- function(df, outcomes, bin_vars, post, pre, fillna = 
       final_plot <- grid.arrange(grobs = plot_list, ncol = 1)
       
       # Save grid plot separately
-      ggsave(plot = final_plot, filename = file.path(outdir_outcome, paste0(outcome, "_Grid_", i, ".png")), width = 10, height = 16)
+      ggsave(plot = final_plot, filename = file.path(outdir_outcome, paste0(outcome, "_Grid_", i, ".png")), width = 6, height = 16)
     }
   }
 }
