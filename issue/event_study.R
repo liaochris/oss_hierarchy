@@ -176,6 +176,11 @@ df_bin3 <- df_project_departed %>%
 df_project_departed <- df_project_departed %>% left_join(df_bin2) %>% left_join(df_bin3)
 
 
+for (outcome in outcomes) {
+  new_col <- paste0("avg_", outcome) 
+  df_project_departed[[new_col]] <- df_project_departed[[outcome]] / df_project_departed$contributors
+}
+outcomes <- c(outcomes, paste0("avg_", outcomes))
 
 NormalizeOutcome <- function(df, outcome, outcome_norm) {
   pretreatment_mean <- df %>% filter(time_index < treatment_group) %>% 
@@ -184,7 +189,7 @@ NormalizeOutcome <- function(df, outcome, outcome_norm) {
   return(df)
 }
 
-GenerateEventStudyGrids <- function(df, outcomes, bin_vars, post, pre, fillna = T, plots_per_grid = 8, num_breaks) {
+GenerateEventStudyGrids <- function(df, outcomes, bin_vars, post, pre, fillna = T, plots_per_grid = 5, num_breaks) {
   bins_per_grid <- (plots_per_grid - 2) 
   total_bins <- length(bin_vars)  
   num_grids <- ceiling(total_bins / bins_per_grid)  
@@ -276,7 +281,7 @@ GenerateEventStudyGrids <- function(df, outcomes, bin_vars, post, pre, fillna = 
         counter <- counter+1
       }
       plot_list <- AdjustYScaleByRow(plot_list)
-      final_plot <- grid.arrange(grobs = plot_list, ncol = 2)
+      final_plot <- grid.arrange(grobs = plot_list, ncol = 1)
       
       # Save grid plot separately
       ggsave(plot = final_plot, filename = file.path(outdir_outcome, paste0(outcome, "_Grid_", i, ".png")), width = 16, height = 20)
