@@ -23,7 +23,7 @@ registerDoParallel(cl)
 indir <- "drive/output/derived/project_outcomes"
 indir_departed <- "drive/output/derived/contributor_stats/filtered_departed_contributors"
 issue_tempdir <- "issue"
-outdir <- "issue/event_study"
+outdir <- "issue/event_study/linear_panel"
 
 time_period <- 6
 rolling_window <- 732
@@ -123,89 +123,31 @@ print(paste("Project Count:", length(all_projects)))
 print(paste("Control Projects:", control_projects_count))
 print(paste("Treated Projects:", treated_projects_count))
 
-# training_projects <- 
-#   c(sample(treated_projects, size = floor(treated_projects_count/2)), 
-#     sample(control_projects, size = floor(control_projects_count/2)))
-# testing_projects <- all_projects[all_projects %ni% training_projects]
-# 
-# training_data <- df_project_departed %>% filter(repo_name %in% training_projects)
-# testing_data <- df_project_departed %>% filter(repo_name %in% testing_projects)
+project_covars <- c("repo_name","time_period","treated_project","treatment",
+                    "time_index","treatment_group","departed_actor_id", "final_period")
 
-project_covars <- c("repo_name","time_period","treated_project","treatment","time_index","treatment_group","departed_actor_id")
-org_covars <- c(
-  "stars_accumulated",
-  "forks_gained",
-  "truckfactor",
-  "contributors",
-  "org_status",
-  "project_age"
-)
-org_covars_long <- c(
-  org_covars, 
-  "corporate_pct",
-  "educational_pct",
-  "apache_software_license",
-  "bsd_license",
-  "gnu_general_public_license",
-  "mit_license"
-)
+org_covars <- c("stars_accumulated", "forks_gained", "truckfactor", "contributors", "org_status", "project_age")
+org_covars_long <- c(org_covars, "corporate_pct", "educational_pct", "apache_software_license", "bsd_license",
+                     "gnu_general_public_license", "mit_license")
+contributor_covars <- c("truckfactor_member", "max_rank", "total_share", "comments_share_avg_wt", "problem_id_share", 
+                        "problem_disc_share", "coding_share", "problem_approval_share", "comments_hhi_avg_wt", "pct_coop_comments", "pct_coop_commits_count")
+contributor_covars_long <- c(contributor_covars, "contributor_email_educational", "contributor_email_corporate")
+org_structure <- c("min_layer_count", "problem_disc_hl_work", "coding_hl_work", "total_HHI", "contributors_comments_wt",
+                   "comments_cooperation_pct", "problem_disc_hl_contr_ov", "coding_hl_contr_ov", "problem_id_HHI", "problem_discussion_HHI",
+                   "problem_approval_HHI", "coding_HHI", "hhi_comments", "hhi_commits_count")
+org_structure_long <- c(org_structure, "layer_count", "problem_id_layer_contr_pct", "problem_disc_layer_contr_pct", 
+                        "coding_layer_contr_pct", "problem_app_layer_contr_pct", "problem_disc_layer_contr_cnt")
 
-contributor_covars <- c(
-  "truckfactor_member",
-  "max_rank",
-  "total_share",
-  "comments_share_avg_wt",
-  "problem_id_share",
-  "problem_disc_share",
-  "coding_share",
-  "problem_approval_share",
-  "comments_hhi_avg_wt",
-  "pct_coop_comments",
-  "pct_coop_commits_count"
-)
+outcomes <- c("issues_opened","issue_comments","own_issue_comments", "helping_issue_comments","pr_comments",
+              "prs_opened", "commits", "prs_merged", "closed_issue")
+make_bins <- c("total_share","comments_hhi_avg_wt","pct_coop_comments","pct_coop_commits_count",
+               "min_layer_count","problem_disc_hl_contr_ov","coding_hl_contr_ov","problem_disc_hl_work",
+               "coding_hl_work","total_HHI","problem_discussion_HHI","coding_HHI","problem_approval_HHI",
+               "hhi_comments","hhi_commits_count", "contributors", "problem_id_share",
+               "problem_disc_share", "coding_share","problem_approval_share",
+               "comments_cooperation_pct", "contributors_comments_wt","comments_share_avg_wt")
 
-contributor_covars_long <- c(
-  contributor_covars,
-  "contributor_email_educational",
-  "contributor_email_corporate"
-) 
-
-org_structure <- c(
-  "min_layer_count",
-  "problem_disc_hl_work",
-  "coding_hl_work",
-  "total_HHI",
-  "contributors_comments_wt",
-  "comments_cooperation_pct",
-  "problem_disc_hl_contr_ov",
-  "coding_hl_contr_ov",
-  "problem_id_HHI",
-  "problem_discussion_HHI",
-  "problem_approval_HHI",
-  "coding_HHI",
-  "hhi_comments",
-  "hhi_commits_count"
-)
-
-org_structure_long <- c(
-  org_structure,
-  "layer_count",
-  "problem_id_layer_contr_pct",
-  "problem_disc_layer_contr_pct",
-  "coding_layer_contr_pct",
-  "problem_app_layer_contr_pct",
-  "problem_disc_layer_contr_cnt"
-)
-
-outcomes <- c("issues_opened","issue_comments","own_issue_comments",
-              "helping_issue_comments","pr_comments","prs_opened", "commits", "prs_merged",
-              "closed_issue")
-
-
-
-avg_var_list <- c(org_structure,
-                     contributor_covars[contributor_covars %ni% c("truckfactor_member","max_rank")],
-                  "contributors")
+avg_var_list <- c(org_structure, contributor_covars[contributor_covars %ni% c("truckfactor_member","max_rank")], "contributors")
 
 df_combined <- bind_cols(
   df_project_departed %>% filter(treated_project == 1 & treatment == 0 & time_index >= treatment_group - 2 & time_index < treatment_group) %>%
@@ -218,19 +160,11 @@ df_project_departed <- cbind(df_project_departed, df_combined) %>%
   select(all_of(c(project_covars, contributor_covars_long, org_covars_long, org_structure_long, outcomes,
                   paste0(avg_var_list,"_nyt_avg"))))
 
-make_bins <- c("total_share","comments_hhi_avg_wt","pct_coop_comments","pct_coop_commits_count",
-               "min_layer_count","problem_disc_hl_contr_ov","coding_hl_contr_ov","problem_disc_hl_work",
-               "coding_hl_work","total_HHI","problem_discussion_HHI","coding_HHI","problem_approval_HHI",
-               "hhi_comments","hhi_commits_count", "contributors", "problem_id_share",
-               "problem_disc_share", "coding_share","problem_approval_share",
-               "comments_cooperation_pct", "contributors_comments_wt","comments_share_avg_wt")
-
 df_bin2 <- df_project_departed %>%
   filter(time_index >= treatment_group - 2 & time_index < treatment_group) %>%
   group_by(repo_name) %>%
   summarize(across(all_of(make_bins), list(
-           bin_2 = ~ if_else(mean(.x, na.rm=TRUE) > get(paste0(cur_column(), "_nyt_avg")), 1, 0)
-         ), .names = "{.col}_{.fn}")) %>%
+           bin_2 = ~ if_else(mean(.x, na.rm=TRUE) > get(paste0(cur_column(), "_nyt_avg")), 1, 0)), .names = "{.col}_{.fn}")) %>%
   unique()
 df_bin3 <- df_project_departed %>%
   filter(time_index >= treatment_group - 3 & time_index < treatment_group) %>%
@@ -241,11 +175,201 @@ df_bin3 <- df_project_departed %>%
   unique()
 df_project_departed <- df_project_departed %>% left_join(df_bin2) %>% left_join(df_bin3)
 
-df_project_departed %>% filter(treated_project == 1) %>%
-  write_dta("issue/df_project_departed.dta")
 
-df_project_departed %>% filter(treated_project == 1) %>%
-  write_parquet("issue/df_project_departed.parquet")
+for (outcome in outcomes) {
+  new_col <- paste0("avg_", outcome) 
+  df_project_departed[[new_col]] <- df_project_departed[[outcome]] / df_project_departed$contributors
+}
+outcomes <- c(outcomes, paste0("avg_", outcomes))
+
+NormalizeOutcome <- function(df, outcome, outcome_norm) {
+  pretreatment_mean <- df %>% filter(time_index < treatment_group) %>% 
+    summarize(mean(get(outcome))) %>% pull()
+  df[[outcome_norm]] <- df[[outcome]]/pretreatment_mean
+  return(df)
+}
+
+GenerateEventStudyGrids <- function(df, outcomes, bin_vars, post, pre, fillna = T, plots_per_grid = 5, num_breaks) {
+  bins_per_grid <- (plots_per_grid - 2) 
+  total_bins <- length(bin_vars)  
+  num_grids <- ceiling(total_bins / bins_per_grid)  
+  
+  for (outcome in outcomes) { 
+    print(outcome)
+    outdir_outcome <- file.path(outdir, outcome)
+    dir.create(outdir_outcome)
+    outcome_norm <- paste0(outcome,"_norm")
+    
+    if (fillna == T) {
+      df[[outcome]] <- ifelse(is.na(df[[outcome]]), 0,  df[[outcome]])
+    }
+    df <- NormalizeOutcome(df, outcome, outcome_norm)
+    full_samp <- EventStudyAnalysis(df, outcome_norm, post, pre, MakeTitle(outcome, paste0(outcome, " - Full Sample"), df))
+    df_early <- NormalizeOutcome(df %>% filter(time_period <= final_period), outcome, outcome_norm)
+    early_samp <- EventStudyAnalysis(df_early, outcome_norm, post, pre, MakeTitle(outcome, paste0(outcome, " - Dropout Sample"), df_early))
+    
+
+
+    for (i in seq_len(num_grids)) {
+      print(i)
+      start_idx <- (i - 1) * bins_per_grid + 1
+      end_idx <- min(i * bins_per_grid, total_bins)
+      subset_bins <- make_bins[start_idx:end_idx] 
+     
+      desired_order <- 1:(2+2*length(subset_bins)) #AlternateOrder(1:(2+2*length(subset_bins)))
+
+      plot_list <- list()
+      plot_list[[which(desired_order==1)]] <- full_samp$plot
+      plot_list[[which(desired_order==2)]] <- early_samp$plot
+      
+      counter <- 3
+      for (bin_var in subset_bins) {
+        df_high <- NormalizeOutcome(df %>% filter(get(paste0(bin_var, "_bin_2")) == 1), outcome, outcome_norm)
+        df_low <- NormalizeOutcome(df %>% filter(get(paste0(bin_var, "_bin_2")) == 0), outcome, outcome_norm)
+        
+        high_bin <- EventStudyAnalysis(df_high, outcome_norm, post, pre, MakeTitle(outcome, paste0(bin_var, " > mean"), df_high))
+        low_bin <- EventStudyAnalysis(df_low, outcome_norm, post, pre, MakeTitle(outcome, paste0(bin_var, " <= mean"), df_low))
+        
+        df_plot <- rbind(
+          tidy(high_bin$results$output) %>% mutate(group = paste(bin_var, "> mean")),
+          tidy(low_bin$results$output) %>% mutate(group = paste(bin_var, "<= mean"))
+        ) %>%
+          mutate(event_time = case_when(
+            term == "treatment_lead3" ~ -4,  # Ensure lead3 maps to -4
+            str_detect(term, "lead") ~ -as.numeric(str_extract(term, "\\d+")),
+            term == "treatment_fd" ~ 0,
+            str_detect(term, "lag") ~ as.numeric(str_extract(term, "\\d+"))
+          )) %>%
+          mutate(event_time_label = case_when(
+            event_time == min(event_time) ~ paste0(event_time, "+"),
+            event_time == max(event_time) ~ paste0(event_time, "+"),
+            TRUE ~ as.character(event_time)
+          ))
+        df_plot <- data.table::rbindlist(list(df_plot, 
+                                              data.frame(list(estimate = 0, event_time = -1, event_time_label = "-1"))), 
+                                         fill = T)
+        es_plot <- ggplot(df_plot, aes(x = event_time, y = estimate, color = group)) +
+          geom_pointrange(aes(ymin = conf.low, ymax = conf.high), 
+                          position = position_dodge(width = 0.5)) +
+          geom_errorbar(aes(ymin = estimate - 1.96 * std.error, ymax = estimate + 1.96 * std.error), 
+                        width = 0.2, size = 1, position = position_dodge(width = 0.5)) +
+          geom_hline(yintercept = 0, linetype = "dashed", color = "green") + 
+          labs(
+            x = "Event time",
+            y = "Coefficient",
+            caption = paste0("Large ", bin_var, " (", length(unique(df_high$repo_name)), " projects): ", high_bin$plot$labels$caption, "\n",
+                             "Small ", bin_var, " (", length(unique(df_low$repo_name)), " projects): ", low_bin$plot$labels$caption) 
+          ) +
+          theme_minimal() +
+          theme(legend.title = element_blank()) + 
+          labs(
+            title = outcome,  # Title is now the outcome variable
+            x = "Event time",
+            y = "Coefficient",
+            caption = paste0(
+              "Large ", bin_var, " (", length(unique(df_high$repo_name)), " projects): ", high_bin$plot$labels$caption, "\n",
+              "Small ", bin_var, " (", length(unique(df_low$repo_name)), " projects): ", low_bin$plot$labels$caption
+            ) 
+          ) +
+          theme_minimal() +
+          theme(
+            legend.title = element_blank(),
+            plot.caption = element_text(hjust = 0)  # Left-align caption
+          )
+        
+        plot_list[[which(desired_order==counter+1)]] <- es_plot
+        counter <- counter+1
+      }
+      plot_list <- AdjustYScaleByRow(plot_list)
+      final_plot <- grid.arrange(grobs = plot_list, ncol = 1)
+      
+      # Save grid plot separately
+      ggsave(plot = final_plot, filename = file.path(outdir_outcome, paste0(outcome, "_Grid_", i, ".png")), width = 6, height = 24)
+    }
+  }
+}
+
+EventStudyAnalysis <- function(df, outcome, post, pre, title)  {
+  results <- EstimateEventStudy(df, outcome, post, pre)
+  plot <- PlotEventStudy(results, title)
+  return(list(plot = plot, results = results))
+}
+
+EstimateEventStudy <- function(df, outcome, post, pre) {
+  results <- eventstudyr::EventStudy(estimator = "OLS",
+                                     data = df,
+                                     outcomevar = outcome,
+                                     policyvar = "treatment",
+                                     idvar = "repo_name",
+                                     timevar = "time_index",
+                                     post = post,
+                                     pre = pre)
+  return(results)
+}
+
+PlotEventStudy <- function(results, title) {
+  plot <- EventStudyPlot(estimates = results, ytitle = "Coefficient", xtitle = "Event time") + 
+    ggtitle(label = title) + 
+    theme(plot.title = element_text(size = 12))
+  return(plot)
+}
+
+
+MakeTitle <- function(title, title_str, df) {
+  full_title_str <- paste(str_replace_all(title, "_", " "), paste0("(",str_replace_all(title_str, "_", " "),")"), 
+                          "\n",dim(df)[1],"obs, PC:",length(unique(df$repo_name)),
+                          "T:",length(unique(df[df$treatment==1,]$repo_name)))
+  return(full_title_str)
+}
+
+AdjustYScaleByRow <- function(plot_list, ncol = 2, num_breaks = 5) {
+  num_plots <- length(plot_list)
+  nrow <- ceiling(num_plots / ncol)
+  
+  plot_matrix <- split(plot_list, rep(1:nrow, each = ncol, length.out = num_plots))
+  
+  adjust_row <- function(row_plots) {
+    row_plots <- Filter(Negate(is.null), row_plots) # Remove NULL plots
+    if (length(row_plots) == 0) return(NULL)
+    
+    y_ranges <- lapply(row_plots, function(p) ggplot_build(p)$layout$panel_params[[1]]$y.range)
+    y_ranges <- do.call(rbind, y_ranges)
+    
+    y_min <- min(y_ranges[, 1], na.rm = TRUE)
+    y_max <- max(y_ranges[, 2], na.rm = TRUE)
+    y_breaks <- pretty(seq(y_min, y_max, length.out = num_breaks))
+    
+    lapply(row_plots, function(p) p + 
+             coord_cartesian(ylim = c(y_min, y_max)) + 
+             scale_y_continuous(breaks = y_breaks))
+  }
+  
+  adjusted_rows <- lapply(plot_matrix, adjust_row)
+  adjusted_plots <- unlist(adjusted_rows, recursive = FALSE, use.names = FALSE)
+  
+  return(adjusted_plots)
+}
+
+AlternateOrder <- function(vec) {
+  n <- length(vec)
+  odd_indices <- seq(1, n, by = 2) 
+  even_indices <- seq(2, n, by = 2)  
+  
+  new_order <- c(odd_indices, even_indices)  
+  return(vec[new_order])
+}
+
+GenerateEventStudyGrids(df = df_project_departed %>% filter(treated_project == 1), 
+                        outcomes = outcomes, bin_vars = make_bins,
+                        post = 3, pre = 0, fillna = T, plots_per_grid = 8, num_breaks = 7)
+
+
+
+indir_data = Path('drive/output/derived/contributor_stats/contributor_data')
+
+df_contributor_panel = pd.read_parquet(indir_data / f"major_contributors_major_months{time_period}_window732D_samplefull.parquet")
+
+
 
 
 summarized_share_situation <- summarized_data <- df_project_departed %>%
@@ -262,3 +386,8 @@ kable_output <- summarized_data %>%
         format = "html", table.attr = "style='width:50%;'") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE, position = "left")
 
+df_project_departed %>% filter(treated_project == 1) %>%
+  write_dta("issue/df_project_departed.dta")
+
+df_project_departed %>% filter(treated_project == 1) %>%
+  write_parquet("issue/df_project_departed.parquet")
