@@ -189,6 +189,7 @@ NormalizeOutcome <- function(df, outcome, outcome_norm) {
   return(df)
 }
 
+
 GenerateEventStudyGrids <- function(df, outcomes, bin_vars, post, pre, fillna = T, plots_per_grid = 5, num_breaks) {
   bins_per_grid <- (plots_per_grid - 2) 
   total_bins <- length(bin_vars)  
@@ -214,7 +215,7 @@ GenerateEventStudyGrids <- function(df, outcomes, bin_vars, post, pre, fillna = 
       print(i)
       start_idx <- (i - 1) * bins_per_grid + 1
       end_idx <- min(i * bins_per_grid, total_bins)
-      subset_bins <- make_bins[start_idx:end_idx] 
+      subset_bins <- bin_vars[start_idx:end_idx] 
      
       desired_order <- 1:(2+2*length(subset_bins)) #AlternateOrder(1:(2+2*length(subset_bins)))
 
@@ -359,17 +360,35 @@ AlternateOrder <- function(vec) {
   return(vec[new_order])
 }
 
+
 GenerateEventStudyGrids(df = df_project_departed %>% filter(treated_project == 1), 
                         outcomes = outcomes, bin_vars = make_bins,
                         post = 3, pre = 0, fillna = T, plots_per_grid = 8, num_breaks = 7)
 
+indir_data <- "drive/output/derived/contributor_stats/contributor_data"
+df_contributor_panel = read_parquet(file.path(indir_data, "major_contributors_major_months6_window732D_samplefull.parquet"))
 
+df_contributor_other <-  df_contributor_panel %>% 
+  select(repo_name, actor_id, time_period, issue_comments, issue_number, pr_opener, commits) %>%
+  mutate(time_period = as.Date(time_period)) %>% 
+  rename(departed_actor_id = actor_id, sub_issue_comments = issue_comments, 
+         sub_issues_opened = issue_number, sub_prs_opened = pr_opener, sub_commits = commits)
 
-indir_data = Path('drive/output/derived/contributor_stats/contributor_data')
+df_project_departed_sub <- df_project_departed %>% filter(treated_project == 1) %>%
+  left_join(df_contributor_other) %>%
+  mutate(sub_issues_opened = ifelse(is.na(sub_issues_opened), 0, sub_issues_opened),
+         sub_issue_comments = ifelse(is.na(sub_issue_comments), 0, sub_issue_comments),
+         sub_prs_opened = ifelse(is.na(sub_prs_opened), 0, sub_prs_opened),
+         sub_commits = ifelse(is.na(sub_commits), 0, sub_commits),
+         sub_issue_comments = issue_comments - sub_issue_comments,
+         sub_issues_opened = issues_opened - sub_issues_opened,
+         sub_prs_opened = prs_opened - sub_prs_opened,
+         sub_commits = commits - sub_commits)
 
-df_contributor_panel = pd.read_parquet(indir_data / f"major_contributors_major_months{time_period}_window732D_samplefull.parquet")
-
-
+GenerateEventStudyGrids(df = df_project_departed_sub,
+                        outcomes = c("sub_commits","sub_issue_comments","sub_issues_opened","sub_prs_opened"), 
+                        bin_vars = c("pct_coop_comments"),
+                        post = 3, pre = 0, fillna = T, plots_per_grid = 8, num_breaks = 7)
 
 
 summarized_share_situation <- summarized_data <- df_project_departed %>%
