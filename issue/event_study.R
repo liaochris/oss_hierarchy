@@ -175,6 +175,8 @@ df_bin3 <- df_project_departed %>%
   unique()
 df_project_departed <- df_project_departed %>% left_join(df_bin2) %>% left_join(df_bin3)
 
+
+
 NormalizeOutcome <- function(df, outcome, outcome_norm) {
   pretreatment_mean <- df %>% filter(time_index < treatment_group) %>% 
     summarize(mean(get(outcome))) %>% pull()
@@ -217,8 +219,6 @@ GenerateEventStudyGrids <- function(df, outcomes, bin_vars, post, pre, fillna = 
       
       counter <- 3
       for (bin_var in subset_bins) {
-        
-        
         df_high <- NormalizeOutcome(df %>% filter(get(paste0(bin_var, "_bin_2")) == 1), outcome, outcome_norm)
         df_low <- NormalizeOutcome(df %>% filter(get(paste0(bin_var, "_bin_2")) == 0), outcome, outcome_norm)
         
@@ -243,7 +243,7 @@ GenerateEventStudyGrids <- function(df, outcomes, bin_vars, post, pre, fillna = 
         df_plot <- data.table::rbindlist(list(df_plot, 
                                               data.frame(list(estimate = 0, event_time = -1, event_time_label = "-1"))), 
                                          fill = T)
-        ggplot(df_plot, aes(x = event_time, y = estimate, color = group)) +
+        es_plot <- ggplot(df_plot, aes(x = event_time, y = estimate, color = group)) +
           geom_pointrange(aes(ymin = conf.low, ymax = conf.high), 
                           position = position_dodge(width = 0.5)) +
           geom_errorbar(aes(ymin = estimate - 1.96 * std.error, ymax = estimate + 1.96 * std.error), 
@@ -272,13 +272,14 @@ GenerateEventStudyGrids <- function(df, outcomes, bin_vars, post, pre, fillna = 
             plot.caption = element_text(hjust = 0)  # Left-align caption
           )
         
-        
+        plot_list[[which(desired_order==counter+1)]] <- es_plot
+        counter <- counter+1
       }
       plot_list <- AdjustYScaleByRow(plot_list)
       final_plot <- grid.arrange(grobs = plot_list, ncol = 2)
       
       # Save grid plot separately
-      ggsave(plot = final_plot, filename = file.path(outdir_outcome, paste0(outcome, "_Grid_", i, ".png")), width = 10, height = 16)
+      ggsave(plot = final_plot, filename = file.path(outdir_outcome, paste0(outcome, "_Grid_", i, ".png")), width = 16, height = 20)
     }
   }
 }
@@ -356,6 +357,13 @@ AlternateOrder <- function(vec) {
 GenerateEventStudyGrids(df = df_project_departed %>% filter(treated_project == 1), 
                         outcomes = outcomes, bin_vars = make_bins,
                         post = 3, pre = 0, fillna = T, plots_per_grid = 8, num_breaks = 7)
+
+
+
+indir_data = Path('drive/output/derived/contributor_stats/contributor_data')
+
+df_contributor_panel = pd.read_parquet(indir_data / f"major_contributors_major_months{time_period}_window732D_samplefull.parquet")
+
 
 
 
