@@ -34,7 +34,7 @@ gen double contributors_norm = contributors / mean_contrib
 
 did_imputation contributors_norm repo_name time_index treatment_group, ///
         autosample horizons(0/2) pretrends(4) ///
-        hetby(total_share_bin_2) fe(project_id time_index#total_share_bin_2) minn(0)
+        hetby(total_share_bin_2) fe(project_id time_index#total_share_bin_2) minn(0) controls(contributors)
 estimates store temp
 event_plot temp ., ///
         stub_lag(tau#_0 tau#_1) ///
@@ -143,9 +143,9 @@ foreach outcome of local outcomelist {
     use `og_data'
     
     // Perform Difference-in-Differences imputation
-    did_imputation `outcome'_100 repo_name time_index treatment_group, ///
-            autosample horizons(0/2) pretrends(4) ///
-            fe(project_id time_index) minn(0)
+	did_imputation `outcome'_100 repo_name time_index treatment_group, ///
+		autosample horizons(0/2) pretrends (4) ///
+		fe(project_id time_index) minn(0) controls(contributors)
     
     // Store the estimates
     estimates store standard
@@ -182,12 +182,20 @@ foreach outcome of local outcomelist {
             
             // Display a message
             di as text "Now running DID for `var'..."
-            
+    
             // Perform Difference-in-Differences imputation with heterogeneity by `var'_`bin'
-            did_imputation `outcome'_100 repo_name time_index treatment_group, ///
-                    autosample horizons(0/2) pretrends(4) ///
-                    hetby(`var'_`bin') fe(project_id time_index#`var'_`bin') minn(0)
-            
+            if "`var'" != "contributors" {
+				did_imputation `outcome'_100 repo_name time_index treatment_group, ///
+					autosample horizons(0/2) pretrends(4) ///
+					hetby(`var'_`bin') fe(project_id time_index#`var'_`bin') minn(0) controls(contributors)
+			} 
+            else {
+				did_imputation `outcome'_100 repo_name time_index treatment_group, ///
+					autosample horizons(0/2) pretrends(4) ///
+					hetby(`var'_`bin') fe(project_id time_index#`var'_`bin') minn(0) 
+			}
+    
+				
             // Store the estimates
             estimates store `var'_p
             
@@ -233,11 +241,16 @@ foreach outcome of local outcomelist {
                 // Reload the contracted data
                 use `dt'
                 
-                // Perform Difference-in-Differences imputation with heterogeneity by `var'_s
-                did_imputation `outcome'_100 repo_name time_index treatment_group, ///
+				if "`var'" != "contributors" {
+					did_imputation `outcome'_100 repo_name time_index treatment_group, ///
+                        autosample horizons(0/2) pretrends(4) ///
+                        hetby(`var'_s) fe(project_id time_index#`var'_s) minn(0) controls(contributors)
+				} 
+				else {
+					did_imputation `outcome'_100 repo_name time_index treatment_group, ///
                         autosample horizons(0/2) pretrends(4) ///
                         hetby(`var'_s) fe(project_id time_index#`var'_s) minn(0)
-                
+				}
                 // Store the estimates
                 estimates store `var'_sp
                 
@@ -268,3 +281,4 @@ foreach outcome of local outcomelist {
     // Return to the main directory
     cd ../
 }
+cd ../../../
