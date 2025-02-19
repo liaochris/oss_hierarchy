@@ -378,7 +378,7 @@ departed_contributors <- df_project_departed %>%
   unique()
   
 df_contributor_other <- df_contributor_panel %>% 
-  select(repo_name, actor_id, time_period, issue_comments, issue_number, pr_opener, commits) %>%
+  select(repo_name, actor_id, time_period, issue_comments, issue_number, pr, commits) %>%
   mutate(time_period = as.Date(time_period)) %>%
   inner_join(df_date) %>%
   group_by(repo_name, actor_id) %>%
@@ -390,8 +390,9 @@ df_contributor_other <- df_contributor_panel %>%
   group_by(repo_name, time_index) %>%
   summarize(sub_issue_comments = sum(issue_comments), 
             sub_issues_opened = sum(issue_number), 
-            sub_prs_opened = sum(pr_opener), 
-            sub_commits = sum(commits))
+            sub_prs_opened = sum(pr), 
+            sub_commits = sum(commits),
+            sub_contributors = n())
 
 df_project_departed_sub <- df_project_departed %>% filter(treated_project == 1) %>%
   left_join(df_contributor_other) %>%
@@ -399,13 +400,20 @@ df_project_departed_sub <- df_project_departed %>% filter(treated_project == 1) 
          sub_issue_comments = ifelse(is.na(sub_issue_comments), 0, sub_issue_comments),
          sub_prs_opened = ifelse(is.na(sub_prs_opened), 0, sub_prs_opened),
          sub_commits = ifelse(is.na(sub_commits), 0, sub_commits),
+         sub_contributors = ifelse(is.na(sub_contributors), 0, sub_contributors),
          sub_issue_comments = issue_comments - sub_issue_comments,
          sub_issues_opened = issues_opened - sub_issues_opened,
          sub_prs_opened = prs_opened - sub_prs_opened,
-         sub_commits = commits - sub_commits)
+         sub_commits = commits - sub_commits,
+         sub_contributors = contributors - sub_contributors,
+         sub_issue_comments_avg = sub_issue_comments/sub_contributors,
+         sub_issues_opened_avg = sub_issues_opened/sub_contributors,
+         sub_prs_opened_avg = sub_prs_opened/sub_contributors,
+         sub_commits_avg = sub_commits/sub_contributors)
 
+sub_outcomes <- c("sub_commits","sub_issue_comments","sub_issues_opened", "sub_prs_opened")
 GenerateEventStudyGrids(df = df_project_departed_sub,
-                        outcomes = c("sub_commits","sub_issue_comments","sub_issues_opened","sub_prs_opened"), 
+                        outcomes = c(sub_outcomes, paste0(sub_outcomes, "_avg")),
                         bin_vars = c("pct_coop_comments"),
                         post = 3, pre = 0, fillna = T, plots_per_grid = 8, num_breaks = 7)
 
