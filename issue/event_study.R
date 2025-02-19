@@ -392,6 +392,7 @@ df_contributor_other <- df_contributor_panel %>%
             sub_issues_opened = sum(issue_number), 
             sub_prs_opened = sum(pr), 
             sub_commits = sum(commits),
+            sub_pr_commits = sum(pr_commits),
             sub_contributors = n())
 
 df_project_departed_sub <- df_project_departed %>% filter(treated_project == 1) %>%
@@ -400,11 +401,13 @@ df_project_departed_sub <- df_project_departed %>% filter(treated_project == 1) 
          sub_issue_comments = ifelse(is.na(sub_issue_comments), 0, sub_issue_comments),
          sub_prs_opened = ifelse(is.na(sub_prs_opened), 0, sub_prs_opened),
          sub_commits = ifelse(is.na(sub_commits), 0, sub_commits),
+         sub_pr_commits = ifelse(is.na(sub_pr_commits), 0, sub_pr_commits),
          sub_contributors = ifelse(is.na(sub_contributors), 0, sub_contributors),
          sub_issue_comments = issue_comments - sub_issue_comments,
          sub_issues_opened = issues_opened - sub_issues_opened,
          sub_prs_opened = prs_opened - sub_prs_opened,
          sub_commits = commits - sub_commits,
+         sub_pr_commits = commits - sub_pr_commits,
          sub_contributors = contributors - sub_contributors,
          sub_issue_comments_avg = sub_issue_comments/sub_contributors,
          sub_issues_opened_avg = sub_issues_opened/sub_contributors,
