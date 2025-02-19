@@ -139,7 +139,7 @@ org_structure_long <- c(org_structure, "layer_count", "problem_id_layer_contr_pc
                         "coding_layer_contr_pct", "problem_app_layer_contr_pct", "problem_disc_layer_contr_cnt")
 
 outcomes <- c("issues_opened","issue_comments","own_issue_comments", "helping_issue_comments","pr_comments",
-              "prs_opened", "commits", "prs_merged", "closed_issue")
+              "prs_opened", "commits", "prs_merged", "closed_issue", "pr_commits","push_commits")
 make_bins <- c("total_share","comments_hhi_avg_wt","pct_coop_comments","pct_coop_commits_count",
                "min_layer_count","problem_disc_hl_contr_ov","coding_hl_contr_ov","problem_disc_hl_work",
                "coding_hl_work","total_HHI","problem_discussion_HHI","coding_HHI","problem_approval_HHI",
