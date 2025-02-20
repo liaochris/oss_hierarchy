@@ -353,7 +353,7 @@ def GetIssueCommentData(client, project_name, dataset_name, github_data_name):
 						COALESCE(
 								SPLIT(JSON_VALUE(`payload`, '$.comment.html_url'),'-')[ARRAY_LENGTH(SPLIT(JSON_VALUE(`payload`, '$.comment.html_url'),'-'))-1], 
 								SPLIT(JSON_VALUE(`payload`, '$.comment.id'),'-')[ARRAY_LENGTH(SPLIT(JSON_VALUE(`payload`, '$.comment.id'),'-'))-1]) AS `issue_comment_id`,
-						JSON_VALUE(`payload`, '$.issue.comment.body') AS `issue_comment_body`,
+						JSON_VALUE(`payload`, '$.comment.body') AS `issue_comment_body`,
 						JSON_VALUE(`payload`, '$.comment.reactions') AS `issue_comment_reactions`,
 						JSON_VALUE(`payload`, '$.issue.user.login') AS `issue_user_login`,
 						JSON_VALUE(`payload`, '$.issue.user.id') AS `issue_user_id`,
@@ -362,13 +362,13 @@ def GetIssueCommentData(client, project_name, dataset_name, github_data_name):
 						JSON_VALUE(`payload`, '$.comment.author_association') AS `actor_repo_association`,
 						JSON_VALUE(`payload`, '$.comment.user.type') AS `actor_type`,
 						JSON_VALUE(`payload`, '$.comment.user.site_admin') AS `actor_site_admin_status`,
-						JSON_VALUE(`payload`, '$.payload.issue.pull_request') AS `issue_pull_request`,
-						JSON_VALUE(`payload`, '$.payload.issue.labels') AS `latest_issue_labels`,
-						JSON_VALUE(`payload`, '$.payload.issue.locked') AS `latest_issue_locked`,
-						JSON_VALUE(`payload`, '$.payload.issue.state') AS `latest_issue_state`,
-						JSON_VALUE(`payload`, '$.payload.issue.assignee') AS `latest_issue_assignee`,
-						JSON_VALUE(`payload`, '$.payload.issue.assignees') AS `latest_issue_assignees`,
-						JSON_VALUE(`payload`, '$.payload.issue.comments') AS `latest_issue_comments`,
+						JSON_VALUE(`payload`, '$.issue.pull_request') AS `issue_pull_request`,
+						JSON_VALUE(`payload`, '$.issue.labels') AS `latest_issue_labels`,
+						JSON_VALUE(`payload`, '$.issue.locked') AS `latest_issue_locked`,
+						JSON_VALUE(`payload`, '$.issue.state') AS `latest_issue_state`,
+						JSON_VALUE(`payload`, '$.issue.assignee') AS `latest_issue_assignee`,
+						JSON_VALUE(`payload`, '$.issue.assignees') AS `latest_issue_assignees`,
+						JSON_VALUE(`payload`, '$.issue.comments') AS `latest_issue_comments`,
 				FROM
 				  `{project_name}.{dataset_name}.{github_data_name}`
 				WHERE
@@ -492,17 +492,17 @@ def Main():
     LoadTableToDataset(client, 'source', github_projects_name, indir_github_projects)
     GetRawGitHubData(client, github_projects_name, project_name, dataset_name, github_data_name)
     
-    GetWatchData(client, project_name, dataset_name, github_data_name)
+    """GetWatchData(client, project_name, dataset_name, github_data_name)
     GetReleaseData(client, project_name, dataset_name, github_data_name)
     GetPushData(client, project_name, dataset_name, github_data_name)
     GetPullRequestReviewData(client, project_name, dataset_name, github_data_name)
     GetPullRequestReviewCommentData(client, project_name, dataset_name, github_data_name)
     GetPullRequestData(client, project_name, dataset_name, github_data_name)
-    GetIssueData(client, project_name, dataset_name, github_data_name)
+    GetIssueData(client, project_name, dataset_name, github_data_name)"""
     GetIssueCommentData(client, project_name, dataset_name, github_data_name)
-    GetForkData(client, project_name, dataset_name, github_data_name)
+    """GetForkData(client, project_name, dataset_name, github_data_name)
     GetDeleteData(client, project_name, dataset_name, github_data_name)
-    GetCreateData(client, project_name, dataset_name, github_data_name)
+    GetCreateData(client, project_name, dataset_name, github_data_name)"""
 
 
 if __name__ == '__main__':
