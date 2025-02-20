@@ -139,7 +139,7 @@ org_structure_long <- c(org_structure, "layer_count", "problem_id_layer_contr_pc
                         "coding_layer_contr_pct", "problem_app_layer_contr_pct", "problem_disc_layer_contr_cnt")
 
 outcomes <- c("issues_opened","issue_comments","own_issue_comments", "helping_issue_comments","pr_comments",
-              "prs_opened", "commits", "prs_merged", "closed_issue")
+              "prs_opened", "commits", "prs_merged", "closed_issue", "pr_commits","push_commits",)
 make_bins <- c("total_share","comments_hhi_avg_wt","pct_coop_comments","pct_coop_commits_count",
                "min_layer_count","problem_disc_hl_contr_ov","coding_hl_contr_ov","problem_disc_hl_work",
                "coding_hl_work","total_HHI","problem_discussion_HHI","coding_HHI","problem_approval_HHI",
@@ -177,8 +177,10 @@ df_project_departed <- df_project_departed %>% left_join(df_bin2) %>% left_join(
 
 
 for (outcome in outcomes) {
-  new_col <- paste0("avg_", outcome) 
-  df_project_departed[[new_col]] <- df_project_departed[[outcome]] / df_project_departed$contributors
+  if (outcome != "contributors") {
+    new_col <- paste0("avg_", outcome) 
+    df_project_departed[[new_col]] <- df_project_departed[[outcome]] / df_project_departed$contributors
+  }
 }
 outcomes <- c(outcomes, paste0("avg_", outcomes))
 
@@ -285,7 +287,7 @@ GenerateEventStudyGrids <- function(df, outcomes, bin_vars, post, pre, fillna = 
       final_plot <- grid.arrange(grobs = plot_list, ncol = 1)
       
       # Save grid plot separately
-      ggsave(plot = final_plot, filename = file.path(outdir_outcome, paste0(outcome, "_Grid_", i, ".png")), width = 6, height = 24)
+      ggsave(plot = final_plot, filename = file.path(outdir_outcome, paste0(outcome, "_Grid_", i, ".png")), width = 12, height = 24)
     }
   }
 }
@@ -366,13 +368,32 @@ GenerateEventStudyGrids(df = df_project_departed %>% filter(treated_project == 1
                         post = 3, pre = 0, fillna = T, plots_per_grid = 8, num_breaks = 7)
 
 indir_data <- "drive/output/derived/contributor_stats/contributor_data"
-df_contributor_panel = read_parquet(file.path(indir_data, "major_contributors_major_months6_window732D_samplefull.parquet"))
+df_contributor_panel <- read_parquet(file.path(indir_data, "major_contributors_major_months6_window732D_samplefull.parquet"))
 
-df_contributor_other <-  df_contributor_panel %>% 
-  select(repo_name, actor_id, time_period, issue_comments, issue_number, pr_opener, commits) %>%
-  mutate(time_period = as.Date(time_period)) %>% 
-  rename(departed_actor_id = actor_id, sub_issue_comments = issue_comments, 
-         sub_issues_opened = issue_number, sub_prs_opened = pr_opener, sub_commits = commits)
+df_date <- df_project_departed %>% 
+  filter(treated_project == 1) %>% select(time_period, time_index, repo_name, treatment_group) %>% unique()
+departed_contributors <- df_project_departed %>% 
+  filter(treated_project == 1) %>% 
+  select(repo_name, departed_actor_id) %>%
+  unique()
+  
+df_contributor_other <- df_contributor_panel %>% 
+  select(repo_name, actor_id, time_period, issue_comments, issue_number, pr, commits, pr_commits) %>%
+  mutate(time_period = as.Date(time_period)) %>%
+  inner_join(df_date) %>%
+  group_by(repo_name, actor_id) %>%
+  mutate(earliest_period = min(time_index)) %>%
+  ungroup() %>%
+  left_join(departed_contributors) %>%
+  filter(earliest_period >= treatment_group | actor_id == departed_actor_id) %>%
+  select(-actor_id, departed_actor_id) %>%
+  group_by(repo_name, time_index) %>%
+  summarize(sub_issue_comments = sum(issue_comments), 
+            sub_issues_opened = sum(issue_number), 
+            sub_prs_opened = sum(pr), 
+            sub_commits = sum(commits),
+            sub_pr_commits = sum(pr_commits),
+            sub_contributors = n())
 
 df_project_departed_sub <- df_project_departed %>% filter(treated_project == 1) %>%
   left_join(df_contributor_other) %>%
@@ -380,15 +401,29 @@ df_project_departed_sub <- df_project_departed %>% filter(treated_project == 1) 
          sub_issue_comments = ifelse(is.na(sub_issue_comments), 0, sub_issue_comments),
          sub_prs_opened = ifelse(is.na(sub_prs_opened), 0, sub_prs_opened),
          sub_commits = ifelse(is.na(sub_commits), 0, sub_commits),
+         sub_pr_commits = ifelse(is.na(sub_pr_commits), 0, sub_pr_commits),
+         sub_contributors = ifelse(is.na(sub_contributors), 0, sub_contributors),
          sub_issue_comments = issue_comments - sub_issue_comments,
          sub_issues_opened = issues_opened - sub_issues_opened,
          sub_prs_opened = prs_opened - sub_prs_opened,
-         sub_commits = commits - sub_commits)
+         sub_commits = commits - sub_commits,
+         sub_pr_commits = commits - sub_pr_commits,
+         sub_contributors = contributors - sub_contributors,
+         sub_issue_comments_avg = sub_issue_comments/sub_contributors,
+         sub_issues_opened_avg = sub_issues_opened/sub_contributors,
+         sub_prs_opened_avg = sub_prs_opened/sub_contributors,
+         sub_commits_avg = sub_commits/sub_contributors,
+         sub_pr_commits_avg = sub_pr_commits/sub_contributors)
 
+sub_outcomes <- c("sub_commits","sub_issue_comments","sub_issues_opened", "sub_prs_opened")
 GenerateEventStudyGrids(df = df_project_departed_sub,
-                        outcomes = c("sub_commits","sub_issue_comments","sub_issues_opened","sub_prs_opened"), 
+                        outcomes = c(sub_outcomes, paste0(sub_outcomes, "_avg")),
                         bin_vars = c("pct_coop_comments"),
                         post = 3, pre = 0, fillna = T, plots_per_grid = 8, num_breaks = 7)
+
+
+
+
 
 
 summarized_share_situation <- summarized_data <- df_project_departed %>%
