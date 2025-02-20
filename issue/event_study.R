@@ -287,7 +287,7 @@ GenerateEventStudyGrids <- function(df, outcomes, bin_vars, post, pre, fillna = 
       final_plot <- grid.arrange(grobs = plot_list, ncol = 1)
       
       # Save grid plot separately
-      ggsave(plot = final_plot, filename = file.path(outdir_outcome, paste0(outcome, "_Grid_", i, ".png")), width = 6, height = 24)
+      ggsave(plot = final_plot, filename = file.path(outdir_outcome, paste0(outcome, "_Grid_", i, ".png")), width = 12, height = 24)
     }
   }
 }
@@ -378,7 +378,7 @@ departed_contributors <- df_project_departed %>%
   unique()
   
 df_contributor_other <- df_contributor_panel %>% 
-  select(repo_name, actor_id, time_period, issue_comments, issue_number, pr, commits) %>%
+  select(repo_name, actor_id, time_period, issue_comments, issue_number, pr, commits, pr_commits) %>%
   mutate(time_period = as.Date(time_period)) %>%
   inner_join(df_date) %>%
   group_by(repo_name, actor_id) %>%
@@ -412,7 +412,8 @@ df_project_departed_sub <- df_project_departed %>% filter(treated_project == 1) 
          sub_issue_comments_avg = sub_issue_comments/sub_contributors,
          sub_issues_opened_avg = sub_issues_opened/sub_contributors,
          sub_prs_opened_avg = sub_prs_opened/sub_contributors,
-         sub_commits_avg = sub_commits/sub_contributors)
+         sub_commits_avg = sub_commits/sub_contributors,
+         sub_pr_commits_avg = sub_pr_commits/sub_contributors)
 
 sub_outcomes <- c("sub_commits","sub_issue_comments","sub_issues_opened", "sub_prs_opened")
 GenerateEventStudyGrids(df = df_project_departed_sub,
