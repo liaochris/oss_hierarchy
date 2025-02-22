@@ -1,4 +1,4 @@
-*** New build: {2025-01-29 10:20:25} ***
+*** New build: {2025-02-22 10:25:13} ***
 scons: done reading SConscript files.
 scons: Building targets ...
 scons: rebuilding `drive/output/derived/contributor_stats/contributor_data/major_contributors_major_months2_window1828D_samplefull.parquet' because:
@@ -11,90 +11,24 @@ scons: rebuilding `drive/output/derived/contributor_stats/contributor_data/major
            `drive/output/derived/data_export/df_push_commits.parquet' changed
            `drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request.parquet' changed
 build_python(["drive/output/derived/contributor_stats/contributor_data/major_contributors_major_months2_window1828D_samplefull.parquet"], ["source/derived/contributor_stats/calculate_contributions.py", "drive/output/scrape/link_committers_profile/committers_info_pr.csv", "drive/output/scrape/link_committers_profile/committers_info_push.csv", "drive/output/derived/data_export/df_pr.parquet", "drive/output/derived/data_export/df_issue.parquet", "drive/output/derived/data_export/df_pr_commits.parquet", "drive/output/derived/data_export/df_push_commits.parquet", "drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request.parquet"])
-scons: rebuilding `drive/output/derived/contributor_stats/contributor_data/major_contributors_major_months2_window732D_samplefull.parquet' because:
-           `source/derived/contributor_stats/calculate_contributions.py' changed
-           `drive/output/scrape/link_committers_profile/committers_info_pr.csv' changed
-           `drive/output/scrape/link_committers_profile/committers_info_push.csv' changed
-           `drive/output/derived/data_export/df_pr.parquet' changed
-           `drive/output/derived/data_export/df_issue.parquet' changed
-           `drive/output/derived/data_export/df_pr_commits.parquet' changed
-           `drive/output/derived/data_export/df_push_commits.parquet' changed
-           `drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request.parquet' changed
-build_python(["drive/output/derived/contributor_stats/contributor_data/major_contributors_major_months2_window732D_samplefull.parquet"], ["source/derived/contributor_stats/calculate_contributions.py", "drive/output/scrape/link_committers_profile/committers_info_pr.csv", "drive/output/scrape/link_committers_profile/committers_info_push.csv", "drive/output/derived/data_export/df_pr.parquet", "drive/output/derived/data_export/df_issue.parquet", "drive/output/derived/data_export/df_pr_commits.parquet", "drive/output/derived/data_export/df_push_commits.parquet", "drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request.parquet"])
-scons: rebuilding `drive/output/derived/contributor_stats/contributor_data/major_contributors_major_months3_window1828D_samplefull.parquet' because:
-           `source/derived/contributor_stats/calculate_contributions.py' changed
-           `drive/output/scrape/link_committers_profile/committers_info_pr.csv' changed
-           `drive/output/scrape/link_committers_profile/committers_info_push.csv' changed
-           `drive/output/derived/data_export/df_pr.parquet' changed
-           `drive/output/derived/data_export/df_issue.parquet' changed
-           `drive/output/derived/data_export/df_pr_commits.parquet' changed
-           `drive/output/derived/data_export/df_push_commits.parquet' changed
-           `drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request.parquet' changed
-build_python(["drive/output/derived/contributor_stats/contributor_data/major_contributors_major_months3_window1828D_samplefull.parquet"], ["source/derived/contributor_stats/calculate_contributions.py", "drive/output/scrape/link_committers_profile/committers_info_pr.csv", "drive/output/scrape/link_committers_profile/committers_info_push.csv", "drive/output/derived/data_export/df_pr.parquet", "drive/output/derived/data_export/df_issue.parquet", "drive/output/derived/data_export/df_pr_commits.parquet", "drive/output/derived/data_export/df_push_commits.parquet", "drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request.parquet"])
-scons: *** [drive/output/derived/contributor_stats/contributor_data/major_contributors_major_months3_window1828D_samplefull.parquet] ExecCallError : Python did not run successfully. Please check that the executable, source, and target files are correctly specified. Check drive/output/derived/contributor_stats/contributor_data/sconscript.log and sconstruct.log for errors. 
-Command tried: "python"  source/derived/contributor_stats/calculate_contributions.py 3 1828 > drive/output/derived/contributor_stats/contributor_data/sconscript.log
-Killed
-
-Traceback (most recent call last):
-  File "/home/chris/miniconda3/envs/oss_hierarchy/lib/python3.13/site-packages/SCons/Action.py", line 1441, in execute
-    result = self.execfunction(target=target, source=rsources, env=env)
-  File "/home/chris/oss_hierarchy/source/lib/JMSLab/builders/build_python.py", line 28, in build_python
-    builder.execute_system_call()
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
-  File "/home/chris/oss_hierarchy/source/lib/JMSLab/builders/jmslab_builder.py", line 120, in execute_system_call
-    self.do_call()
-    ~~~~~~~~~~~~^^
-  File "/home/chris/oss_hierarchy/source/lib/JMSLab/builders/jmslab_builder.py", line 159, in do_call
-    self.raise_system_call_exception(traceback = traceback)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/chris/oss_hierarchy/source/lib/JMSLab/builders/jmslab_builder.py", line 186, in raise_system_call_exception
-    raise ExecCallError(message)
-source.lib.JMSLab._exception_classes.ExecCallError: Python did not run successfully. Please check that the executable, source, and target files are correctly specified. Check drive/output/derived/contributor_stats/contributor_data/sconscript.log and sconstruct.log for errors. 
-Command tried: "python"  source/derived/contributor_stats/calculate_contributions.py 3 1828 > drive/output/derived/contributor_stats/contributor_data/sconscript.log
-Killed
-
 scons: *** [drive/output/derived/contributor_stats/contributor_data/major_contributors_major_months2_window1828D_samplefull.parquet] ExecCallError : Python did not run successfully. Please check that the executable, source, and target files are correctly specified. Check drive/output/derived/contributor_stats/contributor_data/sconscript.log and sconstruct.log for errors. 
 Command tried: "python"  source/derived/contributor_stats/calculate_contributions.py 2 1828 > drive/output/derived/contributor_stats/contributor_data/sconscript.log
 Killed
 
 Traceback (most recent call last):
-  File "/home/chris/miniconda3/envs/oss_hierarchy/lib/python3.13/site-packages/SCons/Action.py", line 1441, in execute
+  File "/home/chrisliao/.conda/envs/oss_hierarchy/lib/python3.12/site-packages/SCons/Action.py", line 1441, in execute
     result = self.execfunction(target=target, source=rsources, env=env)
-  File "/home/chris/oss_hierarchy/source/lib/JMSLab/builders/build_python.py", line 28, in build_python
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/scratch/chrisliao/oss_hierarchy/source/lib/JMSLab/builders/build_python.py", line 28, in build_python
     builder.execute_system_call()
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
-  File "/home/chris/oss_hierarchy/source/lib/JMSLab/builders/jmslab_builder.py", line 120, in execute_system_call
+  File "/scratch/chrisliao/oss_hierarchy/source/lib/JMSLab/builders/jmslab_builder.py", line 120, in execute_system_call
     self.do_call()
-    ~~~~~~~~~~~~^^
-  File "/home/chris/oss_hierarchy/source/lib/JMSLab/builders/jmslab_builder.py", line 159, in do_call
+  File "/scratch/chrisliao/oss_hierarchy/source/lib/JMSLab/builders/jmslab_builder.py", line 159, in do_call
     self.raise_system_call_exception(traceback = traceback)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/chris/oss_hierarchy/source/lib/JMSLab/builders/jmslab_builder.py", line 186, in raise_system_call_exception
+  File "/scratch/chrisliao/oss_hierarchy/source/lib/JMSLab/builders/jmslab_builder.py", line 186, in raise_system_call_exception
     raise ExecCallError(message)
 source.lib.JMSLab._exception_classes.ExecCallError: Python did not run successfully. Please check that the executable, source, and target files are correctly specified. Check drive/output/derived/contributor_stats/contributor_data/sconscript.log and sconstruct.log for errors. 
 Command tried: "python"  source/derived/contributor_stats/calculate_contributions.py 2 1828 > drive/output/derived/contributor_stats/contributor_data/sconscript.log
-Killed
-
-scons: *** [drive/output/derived/contributor_stats/contributor_data/major_contributors_major_months2_window732D_samplefull.parquet] ExecCallError : Python did not run successfully. Please check that the executable, source, and target files are correctly specified. Check drive/output/derived/contributor_stats/contributor_data/sconscript.log and sconstruct.log for errors. 
-Command tried: "python"  source/derived/contributor_stats/calculate_contributions.py 2 732 > drive/output/derived/contributor_stats/contributor_data/sconscript.log
-Killed
-
-Traceback (most recent call last):
-  File "/home/chris/miniconda3/envs/oss_hierarchy/lib/python3.13/site-packages/SCons/Action.py", line 1441, in execute
-    result = self.execfunction(target=target, source=rsources, env=env)
-  File "/home/chris/oss_hierarchy/source/lib/JMSLab/builders/build_python.py", line 28, in build_python
-    builder.execute_system_call()
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
-  File "/home/chris/oss_hierarchy/source/lib/JMSLab/builders/jmslab_builder.py", line 120, in execute_system_call
-    self.do_call()
-    ~~~~~~~~~~~~^^
-  File "/home/chris/oss_hierarchy/source/lib/JMSLab/builders/jmslab_builder.py", line 159, in do_call
-    self.raise_system_call_exception(traceback = traceback)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/chris/oss_hierarchy/source/lib/JMSLab/builders/jmslab_builder.py", line 186, in raise_system_call_exception
-    raise ExecCallError(message)
-source.lib.JMSLab._exception_classes.ExecCallError: Python did not run successfully. Please check that the executable, source, and target files are correctly specified. Check drive/output/derived/contributor_stats/contributor_data/sconscript.log and sconstruct.log for errors. 
-Command tried: "python"  source/derived/contributor_stats/calculate_contributions.py 2 732 > drive/output/derived/contributor_stats/contributor_data/sconscript.log
 Killed
 
 scons: building terminated because of errors.

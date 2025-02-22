@@ -23,7 +23,7 @@ def Main():
     comment_col = 'comments'
     issue_col = 'issue_comments'
     commit_col = 'commits'
-    criteria_col_list = [comment_col, issue_col, commit_col]  
+    criteria_col_list = [comment_col, issue_col, commit_col, 'pr_review_comments']  
     criteria_pct_list = [75, 90]
     consecutive_periods_major_months_dict = {2: [3, 9, 18],
                                             3: [3, 6, 12],
