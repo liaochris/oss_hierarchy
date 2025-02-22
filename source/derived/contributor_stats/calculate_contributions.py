@@ -339,7 +339,9 @@ def OutputMajorContributors(committers_match, df_pr_commit_stats, df_pr_selected
     ic_major_contributor_data = GetMajorContributorPostPercentile(ts_issue_comments, str(rolling_window)+"D", major_ic_col_list, major_pct_list)
     print("percentile for issues obtained")
     major_contributors_data_pct = GenerateBalancedContributorsPanel(ic_major_contributor_data, commit_major_contributor_data, time_period)
+    # technically this function name is no longer correct
     major_contributors_data = AddMajorContributorNonPercentileActivity(major_contributors_data_pct, df_pr_selected, df_issue_selected, time_period)
+    major_contributors_data = GetMajorContributorPostPercentile(major_contributors_data, str(rolling_window)+"D", ['pr_reviews','pr_review_comments','prs_merged','issues_closed'], major_pct_list)
     print("supplementary information obtained")
     pct_cols = [col for col in major_contributors_data.columns if 'pct' in col and 'general' not in col]
     major_cols = ['pr', 'pr_opener'] + push_commit_cols + pr_commit_cols + commit_cols
