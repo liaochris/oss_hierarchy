@@ -25,8 +25,8 @@ def CheckExtension(out_file):
         extension = [out_file.suffix]
     else:
         raise ValueError('Output file format must either be string or pathlib.PosixPath')
-    if not extension[0] in ['.csv', '.dta']:
-        raise ValueError("File extension should be one of .csv or .dta.")
+    if not extension[0] in ['.csv', '.dta', '.parquet']:
+        raise ValueError("File extension should be one of .csv, .dta or .parquet.")
     return extension[0]
 
 def CheckColumnsNotList(df):
@@ -88,7 +88,9 @@ def SaveDf(df, keys, out_file, sortbykey, extension):
         df.to_csv(out_file, index = False)
     if extension == '.dta':
         df.to_stata(out_file, write_index = False)
-
+    if extension == '.csv':
+        df.to_parquet(out_file, index = False)
+        
     print(f"File '{out_file}' saved successfully.")
     
 
