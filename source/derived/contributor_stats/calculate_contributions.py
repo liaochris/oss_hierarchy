@@ -11,6 +11,7 @@ import warnings
 import random
 from pandarallel import pandarallel
 from source.lib.JMSLab import autofill
+from source.lib.JMSLab.SaveData import SaveData
 from source.lib.helpers import *
 from ast import literal_eval
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
@@ -30,6 +31,7 @@ def Main():
     indir_data = Path('drive/output/derived/data_export')
     outdir = Path('drive/output/derived/contributor_stats/contributor_data/intermediary_files')
     outdir_final = Path('drive/output/derived/contributor_stats/contributor_data')
+    logdir = Path('output/derived/contributor_stats/contributor_data')
 
     commit_cols = ['commits','commit additions','commit deletions','commit changes total','commit files changed count']
     author_thresh = 1/3
@@ -49,15 +51,12 @@ def Main():
 
     
     all_repos = df_issue[['repo_name']].drop_duplicates()['repo_name']
-    chunk_size = 50
+    chunk_size = 1000
     chunk_count = int(np.ceil(len(all_repos)/chunk_size))
     repo_chunks = np.array_split(all_repos, chunk_count)
 
     for chunk in range(chunk_count):
         sample_size = 'full'
-
-        if f'major_contributors_major_months{time_period}_window{rolling_window}D_sample{sample_size}_chunk{chunk+1}.parquet' in os.listdir(outdir):
-            continue
         selected_repos = repo_chunks[chunk]
         df_issue_selected_unlinked = df_issue[(df_issue['repo_name'].isin(selected_repos)) & (df_issue['created_at']>='2015-01-01')]
         df_pr_selected = df_pr[(df_pr['repo_name'].isin(selected_repos))  & (df_pr['created_at']>='2015-01-01')]
@@ -78,7 +77,10 @@ def Main():
 
     relevant_files = outdir.glob(f'major_contributors_major_months{time_period}_window{rolling_window}D_samplefull_chunk*.parquet')
     df_major_contributors = pd.concat([pd.read_parquet(file) for file in relevant_files])
-    df_major_contributors.to_parquet(outdir_final / f'major_contributors_major_months{time_period}_window{rolling_window}D_samplefull.parquet')
+    SaveData(df_major_contributors, 
+             ['repo_name','actor_id','time_period'],
+             outdir_final / f'major_contributors_major_months{time_period}_window{rolling_window}D_samplefull.parquet',
+             logdir / f'major_contributors_major_months{time_period}_window{rolling_window}D_samplefull.log')
 
 
 def CleanCommittersInfo(indir_committers_info):
@@ -183,6 +185,7 @@ def CombinePushPR(ts_pr_authorship, ts_push_authorship, commit_cols):
     ts_commit_authorship = ts_pr_authorship.join(ts_push_authorship, how = 'outer')
     for col in commit_cols:
         ts_commit_authorship[col] = ts_commit_authorship[f"push_{col}"].fillna(0) + ts_commit_authorship[f"pr_{col}"].fillna(0)
+    ts_commit_authorship = ts_commit_authorship.reset_index()
     return ts_commit_authorship
     
 def CalculateIssueCommentStats(issue_comments, df_pr_selected):        
@@ -243,7 +246,7 @@ def GetMajorContributorPostPercentile(ts_data, rolling_window, major_col_list, m
         .sort_values(['repo_name','time_period','actor_id'])
     major_pct_quantile_list = [f'{major_col}_{int(major_pct*100)}th_pct' for major_col, major_pct in itertools.product(major_col_list, major_pct_list)]
     major_cols = ['time_period', 'repo_name','actor_id']
-    for lst in [major_col_list, major_pct_quantile_list, other_cols]:
+    for lst in [major_col_list, major_pct_quantile_list]:
         major_cols.extend(lst)
     ts_data_pct = CalculateColumnPercentileDF(ts_data, rolling_window, major_col_list, major_pct_list)
     major_contributor_data = ts_data_pct[major_cols]
@@ -254,24 +257,31 @@ def GroupedFill(df, group, fill_cols):
     df[fill_cols] = df.groupby(group)[fill_cols].bfill()
     return df
 
-def GenerateBalancedContributorsPanel(ic_major_contributor_data, commit_major_contributor_data, time_period):
-    ic_uq = ic_major_contributor_data[['repo_name','actor_id', 'time_period']].drop_duplicates()
-    commit_uq = commit_major_contributor_data[['repo_name','actor_id', 'time_period']].drop_duplicates()
-    major_contributors = pd.concat([ic_uq,commit_uq]).drop_duplicates()
+def GenerateBalancedContributorsPanel(ts_issue_comments, ts_commit_authorship, ts_commit_authorship_lt100, ts_reviewer, time_period):
+    ic_uq = ts_issue_comments[['repo_name','actor_id', 'time_period']].drop_duplicates()
+    commit_uq = ts_commit_authorship[['repo_name','actor_id', 'time_period']].drop_duplicates()
+    reviewer_uq = ts_reviewer[['repo_name','actor_id', 'time_period']].drop_duplicates()
+
+    major_contributors = pd.concat([ic_uq, commit_uq, reviewer_uq]).drop_duplicates()
     major_contributors_time = major_contributors.groupby(['repo_name','actor_id']).agg({'time_period':['min','max']})
     major_contributors_time.columns = ['earliest','latest']
     major_contributors_time.reset_index(drop = True, inplace = True)
     major_contributors_time['time_period'] = major_contributors_time.parallel_apply(
         lambda x: pd.date_range(x['earliest'],x['latest'], freq = f'{time_period}MS'), axis = 1)
     major_contributors_data_pct = major_contributors.explode('time_period').reset_index(drop = True).set_index(['repo_name','actor_id','time_period'])
-    ic_data = ic_major_contributor_data.set_index(['repo_name','actor_id','time_period'])
-    commit_data = commit_major_contributor_data.set_index(['repo_name','actor_id','time_period'])
+    ic_data = ts_issue_comments.set_index(['repo_name','actor_id','time_period'])
+    commit_data = ts_commit_authorship.set_index(['repo_name','actor_id','time_period'])
+    reviewer_data = ts_reviewer.set_index(['repo_name','actor_id','time_period'])
+    commit_lt100 = ts_commit_authorship_lt100.set_index(['repo_name','actor_id','time_period'])
+
     major_contributors_data_pct = major_contributors_data_pct.join(ic_data, how = 'left')
     major_contributors_data_pct = major_contributors_data_pct.join(commit_data, how = 'left')
-    
-    return major_contributors_data_pct
+    major_contributors_data_pct = major_contributors_data_pct.join(commit_lt100, how = 'left')
+    major_contributors_data_pct = major_contributors_data_pct.join(reviewer_data, how = 'left')
 
-def AddMajorContributorNonPercentileActivity(major_contributors_data_pct, df_pr_selected, df_issue_selected, time_period):
+    return major_contributors_data_pct.reset_index()
+
+def CalculatePRReviewStats(df_pr_selected, df_issue_selected, time_period):
     df_pr_data = ImputeTimePeriod(df_pr_selected, time_period)
     df_issue_data = ImputeTimePeriod(df_issue_selected, time_period)
     pr_reviews = df_pr_data.query('type == "PullRequestReviewEvent"').assign(pr_reviews = 1)\
@@ -291,62 +301,72 @@ def AddMajorContributorNonPercentileActivity(major_contributors_data_pct, df_pr_
         .assign(issues_closed = 1)\
         .groupby(['actor_id','repo_name','time_period'])\
         [['issues_closed']].sum().reset_index().set_index(['actor_id','repo_name','time_period'])
-    major_contributors_data = major_contributors_data_pct.join(pr_reviews, how = 'outer')
-    major_contributors_data = major_contributors_data.join(pr_review_comments, how = 'outer')
-    major_contributors_data = major_contributors_data.join(pr_merges, how = 'outer')
-    major_contributors_data = major_contributors_data.join(issue_closers, how = 'outer')
-    return major_contributors_data
+    ts_reviewer = pr_reviews.join(pr_review_comments, how = 'outer')
+    ts_reviewer = ts_reviewer.join(pr_merges, how = 'outer')
+    ts_reviewer = ts_reviewer.join(issue_closers, how = 'outer').reset_index()
+    return ts_reviewer
 
 def FillNaAndReorder(major_contributors_data):
     val_cols =[col for col in major_contributors_data.columns if 'pct' not in col and col != 'user_type']
     pct_cols = [col for col in major_contributors_data.columns if 'pct' in col]
-    major_contributors_data_reordered = major_contributors_data[['user_type'] + val_cols + pct_cols]
 
     major_contributors_data[pct_cols] = \
         major_contributors_data.groupby(['repo_name','time_period'])[pct_cols].transform('bfill')
     major_contributors_data[pct_cols] = \
         major_contributors_data.groupby(['repo_name','time_period'])[pct_cols].transform('ffill')
-    major_contributors_data['user_type'] = major_contributors_data.groupby(['actor_id'])['user_type'].transform('bfill')
-    major_contributors_data['user_type'] = major_contributors_data.groupby(['actor_id'])['user_type'].transform('ffill')
+    major_contributors_data_reordered = major_contributors_data[val_cols + pct_cols]
 
-    return major_contributors_data
+    return major_contributors_data_reordered
 
 
 def OutputMajorContributors(committers_match, df_pr_commit_stats, df_pr_selected, df_push_commit_stats, df_issue_selected, issue_comments,
                             major_pct_list, time_period, author_thresh, commit_cols,
                             rolling_window, sample_size, chunk, outdir):
-    major_pr_col_list = ['pr', 'pr_opener'] + commit_cols 
-    major_push_col_list = commit_cols
     push_commit_cols =  [f"push_{col}" for col in commit_cols]
     pr_commit_cols = [f"pr_{col}" for col in commit_cols]
+    major_pr_col_list = ['pr', 'pr_opener'] + commit_cols
+    commit_cols_lt100 = [f"{col}_lt100" for col in commit_cols]
+    major_pr_commit_col_list =  ['pr', 'pr_opener'] + commit_cols + pr_commit_cols + push_commit_cols + \
+        commit_cols_lt100 + [f"push_{col}_lt100" for col in commit_cols] + [f"pr_{col}_lt100" for col in commit_cols]
 
     # DO I WANT TO USE COMMIT TIME INSTEAD OF MERGE TIME
     df_pr_commit_stats = ImputeTimePeriod(df_pr_commit_stats, time_period)
     df_pr_commit_author_stats = AssignPRAuthorship(df_pr_commit_stats, author_thresh, commit_cols)
     df_pr_commit_author_stats = AddPROpener(df_pr_commit_author_stats, df_pr_selected)
     ts_pr_authorship = CalculateCommitAuthorStats(df_pr_commit_author_stats, major_pr_col_list, 'pr')
+    
+    df_pr_commit_author_stats_lt100 = df_pr_commit_author_stats[df_pr_commit_author_stats['commit files changed count'] <= 100]
+    ts_pr_authorship_lt_100 = CalculateCommitAuthorStats(df_pr_commit_author_stats_lt100, major_pr_col_list, 'pr')
+    ts_pr_authorship_lt_100.columns = [f"{col}_lt100" for col in ts_pr_authorship.columns] 
 
     df_push_commit_stats = ImputeTimePeriod(df_push_commit_stats, time_period)
-    ts_push_authorship = CalculateCommitAuthorStats(df_push_commit_stats, major_push_col_list, 'push')
+    ts_push_authorship = CalculateCommitAuthorStats(df_push_commit_stats, commit_cols, 'push')
+    
+    df_push_commit_stats_lt100 = df_push_commit_stats[df_push_commit_stats['commit files changed count'] <= 100]
+    ts_push_authorship_lt_100 = CalculateCommitAuthorStats(df_push_commit_stats_lt100, commit_cols, 'push')
+    ts_push_authorship_lt_100.columns = [f"{col}_lt100" for col in ts_push_authorship.columns] 
+
     ts_commit_authorship = CombinePushPR(ts_pr_authorship, ts_push_authorship, commit_cols)
-    commit_major_contributor_data = GetMajorContributorPostPercentile(ts_commit_authorship, str(rolling_window)+"D", major_pr_col_list, major_pct_list, other_cols = pr_commit_cols+push_commit_cols) 
-    print("percentile for PR + push commits obtained")
+    ts_commit_authorship_lt100 = CombinePushPR(ts_pr_authorship_lt_100, ts_push_authorship_lt_100, commit_cols_lt100)
 
     issue_comments = ImputeTimePeriod(issue_comments, time_period)
     ts_issue_comments = CalculateIssueCommentStats(issue_comments, df_pr_selected)
     major_ic_col_list  = ['comments', 'issue_comments', 'pr_comments', 'own_issue_comments', 'helping_issue_comments', 'own_pr_comments','helping_pr_comments',
         'linked_pr_issue_comments', 'issue_number', 'linked_pr_issue_number']
-    ic_major_contributor_data = GetMajorContributorPostPercentile(ts_issue_comments, str(rolling_window)+"D", major_ic_col_list, major_pct_list)
-    print("percentile for issues obtained")
-    major_contributors_data_pct = GenerateBalancedContributorsPanel(ic_major_contributor_data, commit_major_contributor_data, time_period)
-    # technically this function name is no longer correct
-    major_contributors_data = AddMajorContributorNonPercentileActivity(major_contributors_data_pct, df_pr_selected, df_issue_selected, time_period)
-    major_contributors_data = GetMajorContributorPostPercentile(major_contributors_data, str(rolling_window)+"D", ['pr_reviews','pr_review_comments','prs_merged','issues_closed'], major_pct_list)
-    print("supplementary information obtained")
+    
+    ts_reviewer = CalculatePRReviewStats(df_pr_selected, df_issue_selected, time_period)
+    major_maintain_col_list = ['pr_reviews','pr_review_comments','prs_merged','issues_closed']
+    
+    major_contributors_data_bal = GenerateBalancedContributorsPanel(ts_issue_comments, ts_commit_authorship, ts_commit_authorship_lt100, ts_reviewer, time_period)
+    get_pct_cols = major_pr_commit_col_list + major_ic_col_list + major_maintain_col_list
+    major_contributors_data_bal[get_pct_cols] = major_contributors_data_bal[get_pct_cols].fillna(0)
+    major_contributors_data = GetMajorContributorPostPercentile(major_contributors_data_bal, str(rolling_window)+"D", get_pct_cols, major_pct_list, ['user_type'])
+    print("percentile for all obtained")
+
     pct_cols = [col for col in major_contributors_data.columns if 'pct' in col and 'general' not in col]
     major_cols = ['pr', 'pr_opener'] + push_commit_cols + pr_commit_cols + commit_cols
     major_cols.extend(major_ic_col_list)
-    major_cols.extend(['pr_reviews','pr_review_comments','prs_merged','issues_closed'])
+    major_cols.extend(major_maintain_col_list)
 
     major_contributors_data.reset_index(inplace = True)
     major_contributors_data = GroupedFill(major_contributors_data, ['repo_name','time_period'], pct_cols)
@@ -358,7 +378,7 @@ def OutputMajorContributors(committers_match, df_pr_commit_stats, df_pr_selected
     major_contributors_data.columns = [col.replace(" ","_") for col in major_contributors_data.columns]
 
     major_contributors_data = FillNaAndReorder(major_contributors_data)
-
+    major_contributors_data.drop('index',axis = 1, inplace = True)
     major_contributors_data.to_parquet(outdir / f'major_contributors_major_months{time_period}_window{rolling_window}D_sample{sample_size}_chunk{chunk}.parquet')
     print("major contributors exported")
 
