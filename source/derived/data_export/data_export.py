@@ -16,7 +16,7 @@ def Main():
     pandarallel.initialize(progress_bar = True)
     
     outdir = Path('drive/output/derived/data_export')
-    
+    """
     pr_data_indir = glob.glob('drive/output/scrape/extract_github_data/pull_request_data/*.csv')
     pr_data_indir.extend(glob.glob('drive/output/scrape/extract_github_data/pull_request_review_data/*.csv'))
     pr_data_indir.extend(glob.glob('drive/output/scrape/extract_github_data/pull_request_review_comment_data/*.csv'))
@@ -31,14 +31,16 @@ def Main():
     del df_pr
     gc.collect()
     print("DONE with creating df_pr.parquet")
-    
+    """
 
     issue_data_indir = glob.glob('drive/output/scrape/extract_github_data/issue_data/*.csv')
     issue_data_indir.extend(glob.glob('drive/output/scrape/extract_github_data/issue_comment_data/*.csv'))
     issue_cols = ['type','created_at','repo_id','repo_name','actor_id','actor_login','issue_number', 'issue_body','issue_title',
-                  'issue_action','issue_state', 'issue_comment_id', 'issue_user_id', 'issue_comment_body']
+                  'issue_action','issue_state', 'issue_comment_id', 'issue_user_id', 'issue_comment_body',
+                  'latest_issue_assignee','latest_issue_assignee','latest_issue_labels','actor_type']
     df_issue = ReadPrIssueData(issue_data_indir, issue_cols)
-    df_issue['repo_id'] = df_issue['repo_id'].astype(str)
+    df_issue['actor_id'] = pd.to_numeric(df_issue['actor_id'])
+    df_issue['repo_id'] = pd.to_numeric(df_issue['repo_id'])
     df_issue.to_parquet(outdir / 'df_issue.parquet')
     del df_issue
     gc.collect()

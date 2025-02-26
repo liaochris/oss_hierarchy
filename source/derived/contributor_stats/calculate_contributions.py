@@ -49,7 +49,7 @@ def Main():
 
     
     all_repos = df_issue[['repo_name']].drop_duplicates()['repo_name']
-    chunk_size = 100 if time_period<6 else 300
+    chunk_size = 50
     chunk_count = int(np.ceil(len(all_repos)/chunk_size))
     repo_chunks = np.array_split(all_repos, chunk_count)
 
