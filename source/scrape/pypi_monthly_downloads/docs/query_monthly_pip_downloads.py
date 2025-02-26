@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 from google.cloud import bigquery
+from source.lib.JMSLab.SaveData import SaveData
 
 def ExecuteQuery(query):
     client = bigquery.Client()
@@ -8,8 +9,11 @@ def ExecuteQuery(query):
     results_df = query_job.to_dataframe()
     return results_df
 
-def ExportToCsv(dataframe, path):
-    dataframe.to_csv(path, index=False)
+def ExportToCsv(dataframe):
+    dataframe = dataframe[~dataframe['project'].isna()]
+    SaveData(dataframe, ['project','month'],
+             "drive/output/scrape/pypi_monthly_downloads/pypi_monthly_downloads.csv",
+             "output/scrape/pypi_monthly_downloads/pypi_monthly_downloads.log")
 
 def Main():
     if "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ.keys():
@@ -30,7 +34,7 @@ def Main():
     """
     results_monthly_downloads = ExecuteQuery(query_monthly_downloads)
     
-    ExportToCsv(results_monthly_downloads, "drive/source/scrape/pypi_monthly_downloads/orig/pypi_monthly_downloads.csv")
+    ExportToCsv(results_monthly_downloads)
 
 if __name__ == '__main__':
     Main()

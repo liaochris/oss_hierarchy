@@ -88,7 +88,7 @@ def SaveDf(df, keys, out_file, sortbykey, extension):
         df.to_csv(out_file, index = False)
     if extension == '.dta':
         df.to_stata(out_file, write_index = False)
-    if extension == '.csv':
+    if extension == '.parquet':
         df.to_parquet(out_file, index = False)
         
     print(f"File '{out_file}' saved successfully.")
