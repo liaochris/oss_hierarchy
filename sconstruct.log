@@ -1,4 +1,4 @@
-*** New build: {2025-02-22 10:25:13} ***
+*** New build: {2025-02-22 10:31:50} ***
 scons: done reading SConscript files.
 scons: Building targets ...
 scons: rebuilding `drive/output/derived/contributor_stats/contributor_data/major_contributors_major_months2_window1828D_samplefull.parquet' because:
@@ -13,7 +13,7 @@ scons: rebuilding `drive/output/derived/contributor_stats/contributor_data/major
 build_python(["drive/output/derived/contributor_stats/contributor_data/major_contributors_major_months2_window1828D_samplefull.parquet"], ["source/derived/contributor_stats/calculate_contributions.py", "drive/output/scrape/link_committers_profile/committers_info_pr.csv", "drive/output/scrape/link_committers_profile/committers_info_push.csv", "drive/output/derived/data_export/df_pr.parquet", "drive/output/derived/data_export/df_issue.parquet", "drive/output/derived/data_export/df_pr_commits.parquet", "drive/output/derived/data_export/df_push_commits.parquet", "drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request.parquet"])
 scons: *** [drive/output/derived/contributor_stats/contributor_data/major_contributors_major_months2_window1828D_samplefull.parquet] ExecCallError : Python did not run successfully. Please check that the executable, source, and target files are correctly specified. Check drive/output/derived/contributor_stats/contributor_data/sconscript.log and sconstruct.log for errors. 
 Command tried: "python"  source/derived/contributor_stats/calculate_contributions.py 2 1828 > drive/output/derived/contributor_stats/contributor_data/sconscript.log
-Killed
+Terminated
 
 Traceback (most recent call last):
   File "/home/chrisliao/.conda/envs/oss_hierarchy/lib/python3.12/site-packages/SCons/Action.py", line 1441, in execute
@@ -29,6 +29,6 @@ Traceback (most recent call last):
     raise ExecCallError(message)
 source.lib.JMSLab._exception_classes.ExecCallError: Python did not run successfully. Please check that the executable, source, and target files are correctly specified. Check drive/output/derived/contributor_stats/contributor_data/sconscript.log and sconstruct.log for errors. 
 Command tried: "python"  source/derived/contributor_stats/calculate_contributions.py 2 1828 > drive/output/derived/contributor_stats/contributor_data/sconscript.log
-Killed
+Terminated
 
 scons: building terminated because of errors.

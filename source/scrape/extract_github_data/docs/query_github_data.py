@@ -376,7 +376,7 @@ def GetIssueCommentData(client, project_name, dataset_name, github_data_name):
 				"""
     issue_comment_query = client.query(issue_comment_sql, job_config=issue_comment_config) 
     issue_comment_query.result()
-
+	
     GetSubsetData(client, project_name, dataset_name, 'issue_comment_data')
 
 def GetForkData(client, project_name, dataset_name, github_data_name):
@@ -466,7 +466,7 @@ def GetSubsetData(client, project_name, dataset_name, subset_data_name):
                 subset_date_sql = f"""
                 SELECT *
                 FROM
-                    `{project_name}.{dataset_name}.{subset_data_name}`
+                    `{project_name}.{dataset_name}.{subset_data_name.replace("_data","")}`
                 WHERE
                     EXTRACT(MONTH FROM created_at) = {subset_month} AND EXTRACT(YEAR FROM created_at) = {subset_year}
                 """
@@ -474,7 +474,7 @@ def GetSubsetData(client, project_name, dataset_name, subset_data_name):
                 df_subset = subset_date_query.to_dataframe()
                 df_subset = df_subset
                 df_subset.to_csv(f"drive/output/scrape/extract_github_data/{subset_data_name}/{subset_data_name.replace('_data','')}_{subset_year}_{subset_month}.csv")
-                print(f"{subset_data_name}/{subset_data_name}_{subset_year}_{subset_month}.csv extracted")
+                print(f"{subset_data_name}/{subset_data_name.replace('_data','')}_{subset_year}_{subset_month}.csv extracted")
 
 def Main():
     if "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ.keys():
@@ -482,15 +482,15 @@ def Main():
         return
 
     indir_github_projects = 'output/derived/collect_github_repos'
-    project_name = 'oss-organizational-structure'
+    project_name = 'lunar-analyzer-452002-k2' #project_name = 'oss-organizational-structure'
     dataset_name = 'source'
     github_projects_name = 'github_repositories'
     github_data_name = 'github_data'
 
     client = bigquery.Client(project=project_name)
-    CreateDataset(client, dataset_name)
-    LoadTableToDataset(client, 'source', github_projects_name, indir_github_projects)
-    GetRawGitHubData(client, github_projects_name, project_name, dataset_name, github_data_name)
+    #CreateDataset(client, dataset_name)
+    #LoadTableToDataset(client, 'source', github_projects_name, indir_github_projects)
+    #GetRawGitHubData(client, github_projects_name, project_name, dataset_name, github_data_name)
     
     """GetWatchData(client, project_name, dataset_name, github_data_name)
     GetReleaseData(client, project_name, dataset_name, github_data_name)
