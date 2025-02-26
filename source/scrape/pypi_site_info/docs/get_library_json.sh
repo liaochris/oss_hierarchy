@@ -4,7 +4,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-PACKAGES="$(cat "source/scrape/pypi_monthly_downloads/data/popular_python_packages.csv" | cut -d"," -f2)"
+PACKAGES="$(cat "output/scrape/pypi_monthly_downloads/popular_python_packages.csv" | cut -d"," -f2)"
 
 # download jsons in
 for p in $PACKAGES; do 

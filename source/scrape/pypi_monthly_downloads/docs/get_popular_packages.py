@@ -2,6 +2,7 @@
 import os
 import pandas as pd
 from datetime import datetime
+from source.lib.JMSLab.SaveData import SaveData
 
 def Main():
     LOWER_BOUND = datetime(2018,7,1)
@@ -16,8 +17,11 @@ def Main():
         (results_monthly_downloads['month']<UPPER_BOUND)]
     results_monthly_downloads_filt['count'] = results_monthly_downloads_filt.groupby('project')['month'].transform('count')
 
-    downloaded_packages = results_monthly_downloads_filt[results_monthly_downloads_filt['count'] == NUM_MONTHS]['project'].drop_duplicates()
-    downloaded_packages.to_csv('source/scrape/pypi_monthly_downloads/data/popular_python_packages.csv', index = False)
+    downloaded_packages = results_monthly_downloads_filt[results_monthly_downloads_filt['count'] == NUM_MONTHS][['project']].drop_duplicates()
+    SaveData(downloaded_packages,
+             ['project'],
+             'output/scrape/pypi_monthly_downloads/popular_python_packages.csv',
+             'output/scrape/pypi_monthly_downloads/popular_python_packages.log')
 
 if __name__ == '__main__':
     Main()
