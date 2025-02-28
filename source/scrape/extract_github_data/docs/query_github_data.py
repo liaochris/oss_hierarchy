@@ -193,12 +193,16 @@ def GetPullRequestReviewCommentData(client, project_name, dataset_name, github_d
 						actor.login AS `actor_login`,
 						org.id AS `org_id`,
 						org.login AS `org_login`,
-						JSON_VALUE(`payload`, '$.comment.reactions') AS `pr_review_comment_reactions`,
+                        JSON_VALUE(`payload`, '$.comment.position') AS `pr_review_comment_position`,
+                        JSON_VALUE(`payload`, '$.comment.original_position') AS `pr_review_comment_original_position`,
+                        JSON_VALUE(`payload`, '$.comment.original_commit_id') AS `pr_review_comment_original_commit_id`,
+                        JSON_VALUE(`payload`, '$.comment.pull_request_review_id') AS `pr_review_id`,
+                        JSON_VALUE(`payload`, '$.comment.reactions') AS `pr_review_comment_reactions`,
 						JSON_VALUE(`payload`, '$.comment.author_association') AS `pr_review_comment_author_association`,
 						JSON_VALUE(`payload`, '$.comment.body') AS `pr_review_comment_body`,
 						JSON_VALUE(`payload`, '$.comment.user.site_admin') AS `pr_review_comment_site_admin`,
 						JSON_VALUE(`payload`, '$.comment.commit_id') AS `pr_review_comment_commit_id`,
-						JSON_VALUE(`payload`, '$.comment') AS `pr_review_comment_id`,
+						JSON_VALUE(`payload`, '$.comment.id') AS `pr_review_comment_id`,
 						JSON_VALUE(`payload`, '$.action') AS `pr_review_comment_action`,
 						JSON_VALUE(`payload`, '$.pull_request.number') AS `pr_number`,
 						JSON_VALUE(`payload`, '$.pull_request.id') AS `pr_id`,
@@ -495,12 +499,12 @@ def Main():
     """GetWatchData(client, project_name, dataset_name, github_data_name)
     GetReleaseData(client, project_name, dataset_name, github_data_name)
     GetPushData(client, project_name, dataset_name, github_data_name)
-    GetPullRequestReviewData(client, project_name, dataset_name, github_data_name)
+    GetPullRequestReviewData(client, project_name, dataset_name, github_data_name)"""
     GetPullRequestReviewCommentData(client, project_name, dataset_name, github_data_name)
-    GetPullRequestData(client, project_name, dataset_name, github_data_name)
-    GetIssueData(client, project_name, dataset_name, github_data_name)"""
+    """GetPullRequestData(client, project_name, dataset_name, github_data_name)
+    GetIssueData(client, project_name, dataset_name, github_data_name)
     GetIssueCommentData(client, project_name, dataset_name, github_data_name)
-    """GetForkData(client, project_name, dataset_name, github_data_name)
+    GetForkData(client, project_name, dataset_name, github_data_name)
     GetDeleteData(client, project_name, dataset_name, github_data_name)
     GetCreateData(client, project_name, dataset_name, github_data_name)"""
 

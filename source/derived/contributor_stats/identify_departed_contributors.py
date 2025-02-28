@@ -20,10 +20,9 @@ def Main():
     indir_committers = Path('drive/output/scrape/link_committers_profile')
     outdir = Path('drive/output/derived/contributor_stats/departed_contributors')
     
-    comment_col = 'comments'
-    issue_col = 'issue_comments'
-    commit_col = 'commits'
-    criteria_col_list = [comment_col, issue_col, commit_col, 'pr_review_comments']  
+    criteria_col_list = ['comments', 'issue_comments', 'commits', 'pr_review_comments', 'pr_commits',
+                         'commits_lt100','pr_commits_lt100']
+    
     criteria_pct_list = [75, 90]
     consecutive_periods_major_months_dict = {2: [3, 9, 18],
                                             3: [3, 6, 12],
@@ -51,7 +50,7 @@ def Main():
 
     summary_cols = ['time_period','rolling_window','criteria_col','criteria_pct',
             'consecutive_periods','post_period_length','decline_type','decline_stat',
-            'total_contributors','total_contributors_consecutive_criteria','total_final_candidates',
+            'total_contributors','total_contributors_consecutive_criteria', 'total_major_contributors','total_final_candidates', 
             'num_total_projects','num_projects_with_one_departure','truck_factor_pct_departure','truck_factor_pct_all']
     df_contributor_stats = pd.DataFrame(columns = summary_cols)
 
@@ -116,7 +115,7 @@ def Main():
                                 df_contributor_stats.loc[append_index, summary_cols] = \
                                     [time_period, rolling_window, criteria_col, criteria_pct, consecutive_periods,
                                     post_period_length, decline_type, decline_stat, num_contributors, num_consecutive_periods,
-                                    num_final_contributors, repo_count, one_departure_repos, pct_truck_factor_dep, pct_truck_factor]
+                                    uq_candidates_all.shape[0], num_final_contributors, repo_count, one_departure_repos, pct_truck_factor_dep, pct_truck_factor]
 
                                 print(f"exported {filename}")
     df_contributor_stats.to_csv(outdir / f'departed_contributors_specification_summary_major_months{time_period}_window{rolling_window}D.csv', index = False)
