@@ -17,7 +17,9 @@ def Main():
     python_package_info = pd.Series(python_packages).parallel_apply(lambda package: GetPackageInfo(pypi_json_dir, package))
     df_linked = BuildLinkedDataframe(python_packages, python_package_info)
 
-    df_linked.to_csv('output/derived/collect_github_repos/linked_pypi_github.csv')
+    SaveData(df_linked, ['package'],
+            'output/derived/collect_github_repos/linked_pypi_github.csv',
+            'output/derived/collect_github_repos/linked_pypi_github.log')
 
 def GetPackageInfo(pypi_json_dir, package):
     with open(Path(pypi_json_dir) / package, 'r') as raw_json:
