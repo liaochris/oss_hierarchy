@@ -54,7 +54,7 @@ def Main():
 
 
 def ConstructRepoPanel(df_contributor_panel, df_issue_selected, df_pr_selected, time_period, SECONDS_IN_DAY, outdir_data, closing_day_options):
-    df_repo_panel = df_contributor_panel.drop(['pr_opener','user_type','actor_id'], axis = 1)\
+    df_repo_panel = df_contributor_panel.drop(['pr_opener','actor_id'], axis = 1)\
         .rename({'issue_number':'issues_opened','linked_pr_issue_number':'issues_opened_with_linked_pr','pr':'prs_opened'}, axis = 1)\
         .groupby(['repo_name','time_period']).sum()\
         .reset_index()
@@ -150,27 +150,36 @@ def CreateFullPRDatasetWithReviews(df_pr_selected, df_prs_sans_reviews, SECONDS_
         df_pr_reviews[f'review_state_{col}'] = pd.to_numeric(df_pr_reviews['pr_review_state']==col).astype(int)
     df_pr_review_stats = df_pr_reviews.groupby(['repo_name','pr_number'])\
         [['review_state_commented','review_state_approved','review_state_changes_requested']].sum().reset_index()
+    df_pr_review_stats['pr_reviews'] = df_pr_review_stats[['review_state_commented','review_state_approved','review_state_changes_requested']].sum(axis = 1)
     
     df_prs_complete = pd.merge(df_prs_sans_reviews, df_pr_review_stats, how = 'left')
     for col in ['closed_unmerged_pr', 'merged_pr','review_state_commented',
                 'review_state_approved','review_state_changes_requested']:    
         df_prs_complete[col] = df_prs_complete[col].fillna(0)
     df_prs_complete['days_to_merge'] = (df_prs_complete['merged_at'] - df_prs_complete['created_at']).apply(lambda x: x.total_seconds()/SECONDS_IN_DAY)
+    df_prs_complete['closed_at'] = df_prs_complete['merged_at'].fillna(df_prs_complete['closed_unmerged_at'])
+    df_prs_complete['days_to_close'] = (df_prs_complete['closed_at'] - df_prs_complete['created_at']).apply(lambda x: x.total_seconds()/SECONDS_IN_DAY)
     for day in closing_day_options:
         df_prs_complete[f'merged_in_{day}_days'] = pd.to_numeric(df_prs_complete['days_to_merge']<day).astype(int)
+        df_prs_complete[f'closed_in_{day}_days'] = pd.to_numeric(df_prs_complete['days_to_close']<day).astype(int)
+    
+    df_prs_complete['closed_pr'] = df_prs_complete.apply(lambda x: int(x['closed_unmerged_pr'] == 1 or x['merged_pr'] == 1), axis = 1)
     return df_prs_complete
 
 def CreatePRStats(df_prs_complete):
     df_prs_stats = df_prs_complete.groupby(['repo_name','time_period'])\
-        .agg({'closed_unmerged_pr':['sum','mean'], 'merged_pr':'mean',
+        .agg({'closed_unmerged_pr':['sum','mean'], 'merged_pr':['sum','mean'],
               'review_state_commented':'mean', 'review_state_approved': 'mean',
               'review_state_changes_requested': 'mean',
               'merged_in_30_days':'mean', 'merged_in_60_days':'mean','merged_in_90_days':'mean',
-              'merged_in_180_days':'mean', 'merged_in_360_days':'mean'})
+              'merged_in_180_days':'mean', 'merged_in_360_days':'mean',
+              'closed_pr':['sum','mean'],
+              'pr_reviews':['sum','mean']})
     df_prs_stats.columns = df_prs_stats.columns.to_flat_index()
     df_prs_stats = df_prs_stats.reset_index()\
-        .rename(columns = {('closed_unmerged_pr','sum'): 'prs_closed',
-                           ('closed_unmerged_pr','mean'): 'p_prs_closed',
+        .rename(columns = {('closed_unmerged_pr','sum'): 'prs_closed_unmerged',
+                           ('closed_unmerged_pr','mean'): 'p_prs_closed_unmerged',
+                           ('merged_pr','sum'): 'prs_merged',
                            ('merged_pr','mean'): 'p_prs_merged',
                            ('review_state_commented','mean'):'p_review_state_commented',
                            ('review_state_approved','mean'):'p_review_state_approved',
@@ -179,7 +188,11 @@ def CreatePRStats(df_prs_complete):
                            ('merged_in_60_days', 'mean'): 'p_prs_merged_60d',
                            ('merged_in_90_days', 'mean'): 'p_prs_merged_90d',
                            ('merged_in_180_days', 'mean'): 'p_prs_merged_180d',
-                           ('merged_in_360_days', 'mean'): 'p_prs_merged_360d'})
+                           ('merged_in_360_days', 'mean'): 'p_prs_merged_360d',
+                           ('closed_pr', 'sum'): 'prs_closed',
+                           ('closed_pr', 'mean'): 'p_prs_closed',
+                           ('pr_reviews', 'sum'): 'pr_reviews',
+                           ('pr_reviews', 'mean'): 'mean_pr_reviews'})
     return df_prs_stats
 
 
