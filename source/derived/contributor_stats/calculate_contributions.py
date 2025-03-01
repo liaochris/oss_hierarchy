@@ -163,7 +163,7 @@ def ImputeTimePeriod(df, time_period_months):
 
 def AssignPRAuthorship(df_pr_commit_stats, df_pr_selected, author_thresh, commit_cols):
     pr_reviewers = df_pr_selected.query('type == "PullRequestReviewEvent"').groupby(
-        ['repo_name','pr_number'])['actor_id'].agg(list).reset_index()
+        ['repo_name','pr_number'])['actor_id'].agg(list).reset_index().rename({'actor_id':'reviewers_id'}, axis = 1)
     pr_reviewers['reviewers_id'] = pr_reviewers['reviewers_id'].apply(lambda x: set(x))
     df_pr_commit_stats = pd.merge(df_pr_commit_stats, pr_reviewers, how = 'left', on = ['repo_name','pr_number'])
     commit_cols_share = [f"{col} share" for col in commit_cols]
