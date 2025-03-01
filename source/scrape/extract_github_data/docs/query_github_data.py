@@ -194,6 +194,7 @@ def GetPullRequestReviewCommentData(client, project_name, dataset_name, github_d
 						org.id AS `org_id`,
 						org.login AS `org_login`,
                         JSON_VALUE(`payload`, '$.comment.position') AS `pr_review_comment_position`,
+                        JSON_VALUE(`payload`, '$.comment.diff_hunk') AS `pr_review_comment_diff_hunk`,
                         JSON_VALUE(`payload`, '$.comment.path') AS `pr_review_comment_path`,
                         JSON_VALUE(`payload`, '$.comment.original_position') AS `pr_review_comment_original_position`,
                         JSON_VALUE(`payload`, '$.comment.original_commit_id') AS `pr_review_comment_original_commit_id`,
