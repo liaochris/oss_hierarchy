@@ -66,6 +66,7 @@ def Main():
         df_push_commits_selected = df_push_commits[(df_push_commits['repo_name'].isin(selected_repos))]
         df_linked_issues = df_all_linked_issues[(df_all_linked_issues['repo_name'].isin(selected_repos))]
         
+        # remove already committed
         committers_match = CleanCommittersInfo(indir_committers_info)
         df_pr_commit_stats = LinkCommits(df_pr_selected, df_pr_commits_selected, committers_match, commit_cols, 'pr')
         df_push_commit_stats = LinkCommits(None, df_push_commits_selected, committers_match, commit_cols, 'push')
@@ -160,9 +161,14 @@ def ImputeTimePeriod(df, time_period_months):
     df['time_period'] = pd.to_datetime(df['time_period'])
     return df 
 
-def AssignPRAuthorship(df_pr_commit_stats, author_thresh, commit_cols):
+def AssignPRAuthorship(df_pr_commit_stats, df_pr_selected, author_thresh, commit_cols):
+    pr_reviewers = df_pr_selected.query('type == "PullRequestReviewEvent"').groupby(
+        ['repo_name','pr_number'])['actor_id'].agg(list).reset_index()
+    pr_reviewers['reviewers_id'] = pr_reviewers['reviewers_id'].apply(lambda x: set(x))
     commit_cols_share = [f"{col} share" for col in commit_cols]
-    commit_author_bool = df_pr_commit_stats.apply(lambda x: any([x[col]>author_thresh for col in commit_cols_share]), axis = 1)
+    commit_author_bool = df_pr_commit_stats.apply(lambda x: any([x[col]>author_thresh for col in commit_cols_share]) and 
+                                                  "[bot]" not in x['actor_login'] and 
+                                                  x['actor_id'] not in x['reviewers_id'], axis = 1)
     df_pr_commit_author_stats = df_pr_commit_stats[commit_author_bool]
     return df_pr_commit_author_stats
 
@@ -332,7 +338,7 @@ def OutputMajorContributors(committers_match, df_pr_commit_stats, df_pr_selected
 
     # DO I WANT TO USE COMMIT TIME INSTEAD OF MERGE TIME
     df_pr_commit_stats = ImputeTimePeriod(df_pr_commit_stats, time_period)
-    df_pr_commit_author_stats = AssignPRAuthorship(df_pr_commit_stats, author_thresh, commit_cols)
+    df_pr_commit_author_stats = AssignPRAuthorship(df_pr_commit_stats, df_pr_selected, author_thresh, commit_cols)
     df_pr_commit_author_stats = AddPROpener(df_pr_commit_author_stats, df_pr_selected)
     ts_pr_authorship = CalculateCommitAuthorStats(df_pr_commit_author_stats, major_pr_col_list, 'pr')
     

@@ -2,10 +2,12 @@ import os
 import pandas as pd
 from pathlib import Path
 import sys
+from source.lib.JMSLab.SaveData import SaveData
 
 def Main():
     indir = Path('drive/output/derived/contributor_stats/contributor_data')
     outdir = Path('drive/output/derived/contributor_stats/minor_contributors')
+    outdir_log = Path('output/derived/contributor_stats/minor_contributors')
 
     time_period = int(sys.argv[1])
     rolling_window = int(sys.argv[2])
@@ -28,8 +30,10 @@ def Main():
     df_freq_unimp = df_freq_appearances.query(f'pct_{criteria_col}_thresh_below == 1')
     df_freq_unimp['final_period'] = df_freq_unimp.groupby(['repo_name', 'actor_id'])['time_period'].transform('max')
     
-    df_freq_unimp[['repo_name','actor_id','time_period', 'final_period']].to_csv(
-        outdir / f'minor_contributors_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct.csv')
+    SaveData(df_freq_unimp[['repo_name','actor_id','time_period', 'final_period']],
+             ['repo_name','actor_id','time_period'],
+             outdir / f'minor_contributors_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct.csv',
+             outdir_log / f'minor_contributors_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct.log')
 
 if __name__ == '__main__':
     Main()
