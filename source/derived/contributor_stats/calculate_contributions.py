@@ -166,6 +166,8 @@ def AssignPRAuthorship(df_pr_commit_stats, df_pr_selected, author_thresh, commit
         ['repo_name','pr_number'])['actor_id'].agg(list).reset_index().rename({'actor_id':'reviewers_id'}, axis = 1)
     pr_reviewers['reviewers_id'] = pr_reviewers['reviewers_id'].apply(lambda x: set(x))
     df_pr_commit_stats = pd.merge(df_pr_commit_stats, pr_reviewers, how = 'left', on = ['repo_name','pr_number'])
+    df_pr_commit_stats['reviewers_id']  = df_pr_commit_stats['reviewers_id'].apply(
+        lambda x: set() if pd.isnull(x) else x)
     commit_cols_share = [f"{col} share" for col in commit_cols]
     commit_author_bool = df_pr_commit_stats.apply(lambda x: any([x[col]>author_thresh for col in commit_cols_share]) and 
                                                   "[bot]" not in x['actor_login'] and 
