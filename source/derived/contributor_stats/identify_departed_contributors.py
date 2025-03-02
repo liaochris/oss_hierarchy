@@ -9,7 +9,7 @@ import concurrent.futures
 import itertools
 import sys
 import time
-
+from source.lib.JMSLab.SaveData import SaveData
 pd.set_option('display.max_columns', None)
 
 
@@ -19,7 +19,8 @@ def Main():
     indir_truck = Path('drive/output/scrape/get_weekly_truck_factor')
     indir_committers = Path('drive/output/scrape/link_committers_profile')
     outdir = Path('drive/output/derived/contributor_stats/departed_contributors')
-    
+    outdir_log = Path('output/derived/contributor_stats/departed_contributors')
+
     criteria_col_list = ['comments', 'issue_comments', 'commits', 'pr_review_comments', 'pr_commits',
                          'commits_lt100','pr_commits_lt100']
     
@@ -93,7 +94,10 @@ def Main():
                                 filename = f'departed_contributors_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct_consecutive{consecutive_periods}_post_period{post_period_length}'
                                 decline_suffix = f"_{decline_type}_{decline_stat}.parquet" 
                                 filename = filename + decline_suffix
-                                df_candidates.to_parquet(outdir / filename)
+
+                                print(df_potential_consecutive[df_potential_consecutive.duplicated(['repo_name','actor_id','time_period'])])
+                                SaveData(df_candidates.drop_duplicates(), ['repo_name','actor_id','time_period'],
+                                         outdir / filename, outdir_log / filename.replace(".parquet",".log"))
 
                                 if make_major_contributors == 1:
                                     filename = f'major_contributors_major_months{time_period}_window{rolling_window}D_criteria_{criteria_col}_{criteria_pct}pct_consecutive{consecutive_periods}.parquet'
@@ -118,6 +122,7 @@ def Main():
                                     uq_candidates_all.shape[0], num_final_contributors, repo_count, one_departure_repos, pct_truck_factor_dep, pct_truck_factor]
 
                                 print(f"exported {filename}")
+    
     df_contributor_stats.to_csv(outdir / f'departed_contributors_specification_summary_major_months{time_period}_window{rolling_window}D.csv', index = False)
 
 
@@ -170,7 +175,11 @@ def GetCandidates(major_contributors, df_potential_consecutive, post_period_leng
         df_candidates_all['sum_active'] = df_candidates_all.groupby(['repo_name','actor_id'])['active_indicator'].transform('sum')
         df_candidates_all = df_candidates_all.query('sum_active>0')
         df_candidates_all['grouped_index'] = df_candidates_all.groupby(['repo_name','actor_id']).cumcount()+1
-        df_candidates_final_index = df_candidates_all.query('consecutive_periods == total_consecutive_periods')[['repo_name','actor_id','grouped_index']]
+        df_candidates_final_index = df_candidates_all.query('consecutive_periods == total_consecutive_periods')[
+            ['repo_name','actor_id','grouped_index']]\
+            .sort_values(['repo_name','actor_id','grouped_index'], ascending = [True, True, False])\
+            .drop_duplicates(['repo_name','actor_id'])
+        
         df_candidates_final_index['final_index'] = df_candidates_final_index['grouped_index']
         df_candidates_all = pd.merge(df_candidates_all, df_candidates_final_index.drop('grouped_index', axis = 1))
 
