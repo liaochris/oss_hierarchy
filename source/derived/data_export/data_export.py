@@ -16,16 +16,20 @@ def Main():
     pandarallel.initialize(progress_bar = True)
     
     outdir = Path('drive/output/derived/data_export')
-    """
+    
     pr_data_indir = glob.glob('drive/output/scrape/extract_github_data/pull_request_data/*.csv')
     pr_data_indir.extend(glob.glob('drive/output/scrape/extract_github_data/pull_request_review_data/*.csv'))
     pr_data_indir.extend(glob.glob('drive/output/scrape/extract_github_data/pull_request_review_comment_data/*.csv'))
     pr_cols = ['type','created_at','repo_id','repo_name','actor_id','actor_login','pr_number', 'pr_title',
                'pr_body', 'pr_action','pr_merged_by_id','pr_merged_by_type','pr_label', 'pr_review_action',
-               'pr_review_id','pr_review_state', 'pr_review_body', 'pr_review_comment_body']
+               'pr_review_id','pr_review_state', 'pr_review_body', 'pr_review_comment_body', 'pr_review_comment_position',
+               'pr_review_comment_original_position', 'pr_review_comment_original_commit_id', 'pr_review_comment_commit_id',
+               'pr_review_comment_commit_id','pr_review_comment_path']
     df_pr = ReadPrIssueData(pr_data_indir, pr_cols)
     for col in ['repo_id','pr_number']:
         df_pr[col] = pd.to_numeric(df_pr[col])
+    df_pr['pr_review_comment_position'] = pd.to_numeric(df_pr['pr_review_comment_position'])
+    df_pr['pr_review_comment_original_position'] = pd.to_numeric(df_pr['pr_review_comment_original_position'])
 
     df_pr.to_parquet(outdir / 'df_pr.parquet')
     del df_pr
@@ -65,7 +69,7 @@ def Main():
     df_push_commits['commit file changes'] = df_push_commits['commit file changes'].astype(str)
     df_push_commits.to_parquet(outdir / 'df_push_commits.parquet')
     print("DONE with creating df_push_commits.parquet")
-
+    """
 def ReadPrIssueData(file_dirs, data_cols):
     df_final = pd.DataFrame(columns=data_cols)
     with concurrent.futures.ThreadPoolExecutor() as executor:
