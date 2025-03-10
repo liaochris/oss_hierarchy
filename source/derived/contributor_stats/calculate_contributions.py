@@ -130,7 +130,7 @@ def LinkCommits(df_selected, df_commits_selected, committers_match, commit_cols,
     # TODO: what % of commits had truncated information bc 250 max - also, is that push or PR? 
     # TODO: what % of commits could we not get information for
     if commit_type == 'pr':
-        df_selected[(df_selected['pr_action'] == 'closed') & (df_selected['pr_merged_by_id'].notnull())]
+        merged_commits = df_selected[(df_selected['pr_action'] == 'closed') & (df_selected['pr_merged_by_id'].notnull())]
         df_commit_stats = pd.merge(merged_commits.rename({'created_at':'pr_opened_at'}, axis = 1), commit_stats, on = ['repo_name',selected_id])
     else:
         df_commit_stats = commit_stats      
