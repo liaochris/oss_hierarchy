@@ -1,26 +1,88 @@
 <?xml version='1.0' encoding='utf-8'?>
 <gexf xmlns="http://www.gexf.net/1.2draft" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd" version="1.2">
-  <meta lastmodifieddate="2025-03-07">
+  <meta lastmodifieddate="2025-03-11">
     <creator>NetworkX 3.4.2</creator>
   </meta>
   <graph defaultedgetype="undirected" mode="static" name="">
+    <attributes mode="static" class="edge">
+      <attribute id="1" title="origin_counts" type="string" />
+    </attributes>
+    <attributes mode="static" class="node">
+      <attribute id="0" title="origins" type="string" />
+    </attributes>
     <nodes>
-      <node id="305679.0" label="305679.0" />
-      <node id="1751211.0" label="1751211.0" />
-      <node id="2169888.0" label="2169888.0" />
-      <node id="5689770.0" label="5689770.0" />
-      <node id="1915543.0" label="1915543.0" />
-      <node id="7671839.0" label="7671839.0" />
+      <node id="305679.0" label="305679.0">
+        <attvalues>
+          <attvalue for="0" value="issue | pr" />
+        </attvalues>
+      </node>
+      <node id="1751211.0" label="1751211.0">
+        <attvalues>
+          <attvalue for="0" value="issue" />
+        </attvalues>
+      </node>
+      <node id="1915543.0" label="1915543.0">
+        <attvalues>
+          <attvalue for="0" value="issue | pr" />
+        </attvalues>
+      </node>
+      <node id="2169888.0" label="2169888.0">
+        <attvalues>
+          <attvalue for="0" value="issue | pr" />
+        </attvalues>
+      </node>
+      <node id="7671839.0" label="7671839.0">
+        <attvalues>
+          <attvalue for="0" value="issue" />
+        </attvalues>
+      </node>
+      <node id="5689770.0" label="5689770.0">
+        <attvalues>
+          <attvalue for="0" value="issue | pr" />
+        </attvalues>
+      </node>
     </nodes>
     <edges>
-      <edge source="305679.0" target="1751211.0" id="0" weight="1.0" />
-      <edge source="305679.0" target="2169888.0" id="1" weight="2.0" />
-      <edge source="305679.0" target="5689770.0" id="2" weight="1.0" />
-      <edge source="305679.0" target="1915543.0" id="3" weight="6.0" />
-      <edge source="2169888.0" target="1915543.0" id="4" weight="1.0" />
-      <edge source="2169888.0" target="7671839.0" id="5" weight="1.0" />
-      <edge source="5689770.0" target="1915543.0" id="6" weight="1.0" />
-      <edge source="1915543.0" target="7671839.0" id="7" weight="1.0" />
+      <edge source="305679.0" target="1751211.0" id="0" weight="1">
+        <attvalues>
+          <attvalue for="1" value="{'issue': 1}" />
+        </attvalues>
+      </edge>
+      <edge source="305679.0" target="1915543.0" id="1" weight="6">
+        <attvalues>
+          <attvalue for="1" value="{'pr': 5, 'issue': 1}" />
+        </attvalues>
+      </edge>
+      <edge source="305679.0" target="2169888.0" id="2" weight="2">
+        <attvalues>
+          <attvalue for="1" value="{'issue': 1, 'pr': 1}" />
+        </attvalues>
+      </edge>
+      <edge source="305679.0" target="5689770.0" id="3" weight="2">
+        <attvalues>
+          <attvalue for="1" value="{'issue': 2}" />
+        </attvalues>
+      </edge>
+      <edge source="1915543.0" target="2169888.0" id="4" weight="3">
+        <attvalues>
+          <attvalue for="1" value="{'issue': 3}" />
+        </attvalues>
+      </edge>
+      <edge source="1915543.0" target="7671839.0" id="5" weight="1">
+        <attvalues>
+          <attvalue for="1" value="{'issue': 1}" />
+        </attvalues>
+      </edge>
+      <edge source="1915543.0" target="5689770.0" id="6" weight="1">
+        <attvalues>
+          <attvalue for="1" value="{'pr': 1}" />
+        </attvalues>
+      </edge>
+      <edge source="2169888.0" target="7671839.0" id="7" weight="1">
+        <attvalues>
+          <attvalue for="1" value="{'issue': 1}" />
+        </attvalues>
+      </edge>
     </edges>
   </graph>
 </gexf>
