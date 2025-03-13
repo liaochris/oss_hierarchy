@@ -243,22 +243,21 @@ GenerateEventStudyGrids(departure_panel_nyt, covariate_panel_nyt,
 GenerateEventStudyGrids <- function(df, df_covariates, outcomes, specification_covariates, post, pre, fillna = TRUE) {
   plan(multisession)
   specs <- names(specification_covariates)
-  future_lapply(outcomes, function(outcome) {
-    print(outcome)
-    if (fillna) {
-      df[[outcome]] <- ifelse(is.na(df[[outcome]]), 0, df[[outcome]])
-    }
-    
-    full_samp <- EventStudyAnalysis(df, outcome, post, pre, 
-                                    MakeTitle(outcome, paste0(outcome, " - All Time Periods"), df))
-    
-    df_early <- df %>% filter(time_period <= final_period)
-    early_samp <- EventStudyAnalysis(df_early, outcome, post, pre, 
-                                     MakeTitle(outcome, paste0(outcome, " - Up to Last Active Period"), df_early))
-    
-    for (spec in specs) {
+  future_lapply(specs, function(spec) {
+    for (outcome in outcomes) {
+      if (fillna) {
+        df[[outcome]] <- ifelse(is.na(df[[outcome]]), 0, df[[outcome]])
+      }
+      
+      full_samp <- EventStudyAnalysis(df, outcome, post, pre, 
+                                      MakeTitle(outcome, paste0(outcome, " - All Time Periods"), df))
+      
+      df_early <- df %>% filter(time_period <= final_period)
+      early_samp <- EventStudyAnalysis(df_early, outcome, post, pre, 
+                                       MakeTitle(outcome, paste0(outcome, " - Up to Last Active Period"), df_early))
+      
       outcome_str <- ifelse(grepl("^avg_", outcome), sub("^avg_", "", outcome), outcome)
-      outdir_outcome_spec <- file.path(outdir, outcome_str, spec)
+      outdir_outcome_spec <- file.path(outdir, spec, outcome_str)
       dir.create(outdir_outcome_spec, recursive = TRUE, showWarnings = FALSE)
       
       k <- 2 #k <- 1:3
