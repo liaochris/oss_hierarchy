@@ -239,9 +239,6 @@ covariate_panel_nyt <- CreateCovariateBins(departure_panel_nyt, covariates_to_sp
 
 df <- departure_panel_nyt 
 df_covariates <- covariate_panel_nyt
-GenerateEventStudyGrids(departure_panel_nyt, covariate_panel_nyt, 
-                        outcomes, specification_covariates, 3, 0, fillna = T)
-
 
 GenerateEventStudyGrids <- function(df, df_covariates, outcomes, specification_covariates, post, pre, fillna = TRUE) {
   plan(multisession)
