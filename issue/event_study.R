@@ -93,6 +93,17 @@ CreateDeparturePanel <- function(df_project_outcomes, treatment_inelg, df_covari
     left_join(df_treatment_group) %>% 
     left_join(df_covariates)
   
+  df_covariates_repo <- df_covariates %>% 
+    select(repo_name, time_period, total_important, prop_important) %>%
+    unique()
+  
+  df_project_departed <- rbind(
+    df_project_departed %>% filter(is.na(total_important)) %>%
+      select(-c(total_important, prop_important)) %>%
+      left_join(df_covariates_repo),
+    df_project_departed %>% filter(!is.na(total_important))) %>%
+    arrange(repo_name, time_period)
+  
   return(df_project_departed)
 }
 
@@ -103,7 +114,6 @@ treatment_inelg <- departed_list$treatment_inelg
 df_covariates <- CleanCovariates(issue_tempdir)
 departure_panel <- CreateDeparturePanel(df_project_outcomes, treatment_inelg, df_covariates)
 
-
 all_projects <- departure_panel %>% pull(repo_name) %>% unique()
 treated_projects <- departure_panel %>% filter(treatment == 1) %>% pull(repo_name) %>% unique()
 treated_projects_count <- length(treated_projects)
@@ -111,9 +121,21 @@ control_projects <- departure_panel %>%
   filter(repo_name %ni% treated_projects) %>% pull(repo_name) %>% unique()
 control_projects_count <- length(control_projects)
 
+departure_panel_nyt <- departure_panel %>% filter(treated_project==1)
+departure_panel_na <- departure_panel_nyt %>% 
+  filter(treatment_group > time_index & treatment_group <= time_index + 3) %>% 
+  select(project_covars, colnames(df_covariates))
+
+
 print(paste("Project Count:", length(all_projects)))
 print(paste("Control Projects:", control_projects_count))
 print(paste("Treated Projects:", treated_projects_count))
+print("Distribution of missing observations for `total_important`")
+c(departure_panel_na %>% 
+    group_by(repo_name) %>% 
+    summarize(num_obs = sum(is.na(total_important))) %>% pull(num_obs) %>% table(), 
+  "all" = length(unique(departure_panel_na$repo_name)))
+
 
 project_covars <- c("repo_name","time_period","treated_project","treatment",
                     "time_index","treatment_group","departed_actor_id", "final_period")
@@ -124,24 +146,25 @@ outcomes <- c("prs_opened", "commits","commits_lt100","comments","issue_comments
               "p_prs_merged_360d","closed_in_30_days","closed_in_60_days","closed_in_90_days",
               "closed_in_180_days","closed_in_360_days")
 
-AverageOutcomes <- function(df, outcomes, total_nodes_col = "total_nodes") {
-  for (outcome in outcomes) {
-    if (outcome != total_nodes_col) {
-      new_col <- paste0("avg_", outcome)
-      df[[new_col]] <- df[[outcome]] / df[[total_nodes_col]]
-    }
-  }
-  return(df)
-}
-
-departure_panel <- AverageOutcomes(departure_panel, outcomes)
-outcomes <- c(outcomes, paste0("avg_", outcomes))
+# AverageOutcomes <- function(df, outcomes, total_nodes_col = "total_nodes") {
+#   for (outcome in outcomes) {
+#     if (outcome != total_nodes_col) {
+#       new_col <- paste0("avg_", outcome)
+#       df[[new_col]] <- df[[outcome]] / df[[total_nodes_col]]
+#     }
+#   }
+#   return(df)
+# }
+# 
+# departure_panel <- AverageOutcomes(departure_panel, outcomes)
+# outcomes <- c(outcomes, paste0("avg_", outcomes))
 
 NormalizeOutcome <- function(df, outcome, outcome_norm) {
-  pretreatment_mean <- df %>% filter(time_index < treatment_group) %>% 
+  df_norm <- copy(df)
+  pretreatment_mean <- df_norm %>% filter(time_index < treatment_group) %>% 
     summarize(mean(get(outcome))) %>% pull()
-  df[[outcome_norm]] <- df[[outcome]]/pretreatment_mean
-  return(df)
+  df_norm[[outcome_norm]] <- df_norm[[outcome]]/pretreatment_mean
+  return(df_norm)
 }
 
 CreateCovariateBins <- function(df, covariates, time_period_col = "time_index", k_values = 1:3) {
@@ -193,22 +216,29 @@ CreateCovariateBins <- function(df, covariates, time_period_col = "time_index", 
   return(df_k_averages)
 }
 
-
-departure_panel_nyt <- departure_panel %>% filter(treated_project==1)
 specification_covariates <- list(imp_contr = c("total_important"),
-     more_imp = c("normalized_degree"),
-     #imp_ratio = c("prop_important"),
+     #more_imp = c("normalized_degree"),
+     imp_ratio = c("prop_important"),
      indiv_clus = c("overall_overlap"),
      indiv_cluster_size = c("overall_overlap", "total_important"),
-     indiv_cluster_impo = c("overall_overlap", "normalized_degree"),
+     #indiv_cluster_impo = c("overall_overlap", "normalized_degree"),
      imp_imp_comm = c("imp_to_imp_avg_edge_weight"),
-     imp_other_comm = c("imp_to_other_avg_edge_weight"),
-     both_comm = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight"),
-     comm_cluster = c("imp_to_imp_avg_edge_weight","overall_overlap"),
-     comm_within_cluster = c("imp_to_other_avg_edge_weight","overall_overlap"))
+     imp_other_comm = c("imp_to_other_avg_edge_weight")#,
+     #both_comm = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight"),
+     #comm_cluster = c("imp_to_imp_avg_edge_weight","overall_overlap"),
+     #comm_within_cluster = c("imp_to_other_avg_edge_weight","overall_overlap")
+     )
 
+na_keep_cols <- c("overall_overlap")
 covariates_to_split <- unique(unlist(specification_covariates))
 covariate_panel_nyt <- CreateCovariateBins(departure_panel_nyt, covariates_to_split)
+
+
+df <- departure_panel_nyt 
+df_covariates <- covariate_panel_nyt
+GenerateEventStudyGrids(departure_panel_nyt, covariate_panel_nyt, 
+                        outcomes, specification_covariates, 3, 0, fillna = T)
+
 
 GenerateEventStudyGrids <- function(df, df_covariates, outcomes, specification_covariates, post, pre, fillna = TRUE) {
   plan(multisession)
@@ -231,8 +261,8 @@ GenerateEventStudyGrids <- function(df, df_covariates, outcomes, specification_c
       outdir_outcome_spec <- file.path(outdir, outcome_str, spec)
       dir.create(outdir_outcome_spec, recursive = TRUE, showWarnings = FALSE)
       
-      k <- 1:3
-      bin_types <- c("bin_median", "bin_mean", "bin_quartile", "bin_third")
+      k <- 2 #k <- 1:3
+      bin_types <- c("bin_median") #bin_types <- c("bin_median", "bin_mean", "bin_quartile", "bin_third")
       combos <- expand.grid(k = k, bin = bin_types, stringsAsFactors = FALSE) %>% 
         mutate(split_specs = paste0(k, "p_back_", bin))
       
@@ -245,8 +275,9 @@ GenerateEventStudyGrids <- function(df, df_covariates, outcomes, specification_c
           next
         }
         
+        na_drop_cols <- setdiff(names(df_covariates[split_spec_vars]), na_keep_cols)
         combinations <- expand.grid(lapply(df_covariates[split_spec_vars], unique)) %>% 
-          drop_na() %>% 
+          drop_na(all_of(na_drop_cols)) %>% 
           arrange(across(everything()))
         
         plot_list <- list(full_samp$plot, early_samp$plot)
@@ -259,7 +290,7 @@ GenerateEventStudyGrids <- function(df, df_covariates, outcomes, specification_c
             descs <- c(descs, DescribeBin(colname, bin_val))
           }
           filtered_repos <- df_covariates %>% inner_join(combo) %>% select(repo_name)
-          df_selected <- df %>% inner_join(filtered_repos, by = "repo_name")
+          df_selected <- df_early %>% inner_join(filtered_repos, by = "repo_name")
           
           selected_samp <- tryCatch({
             EventStudyAnalysis(df_selected, outcome, post, pre, 
@@ -278,7 +309,7 @@ GenerateEventStudyGrids <- function(df, df_covariates, outcomes, specification_c
         split_spec_minus_bin <- gsub("_back_bin", "", split_spec)
         
         filename_saved <- file.path(outdir_outcome_spec, sprintf("%s_%s.png", spec, split_spec_minus_bin))
-        ggsave(plot = final_plot, filename = filename_saved, width = 9, height = 2 * (2+nrow(combinations)))
+        ggsave(plot = final_plot, filename = filename_saved, width = 9, height = 3 * (2+nrow(combinations)))
         message("Saved file: ", filename_saved)
         flush.console()
       }
@@ -338,8 +369,7 @@ DescribeBin <- function(colname, bin_val) {
   time_ind <- parts[3] 
   bin_type <- parts[4] 
   
-  operator <- if(bin_val == 0) "<=" else ">"
-  desc <- paste0(prefix, " (", time_ind, ") ", operator, " ", bin_type)
+  desc <- paste0(prefix, " (", time_ind, ") ", bin_val, " ", bin_type)
   return(desc)
 }
 
@@ -358,6 +388,6 @@ AdjustYScaleUniformly <- function(plot_list, num_breaks = 5) {
 }
 
 GenerateEventStudyGrids(departure_panel_nyt, covariate_panel_nyt, 
-                        outcomes, specification_covariates, 3, 0, fillna = T)
+                        outcomes, specification_covariates, 2, 0, fillna = T)
 
 
