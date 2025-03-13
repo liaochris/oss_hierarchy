@@ -261,7 +261,7 @@ GenerateEventStudyGrids <- function(df, df_covariates, outcomes, specification_c
       dir.create(outdir_outcome_spec, recursive = TRUE, showWarnings = FALSE)
       
       k <- 2 #k <- 1:3
-      bin_types <- c("bin_median") #bin_types <- c("bin_median", "bin_mean", "bin_quartile", "bin_third")
+      bin_types <- c("bin_median", "bin_third") #bin_types <- c("bin_median", "bin_mean", "bin_third", "bin_quartile")
       combos <- expand.grid(k = k, bin = bin_types, stringsAsFactors = FALSE) %>% 
         mutate(split_specs = paste0(k, "p_back_", bin))
       
