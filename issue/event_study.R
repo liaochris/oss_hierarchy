@@ -94,12 +94,12 @@ CreateDeparturePanel <- function(df_project_outcomes, treatment_inelg, df_covari
     left_join(df_covariates)
   
   df_covariates_repo <- df_covariates %>% 
-    select(repo_name, time_period, total_important, prop_important) %>%
+    select(repo_name, time_period, total_important, prop_important, mean_cluster_overlap, avg_clusters_per_node, pct_nodes_one_cluster) %>%
     unique()
   
   df_project_departed <- rbind(
     df_project_departed %>% filter(is.na(total_important)) %>%
-      select(-c(total_important, prop_important)) %>%
+      select(-c(total_important, prop_important, mean_cluster_overlap, avg_clusters_per_node, pct_nodes_one_cluster)) %>%
       left_join(df_covariates_repo),
     df_project_departed %>% filter(!is.na(total_important))) %>%
     arrange(repo_name, time_period)
@@ -220,6 +220,9 @@ specification_covariates <- list(imp_contr = c("total_important"),
      #more_imp = c("normalized_degree"),
      imp_ratio = c("prop_important"),
      indiv_clus = c("overall_overlap"),
+     project_clus_ov = c("mean_cluster_overlap"),
+     project_clus_node = c("avg_clusters_per_node"),
+     project_clus_pct_one = c("pct_nodes_one_cluster"),
      indiv_cluster_size = c("overall_overlap", "total_important"),
      #indiv_cluster_impo = c("overall_overlap", "normalized_degree"),
      imp_imp_comm = c("imp_to_imp_avg_edge_weight"),
@@ -274,7 +277,7 @@ GenerateEventStudyGrids <- function(df, df_covariates, outcomes, specification_c
           next
         }
         
-        na_drop_cols <- setdiff(names(df_covariates[split_spec_vars]), na_keep_cols)
+        na_drop_cols <- names(df_covariates[split_spec_vars])[split_vars %ni% na_keep_cols]
         combinations <- expand.grid(lapply(df_covariates[split_spec_vars], unique)) %>% 
           drop_na(all_of(na_drop_cols)) %>% 
           arrange(across(everything()))
