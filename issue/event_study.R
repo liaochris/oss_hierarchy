@@ -62,9 +62,9 @@ CleanDepartedContributors <- function(indir_departed, time_period, rollign_windo
   return(list(df_departed = df_departed, treatment_inelg = treatment_inelg, treatment_elg = treatment_elg))
 }
 CleanCovariates  <- function(issue_tempdir) {
-  df_covariates <- read.csv(file.path(issue_tempdir, "graph_important.csv")) %>%
+  df_covariates <- read_parquet(file.path(issue_tempdir, "graph_important.parquet")) %>%
     mutate(time_period = as.Date(time_period)) %>%
-    select(-X) %>%
+    mutate(actor_id = as.numeric(actor_id)) %>%
     rename(departed_actor_id = actor_id)
   return(df_covariates)
 }
@@ -133,7 +133,7 @@ print(paste("Treated Projects:", treated_projects_count))
 print("Distribution of missing observations for `total_important`")
 c(departure_panel_na %>% 
     group_by(repo_name) %>% 
-    summarize(num_obs = sum(is.na(total_important))) %>% pull(num_obs) %>% table(), 
+    summarize(num_obs = sum(is.na(normalized_degree))) %>% pull(num_obs) %>% table(), 
   "all" = length(unique(departure_panel_na$repo_name)))
 
 
@@ -217,19 +217,19 @@ CreateCovariateBins <- function(df, covariates, time_period_col = "time_index", 
 }
 
 specification_covariates <- list(imp_contr = c("total_important"),
-     #more_imp = c("normalized_degree"),
+     more_imp = c("normalized_degree"),
      imp_ratio = c("prop_important"),
      indiv_clus = c("overall_overlap"),
      project_clus_ov = c("mean_cluster_overlap"),
      project_clus_node = c("avg_clusters_per_node"),
      project_clus_pct_one = c("pct_nodes_one_cluster"),
      indiv_cluster_size = c("overall_overlap", "total_important"),
-     #indiv_cluster_impo = c("overall_overlap", "normalized_degree"),
+     indiv_cluster_impo = c("overall_overlap", "normalized_degree"),
      imp_imp_comm = c("imp_to_imp_avg_edge_weight"),
-     imp_other_comm = c("imp_to_other_avg_edge_weight")#,
-     #both_comm = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight"),
-     #comm_cluster = c("imp_to_imp_avg_edge_weight","overall_overlap"),
-     #comm_within_cluster = c("imp_to_other_avg_edge_weight","overall_overlap")
+     imp_other_comm = c("imp_to_other_avg_edge_weight"),
+     both_comm = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight"),
+     comm_cluster = c("imp_to_imp_avg_edge_weight","overall_overlap"),
+     comm_within_cluster = c("imp_to_other_avg_edge_weight","overall_overlap")
      )
 
 na_keep_cols <- c("overall_overlap")
