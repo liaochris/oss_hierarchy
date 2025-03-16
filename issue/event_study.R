@@ -73,7 +73,7 @@ CleanDepartedContributorsGraph <- function(issue_tempdir) {
     mutate(repo_count = n()) %>%
     ungroup() %>%
     filter(repo_count == 1) %>%
-    mutate(departed_actor_id = actor_id) %>%
+    mutate(departed_actor_id = as.numeric(actor_id)) %>%
     rename(treatment_period = max_time_period) %>%
     select(repo_name,departed_actor_id,last_pre_period,treatment_period,abandoned_date)
   
@@ -121,14 +121,14 @@ CreateDeparturePanel <- function(df_project_outcomes, treatment_inelg, df_covari
   return(df_project_departed)
 }
 
-graph_departures <- TRUE #FALSE
+graph_departures <- TRUE
 
 df_project_outcomes <- CleanProjectOutcomes(indir, time_period)
 if (!graph_departures) {
   departed_list <- CleanDepartedContributors(indir_departed, time_period, rolling_window, criteria_pct, consecutive_periods, post_periods)
   outdir <- outdir_commit_departures
 } else {
-  CleanDepartedContributorsGraph(issue_tempdir)
+  departed_list <- CleanDepartedContributorsGraph(issue_tempdir)
   outdir <- outdir_graph_departures
 }
 
