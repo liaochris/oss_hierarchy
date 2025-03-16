@@ -22,6 +22,7 @@ indir <- "drive/output/derived/project_outcomes"
 indir_departed <- "drive/output/derived/contributor_stats/filtered_departed_contributors"
 issue_tempdir <- "issue"
 outdir <- "issue/event_study/graphs/"
+outdir_graph_departures <- "issue/event_study/graph_departures/"
 
 time_period <- 6
 rolling_window <- 732
@@ -36,6 +37,7 @@ CleanProjectOutcomes <- function(indir, time_period) {
     mutate(time_index = dense_rank(time_period))
   return(df_project_outcomes)
 }
+
 CleanDepartedContributors <- function(indir_departed, time_period, rollign_window, criteria_pct, consecutive_periods,
                                       post_periods) {
   df_departed_contributors <- read_parquet(
@@ -61,6 +63,7 @@ CleanDepartedContributors <- function(indir_departed, time_period, rollign_windo
   
   return(list(df_departed = df_departed, treatment_inelg = treatment_inelg, treatment_elg = treatment_elg))
 }
+
 CleanCovariates  <- function(issue_tempdir) {
   df_covariates <- read_parquet(file.path(issue_tempdir, "graph_important.parquet")) %>%
     mutate(time_period = as.Date(time_period)) %>%
@@ -68,6 +71,7 @@ CleanCovariates  <- function(issue_tempdir) {
     rename(departed_actor_id = actor_id)
   return(df_covariates)
 }
+
 CreateDeparturePanel <- function(df_project_outcomes, treatment_inelg, df_covariates, 
                                  trim_abandoned = T) {
   df_project <- df_project_outcomes %>%
@@ -92,18 +96,7 @@ CreateDeparturePanel <- function(df_project_outcomes, treatment_inelg, df_covari
   df_project_departed <- df_project_departed %>% 
     left_join(df_treatment_group) %>% 
     left_join(df_covariates)
-  
-  df_covariates_repo <- df_covariates %>% 
-    select(repo_name, time_period, total_important, prop_important, mean_cluster_overlap, avg_clusters_per_node, pct_nodes_one_cluster) %>%
-    unique()
-  
-  df_project_departed <- rbind(
-    df_project_departed %>% filter(is.na(total_important)) %>%
-      select(-c(total_important, prop_important, mean_cluster_overlap, avg_clusters_per_node, pct_nodes_one_cluster)) %>%
-      left_join(df_covariates_repo),
-    df_project_departed %>% filter(!is.na(total_important))) %>%
-    arrange(repo_name, time_period)
-  
+
   return(df_project_departed)
 }
 
@@ -121,7 +114,11 @@ control_projects <- departure_panel %>%
   filter(repo_name %ni% treated_projects) %>% pull(repo_name) %>% unique()
 control_projects_count <- length(control_projects)
 
-departure_panel_nyt <- departure_panel %>% filter(treated_project==1)
+departure_panel_nyt <- departure_panel %>%  
+  filter(treated_project==1) %>%
+  unique()
+project_covars <- c("repo_name","time_period","treated_project","treatment",
+                    "time_index","treatment_group","departed_actor_id", "final_period")
 departure_panel_na <- departure_panel_nyt %>% 
   filter(treatment_group > time_index & treatment_group <= time_index + 3) %>% 
   select(project_covars, colnames(df_covariates))
@@ -133,12 +130,10 @@ print(paste("Treated Projects:", treated_projects_count))
 print("Distribution of missing observations for `total_important`")
 c(departure_panel_na %>% 
     group_by(repo_name) %>% 
-    summarize(num_obs = sum(is.na(normalized_degree))) %>% pull(num_obs) %>% table(), 
+    summarize(num_obs = sum(is.na(total_important))) %>% pull(num_obs) %>% table(), 
   "all" = length(unique(departure_panel_na$repo_name)))
 
 
-project_covars <- c("repo_name","time_period","treated_project","treatment",
-                    "time_index","treatment_group","departed_actor_id", "final_period")
 
 outcomes <- c("prs_opened", "commits","commits_lt100","comments","issue_comments","pr_comments",
               "issues_opened","issues_closed","prs_merged","p_prs_merged","closed_issue",
@@ -216,29 +211,28 @@ CreateCovariateBins <- function(df, covariates, time_period_col = "time_index", 
   return(df_k_averages)
 }
 
-specification_covariates <- list(imp_contr = c("total_important"),
-     more_imp = c("normalized_degree"),
-     imp_ratio = c("prop_important"),
-     indiv_clus = c("overall_overlap"),
-     project_clus_ov = c("mean_cluster_overlap"),
-     project_clus_node = c("avg_clusters_per_node"),
-     project_clus_pct_one = c("pct_nodes_one_cluster"),
-     indiv_cluster_size = c("overall_overlap", "total_important"),
-     indiv_cluster_impo = c("overall_overlap", "normalized_degree"),
-     imp_imp_comm = c("imp_to_imp_avg_edge_weight"),
-     imp_other_comm = c("imp_to_other_avg_edge_weight"),
-     both_comm = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight"),
-     comm_cluster = c("imp_to_imp_avg_edge_weight","overall_overlap"),
-     comm_within_cluster = c("imp_to_other_avg_edge_weight","overall_overlap")
-     )
+specification_covariates <- list(
+  imp_contr = c("total_important"),
+  more_imp = c("normalized_degree"),
+  imp_ratio = c("prop_important"),
+  indiv_clus = c("overall_overlap"),
+  project_clus_ov = c("mean_cluster_overlap"),
+  project_clus_node = c("avg_clusters_per_node"),
+  project_clus_pct_one = c("pct_nodes_one_cluster"),
+  indiv_cluster_size = c("overall_overlap", "total_important"),
+  indiv_cluster_impo = c("overall_overlap", "normalized_degree"),
+  imp_imp_comm = c("imp_to_imp_avg_edge_weight"),
+  imp_other_comm = c("imp_to_other_avg_edge_weight"),
+  both_comm = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight"),
+  comm_imp_more_imp =  c("normalized_degree", "imp_to_imp_avg_edge_weight"),
+  comm_within_more_imp =  c("normalized_degree", "imp_to_other_avg_edge_weight"),
+  comm_cluster = c("imp_to_imp_avg_edge_weight","overall_overlap"),
+  comm_within_cluster = c("imp_to_other_avg_edge_weight","overall_overlap")
+)
 
 na_keep_cols <- c("overall_overlap")
 covariates_to_split <- unique(unlist(specification_covariates))
 covariate_panel_nyt <- CreateCovariateBins(departure_panel_nyt, covariates_to_split)
-
-
-df <- departure_panel_nyt 
-df_covariates <- covariate_panel_nyt
 
 GenerateEventStudyGrids <- function(df, df_covariates, outcomes, specification_covariates, post, pre, fillna = TRUE) {
   plan(multisession)
@@ -248,7 +242,7 @@ GenerateEventStudyGrids <- function(df, df_covariates, outcomes, specification_c
       if (fillna) {
         df[[outcome]] <- ifelse(is.na(df[[outcome]]), 0, df[[outcome]])
       }
-      
+
       full_samp <- EventStudyAnalysis(df, outcome, post, pre, 
                                       MakeTitle(outcome, paste0(outcome, " - All Time Periods"), df))
       
@@ -351,7 +345,8 @@ MakeTitle <- function(title, title_str, df) {
   full_title_str <- paste0(str_replace_all(title, "_", " "), "\n",
                           title_str,
                           "\n",dim(df)[1]," obs, PC: ",length(unique(df$repo_name)),
-                          " T: ",length(unique(df[df$treatment==1,]$repo_name)))
+                          " T: ",length(unique(df[df$treatment==1,]$repo_name)),
+                          "\n# important:", length(unique(df[df$important==1,]$repo_name)))
   return(full_title_str)
 }
 
