@@ -21,8 +21,8 @@ set.seed(1234)
 indir <- "drive/output/derived/project_outcomes"
 indir_departed <- "drive/output/derived/contributor_stats/filtered_departed_contributors"
 issue_tempdir <- "issue"
-outdir <- "issue/event_study/graphs"
-outdir_graph_departures <- "issue/event_study/graph_departures/"
+outdir_commit_departures <- "issue/event_study/graphs"
+outdir_graph_departures <- "issue/event_study/graph_departures"
 
 time_period <- 6
 rolling_window <- 732
@@ -54,6 +54,27 @@ CleanDepartedContributors <- function(indir_departed, time_period, rollign_windo
     filter(repo_count == 1) %>%
     mutate(departed_actor_id = actor_id,
            abandoned_date = as.Date(abandoned_date_consecutive_req2_permanentTrue)) %>%
+    select(repo_name,departed_actor_id,last_pre_period,treatment_period,abandoned_date)
+  
+  treatment_inelg <- df_departed_contributors %>% 
+    filter(repo_name %ni% df_departed$repo_name) %>%
+    pull(repo_name)
+  treatment_elg <- unique(df_departed$repo_name)
+  
+  return(list(df_departed = df_departed, treatment_inelg = treatment_inelg, treatment_elg = treatment_elg))
+}
+
+CleanDepartedContributorsGraph <- function(issue_tempdir) {
+  df_departed_contributors <- read_parquet(
+    file.path(issue_tempdir, "graph_departures.parquet"))
+  
+  df_departed <- df_departed_contributors %>% 
+    group_by(repo_name) %>% 
+    mutate(repo_count = n()) %>%
+    ungroup() %>%
+    filter(repo_count == 1) %>%
+    mutate(departed_actor_id = actor_id) %>%
+    rename(treatment_period = max_time_period) %>%
     select(repo_name,departed_actor_id,last_pre_period,treatment_period,abandoned_date)
   
   treatment_inelg <- df_departed_contributors %>% 
@@ -100,8 +121,17 @@ CreateDeparturePanel <- function(df_project_outcomes, treatment_inelg, df_covari
   return(df_project_departed)
 }
 
+graph_departures <- TRUE #FALSE
+
 df_project_outcomes <- CleanProjectOutcomes(indir, time_period)
-departed_list <- CleanDepartedContributors(indir_departed, time_period, rolling_window, criteria_pct, consecutive_periods, post_periods)
+if (!graph_departures) {
+  departed_list <- CleanDepartedContributors(indir_departed, time_period, rolling_window, criteria_pct, consecutive_periods, post_periods)
+  outdir <- outdir_commit_departures
+} else {
+  CleanDepartedContributorsGraph(issue_tempdir)
+  outdir <- outdir_graph_departures
+}
+
 df_departed <- departed_list$df_departed
 treatment_inelg <- departed_list$treatment_inelg
 df_covariates <- CleanCovariates(issue_tempdir)
@@ -214,6 +244,7 @@ CreateCovariateBins <- function(df, covariates, time_period_col = "time_index", 
 specification_covariates <- list(
   imp_contr = c("total_important"),
   more_imp = c("normalized_degree"),
+  imp_contr_more_imp = c("total_important","normalized_degree"),
   imp_ratio = c("prop_important"),
   indiv_clus = c("overall_overlap"),
   project_clus_ov = c("mean_cluster_overlap"),
