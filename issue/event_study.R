@@ -21,7 +21,7 @@ set.seed(1234)
 indir <- "drive/output/derived/project_outcomes"
 indir_departed <- "drive/output/derived/contributor_stats/filtered_departed_contributors"
 issue_tempdir <- "issue"
-outdir <- "issue/event_study/graphs/"
+outdir <- "issue/event_study/graphs"
 outdir_graph_departures <- "issue/event_study/graph_departures/"
 
 time_period <- 6
@@ -301,7 +301,7 @@ GenerateEventStudyGrids <- function(df, df_covariates, outcomes, specification_c
         final_plot <- grid.arrange(grobs = plot_list, ncol = 2)
         split_spec_minus_bin <- gsub("_back_bin", "", split_spec)
         
-        filename_saved <- file.path(outdir_outcome_spec, sprintf("%s_%s.png", spec, split_spec_minus_bin))
+        filename_saved <- file.path(outdir_outcome_spec, sprintf("%s_%s.pdf", spec, split_spec_minus_bin))
         ggsave(plot = final_plot, filename = filename_saved, width = 9, height = 3 * (2+nrow(combinations)))
         message("Saved file: ", filename_saved)
         flush.console()
