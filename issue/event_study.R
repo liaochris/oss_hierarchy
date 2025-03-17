@@ -261,7 +261,12 @@ specification_covariates <- list(
   comm_within_cluster = c("imp_to_other_avg_edge_weight","overall_overlap")
 )
 
-na_keep_cols <- c("overall_overlap")
+if (graph_departures) {
+  na_keep_cols <- c()
+} else {
+  na_keep_cols <- c("overall_overlap")
+}
+
 covariates_to_split <- unique(unlist(specification_covariates))
 covariate_panel_nyt <- CreateCovariateBins(departure_panel_nyt, covariates_to_split)
 
