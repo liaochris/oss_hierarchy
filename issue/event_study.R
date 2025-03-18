@@ -122,7 +122,7 @@ CreateDeparturePanel <- function(df_project_outcomes, treatment_inelg, df_covari
   return(df_project_departed)
 }
 
-graph_departures <- TRUE
+graph_departures <- FALSE
 
 df_project_outcomes <- CleanProjectOutcomes(indir, time_period)
 if (!graph_departures) {
@@ -347,7 +347,9 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
         split_spec_minus_bin <- gsub("_back_bin", "", split_spec)
         
         filename_saved <- file.path(outdir_outcome_spec, sprintf("%s_%s.pdf", spec, split_spec_minus_bin))
-        ggsave(plot = final_plot, filename = filename_saved, width = 9, height = 3 * (2+nrow(combinations)))
+        ggsave(plot = final_plot, filename = filename_saved, width = 9, height = 3 * (2+nrow(combinations)),
+               device = CairoPNGDevice)
+        
         message("Saved file: ", filename_saved)
         flush.console()
       }
@@ -425,6 +427,17 @@ AdjustYScaleUniformly <- function(plot_list, num_breaks = 5) {
            coord_cartesian(ylim = c(y_min, y_max)) +
            scale_y_continuous(breaks = y_breaks))
 }
+
+CairoPNGDevice <- function(filename, width, height, dpi = 96, bg = "white", ...) {
+  png(filename = filename,
+      width = width * dpi,
+      height = height * dpi,
+      res = dpi,
+      type = "cairo",
+      bg = bg,
+      ...)
+}
+
 
 GenerateEventStudyGrids(departure_panel_nyt, covariate_panel_nyt, 
                         outcomes, specification_covariates, 2, 0, fillna = T)
