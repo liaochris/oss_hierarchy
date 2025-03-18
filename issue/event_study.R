@@ -13,6 +13,7 @@ library(doParallel)
 library(purrr)
 library(future.apply)
 library(gridExtra)
+library(SaveData)
 
 set.seed(1234)
 `%ni%` = Negate(`%in%`)
@@ -270,26 +271,30 @@ if (graph_departures) {
 covariates_to_split <- unique(unlist(specification_covariates))
 covariate_panel_nyt <- CreateCovariateBins(departure_panel_nyt, covariates_to_split)
 
-GenerateEventStudyGrids <- function(df, df_covariates, outcomes, specification_covariates, post, pre, fillna = TRUE) {
+GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, outcomes, specification_covariates, post, pre, fillna = TRUE) {
   plan(multisession)
   specs <- names(specification_covariates)
   future_lapply(specs, function(spec) {
     for (outcome in outcomes) {
       if (fillna) {
-        df[[outcome]] <- ifelse(is.na(df[[outcome]]), 0, df[[outcome]])
+        departure_panel_nyt[[outcome]] <- ifelse(is.na(departure_panel_nyt[[outcome]]), 0, departure_panel_nyt[[outcome]])
       }
 
-      full_samp <- EventStudyAnalysis(df, outcome, post, pre, 
-                                      MakeTitle(outcome, paste0(outcome, " - All Time Periods"), df))
-      
-      df_early <- df %>% filter(time_period <= final_period)
+      full_samp <- EventStudyAnalysis(departure_panel_nyt, outcome, post, pre, 
+                                      MakeTitle(outcome, paste0(outcome, " - All Time Periods"), departure_panel_nyt))
+      df_early <- departure_panel_nyt %>% filter(time_period <= final_period)
       early_samp <- EventStudyAnalysis(df_early, outcome, post, pre, 
                                        MakeTitle(outcome, paste0(outcome, " - Up to Last Active Period"), df_early))
+      if (outcome == outcomes[1]) {
+        SaveData(departure_panel_nyt, c("repo_name","time_period"), file.path(outdir, "full_sample.csv"), file.path(outdir, "full_sample.log"))  
+        SaveData(df_early, c("repo_name","time_period"), file.path(outdir, "early_sample.csv"), file.path(outdir, "early_sample.log"))
+      }
       
       outcome_str <- ifelse(grepl("^avg_", outcome), sub("^avg_", "", outcome), outcome)
       outdir_outcome_spec <- file.path(outdir, spec, outcome_str)
+      outdir_spec <- file.path(outdir, spec)
       dir.create(outdir_outcome_spec, recursive = TRUE, showWarnings = FALSE)
-      
+
       k <- 2 #k <- 1:3
       bin_types <- c("bin_median", "bin_third") #bin_types <- c("bin_median", "bin_mean", "bin_third", "bin_quartile")
       combos <- expand.grid(k = k, bin = bin_types, stringsAsFactors = FALSE) %>% 
@@ -298,14 +303,14 @@ GenerateEventStudyGrids <- function(df, df_covariates, outcomes, specification_c
       for (split_spec in combos$split_specs) {
         split_vars <- specification_covariates[[spec]]
         split_spec_vars <- paste(split_vars, split_spec, sep = '_')
-        if (!all(split_spec_vars %in% names(df_covariates))) {
+        if (!all(split_spec_vars %in% names(covariate_panel_nyt))) {
           print(paste(split_spec_vars, collapse = ", "))
           print("not available")
           next
         }
         
-        na_drop_cols <- names(df_covariates[split_spec_vars])[split_vars %ni% na_keep_cols]
-        combinations <- expand.grid(lapply(df_covariates[split_spec_vars], unique)) %>% 
+        na_drop_cols <- names(covariate_panel_nyt[split_spec_vars])[split_vars %ni% na_keep_cols]
+        combinations <- expand.grid(lapply(covariate_panel_nyt[split_spec_vars], unique)) %>% 
           drop_na(all_of(na_drop_cols)) %>% 
           arrange(across(everything()))
         
@@ -318,10 +323,14 @@ GenerateEventStudyGrids <- function(df, df_covariates, outcomes, specification_c
             bin_val <- as.numeric(combo[[colname]])
             descs <- c(descs, DescribeBin(colname, bin_val))
           }
-          filtered_repos <- df_covariates %>% inner_join(combo) %>% select(repo_name)
+          filtered_repos <- covariate_panel_nyt %>% inner_join(combo) %>% select(repo_name)
           df_selected <- df_early %>% inner_join(filtered_repos, by = "repo_name")
           
           selected_samp <- tryCatch({
+            if (outcome == outcomes[1]) {
+              SaveData(df_selected, c("repo_name","time_period"), 
+                       file.path(outdir_spec, "subsample.csv"), file.path(outdir_spec, "subsample.log"))
+            }
             EventStudyAnalysis(df_selected, outcome, post, pre, 
                                MakeTitle(outcome, paste(descs, collapse = "\n"), df_selected))
           }, error = function(e) {
