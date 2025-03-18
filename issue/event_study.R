@@ -14,6 +14,7 @@ library(purrr)
 library(future.apply)
 library(gridExtra)
 library(SaveData)
+library(ragg)
 
 set.seed(1234)
 `%ni%` = Negate(`%in%`)
@@ -271,7 +272,8 @@ if (graph_departures) {
 covariates_to_split <- unique(unlist(specification_covariates))
 covariate_panel_nyt <- CreateCovariateBins(departure_panel_nyt, covariates_to_split)
 
-GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, outcomes, specification_covariates, post, pre, fillna = TRUE) {
+GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, outcomes, specification_covariates, post, pre, fillna = TRUE,
+                                    plot = FALSE) {
   plan(multisession)
   specs <- names(specification_covariates)
   future_lapply(specs, function(spec) {
@@ -346,9 +348,10 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
         final_plot <- grid.arrange(grobs = plot_list, ncol = 2)
         split_spec_minus_bin <- gsub("_back_bin", "", split_spec)
         
-        filename_saved <- file.path(outdir_outcome_spec, sprintf("%s_%s.pdf", spec, split_spec_minus_bin))
-        ggsave(plot = final_plot, filename = filename_saved, width = 9, height = 3 * (2+nrow(combinations)),
-               device = CairoPNGDevice)
+        filename_saved <- file.path(outdir, sprintf("%s_%s.pdf", spec, split_spec_minus_bin))
+        if (plot) {
+          ggsave(plot = final_plot, filename = filename_saved, width = 9, height = 3 * (2+nrow(combinations)))
+        }
         
         message("Saved file: ", filename_saved)
         flush.console()
@@ -428,18 +431,9 @@ AdjustYScaleUniformly <- function(plot_list, num_breaks = 5) {
            scale_y_continuous(breaks = y_breaks))
 }
 
-CairoPNGDevice <- function(filename, width, height, dpi = 96, bg = "white", ...) {
-  png(filename = filename,
-      width = width * dpi,
-      height = height * dpi,
-      res = dpi,
-      type = "cairo",
-      bg = bg,
-      ...)
-}
-
 
 GenerateEventStudyGrids(departure_panel_nyt, covariate_panel_nyt, 
-                        outcomes, specification_covariates, 2, 0, fillna = T)
+                        outcomes, specification_covariates, 2, 0, fillna = T,
+                        plot = T)
 
 
