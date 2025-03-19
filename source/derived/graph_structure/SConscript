@@ -1,0 +1,34 @@
+Import('*')
+import os
+import glob
+import pandas as pd
+import numpy as np
+
+
+df_graphs = pd.read_csv('../../../drive/output/derived/graph_structure/exported_graphs_log.csv')
+df_graphs['time_perid_date'] = pd.to_datetime(df_graphs['time_period_date'])
+df_graphs['ym'] = df_graphs.time_perid_date.dt.year.astype("string")+df_graphs.time_perid_date.dt.month.astype("string").str.zfill(2)
+
+graph_outdir = '#drive/output/derived/graph_structure/graphs'
+target = []
+for idx in df_graphs.index:
+    ym = df_graphs.loc[idx, 'ym']
+    repo = df_graphs.loc[idx, 'repo'].replace("/","_")
+    repo_date_graphs = [f'{graph_outdir}/{ym}/{repo}.gexf']
+    if df_graphs.loc[idx, 'pr_exported']:
+        repo_date_graphs.append(f'{graph_outdir}/{ym}/{repo}_pr.gexf')
+    if df_graphs.loc[idx, 'issue_exported']:
+        repo_date_graphs.append(f'{graph_outdir}/{ym}/{repo}_issue.gexf')
+    if df_graphs.loc[idx, 'pr_review_exported']:
+        repo_date_graphs.append(f'{graph_outdir}/{ym}/{repo}_pr_review.gexf')
+    target.extend(repo_date_graphs)
+
+source = ['#source/derived/graph_structure/create_graphs.py',
+          '#drive/output/derived/data_export/df_issue.parquet',
+          '#drive/output/derived/data_export/df_pr.parquet',
+          '#drive/output/derived/data_export/df_pr_commits.parquet',
+          '#source/derived/contributor_stats/calculate_contributions.py',
+          '#drive/output/scrape/link_committers_profile/committers_info_pr.csv',
+          '#drive/output/scrape/link_committers_profile/committers_info_push.csv']
+
+env.Precious(env.Python(target, source))
