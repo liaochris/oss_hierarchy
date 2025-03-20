@@ -60,7 +60,7 @@ def Main():
     df_issue['date'] = df_issue['created_at'].dt.to_period('M').dt.to_timestamp()
     time_periods = sorted(ImputeTimePeriod(df_issue.drop_duplicates(['date']), time_period)['time_period'].unique())
     
-    tasks = list(itertools.product(time_periods, repo_list))
+    tasks = list(itertools.product([time_periods[0]], repo_list))
     all_logs = []
     print("All data imported")
     with concurrent.futures.ProcessPoolExecutor(max_workers = 4) as executor:
