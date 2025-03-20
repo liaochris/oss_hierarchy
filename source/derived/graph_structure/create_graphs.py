@@ -11,10 +11,23 @@ from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import concurrent.futures
 import itertools
+import sys
+import linecache
 
-def worker(args, df_issue, df_pr, df_pr_commits, time_period, committers_match, commit_cols, author_thresh, outdir):
-    time_period_date, repo = args
-    return CreateGraph(repo, time_period_date, df_issue, df_pr, df_pr_commits, time_period, committers_match, commit_cols, author_thresh, exported_graphs_log=[], outdir=outdir)
+# Customize this variable to restrict tracing to your script file.
+TRACE_FILE = os.path.abspath(__file__)
+
+def trace_lines(frame, event, arg):
+    # Only process 'line' events (i.e., when a new line is about to be executed).
+    if event == 'line':
+        filename = os.path.abspath(frame.f_code.co_filename)
+        # Optionally filter to only trace your script
+        if filename != TRACE_FILE:
+            return trace_lines
+        lineno = frame.f_lineno
+        line = linecache.getline(filename, lineno).strip()
+        print(f"Executing {filename}:{lineno}: {line}")
+    return trace_lines
 
 def Main():
     indir_data = Path('drive/output/derived/data_export')
@@ -49,12 +62,11 @@ def Main():
     
     tasks = list(itertools.product(time_periods, repo_list))
     all_logs = []
-    
-    with concurrent.futures.ProcessPoolExecutor() as executor:
+    print("All data imported")
+    with concurrent.futures.ProcessPoolExecutor(max_workers = 4) as executor:
         futures = [executor.submit(worker, task, df_issue, df_pr, df_pr_commits,
             time_period, committers_match, commit_cols, author_thresh, outdir)
-            for task in tasks
-        ]
+            for task in tasks]
         for future in concurrent.futures.as_completed(futures):
             log_entries = future.result()
             if log_entries is not None:
@@ -64,6 +76,10 @@ def Main():
     df_log = pd.DataFrame(exported_graphs_log)
     os.makedirs(logdir, exist_ok=True)
     df_log.to_csv(logdir / "exported_graphs_log.csv", index=False)
+
+def worker(args, df_issue, df_pr, df_pr_commits, time_period, committers_match, commit_cols, author_thresh, outdir):
+    time_period_date, repo = args
+    return CreateGraph(repo, time_period_date, df_issue, df_pr, df_pr_commits, time_period, committers_match, commit_cols, author_thresh, exported_graphs_log=[], outdir=outdir)
 
 def ProcessData(df_issue, df_pr, df_pr_commits):
     df_issue.set_index('repo_name', inplace=True)
@@ -324,4 +340,5 @@ def CreateGraph(repo, time_period_date, df_issue, df_pr, df_pr_commits, time_per
     return exported_graphs_log
 
 if __name__ == '__main__':
+    sys.settrace(trace_lines)  # Activate our custom tracer.
     Main()
