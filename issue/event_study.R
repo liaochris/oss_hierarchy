@@ -330,8 +330,10 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
           
           selected_samp <- tryCatch({
             if (outcome == outcomes[1]) {
+              combo_filename <- paste0(names(combo), combo, collapse = "_")
+              combo_filename <- paste0(combo_filename, ".csv")
               SaveData(df_selected, c("repo_name","time_period"), 
-                       file.path(outdir_spec, "subsample.csv"), file.path(outdir_spec, "subsample.log"))
+                       file.path(outdir_spec, combo_filename))
             }
             EventStudyAnalysis(df_selected, outcome, post, pre, 
                                MakeTitle(outcome, paste(descs, collapse = "\n"), df_selected))
@@ -348,7 +350,7 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
         final_plot <- grid.arrange(grobs = plot_list, ncol = 2)
         split_spec_minus_bin <- gsub("_back_bin", "", split_spec)
         
-        filename_saved <- file.path(outdir, sprintf("%s_%s.pdf", spec, split_spec_minus_bin))
+        filename_saved <- file.path(outdir_outcome_spec, sprintf("%s_%s.pdf", spec, split_spec_minus_bin))
         if (plot) {
           ggsave(plot = final_plot, filename = filename_saved, width = 9, height = 3 * (2+nrow(combinations)))
         }
