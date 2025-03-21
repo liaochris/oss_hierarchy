@@ -41,14 +41,11 @@ def Main():
     departure_type_list = ["graphs"]
 
     tasks = [(departure_type, spec, sizebary) 
-             for departure_type in departure_type_list 
-             for spec in spec_list]
+            for departure_type in departure_type_list 
+            for spec in spec_list]
 
-    with ProcessPoolExecutor() as executor:
-        futures = [executor.submit(RepresentativeGraph, dt, spc, sizebary)
-                   for dt, spc, sizebary in tasks]
-        for future in futures:
-            future.result()
+    for dt, spc, sizebary in tasks:
+        RepresentativeGraph(dt, spc, sizebary)
 
 def RepresentativeGraph(departure_type, spec, sizebary=20):
     df = pd.read_csv(f"issue/event_study/{departure_type}/early_sample.csv")
@@ -66,15 +63,15 @@ def RepresentativeGraph(departure_type, spec, sizebary=20):
         graph_name = f"pre{abs(event_time)}" if event_time < 0 else f"post{abs(event_time)}"
         all_repos_graphs = graph_dict[event_time].values()
         GromovBarycenter(list(all_repos_graphs), event_time, spec, departure_type, sizebary=sizebary, filename = f"{graph_name}_barycenter_size{sizebary}.txt")
-        
+        print("Barycenter for", event_time, "computed", spec)
         num_vars = specification_covariates[spec]
         for combo in list(itertools.product([0, 1], repeat=len(num_vars))):
             combo_filename = "_".join(f"{num_vars[i]}_2p_back_bin_median{combo[i]}" for i in range(len(num_vars)))
-            
             df_combo = pd.read_csv(f'issue/event_study/graphs/{spec}/{combo_filename}.csv')
             combo_repos = list(df_combo['repo_name'].apply(lambda x: x.replace("/","_")).unique())
             combo_repos_graphs = [graph_dict[event_time][combo_repo] for combo_repo in combo_repos if combo_repo in graph_dict[event_time].keys()]
             GromovBarycenter(combo_repos_graphs, event_time, spec, departure_type, sizebary=sizebary, filename = f"{graph_name}_barycenter_size{sizebary}_{combo_filename}.txt")
+            print("Barycenter for", event_time, "computed", spec, combo_filename)
 
 def ProcessFile(read_data_row):
     repo = read_data_row['repo_name'].replace("/", "_")
@@ -97,7 +94,7 @@ def ComputeCostMatrix(G):
     
 def GromovBarycenter(graph_list, event_time, spec, departure_type, sizebary, filename):
     Cs = [ComputeCostMatrix(G) for G in graph_list]
-    C = gromov_barycenters(sizebary, Cs, tol=1e-3, max_iter=100, verbose = True)
+    C = gromov_barycenters(sizebary, Cs, tol=1e-3, max_iter=100, verbose = False)
     
     output_dir = Path(f"issue/event_study/{departure_type}/{spec}/representative_graphs")
     output_dir.mkdir(parents=True, exist_ok=True)
