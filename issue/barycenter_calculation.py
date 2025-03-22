@@ -51,7 +51,7 @@ def RepresentativeGraph(departure_type, spec, sizebary=20):
     df = pd.read_csv(f"issue/event_study/{departure_type}/early_sample.csv")
     read_data = df.assign(relative_time=lambda x: x.time_index - x.treatment_group)[['repo_name', 'time_period', 'relative_time'] + specification_covariates[spec]]
     read_data['time_period'] = pd.to_datetime(read_data['time_period'])
-    read_data = read_data.query('relative_time > -4 & relative_time <= 4')
+    read_data = read_data.query('relative_time >= -4 & relative_time <= 4')
     
     graph_dict = {}
     with ThreadPoolExecutor() as executor:
