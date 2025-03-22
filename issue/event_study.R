@@ -33,23 +33,28 @@ Main <- function() {
   
   graph_departures <- FALSE
   specification_covariates <- list(
-    imp_contr = c("total_important"),
-    more_imp = c("normalized_degree"),
-    imp_contr_more_imp = c("total_important", "normalized_degree"),
-    imp_ratio = c("prop_important"),
-    indiv_clus = c("overall_overlap"),
-    project_clus_ov = c("mean_cluster_overlap"),
-    project_clus_node = c("avg_clusters_per_node"),
-    project_clus_pct_one = c("pct_nodes_one_cluster"),
-    indiv_cluster_size = c("overall_overlap", "total_important"),
-    indiv_cluster_impo = c("overall_overlap", "normalized_degree"),
-    imp_imp_comm = c("imp_to_imp_avg_edge_weight"),
-    imp_other_comm = c("imp_to_other_avg_edge_weight"),
-    both_comm = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight"),
-    comm_imp_more_imp = c("normalized_degree", "imp_to_imp_avg_edge_weight"),
-    comm_within_more_imp = c("normalized_degree", "imp_to_other_avg_edge_weight"),
-    comm_cluster = c("imp_to_imp_avg_edge_weight", "overall_overlap"),
-    comm_within_cluster = c("imp_to_other_avg_edge_weight", "overall_overlap")
+    # imp_contr = c("total_important"),
+    # more_imp = c("normalized_degree"),
+    # imp_contr_more_imp = c("total_important", "normalized_degree"),
+    # imp_ratio = c("prop_important"),
+    # indiv_clus = c("overall_overlap"),
+    # project_clus_ov = c("mean_cluster_overlap"),
+    # project_clus_node = c("avg_clusters_per_node"),
+    # project_clus_pct_one = c("pct_nodes_one_cluster"),
+    # indiv_cluster_size = c("overall_overlap", "total_important"),
+    # indiv_cluster_impo = c("overall_overlap", "normalized_degree"),
+    # 
+    # indiv_cluster_ov_cluster = c("overall_overlap","mean_cluster_overlap"),
+    # 
+    # imp_imp_comm = c("imp_to_imp_avg_edge_weight"),
+    # imp_other_comm = c("imp_to_other_avg_edge_weight"),
+    # both_comm = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight"),
+    # comm_imp_more_imp = c("normalized_degree", "imp_to_imp_avg_edge_weight"),
+    # comm_within_more_imp = c("normalized_degree", "imp_to_other_avg_edge_weight"),
+    both_comm_cluster = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight", "overall_overlap"),
+    both_comm_ov_cluster = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight", "mean_cluster_overlap")
+    # comm_cluster = c("imp_to_imp_avg_edge_weight", "overall_overlap"),
+    # comm_within_cluster = c("imp_to_other_avg_edge_weight", "overall_overlap")
   )
   
   outcomes <- c("prs_opened", "commits", "commits_lt100", "comments", "issue_comments", "pr_comments",
@@ -335,7 +340,7 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
         split_spec_minus_bin <- gsub("_back_bin", "", split_spec)
         filename_saved <- file.path(outdir_outcome_spec, sprintf("%s_%s.pdf", spec, split_spec_minus_bin))
         if (plot) {
-          ggsave(plot = final_plot, filename = filename_saved, width = 9, height = 3 * (2 + nrow(combinations)))
+          ggsave(plot = final_plot, filename = filename_saved, width = 9, height = 3 * (2 + nrow(combinations)), limitsize = FALSE)
         }
         message("Saved file: ", filename_saved)
         flush.console()
