@@ -31,7 +31,7 @@ Main <- function() {
   consecutive_periods <- 3
   post_periods <- 2
   
-  graph_departures <- TRUE
+  graph_departures <- FALSE
   specification_covariates <- list(
     imp_contr = c("total_important"),
     more_imp = c("normalized_degree"),
@@ -174,7 +174,10 @@ CleanDownloads <- function(issue_tempdir) {
     select(repo_name, time_period, total_downloads, total_downloads_one_project) %>%
     group_by(time_period) %>%
     mutate(total_downloads_period = sum(total_downloads),
-           total_downloads_one_project_period = sum(total_downloads_one_project))
+           total_downloads_one_project_period = sum(total_downloads_one_project)) %>%
+    ungroup() %>%
+    mutate(total_downloads = total_downloads/total_downloads_period,
+           total_downloads_one_project = total_downloads_one_project/total_downloads_one_project_period)
   return(df_project_downloads)
 }
 
@@ -360,6 +363,7 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
       }
     }
   })
+  plan(sequential)
 }
 
 
