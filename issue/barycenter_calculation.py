@@ -2,7 +2,7 @@
 # coding: utf-8
 import os, sys, itertools
 import pandas as pd, networkx as nx, ot, numpy as np
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import matplotlib.pylab as pl
 from sklearn.manifold import MDS
 
@@ -40,7 +40,7 @@ def ProcessFile(row):
 def ComputeBarycenter(graph_list, sizebary):
     """Compute the barycenter from a list of graphs using sizebary iterations."""
     mats = [nx.to_numpy_array(G) for G in graph_list]
-    Cdict, _ = ot.gromov.gromov_wasserstein_dictionary_learning(mats, 1, sizebary, reg=0.01)
+    Cdict, _ = ot.gromov.gromov_wasserstein_dictionary_learning(mats, 1, sizebary, reg=0.01, random_state = 0)
     return Cdict[0]
 
 def LoadGraphDict(dep, spec):
@@ -52,9 +52,9 @@ def LoadGraphDict(dep, spec):
     df = df.query('relative_time >= -4 & relative_time <= 4')[cols]
     graph_dict = {}
     with ThreadPoolExecutor() as ex:
-        for repo, rt, G in ex.map(ProcessFile, df.to_dict('records')):
+        for repo, event_time, G in ex.map(ProcessFile, df.to_dict('records')):
             if G:
-                graph_dict.setdefault(rt, {})[repo] = G
+                graph_dict.setdefault(event_time, {})[repo] = G
     return graph_dict
 
 def PrepareCalcData(event_graphs, spec):
@@ -81,7 +81,7 @@ def PlotGraph(x, C, color="C0", s=100):
 
 def PlotSingleGraph(ax, atom, label, global_max):
     """Plot one graph cell on a given axis using global_max for normalization."""
-    scaled = (atom - atom.min()) / (global_max - atom.min())
+    scaled = (atom - atom.min()) / (atom.max() - atom.min())
     x = MDS(dissimilarity="precomputed", random_state=0).fit_transform(1 - scaled)
     ax.set_title(label, fontsize=10)
     for i in range(scaled.shape[0]):
@@ -99,12 +99,13 @@ def PlotCombinedGraph(barys, labels, event_time, dep, spec, sizebary):
                  if event_time == "Combined" 
                  else f"Representative Graphs (size={sizebary}): Event Time: {event_time}")
     pl.suptitle(title_str, fontsize=16)
+    global_max = max([bary.max() for bary in barys])
     for i, atom in enumerate(barys):
         scaled = (atom - atom.min()) / (atom.max() - atom.min())
         x = MDS(dissimilarity="precomputed", random_state=0).fit_transform(1 - scaled)
         pl.subplot(1, n, i + 1)
         pl.title(labels[i], fontsize=10)
-        PlotGraph(x, atom/(1.1*atom.max()), color="C0")
+        PlotGraph(x, atom/global_max, color="C0")
         pl.axis("off")
     pl.tight_layout(rect=[0, 0, 1, 0.95])
     out_dir = f"issue/event_study/{dep}/{spec}/representative_graphs"
@@ -113,19 +114,21 @@ def PlotCombinedGraph(barys, labels, event_time, dep, spec, sizebary):
     pl.savefig(file_name, dpi=300)
 
 def PlotCombinedVerticalGraph(event_res, dep, spec, sizebary):
-    """Vertically concatenate rows of graphs (one row per event time)."""
+    """Vertically concatenate rows of graphs (one row per event time) and add event time subtitles."""
     event_times = sorted(event_res.keys())
     rows = len(event_times)
     max_cols = max(len(labs) for labs, _ in event_res.values())
     fig, axes = pl.subplots(nrows=rows, ncols=max_cols, figsize=(4 * max_cols, 4 * rows))
     if rows == 1:
         axes = np.atleast_2d(axes)
-    global_max = event_res[event_times[0]][1][0].max()
     for i, et in enumerate(event_times):
+        global_max = max([bary.max() for bary in event_res[et][1]])
         labs, barys = event_res[et]
         for j in range(max_cols):
             ax = axes[i, j]
             if j < len(barys):
+                # Add the event time as a subtitle on each subplot.
+                ax.set_title(f"Event time: {et}", fontsize=10)
                 PlotSingleGraph(ax, barys[j], labs[j], global_max)
             else:
                 ax.axis("off")
@@ -135,17 +138,24 @@ def PlotCombinedVerticalGraph(event_res, dep, spec, sizebary):
     os.makedirs(out_dir, exist_ok=True)
     file_name = f"{out_dir}/rep_graphs_size{sizebary}_combined_vertical.png"
     fig.savefig(file_name, dpi=300)
-    pl.show()
+
+def ProcessEventTime(rt, event_graphs, spec, sizebary, dep):
+    """Process a single event time: compute barycenters, plot, and return results."""
+    bary_list, labs = PrepareCalcData(event_graphs, spec)
+    barys = [ComputeBarycenter(gl, sizebary) for gl in bary_list]
+    PlotCombinedGraph(barys, labs, event_time=rt, dep=dep, spec=spec, sizebary=sizebary)
+    return rt, (labs, barys)
 
 def RepresentativeGraph(dep, spec, sizebary=20):
-    """Load data, compute barycenters, and produce plots."""
+    """Load data, compute barycenters sequentially over event times, and produce plots."""
     graph_dict = LoadGraphDict(dep, spec)
     event_res = {}
-    for rt in sorted(graph_dict.keys()):
-        bary_list, labs = PrepareCalcData(graph_dict[rt], spec)
-        barys = [ComputeBarycenter(gl, sizebary) for gl in bary_list]
-        event_res[rt] = (labs, barys)
-        PlotCombinedGraph(barys, labs, event_time=rt, dep=dep, spec=spec, sizebary=sizebary)
+    event_times = sorted(graph_dict.keys())
+    
+    for rt in event_times:
+        rt, result = ProcessEventTime(rt, graph_dict[rt], spec, sizebary, dep)
+        event_res[rt] = result
+    
     PlotCombinedVerticalGraph(event_res, dep, spec, sizebary)
 
 def Main():
