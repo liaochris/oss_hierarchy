@@ -271,9 +271,6 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
   specs <- names(specification_covariates)
   future_lapply(specs, function(spec) {
     for (outcome in outcomes) {
-      if (outcome %in% c("total_downloads", "total_downloads_one_project")) {
-        departure_panel_nyt <- departure_panel_nyt %>% filter(year(time_period) >= 2019)
-      }
       if (fillna) {
         departure_panel_nyt[[outcome]] <- ifelse(is.na(departure_panel_nyt[[outcome]]), 0, departure_panel_nyt[[outcome]])
       }
