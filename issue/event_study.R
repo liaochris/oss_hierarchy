@@ -31,30 +31,28 @@ Main <- function() {
   consecutive_periods <- 3
   post_periods <- 2
   
-  graph_departures <- FALSE
+  graph_departures <- TRUE
   specification_covariates <- list(
-    # imp_contr = c("total_important"),
-    # more_imp = c("normalized_degree"),
-    # imp_contr_more_imp = c("total_important", "normalized_degree"),
-    # imp_ratio = c("prop_important"),
-    # indiv_clus = c("overall_overlap"),
-    # project_clus_ov = c("mean_cluster_overlap"),
-    # project_clus_node = c("avg_clusters_per_node"),
-    # project_clus_pct_one = c("pct_nodes_one_cluster"),
-    # indiv_cluster_size = c("overall_overlap", "total_important"),
-    # indiv_cluster_impo = c("overall_overlap", "normalized_degree"),
-    # 
-    # indiv_cluster_ov_cluster = c("overall_overlap","mean_cluster_overlap"),
-    # 
-    # imp_imp_comm = c("imp_to_imp_avg_edge_weight"),
-    # imp_other_comm = c("imp_to_other_avg_edge_weight"),
-    # both_comm = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight"),
-    # comm_imp_more_imp = c("normalized_degree", "imp_to_imp_avg_edge_weight"),
-    # comm_within_more_imp = c("normalized_degree", "imp_to_other_avg_edge_weight"),
+    imp_contr = c("total_important"),
+    more_imp = c("normalized_degree"),
+    imp_contr_more_imp = c("total_important", "normalized_degree"),
+    imp_ratio = c("prop_important"),
+    indiv_clus = c("overall_overlap"),
+    project_clus_ov = c("mean_cluster_overlap"),
+    project_clus_node = c("avg_clusters_per_node"),
+    project_clus_pct_one = c("pct_nodes_one_cluster"),
+    indiv_cluster_size = c("overall_overlap", "total_important"),
+    indiv_cluster_impo = c("overall_overlap", "normalized_degree"),
+    indiv_cluster_ov_cluster = c("overall_overlap","mean_cluster_overlap"),
+    imp_imp_comm = c("imp_to_imp_avg_edge_weight"),
+    imp_other_comm = c("imp_to_other_avg_edge_weight"),
+    both_comm = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight"),
+    comm_imp_more_imp = c("normalized_degree", "imp_to_imp_avg_edge_weight"),
+    comm_within_more_imp = c("normalized_degree", "imp_to_other_avg_edge_weight"),
     both_comm_cluster = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight", "overall_overlap"),
-    both_comm_ov_cluster = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight", "mean_cluster_overlap")
-    # comm_cluster = c("imp_to_imp_avg_edge_weight", "overall_overlap"),
-    # comm_within_cluster = c("imp_to_other_avg_edge_weight", "overall_overlap")
+    both_comm_ov_cluster = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight", "mean_cluster_overlap"),
+    comm_cluster = c("imp_to_imp_avg_edge_weight", "overall_overlap"),
+    comm_within_cluster = c("imp_to_other_avg_edge_weight", "overall_overlap")
   )
   
   outcomes <- c("prs_opened", "commits", "commits_lt100", "comments", "issue_comments", "pr_comments",
@@ -276,25 +274,40 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
       if (fillna) {
         departure_panel_nyt[[outcome]] <- ifelse(is.na(departure_panel_nyt[[outcome]]), 0, departure_panel_nyt[[outcome]])
       }
-      print("full")
-      full_samp <- EventStudyAnalysis(departure_panel_nyt, outcome, post, pre, 
-                                      MakeTitle(outcome, paste0(outcome, " - All Time Periods"), departure_panel_nyt))
-      print("early")
-      df_early <- departure_panel_nyt %>% filter(time_period <= final_period)
-      early_samp <- EventStudyAnalysis(df_early, outcome, post, pre, 
-                                       MakeTitle(outcome, paste0(outcome, " - Up to Last Active Period"), df_early))
+      
+      # Try running the full and early event studies; if error, skip to next outcome
+      event_result <- tryCatch({
+        print("full")
+        full_samp <- EventStudyAnalysis(departure_panel_nyt, outcome, post, pre, 
+                                        MakeTitle(outcome, paste0(outcome, " - All Time Periods"), departure_panel_nyt))
+        print("early")
+        df_early <- departure_panel_nyt %>% filter(time_period <= final_period)
+        early_samp <- EventStudyAnalysis(df_early, outcome, post, pre, 
+                                         MakeTitle(outcome, paste0(outcome, " - Up to Last Active Period"), df_early))
+        list(full = full_samp, early = early_samp, df_early = df_early)
+      }, error = function(e) {
+        message("Error in EventStudyAnalysis for outcome: ", outcome, ". Skipping this outcome.")
+        NULL
+      })
+      
+      if (is.null(event_result)) next
+      
+      # Save data for the first outcome only
       if (outcome == outcomes[1]) {
         SaveData(departure_panel_nyt, c("repo_name", "time_period"), file.path(outdir, "full_sample.csv"), file.path(outdir, "full_sample.log"))
-        SaveData(df_early, c("repo_name", "time_period"), file.path(outdir, "early_sample.csv"), file.path(outdir, "early_sample.log"))
+        SaveData(event_result$df_early, c("repo_name", "time_period"), file.path(outdir, "early_sample.csv"), file.path(outdir, "early_sample.log"))
       }
+      
       outcome_str <- ifelse(grepl("^avg_", outcome), sub("^avg_", "", outcome), outcome)
       outdir_outcome_spec <- file.path(outdir, spec, outcome_str)
       outdir_spec <- file.path(outdir, spec)
       dir.create(outdir_outcome_spec, recursive = TRUE, showWarnings = FALSE)
+      
       k <- 2
-      bin_types <- c("bin_median", "bin_third")
+      bin_types <- c("bin_median")
       combos <- expand.grid(k = k, bin = bin_types, stringsAsFactors = FALSE) %>% 
         mutate(split_specs = paste0(k, "p_back_", bin))
+      
       for (split_spec in combos$split_specs) {
         split_vars <- specification_covariates[[spec]]
         split_spec_vars <- paste(split_vars, split_spec, sep = '_')
@@ -307,7 +320,7 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
         combinations <- expand.grid(lapply(covariate_panel_nyt[split_spec_vars], unique)) %>% 
           drop_na(all_of(na_drop_cols)) %>% 
           arrange(across(everything()))
-        plot_list <- list(full_samp$plot, early_samp$plot)
+        plot_list <- list(event_result$full$plot, event_result$early$plot)
         for (row in 1:nrow(combinations)) {
           combo <- combinations %>% slice(row)
           print(combo)
@@ -317,7 +330,7 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
             descs <- c(descs, DescribeBin(colname, bin_val))
           }
           filtered_repos <- covariate_panel_nyt %>% inner_join(combo) %>% select(repo_name)
-          df_selected <- df_early %>% inner_join(filtered_repos, by = "repo_name")
+          df_selected <- event_result$df_early %>% inner_join(filtered_repos, by = "repo_name")
           selected_samp <- tryCatch({
             if (outcome == outcomes[1]) {
               combo_filename <- paste0(names(combo), combo, collapse = "_")
@@ -327,7 +340,7 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
             EventStudyAnalysis(df_selected, outcome, post, pre, 
                                MakeTitle(outcome, paste(descs, collapse = "\n"), df_selected))
           }, error = function(e) {
-            message("Error in EventStudyAnalysis for combo: ", paste(combo, collapse = " "))
+            message("Error in EventStudyAnalysis for combo: ", paste(combo, collapse = " "), ". Skipping.")
             NULL
           })
           if (is.null(selected_samp)) next
@@ -348,6 +361,7 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
     }
   })
 }
+
 
 EventStudyAnalysis <- function(df, outcome, post, pre, title, normalize = TRUE) {
   if (normalize) {
