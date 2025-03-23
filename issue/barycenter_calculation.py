@@ -1,21 +1,12 @@
 #!/usr/bin/env python
 # coding: utf-8
+import os, sys, itertools
+import pandas as pd, networkx as nx, ot, numpy as np
+from concurrent.futures import ThreadPoolExecutor
+import matplotlib.pylab as pl
+from sklearn.manifold import MDS
 
-import pandas as pd
-from pathlib import Path
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-import matplotlib.pyplot as plt
-import random
-import numpy as np
-import networkx as nx
-from glob import glob
-from ot.gromov import gromov_barycenters
-import scipy as sp
-from scipy.sparse.csgraph import shortest_path
-import sys
-import itertools
-
-specification_covariates = {
+spec_cov = {
     "imp_contr": ["total_important"],
     "more_imp": ["normalized_degree"],
     "imp_contr_more_imp": ["total_important", "normalized_degree"],
@@ -37,68 +28,99 @@ specification_covariates = {
 
 def Main():
     sizebary = int(sys.argv[1])
-    spec_list = list(specification_covariates.keys())
-    departure_type_list = ["graphs"]
+    # Loop over each dep and spec as needed.
+    for dep in ["graphs"]:
+        for spec in spec_cov.keys():
+            RepresentativeGraph(dep, spec, sizebary)
 
-    tasks = [(departure_type, spec, sizebary) 
-            for departure_type in departure_type_list 
-            for spec in spec_list]
+def PlotGraph(x, C, color="C0", s=None):
+    for j in range(C.shape[0]):
+        for i in range(j):
+            pl.plot([x[i, 0], x[j, 0]], [x[i, 1], x[j, 1]], alpha=C[i, j], color="k")
+    pl.scatter(x[:, 0], x[:, 1], c=color, s=s, zorder=10, edgecolors="k", cmap="tab10", vmax=9)
 
-    for dt, spc, sizebary in tasks:
-        RepresentativeGraph(dt, spc, sizebary)
-
-def RepresentativeGraph(departure_type, spec, sizebary=20):
-    df = pd.read_csv(f"issue/event_study/{departure_type}/early_sample.csv")
-    read_data = df.assign(relative_time=lambda x: x.time_index - x.treatment_group)[['repo_name', 'time_period', 'relative_time'] + specification_covariates[spec]]
-    read_data['time_period'] = pd.to_datetime(read_data['time_period'])
-    read_data = read_data.query('relative_time >= -4 & relative_time <= 4')
-    
-    graph_dict = {}
-    with ThreadPoolExecutor() as executor:
-        for repo, relative_time, G in executor.map(ProcessFile, read_data.to_dict('records')):
-            if G:
-                graph_dict.setdefault(relative_time, {})[repo] = G
-                
-    for event_time in sorted(graph_dict.keys()):
-        graph_name = f"pre{abs(event_time)}" if event_time < 0 else f"post{abs(event_time)}"
-        all_repos_graphs = graph_dict[event_time].values()
-        GromovBarycenter(list(all_repos_graphs), event_time, spec, departure_type, sizebary=sizebary, filename = f"{graph_name}_barycenter_size{sizebary}.txt")
-        print("Barycenter for", event_time, "computed", spec)
-        num_vars = specification_covariates[spec]
-        for combo in list(itertools.product([0, 1], repeat=len(num_vars))):
-            combo_filename = "_".join(f"{num_vars[i]}_2p_back_bin_median{combo[i]}" for i in range(len(num_vars)))
-            df_combo = pd.read_csv(f'issue/event_study/graphs/{spec}/{combo_filename}.csv')
-            combo_repos = list(df_combo['repo_name'].apply(lambda x: x.replace("/","_")).unique())
-            combo_repos_graphs = [graph_dict[event_time][combo_repo] for combo_repo in combo_repos if combo_repo in graph_dict[event_time].keys()]
-            GromovBarycenter(combo_repos_graphs, event_time, spec, departure_type, sizebary=sizebary, filename = f"{graph_name}_barycenter_size{sizebary}_{combo_filename}.txt")
-            print("Barycenter for", event_time, "computed", spec, combo_filename)
-
-def ProcessFile(read_data_row):
-    repo = read_data_row['repo_name'].replace("/", "_")
-    time_period = read_data_row['time_period']
-    time_period_str = time_period.strftime('%Y%m')
-    relative_time = read_data_row['relative_time']
+def ProcessFile(row):
+    repo = row['repo_name'].replace("/", "_")
+    tp = pd.to_datetime(row['time_period']).strftime('%Y%m')
     try:
-        G = nx.read_gexf(f"drive/output/derived/graph_structure/graphs/{time_period_str}/{repo}.gexf")
+        G = nx.read_gexf(f"drive/output/derived/graph_structure/graphs/{tp}/{repo}.gexf")
     except Exception as e:
-        print(f"Error reading graph for {repo} at {time_period_str}: {e}")
-        G = False
-    return repo, relative_time, G
+        print(f"Error reading graph for {repo} at {tp}: {e}")
+        return repo, row['relative_time'], None
+    return repo, row['relative_time'], G
 
-def ComputeCostMatrix(G):
-    nodes = list(G.nodes())
-    lengths = dict(nx.all_pairs_shortest_path_length(G))
-    LARGE_VALUE = 1e6
-    cost = np.array([[lengths[u].get(v, LARGE_VALUE) for v in nodes] for u in nodes])
-    return cost 
-    
-def GromovBarycenter(graph_list, event_time, spec, departure_type, sizebary, filename):
-    Cs = [ComputeCostMatrix(G) for G in graph_list]
-    C = gromov_barycenters(sizebary, Cs, tol=1e-3, max_iter=100, verbose = False)
-    
-    output_dir = Path(f"issue/event_study/{departure_type}/{spec}/representative_graphs")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    np.savetxt(output_dir / filename, C)
+def ComputeBarycenter(graph_list):
+    mats = [nx.to_numpy_array(G) for G in graph_list]
+    Cdict, _ = ot.gromov.gromov_wasserstein_dictionary_learning(mats, 1, 25, reg=0.01)
+    return Cdict[0]
+
+def PlotCombinedGraph(barys, labels, event_time, dep, spec, sizebary):
+    n = len(barys)
+    pl.figure(figsize=(4 * n, 4))
+    # Title now includes the sizebary value.
+    title_str = (f"Representative Graphs (size={sizebary}): Combined Event Times" 
+                 if event_time == "Combined" 
+                 else f"Representative Graphs (size={sizebary}): Event Time: {event_time}")
+    pl.suptitle(title_str, fontsize=16)
+    for i, atom in enumerate(barys):
+        scaled = (atom - atom.min()) / (atom.max() - atom.min())
+        x = MDS(dissimilarity="precomputed", random_state=0).fit_transform(1 - scaled)
+        pl.subplot(1, n, i + 1)
+        pl.title(labels[i], fontsize=10)
+        PlotGraph(x, atom / atom.max(), color="C0", s=100)
+        pl.axis("off")
+    pl.tight_layout(rect=[0, 0, 1, 0.95])
+    out_dir = f"issue/event_study/{dep}/{spec}/representative_graphs"
+    os.makedirs(out_dir, exist_ok=True)
+    file_name = f"{out_dir}/rep_graphs_size{sizebary}_event_{event_time}.png"
+    pl.savefig(file_name, dpi=300)
+
+def CalculateCombinedGraph(bary_list, spec, dep, sizebary, labels, event_time):
+    barys = [ComputeBarycenter(gl) for gl in bary_list]
+    PlotCombinedGraph(barys, labels, event_time, dep, spec, sizebary)
+
+def load_graph_dict(dep, spec):
+    df = pd.read_csv(f"issue/event_study/{dep}/early_sample.csv")
+    df['time_period'] = pd.to_datetime(df['time_period'])
+    df['relative_time'] = df['time_index'] - df['treatment_group']
+    cols = ['repo_name', 'time_period', 'relative_time'] + spec_cov[spec]
+    df = df.query('relative_time >= -4 & relative_time <= 4')[cols]
+    graph_dict = {}
+    with ThreadPoolExecutor() as ex:
+        for repo, rt, G in ex.map(ProcessFile, df.to_dict('records')):
+            if G:
+                graph_dict.setdefault(rt, {})[repo] = G
+    return graph_dict
+
+def PrepareCalculationData(event_graphs, spec):
+    bary_list = [list(event_graphs.values())]
+    labels = ["All"]
+    for combo in itertools.product([0, 1], repeat=len(spec_cov[spec])):
+        fname = "_".join(f"{spec_cov[spec][i]}_2p_back_bin_median{combo[i]}" 
+                         for i in range(len(spec_cov[spec])))
+        df_combo = pd.read_csv(f'issue/event_study/graphs/{spec}/{fname}.csv')
+        repos = df_combo['repo_name'].str.replace("/", "_").unique()
+        combo_graphs = [event_graphs[r] for r in repos if r in event_graphs]
+        if combo_graphs:
+            bary_list.append(combo_graphs)
+            combo_label = "Combo: " + ", ".join(f"{name}={combo[i]}" 
+                                for i, name in enumerate(spec_cov[spec]))
+            labels.append(combo_label)
+    return bary_list, labels
+
+def RepresentativeGraph(dep, spec, sizebary=20):
+    graph_dict = load_graph_dict(dep, spec)
+    event_res = {}
+    for rt in sorted(graph_dict.keys()):
+        bary_list, labs = PrepareCalculationData(graph_dict[rt], spec)
+        event_res[rt] = (bary_list, labs)
+        CalculateCombinedGraph(bary_list, spec, dep, sizebary, labs, event_time=rt)
+    all_bary_list, all_labs = [], []
+    for rt in sorted(event_res.keys()):
+        bl, l = event_res[rt]
+        all_bary_list.extend(bl)
+        all_labs.extend([f"{rt}: {lab}" for lab in l])
+    CalculateCombinedGraph(all_bary_list, spec, dep, sizebary, all_labs, event_time="Combined")
 
 if __name__ == '__main__':
     Main()
