@@ -55,12 +55,17 @@ Main <- function() {
     comm_within_cluster = c("imp_to_other_avg_edge_weight", "overall_overlap")
   )
   
-  outcomes <- c("prs_opened", "commits", "commits_lt100", "comments", "issue_comments", "pr_comments",
-                "issues_opened", "issues_closed", "prs_merged", "p_prs_merged", "closed_issue",
-                "p_prs_merged_30d", "p_prs_merged_60d", "p_prs_merged_90d", "p_prs_merged_180d",
-                "p_prs_merged_360d", "closed_in_30_days", "closed_in_60_days", "closed_in_90_days",
-                "closed_in_180_days", "closed_in_360_days", "total_downloads","total_downloads_one_project")
-
+  outcomes <- c(
+    # "prs_opened", "commits", "commits_lt100", "comments", "issue_comments", "pr_comments",
+    # "issues_opened", "issues_closed", "prs_merged", "p_prs_merged", "closed_issue",
+    # "p_prs_merged_30d", "p_prs_merged_60d", "p_prs_merged_90d", "p_prs_merged_180d",
+    # "p_prs_merged_360d", "closed_in_30_days", "closed_in_60_days", "closed_in_90_days",
+    # "closed_in_180_days", "closed_in_360_days", "total_downloads","total_downloads_one_project",
+    "total_downloads_rel", "total_downloads_one_project_rel", "overall_new_release_count", "major_new_release_count",
+    "minor_new_release_count", "patch_new_release_count", "other_new_release_count", "major_minor_release_count",
+    "major_minor_patch_release_count", "overall_score", "overall_increase",
+    "overall_decrease", "overall_stable", "vulnerabilities_score")
+  
   if (graph_departures) {
     na_keep_cols <- c()
   } else {
@@ -104,12 +109,15 @@ Main <- function() {
             summarize(num_obs = sum(is.na(total_important))) %>% pull(num_obs) %>% table(), 
           "all" = length(unique(departure_panel_na$repo_name))))
   
+  df_valuable_outcomes <- CleanOutcomesPost(issue_tempdir, departure_panel_nyt)
+  departure_panel_nyt <- departure_panel_nyt %>% left_join(df_valuable_outcomes)
+  
   covariates_to_split <- unique(unlist(specification_covariates))
   covariate_panel_nyt <- CreateCovariateBins(departure_panel_nyt, covariates_to_split)
   
   GenerateEventStudyGrids(departure_panel_nyt, covariate_panel_nyt, outcomes, specification_covariates, 
                           post = 4, pre = 0, outdir = outdir, na_keep_cols = na_keep_cols,
-                          fillna = TRUE, plot = TRUE)
+                          fillna = T, plot = TRUE)
 }
 
 CleanProjectOutcomes <- function(indir, time_period) {
@@ -171,18 +179,19 @@ CleanCovariates <- function(issue_tempdir) {
 CleanDownloads <- function(issue_tempdir) {
   df_project_downloads <- read_parquet(file.path(issue_tempdir, "github_downloads.parquet")) %>%
     mutate(time_period = as.Date(time_period)) %>%
-    select(repo_name, time_period, total_downloads, total_downloads_one_project) %>%
     group_by(time_period) %>%
     mutate(total_downloads_period = sum(total_downloads),
            total_downloads_one_project_period = sum(total_downloads_one_project)) %>%
     ungroup() %>%
     mutate(total_downloads = total_downloads/total_downloads_period,
-           total_downloads_one_project = total_downloads_one_project/total_downloads_one_project_period)
-  return(df_project_downloads)
-}
+           total_downloads_one_project = total_downloads_one_project/total_downloads_one_project_period) %>%
+    select(repo_name, time_period, total_downloads, total_downloads_one_project)
+    return(df_project_downloads)
+  }
+    
+
 
 CreateDeparturePanel <- function(df_project_outcomes, treatment_inelg, df_departed, df_covariates, df_downloads, trim_abandoned = TRUE) {
-  df_project <- df_project_outcomes %>% filter(repo_name %ni% treatment_inelg)
   df_project_departed <- df_project %>%
     left_join(df_departed, by = "repo_name") %>%
     mutate(treated_project = 1 - as.numeric(is.na(last_pre_period)),
@@ -204,6 +213,38 @@ CreateDeparturePanel <- function(df_project_outcomes, treatment_inelg, df_depart
   return(df_project_departed)
 }
 
+CleanOutcomesPost <- function(issue_tempdir, departure_panel_nyt) {
+  treated_projects <- departure_panel_nyt$repo_name
+  
+  df_downloads <- read_parquet(file.path(issue_tempdir, "github_downloads.parquet")) %>%
+    select(repo_name, time_period, total_downloads, total_downloads_one_project) %>%
+    filter(repo_name %in% treated_projects) %>%
+    mutate(total_downloads_period = sum(total_downloads),
+           total_downloads_one_project_period = sum(total_downloads_one_project)) %>%
+    ungroup() %>%
+    mutate(total_downloads_rel = total_downloads/total_downloads_period,
+           total_downloads_one_project_rel = total_downloads_one_project/total_downloads_one_project_period) %>%
+    select(repo_name, time_period, total_downloads_rel, total_downloads_one_project_rel)
+  
+  df_downloads_detailed <- read_parquet(file.path(issue_tempdir, "github_downloads_detailed.parquet")) %>%
+    filter(repo_name %in% treated_projects) %>% 
+    select(-ends_with("downloads")) %>% 
+    group_by(repo_name, time_period)  %>%
+    summarise(across(everything(), sum, na.rm = TRUE))
+  
+  df_scorecard <- read_parquet(file.path(issue_tempdir, "github_scorecard_scores.parquet")) %>%
+    filter(repo_name %in% treated_projects) %>%
+    select(c(repo_name,time_period, overall_score, overall_increase, overall_decrease, overall_stable,
+             vulnerabilities_score))
+  
+  df_valuable_outcomes <- df_downloads %>% 
+    full_join(df_downloads_detailed) %>% 
+    full_join(df_scorecard) %>%
+    mutate(time_period = as.Date(time_period)) %>% 
+  
+  return(df_project_downloads)
+}
+
 NormalizeOutcome <- function(df, outcome, outcome_norm) {
   df_norm <- copy(df)
   df_pretreatment_mean <- df_norm %>% group_by(repo_name) %>%
@@ -212,14 +253,6 @@ NormalizeOutcome <- function(df, outcome, outcome_norm) {
   df_norm[[outcome_norm]] <- df_norm[[outcome]] / df_norm$pretreatment_mean
   return(df_norm)
 }
-
-# NormalizeOutcome <- function(df, outcome, outcome_norm) {
-#   df_norm <- copy(df)
-#   df_pretreatment_mean <- df_norm %>% 
-#     summarize(pretreatment_mean = mean(get(outcome), na.rm = T)) %>% pull()
-#   df_norm[[outcome_norm]] <- df_norm[[outcome]] / df_pretreatment_mean
-#   return(df_norm)
-# }
 
 CreateCovariateBins <- function(df, covariates, time_period_col = "time_index", k_values = 1:3) {
   df_k_averages <- data.frame(repo_name = unique(df$repo_name))
@@ -266,7 +299,7 @@ CreateCovariateBins <- function(df, covariates, time_period_col = "time_index", 
   return(df_k_averages)
 }
 
-GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, outcomes, specification_covariates, post, pre, outdir, na_keep_cols, fillna = TRUE, plot = FALSE) {
+GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, outcomes, specification_covariates, post, pre, outdir, na_keep_cols, fillna = T, plot = FALSE) {
   plan(multisession)
   specs <- names(specification_covariates)
   future_lapply(specs, function(spec) {
@@ -274,7 +307,6 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
       if (fillna) {
         departure_panel_nyt[[outcome]] <- ifelse(is.na(departure_panel_nyt[[outcome]]), 0, departure_panel_nyt[[outcome]])
       }
-      
       # Try running the full and early event studies; if error, skip to next outcome
       event_result <- tryCatch({
         print("full")
@@ -340,7 +372,7 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
             EventStudyAnalysis(df_selected, outcome, post, pre, 
                                MakeTitle(outcome, paste(descs, collapse = "\n"), df_selected))
           }, error = function(e) {
-            message("Error in EventStudyAnalysis for combo: ", paste(combo, collapse = " "), ". Skipping.")
+            message("Error in EventStudyAnalysis for combo: ", paste(combo, e, collapse = " "), ". Skipping.")
             NULL
           })
           if (is.null(selected_samp)) next
