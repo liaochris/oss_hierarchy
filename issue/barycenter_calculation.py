@@ -5,7 +5,8 @@ import pandas as pd, networkx as nx, ot, numpy as np
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import matplotlib.pylab as pl
 from sklearn.manifold import MDS
-
+ 
+# WHEN DOING SCONSCRIPT, make spec an argument into the script
 spec_cov = {
     "imp_contr": ["total_important"],
     "more_imp": ["normalized_degree"],
@@ -68,7 +69,7 @@ def PrepareCalcData(event_graphs, spec):
         combo_graphs = [event_graphs[r] for r in repos if r in event_graphs]
         if combo_graphs:
             bary_list.append(combo_graphs)
-            combo_label = "Combo: " + ", ".join(f"{spec_cov[spec][i]}={combo[i]}" for i in range(len(spec_cov[spec])))
+            combo_label = "Combo: " + "\n".join(f"{spec_cov[spec][i]}={combo[i]}" for i in range(len(spec_cov[spec])))
             labels.append(combo_label)
     return bary_list, labels
 
@@ -114,24 +115,30 @@ def PlotCombinedGraph(barys, labels, event_time, dep, spec, sizebary):
     pl.savefig(file_name, dpi=300)
 
 def PlotCombinedVerticalGraph(event_res, dep, spec, sizebary):
-    """Vertically concatenate rows of graphs (one row per event time) and add event time subtitles."""
+    """
+    For each event time in event_res, create a subfigure (with one row and as many columns as graphs)
+    titled with the event time, and vertically combine all subfigures into one final figure.
+    """
     event_times = sorted(event_res.keys())
-    rows = len(event_times)
-    max_cols = max(len(labs) for labs, _ in event_res.values())
-    fig, axes = pl.subplots(nrows=rows, ncols=max_cols, figsize=(4 * max_cols, 4 * rows))
-    if rows == 1:
-        axes = np.atleast_2d(axes)
+    n_events = len(event_times)
+    fig = pl.figure(figsize=(8, 4 * n_events))
+    subfigs = fig.subfigures(nrows=n_events, ncols=1)
+    if n_events == 1:
+        subfigs = [subfigs]
+
     for i, et in enumerate(event_times):
-        global_max = max([bary.max() for bary in event_res[et][1]])
         labs, barys = event_res[et]
-        for j in range(max_cols):
-            ax = axes[i, j]
-            if j < len(barys):
-                # Add the event time as a subtitle on each subplot.
-                ax.set_title(f"Event time: {et}", fontsize=10)
-                PlotSingleGraph(ax, barys[j], labs[j], global_max)
-            else:
-                ax.axis("off")
+        n_graphs = len(barys)
+        subfig = subfigs[i]
+        subfig.suptitle(f"Event time: {et}", fontsize=12)
+        axes = subfig.subplots(nrows=1, ncols=n_graphs)
+        if n_graphs == 1:
+            axes = [axes]
+        global_max = max(bary.max() for bary in barys)
+        for j in range(n_graphs):
+            ax = axes[j]
+            PlotSingleGraph(ax, barys[j], labs[j], global_max)
+    
     fig.suptitle(f"Representative Graphs (size={sizebary}): Combined Event Times", fontsize=16)
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     out_dir = f"issue/event_study/{dep}/{spec}/representative_graphs"
