@@ -38,11 +38,34 @@ def ProcessFile(row):
         return repo, row['relative_time'], None
     return repo, row['relative_time'], G
 
-def ComputeBarycenter(graph_list, sizebary):
-    """Compute the barycenter from a list of graphs using sizebary nodes"""
+def ComputeBarycenter(graph_list, sizebary, weighted_avg=False, iterations = 1000):
+    """Compute the barycenter from a list of graphs using sizebary nodes with top (sizebary * avg) edges retained."""
+    ratios = [G.number_of_edges() / G.number_of_nodes() for G in graph_list]
+    nodes_counts = [G.number_of_nodes() for G in graph_list]
+    avg_ratio = (sum(r * n for r, n in zip(ratios, nodes_counts)) / sum(nodes_counts)) if weighted_avg else (sum(ratios) / len(ratios))
     mats = [nx.to_numpy_array(G) for G in graph_list]
-    Cdict, _ = ot.gromov.gromov_wasserstein_dictionary_learning(mats, 1, sizebary, reg=0.01, random_state = 0)
-    return Cdict[0]
+    C_dict, _ = ot.gromov.gromov_wasserstein_dictionary_learning(mats, 1, sizebary, reg=0.01, random_state=0)
+    C = C_dict[0]
+    k = max(1, int(round(sizebary * avg_ratio)))
+    n = C.shape[0]
+    
+    # Get unique (i, j) pairs and compute their sampling probabilities.
+    pairs = [(i, j) for i in range(n) for j in range(i+1, n)]
+    deg = np.sum(C, axis=1)
+    weights = np.array([deg[i] + deg[j] for i, j in pairs])
+    probs = weights / weights.sum() if weights.sum() > 0 else np.ones(len(pairs)) / len(pairs)
+    
+    # Sample edges over multiple iterations and average.
+    final_C = np.zeros_like(C)
+    for _ in range(iterations):
+        sampled = np.random.choice(len(pairs), size=k, replace=False, p=probs)
+        iter_mat = np.zeros_like(C)
+        for idx in sampled:
+            i, j = pairs[idx]
+            iter_mat[i, j] = C[i, j]
+            iter_mat[j, i] = C[j, i]
+        final_C += iter_mat
+    return final_C / iterations
 
 def LoadGraphDict(dep, spec):
     """Load a graph dictionary from CSV data."""
@@ -150,12 +173,12 @@ def PlotCombinedVerticalGraph(event_res, dep, spec, sizebary):
 def ProcessEventTime(rt, event_graphs, spec, sizebary, dep):
     """Process a single event time: compute barycenters, plot, and return results."""
     bary_list, labs = PrepareCalcData(event_graphs, spec)
-    barys = [ComputeBarycenter(gl, sizebary) for gl in bary_list]
+    barys = [ComputeBarycenter(gl, sizebary, weighted_avg=True) for gl in bary_list]
     out_dir = f"issue/event_study/{dep}/{spec}/representative_graphs"
     os.makedirs(out_dir, exist_ok=True)
     for i, bary in enumerate(barys):
         G = nx.from_numpy_array(bary)
-        nx.write_gexf(G, os.path.join(out_dir, f"rep_graph_size{sizebary}_event_{rt}_col_{i}.gexf"))
+        nx.write_gexf(G, os.path.join(out_dir, f"rep_graph_{rt}_{i}.gexf"))
     
     PlotCombinedGraph(barys, labs, event_time=rt, dep=dep, spec=spec, sizebary=sizebary)
     return rt, (labs, barys)
