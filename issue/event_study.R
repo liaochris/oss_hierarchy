@@ -20,6 +20,7 @@ set.seed(1234)
 `%ni%` <- Negate(`%in%`)
 
 Main <- function() {
+  set.seed(1234)
   indir <- "drive/output/derived/project_outcomes"
   indir_departed <- "drive/output/derived/contributor_stats/filtered_departed_contributors"
   issue_tempdir <- "issue"

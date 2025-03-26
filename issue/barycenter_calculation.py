@@ -39,7 +39,7 @@ def ProcessFile(row):
     return repo, row['relative_time'], G
 
 def ComputeBarycenter(graph_list, sizebary):
-    """Compute the barycenter from a list of graphs using sizebary iterations."""
+    """Compute the barycenter from a list of graphs using sizebary nodes"""
     mats = [nx.to_numpy_array(G) for G in graph_list]
     Cdict, _ = ot.gromov.gromov_wasserstein_dictionary_learning(mats, 1, sizebary, reg=0.01, random_state = 0)
     return Cdict[0]
@@ -88,7 +88,7 @@ def PlotSingleGraph(ax, atom, label, global_max):
     for i in range(scaled.shape[0]):
         for j in range(i):
             ax.plot([x[i, 0], x[j, 0]], [x[i, 1], x[j, 1]],
-                    alpha=(atom/global_max)[i, j], color="k")
+                    alpha=(atom/atom.max())[i, j], color="k")
     ax.scatter(x[:, 0], x[:, 1], c="C0", s=100, zorder=10, edgecolors="k", cmap="tab10", vmax=9)
     ax.axis("off")
 
@@ -106,7 +106,7 @@ def PlotCombinedGraph(barys, labels, event_time, dep, spec, sizebary):
         x = MDS(dissimilarity="precomputed", random_state=0).fit_transform(1 - scaled)
         pl.subplot(1, n, i + 1)
         pl.title(labels[i], fontsize=10)
-        PlotGraph(x, atom/global_max, color="C0")
+        PlotGraph(x, atom/atom.max(), color="C0")
         pl.axis("off")
     pl.tight_layout(rect=[0, 0, 1, 0.95])
     out_dir = f"issue/event_study/{dep}/{spec}/representative_graphs"
@@ -121,7 +121,8 @@ def PlotCombinedVerticalGraph(event_res, dep, spec, sizebary):
     """
     event_times = sorted(event_res.keys())
     n_events = len(event_times)
-    fig = pl.figure(figsize=(8, 4 * n_events))
+    max_cols = max(len(labs) for labs, _ in event_res.values())
+    fig = pl.figure(figsize=(4*max_cols, 4 * n_events))
     subfigs = fig.subfigures(nrows=n_events, ncols=1)
     if n_events == 1:
         subfigs = [subfigs]
@@ -130,7 +131,7 @@ def PlotCombinedVerticalGraph(event_res, dep, spec, sizebary):
         labs, barys = event_res[et]
         n_graphs = len(barys)
         subfig = subfigs[i]
-        subfig.suptitle(f"Event time: {et}", fontsize=12)
+        subfig.suptitle(f"Event time: {et}", fontsize=12, y=0.92)
         axes = subfig.subplots(nrows=1, ncols=n_graphs)
         if n_graphs == 1:
             axes = [axes]
@@ -139,8 +140,8 @@ def PlotCombinedVerticalGraph(event_res, dep, spec, sizebary):
             ax = axes[j]
             PlotSingleGraph(ax, barys[j], labs[j], global_max)
     
-    fig.suptitle(f"Representative Graphs (size={sizebary}): Combined Event Times", fontsize=16)
-    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.suptitle(f"Representative Graphs (size={sizebary}): Combined Event Times", fontsize=16, y=1)
+    fig.tight_layout(pad = 3.5, rect=[0, 0, 1, .8])
     out_dir = f"issue/event_study/{dep}/{spec}/representative_graphs"
     os.makedirs(out_dir, exist_ok=True)
     file_name = f"{out_dir}/rep_graphs_size{sizebary}_combined_vertical.png"
@@ -150,6 +151,12 @@ def ProcessEventTime(rt, event_graphs, spec, sizebary, dep):
     """Process a single event time: compute barycenters, plot, and return results."""
     bary_list, labs = PrepareCalcData(event_graphs, spec)
     barys = [ComputeBarycenter(gl, sizebary) for gl in bary_list]
+    out_dir = f"issue/event_study/{dep}/{spec}/representative_graphs"
+    os.makedirs(out_dir, exist_ok=True)
+    for i, bary in enumerate(barys):
+        G = nx.from_numpy_array(bary)
+        nx.write_gexf(G, os.path.join(out_dir, f"rep_graph_size{sizebary}_event_{rt}_col_{i}.gexf"))
+    
     PlotCombinedGraph(barys, labs, event_time=rt, dep=dep, spec=spec, sizebary=sizebary)
     return rt, (labs, barys)
 
