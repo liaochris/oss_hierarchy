@@ -1,0 +1,581 @@
+\documentclass[source/paper/main.tex]{subfiles}
+\begin{document}
+\textbf{Outline} from \href{https://github.com/liaochris/oss_hierarchy/issues/2#issuecomment-2589020215}{github}
+\begin{enumerate}
+    \item Identifying departure
+        \begin{enumerate}
+            \item Defending endogeneity of departure
+        \end{enumerate}
+    \item Event Study
+    \item Heterogeneous treatment effects
+    \begin{enumerate}
+        \item Describe procedure
+        \item How we identify heterogeneity
+    \end{enumerate}
+\end{enumerate}
+
+\subsection{Major Departures}
+\subsubsection{Descriptives}
+Doesn't necessarily have to go in this order but key is to think about "what kind of descriptive facts can I use to motivate scale/understanding etc"
+\begin{enumerate}
+    \item Average number of contributors (\% new, old)
+    \item Event study of everyone else’s contributions
+    \item How often departures occur and more broadly, project turnover rate
+
+\end{enumerate}
+\subsubsection{Identifying Major Departures}
+\begin{enumerate}
+    \item Identify major contributors contributors for whom \textcolor{blue}{commits} were at the \textcolor{blue}{75th} percentile for at least \textcolor{blue}{3} consecutive time-periods
+    \begin{itemize}
+        \item Can try alternatives to commits like issue comments, PRs merged, etc. Maybe I should also come up with an aggregate measure
+        \item Can vary the 75th percentile requirement
+        \item Can vary the 3 consecutive time periods
+    \end{itemize}
+    \item A major contributor departs if, within 1 period of the last period of them being a "major contributor", they no longer make \textcolor{blue}{commits} 
+    \begin{itemize}
+        \item I found in some analyses that XX (~50-70\%??) of the contributors totally exit all. I can try using them as a subset of departures. 
+    \end{itemize}
+    \item I only compare projects that never experienced a major departure to projects that experienced exactly one major departure prior to 2023. This yields 458 (XX fill in) treated projects and 7000 (YY filll in) control projects
+    \begin{itemize}
+        \item I want to figure out how to use multiple departures, perhaps by specifying that departures only affect projects within a certain timespan (similar to what Adam Rosenberg did)
+    \end{itemize}
+\end{enumerate}
+\subsubsection{Departure exogeneity }
+My goal is to identify a subset of project departures that are exogeneous. I did the identification of departures in the section above. My next step is to justify why I believe they are exogeneous. The precise definition of exogeneity depends on the comparison groups\\
+\textbf{Types of Departure and Identification}
+\begin{itemize}
+    \item \textbf{Corporate Project} --- Measured by promotion/departure.
+    \item \textbf{Time Constraints Caused by Acquiring a New Job} --- Measured by new position.
+    \item \textbf{Time Constraints Caused by Other Reasons} --- Cannot measure.
+    \item \textbf{Project is Finished/Done} --- Can measure based on whether the project is active post-departure.
+    \item \textbf{Other Reasons} --- Cannot measure.
+\end{itemize}
+
+\textbf{Treated to Never-Treated}
+\begin{itemize}
+    \item Under this comparison, we want that project departure (the act of leaving) is unrelated to unobservables that affect the way organizational structure affects outcomes
+    \item One example of a departure that fulfills this criterion is a departure that is unrelated to the OSS project (such as obtaining a new job, moving, having a sudden time shock that reduces ability to contribute to OSS). \textcolor{red}{It might be helpful to outline departure types that are vs. aren't exogeneous}
+    \item One way I filter for exogeneous departures is to require that they are sudden which is why all commit activity ceases within 1 time period. This has a few benefits
+    \begin{itemize}
+        \item Sudden departures are typically associated with departures cased by reasons unrelated to the project that cause someone to stop contributing (new job, major sudden time shock such as a kid, getting married, moving)
+        \item Gradual declines are associated with ebbs and flows in project demand or interest rather than actual departures. “Decline in interest” could just be personal (and thus unrelated to the project) but it could also be related (such as loneliness) which might also imply something about the org structure. \textcolor{blue}{It's possible that someone could just lose motivation and never return though...}
+        \item Restricts departure type we're comparing (lots of heterogeneity in how gradual the departure is)
+    \end{itemize}
+    \item Evidence
+    \begin{itemize}
+        \item I show evidence that departure is related to getting a new job
+        \item \textcolor{blue}{balance tests on observable covariates need to do}
+    \end{itemize}
+\end{itemize}
+
+\textbf{Treated to Not-Yet-Treated}
+\begin{itemize}
+    \item The key assumption here is that departure timing is quasirandom (perhaps within a relative window, although this requires further restricting the not-yet-treated set).
+    \item This approach provides us less data but allows for weaker exogeneity conditions. All examples of exogeneous departues mentioned earlier are still exogeneous. 
+    \item However, now, we can also have departures that may be associated with individual or project-specific reasons, as long as those reasons aren't related to the decision to leave the project in a particular month, as opposed to a few months earlier or later. It seems pretty unlikely that the interaction of unobservables with organizational structure that leads to departure has some aspect of strategic timing. 
+\end{itemize}
+
+\subsection{Event Study}
+\textcolor{red}{Describe my current event study}
+\subsection{Heterogeneous Treatment Effects - deep dive}
+
+\subsection{Heterogeneous Treatment Effects - Causal Forest}
+\subsubsection{Setup and Notation}
+
+We consider a set of projects, indexed by $i$, observed over discrete time periods $t \in \{1, \dotsc, T\}$. 
+
+A project $i$ is said to be \emph{treated} at time $g$ if $i \in G_g$. If a project is never treated, then $i \in C$. We use the following notation:
+\begin{itemize}
+    \item $C_t$: set of never-treated projects observed at time $t$; let $N_{C,t}$ be the number of such projects.
+    \item $G_{g,t}$: set of projects treated at time $g$ and observed at time $t$; let $N_{g,t}$ be the number of such projects.
+\end{itemize}
+
+% How long is each time period? This should be specified or clarified.
+For each project $i$ and observed at time $t$, we observe:
+\begin{itemize}
+    \item Outcome $Y_{i,t}$
+    \item Treatment status $D_{i,t}^g$ where $D_{i,t}^g = 1$ if individual $i$ was treated at time $g$ and $t\geq g$, and 0 otherwise. 
+    \item Covariates $X_{i,t} \in \mathcal{X}$.
+\end{itemize}
+
+We often refer to the \emph{time-since-treatment} by $k = t - g$. Define
+\[
+    N_k 
+    \;=\; 
+    \sum_{\substack{(t', g') \\ t' - g' = k}} 
+    N_{g', t'}.
+\]
+That is, $N_k$ is the total number of observed treated units (projects) whose time-since-treatment is exactly $k$.
+
+\subsubsection{Parameter of Interest: \texorpdfstring{$ATT_k(x)$}{ATT\_k(x)}}
+
+Our target is the \emph{Conditional Average Treatment Effect on the Treated} after $k$ periods, denoted by $ATT_k(x)$. Formally,
+\[
+    ATT_{k}(x)
+    \;=\; 
+    E\!\bigl[
+      ATT_{g,t}(x)
+      \,\bigm|\,
+      x,\; t - g = k
+    \bigr].
+\]
+Here, $ATT_{g,t}(x)$ is the average treatment effect on units treated at time $g$ and observed at time $t$, conditional on covariates $x$.
+
+\subsubsection{Conditional Parallel Trends Assumption}
+Our conditional parallel trends assumption states that 
+\[
+    E\!\bigl[
+      Y_{i,t}(0, x) - Y_{i,g-1}(0, x)
+      \,\bigm|\,
+      x,\; i \in G_{g,t}
+    \bigr]
+    \;=\;
+    E\!\bigl[
+      Y_{i',t}(0, x) - Y_{i',g-1}(0, x)
+      \,\bigm|\,
+      x,\; i' \in C_t
+    \bigr],
+\]
+Had the treated units not been treated, their expected change in outcomes would have followed the same trend as the change in outcomes among never-treated units, after conditioning on $x$.
+
+\subsubsection{Estimation of \texorpdfstring{$ATT_{g,t}(x)$}{ATT\_g,t(x)}}
+
+By definition of the conditional ATT, we have the moment condition:
+\[
+    E\!\Bigl[
+      Y_{i,t}(1, x) 
+      \;-\; 
+      Y_{i,t}(0, x) 
+      \;-\; 
+      ATT_{g,t}(x)
+      \,\Bigm|\,
+      x,\; i \in G_{g,t}
+    \Bigr] 
+    \;=\; 0,
+\]
+where $Y_{i,t}(D_{i,t}^g, x)$ is the potential outcome for project $i$ at time $t$ with treatment status $D_{i,t}^g \in \{0,1\}$, given covariates $x$ and receiving the treatment in time $g$. By definition, $D_{i,t}^g = 1$ if $t \ge g$.
+
+\medskip
+\noindent
+Under the parallel trends assumption and for $t \ge g$, we can write:
+\begin{align*}
+    ATT_{g,t}(x) &= E\!\bigl[
+         ATT_{g,t}(x)
+       \,\bigm|\,
+         x,\; i \in G_{g,t}
+       \bigr]\\
+    &= E\!\bigl[
+         Y_{i,t}(1, x) - Y_{i,t}(0, x)
+       \,\bigm|\,
+         x,\; i \in G_{g,t}
+       \bigr]
+      \\[4pt]
+    &= E\!\bigl[
+         Y_{i,t}(x)
+         \,\bigm|\,
+         x,\; i \in G_{g,t}
+       \bigr]
+      \;-\;
+       E\!\bigl[
+         Y_{i,t}(0, x)
+         \,\bigm|\,
+         x,\; i \in G_{g,t}
+       \bigr]
+      \\[4pt]
+    &\overset{\text{(p.t.)}}{=}
+      E\!\bigl[
+         Y_{i,t}(x)
+         \,\bigm|\,
+         x,\; i \in G_{g,t}
+       \bigr]\\
+      & \quad\quad \;-\;
+      \Bigl(
+         E\!\bigl[
+           Y_{i,g-1}(0, x)
+           \,\bigm|\,
+           x,\; i \in G_{g,t}
+         \bigr]
+         +
+         E\!\bigl[
+           Y_{i',t}(0, x) 
+           -
+           Y_{i',g-1}(0, x)
+           \,\bigm|\,
+           x,\; i' \in C_t
+         \bigr]
+      \Bigr)
+      \\[6pt]
+    &= E\!\bigl[
+         Y_{i,t}(x) - Y_{i,g-1}(x)
+         \,\bigm|\,
+         x,\; i \in G_{g,t}
+       \bigr]
+      \;-\;
+       E\!\bigl[
+         Y_{i',t}(x) - Y_{i',g-1}(x)
+         \,\bigm|\,
+         x,\; i' \in C_t
+       \bigr],
+\end{align*}
+where “(p.t.)” denotes the application of conditional parallel trends.
+
+\subsubsection{Weighted Estimator}
+
+\paragraph{Step 1: Compute \texorpdfstring{$\widehat{ATT}_{g,t}(x)$}{ATT\_g,t(x)}}
+
+We first define an estimator for $ATT_{g,t}(x)$. Following a difference-in-differences approach and incorporating similarity weights (from a causal forest or a related method), we write:
+\begin{equation}
+\widehat{ATT}_{g,t}(x) 
+= 
+\frac{1}{N_{g,t}} \sum_{i \in G_{g,t}} \hat{\alpha}_{g,t}\bigl(x, X_{i,g-1}^t\bigr) 
+\Bigl[
+  \underbrace{\bigl(Y_{i,t} - Y_{i,g-1}\bigr)}_{\text{change in treated}}
+  -
+  \underbrace{\frac{1}{N_{C,t}} \sum_{i' \in C_t} \bigl(Y_{i',t} - Y_{i',g-1}\bigr)}_{\text{avg.\ change in never-treated}}
+\Bigr]
+\label{eq:att_formula}
+\end{equation}
+
+Here:
+\begin{itemize}
+    \item $N_{g,t}$ is the number of projects in $G_{g,t}$,
+    \item $\alpha_{g,t}(x, X_{i,g-1}^t)$ are weights that contain consist of the covariates $X_{i,g-1}$ and one additional attribute $X_\delta = t-g$, which represents the number of periods post-treatment
+    \item $Y_{i,g-1}$ is the last pre-treatment outcome for a treated project $i$.
+\end{itemize}
+
+\paragraph{Step 2: Aggregate to Obtain \texorpdfstring{$\widehat{ATT}_{k}(x)$}{ATT\_k(x)}}
+
+Next, we aggregate over all $(t,g)$ pairs such that $t-g = k$. Let $N_k = \sum_{(t,g) : t - g = k} N_{g, t}$. Then we define:
+\[
+    \widehat{ATT}_{k}(x)
+    \;=\;
+    \sum_{\substack{(t,g) \\ t - g = k}}
+    \frac{N_{g,t}}{N_k}
+    \,\widehat{ATT}_{g,t}(x).
+\]
+In words, $\widehat{ATT}_{k}(x)$ is a weighted average of the group-time-specific estimators $\widehat{ATT}_{g,t}(x)$, where each group-time cell contributes in proportion to its size $N_{g,t}$.
+
+\medskip
+\noindent
+\textbf{Remark.} One might let the weighting function $\alpha$ vary with $k$ only, i.e.\ $\alpha_k(x, X_{i,g-1})$, if the goal is to learn how covariates affect outcomes $k$ periods after treatment without incorporating treatment adoption time $g$. 
+
+
+\subsubsection{Identifying Assumption}
+
+To calculate the \emph{Conditional Average Treatment Effect on the Treated} we feed $\bigl(Y_{i,t} - Y_{i,g-1}\bigr)$ into a causal forest. The key assumption is that, \emph{conditional on $X_{i,g-1}$}, changes in outcome are independent of treatment status, according to section 6.1 of the GRF paper. Formally:
+\[
+    \bigl(Y_{i,t}(d, X_{i,g-1}^t) - Y_{i,g-1}(d, X_{i,g-1}^t)\bigr)
+    \;\;\independent\;\;
+    D_{i,t}^g
+    \;\Bigm|\;
+    X_{i,g-1}^t,\quad d \in \{0,1\}.
+\]
+Differencing with respect to the last pre-period outcome $Y_{i,g-1}$ then allows isolation of the causal effect while conditioning on $X_{i,g-1}^t$.
+Our conditional parallel trends assumption assumes that the identifying assumption is true for $t=0$. I will further assume that it is also true for CATE $t=1$. 
+
+
+\textcolor{red}{Translating this into a model}
+\begin{align*}
+    Y_{i,t} - Y_{i,g-1} &= \tau  D_{i,t}^g  + f(X_{i,g-1}^t) + \epsilon_{i,t} \text{ for } E[\epsilon_{i,t} \mid X_{i,g-1}^t, D_{i,t}^g] = 0\\
+    e(x) &= E[D_{i,t}^g  \mid X_i = x] \\
+    m(x) &= E[Y_{i,t} - Y_{i,g-1} \mid X_{i,g-1}^t = x] = f(x) + \tau e(x)\\
+    \bigl(Y_{i,t} - Y_{i,g-1} \bigr) - m(x) &= \tau (D_{i,t}^g - e(x)) + \epsilon_{i,t}
+\end{align*}
+$E[\epsilon_{i,t} \mid X_{i,g-1}^t, D_{i,t}^g] = 0$ tells us that a linear regression of $\bigl(Y_{i,t} - Y_{i,g-1} \bigr) - m(x)$ on $(D_{i,t}^g - e(x))$ will consistently estimate $\tau$ in the model above. \\
+Causal forest adapts the above formulation to use $\tau(x)$, using the intuition that we can identify how variation in $x$ affects $\tau$ by understanding the effect of $x$ in subsamples where $\tau$ does not vary. They find $\tau(x)$ through the same regression, albeit one that uses weights $\alpha_{i,t}(x)$ for each observation. 
+
+\subsubsection{Computational Estimation}
+\textcolor{red}{This is wrong, see above}
+Ideally, I would use a single causal forest to estimate $\widehat{ATT}_{k}(x)$ for all $k$ in a unified model, but the off-the-shelf GRF implementation of $\widehat{ATT}_{k}(x)$ is a double-edged sword. By default, the causal forest estimates
+\[
+    \widehat{ATT}(x)
+    \;=\;
+    \frac{1}{N}
+    \sum_{\substack{
+        (g,t,i) \text{ for } \\
+        g \in G,\; t \in T,\; \\
+        i \in G_{g,t}
+    }}
+    \hat{\alpha}\bigl(x,\; X_{i,g-1}^t\bigr)
+    \Bigl[
+      \underbrace{\bigl(Y_{i,t} - Y_{i,g-1}\bigr)}_{\text{change in treated}}
+      \;-\;
+      \underbrace{\frac{1}{N_{C_{all}}}
+        \sum_{\substack{
+            (g,t,i) \text{ for } \\
+            g \in G,\; t \in T,\; \\
+            i' \in C_g \cap C_t
+        }} 
+          \bigl(Y_{i',t} - Y_{i',g-1}\bigr)}_{\text{avg.\ change in never-treated}}
+    \Bigr] 
+\]
+where $N_{C_{all}}$ is the total number of control observations ever observed. \[
+N_{C_{all}} = \sum_{\substack{
+    g \in G,\; t \in T}} \bigl|\{i' \in C_g \cap C_t \}\bigr|
+\]
+
+\begin{itemize}
+    \item \textbf{Benefit (Computational Efficiency):} Training one large forest can be far more efficient than training multiple forests, one for each $k$.
+    \item \textbf{Benefit (Inference):}
+    \begin{itemize}
+      \item Clustering at the project level is simpler in a single-forest setting, helping account for serial correlation in $\{Y_{i,t}\}_{t=1}^T$ for $i \in C$.
+      \item When comparing $\widehat{ATT}_{k}(x)$ for different $k$ values, the same treated observations will appear in the calculation of multiple $k$'s. A single-forest approach can handle these correlations by clustering, ensuring correct simultaneous inference on multiple $\widehat{ATT}_{k}(x)$'s. 
+    \end{itemize}
+    \item \textbf{Cost (Weight Restrictions):} GRF software typically uses a single weighting function $\alpha(\cdot)$ across all data points. This is a problem because we may want 
+    to use a different $\alpha_k$ depending on the $\widehat{ATT}_{k}(x)$ we're interested in estimating because pre-treatment organizational structure may have different effects on organizations in the short-term vs. long-term (the value of $g-t$) and depending on the treatment adoption time $g$ 
+    \item \textbf{Cost (Comparisons Across Times):} By default, GRF will compare $i \in G_{g,t}$ to control observations $i' \in C_t' \cap C_g'$ where it is not necessarily true that $t' = t$ and $g' = g$ for all $i'$. If observations were treated in time $g$, this could mix comparisons of outcomes ``$k$ periods after treatment'' with controls who are only, say, ``$k' \neq k$ periods after some hypothetical adoption,'' or ``$k$ periods after treatment'' controls who are ``$k$ periods after some hypothetical adoption but the hypothetical adoption time was not $g$'' and therefore the time $k$ periods after adoption that we're comparing to is not $g+k$ but instead $g+k'$. This means our estimate of $\widehat{ATT}_{k}(x)$ is biased. 
+\end{itemize}
+
+\subsubsection{Alternative Estimation Procedure}
+\textbf{\textcolor{red}{Need to fix $g-1$ vs $g$ discrepancy here. }}
+We now present a practical strategy for estimating $\widehat{ATT}_{g,t}(x)$ and $\widehat{ATT}_k(x)$ in a way that (i) allows for cluster‐robust inference (clustering at the project level), and (ii) avoids making incorrect comparisons between treatment and control observations. Our approach proceeds in four steps:
+
+\noindent\textbf{Step 1. Sample Splitting and Notation.}\\
+Randomly split the set of \emph{treated} observations $G_{g,t}$ and \emph{control} observations $C_{g,t}$ into two equally sized partitions:
+\[
+  P_{g,t}^{\mathrm{ctrl}} 
+  \;=\; 
+  G_{g,t}^{\mathrm{ctrl}} 
+  \;\cup\; 
+  C_{g,t}^{\mathrm{ctrl}},
+  \quad
+  P_{g,t}^{\mathrm{ATT}}
+  \;=\;
+  G_{g,t}^{\mathrm{ATT}} 
+  \;\cup\; 
+  C_{g,t}^{\mathrm{ATT}}.
+\]
+Define the differenced outcome:
+\[
+  \tilde{Y}_{i,t} 
+  \;=\; 
+  Y_{i,t} \;-\; Y_{i,g-1}.
+\]
+This is the post‐treatment outcome minus the last pre‐treatment outcome for project $i$.
+
+
+\noindent\textbf{Step 2. Train a Similarity Function.}\\
+On the \emph{training sample} $P_{g,t}^{\mathrm{ctrl}}$, fit a causal forest using
+\begin{itemize}
+\item The outcome $\tilde{Y}_{i,t}$,
+\item The treatment indicator $D_{i,t}^g$ (1 if $i \in G_{g,t}$, 0 if $i \in C_{g,t}$),
+\item Covariates $X_{i,g-1}^t$.
+\end{itemize}
+For a given covariate value $x$, denote the estimated similarity weight between $x$ and the observation $X_{i,g-1}^t$ as 
+\[
+  \widehat{\alpha}_{g,t}(x, X_{i,g-1}^t).
+\]
+
+
+\noindent\textbf{Step 3. Estimate $\widehat{ATT}_{k}(x)$ via a Single Unified Regression}\\
+Rather than a separate weighted regression for each $(g,t)$, I will \emph{stack} all observations in 
+\[
+  \bigl\{
+    P_{g,t}^{\mathrm{ATT}}
+    \,\colon\,
+    t-g = k
+  \bigr\}
+\]
+to fit a single linear model. For group-time level ATT's, for $k = t-g$, estimate the regression 
+\[
+  \tilde{Y}_{i,t}
+  \;=\;
+  \sum_{(g,t):\,t-g=k}
+        \bigl(\gamma_{t,k} + \beta_{t,k}D_{i,t}^g \bigr)\,\mathbf{1}\{i \in G_{g,t}\} 
+  \;+\;
+  \varepsilon_{i},
+\]
+where:
+\begin{itemize}
+\item $\gamma_{t,k}$ is a fixed effect for observations $i \in P_{g,t}^{ATT}$
+\item $D_{i,t}^g$ is whether $i$ was treated at time $t$ and $i \in G_{g,t}$. All never-treated observations and observations that did not receive treatment at time $g$ have $D_{i,t}^g = 0$
+\item All treated observations are weighted by $\widehat{\alpha}_{g,t}\bigl(x,X_{i,g-1}^{t}\bigr)$
+\item Each control observation $i \in C_{g,t}^{ATT}$ receives equal weight 
+\[
+\frac{\displaystyle \sum_{i \in G_{g,t}^{\mathrm{ATT}}} \widehat{\alpha}_{g,t}\bigl(x, X_{i,g-1}^{t}\bigr)}
+{\bigl|C_{g,t}^{\mathrm{ATT}}\bigr|}
+\]
+and the sum of control observation weights equals the sum of treated observations weights, as prescribed in Equation~\ref{eq:att_formula}
+\item Errors are clustered by $i$. Notice that since I stack observations, I can use the full panel of observations of $i$ across $t$ for inference. 
+\end{itemize}
+To estimate a single $\beta_k$ summarizing all pairs with $t-g = k$, estimate the regression
+\[
+  \tilde{Y}_{i,t}
+  \;=\;
+  \sum_{(g,t):\,t-g=k}
+    \gamma_{t}\,\mathbf{1}\{i \in G_{g',t'}\}
+  \;+\;
+  \beta_k\,D_{i,t,k}
+  \;+\;
+  \varepsilon_{i,t},
+\]
+where
+\begin{enumerate}
+    \item $D_{i,t,k} = 1$ if $i \in \bigcup_{\substack{(g,t): t-g = k}} G_{g,t}$ and $i$ has already been treated by time $t$. 
+\end{enumerate}if $i$ is in a block whose time‐since‐treatment is $k$, and 0 otherwise.
+
+\noindent
+\textbf{Remark 1}\\
+This approach does not recognize that $\widehat{\alpha}_{g,t}(x,\cdot)$ is itself an estimated function. The above procedure \emph{does} permit cluster‐robust inference on $\tilde{Y}_{i,t}$ or $(Y_{i,t},\,Y_{i,g-1})$ in each block and provide unbiased ATT estimates given the similarity weights. 
+
+\textbf{Remark 2}\\
+\textcolor{red}{Add something about estimating pre-trend coefficient, I thin you can just add a coefficient and have it be when treatment is greater than 0 and }
+
+The approach I've adopted is consistent with the literature that has estimated heterogeneous treatment effects in an event study or differences-in-difference setting. (\textcolor{red}{restore literature refs}).
+
+\subsubsection{Variations to alternative estimation procedure}
+1. Merge all datasets together
+
+2. Optionally residualize first by time and individual fixed effects
+
+3. Train forest using one half of the sample
+
+4. Assemble covariate space I'm interested in (start with existing observations)
+
+5. Self derive the weight function by looking at, for each observation in the covariate space, which leaves it falls into with each of the treatment observations 
+
+6. Do for all g, t
+
+7. For each observation in the covariate space I can estimate an event study coef for the k = g-t
+
+
+Can also try, instead of the event study specification, running the regression specification that they say their forest implies with the weights AND the residualizations 
+
+notes
+1. Start with small covariate set? Then expand to large
+
+2. Think of a way to systematically identify groups of covariates that move in the same direction (use interactions?? in the importance regression??)
+
+3. review doc i have on org structure 
+
+4. 
+
+
+Notes on the different approaches to inference
+
+1. Use weights and observations from causal forest, use covariates from treated set for HTE
+2. 
+
+\subsection{Covariates}
+\subsubsection{Organizational Characteristics}
+\begin{enumerate}
+    \item \textbf{Libraries.io API}: Use the "Repos" query, query for "created at" date. \\
+    \textcolor{red}{Not done}
+    \item \textbf{Forks + Stars}: Obtained from GitHub Archive, calculates number of stars/forks per time-period \\
+    \textcolor{blue}{do validation on how accurate the statistics are}
+    \item \textbf{Creator Type (Org/Indiv)}: Whether a project was created by an organization or an individual. I obtained this by obtaining all organization names from fork, star, issues, issue comments and PR, PR reviews and PR review comment data. 
+    \item \textbf{Project License}: Used license obtained from PyPI as of scraping date. Two cleaning changes made:
+    \begin{itemize}
+        \item Changed all licenses with GPL to "GNU General Public License"
+        \item Labelled all licenses that are not MIT/BSD/Apache/GNU as "other"
+    \end{itemize} 
+    \textcolor{blue}{Adjust for changes to license by projects, originally downloaded on October 27, 2023 or September 29, 2024}
+    \item \textbf{Truck Factor}
+    \begin{itemize}
+        \item Obtained truck factor per time-period for each project
+        \item Obtained "creation date" based off earliest commit date (\textcolor{blue}{There are some nonsensical commit dates so I should filter for only dates after after git/svn was created}
+        \item Merged each contributor to their set of emails and identified whether they had a \href{https://github.com/liaochris/undergrad_thesis/blob/main/data/inputs/company_domain_match_list.yaml}{company domain}, a .edu email or another domain. Then, I found the proportion of contributors with educational, or corporate email domains in each project and time period (\textcolor{blue}{company list + industry list})
+    \end{itemize}
+    \item \textbf{Organizational size}: \# of people making contributions, defined as opening/closing an issue, commenting on an issue, PR, reviewing a PR, merging a PR, or committing code
+    \end{enumerate}
+\subsubsection{Departed Contributor Characteristics}
+\textbf{Controls: Individual}
+\begin{enumerate}
+    \item \textbf{Email domain}: Whether in a project-contributor-time period, an individual made a commit with an educational or corporate email domain
+    \item \textbf{Rank Characteristics}: For each project-contributor-time period, I obtained
+    \begin{itemize}
+        \item The max rank (4 for approving problems, 3 for writing code, 2 for discussing problems and 1 for identifying problems)
+        \item An indicator for whether each observation belonged to ranks 1-4
+        \item For each rank, the share of work done by that individual. If the value is \textbf{NA}, that means no work was done in that layer in that period. \\
+        The figures below are all at the project-time period level
+        \begin{itemize}
+            \item Problem Identification Total Work: \# of issues opened
+            \item Problem Discussion Total Work: \# of comments + pr comments + pr reviews + pr review comments 
+            \item Coding Total Work: PRs Opened + commits (push + PR)
+            \item Problem Approval Work: issues closed + PRs merged
+        \end{itemize}
+        \textcolor{blue}{It somehow seems relevant that mechanically, share = 0 if you aren't part of a rank}
+    \end{itemize}
+    \item \textbf{Truckfactor Member}: Indicator variable for whether in that time period they were part of the truckfactor
+    \item \textbf{\% of LOC authored}: Using the git blame \%, identify the \% of all code that the contributor had authored in the codebase in that project-time period\\ \textcolor{red}{To Do}
+    \item \textbf{Work Share}: For each project-contributor-time period, in \textbf{(1) discussions} or \textbf{(2) pull requests}, what \% of the work did they do? \textcolor{blue}{Note that for the three below, one problem can reappear in multiple time periods if work is done on the same problem in multiple periods. I may want to experiment with alternatives, such as counting it all in the original period}
+    \begin{itemize}
+        \item Share, average: $\frac{1}{|P_i|} \sum_{p \in P_i}^n S_{p, i} $ where $P_i$ contains all problems $p$ (comments or pull requests) contributor $i$ was involved in and $S_{p, i}$ represents the share of work contributor $i$ did in problem $p$ 
+        \item Share, average weighted by work: $\sum_{p \in P_i}^n S_{p, i} \cdot \frac{C_{p,i}}{\sum_{p \in P_i} C_{p,i}}$ where $C_{p, i}$ represents the quantity of work contributor $i$ did in problem $p$. Now, instead of weighting each problem equally, we weight each problem $p$ by how much work contributor $i$ did in problem $p$ 
+    \end{itemize}
+    \item \textbf{Individual HHI}: For each project-contributor-time period, in \textbf{(1) discussions} or \textbf{(2) pull requests} that they were involved in, what was the HHI? This tells us how balanced the work was when they were involved
+    \begin{itemize}
+        \item Share, average: $\frac{1}{|P_i|} \sum_{p \in P_i}^n HHI_{p} $ where $P_i$ contains all problems $p$ (comments or pull requests) contributor $i$ was involved in and $HHI_{p}$ represents the HHI of problem $p$ 
+        \item Share, average weighted by work: $\sum_{p \in P_i}^n HHI_{p} \cdot \frac{C_{p,i}}{\sum_{p \in P_i} C_{p,i}}$ where $C_{p, i}$ represents the quantity of work contributor $i$ did in problem $p$. Now, instead of weighting each problem equally, we weight each problem $p$ by how much work contributor $i$ did in problem $p$ 
+    \end{itemize}
+    \item \textbf{Cooperation}: \% of \textbf{(1) discussions} or \textbf{(2) pull requests} that they were involved in that had another contributor besides them
+    \item \textcolor{red}{Tenure in project}
+\end{enumerate}
+\textbf{Controls: Organizational Structure}
+\begin{enumerate}
+    \item \textbf{Layer Count}: Classify people into (at least) one of the four layers below, and for each layer, in that repo time-period, consider the quantity of contributors in that layer and the percentage of contributors who participated in that layer. 
+    \\
+    \textbf{List of layers}
+    \begin{itemize}
+        \item \textbf{Problem identification (Layer 1)}: Opened issue 
+        \item \textbf{Problem discussion (Layer 2)}: Issue Comments + PR Comments + PR Review Comments
+        \item \textbf{Coding (Layer 3)}: Commits in pushes, linked PRs or unlinked PRs (only include merged PRs)
+        \item \textbf{Problem approval (Layer 4)}: Closed issue + merged PR
+    \end{itemize}
+    \item \textbf{Min Layers}: Find the smallest subset of layers such that all contributors belong to at least one of the layers in the subset. All layers in the smallest subset are separated by ``|" and if there are multiple smallest subsets, they are separated by ``:"
+    \item \textbf{Layer Overlap}
+    \begin{enumerate}
+        \item \textbf{Overlap Contributor Pct}: For each layer $l_i \leq 4$ and layer $l_i < l_j \leq 4$, what \% of individuals are in layer $l_i$ and $l_j$ Mathematically this is $\frac{|\{P \in L_i \cap L_j\}|}{|\{P \in L_i\}|}$. 
+        $L_i$ is the set that contain all contributors $P$ in layer $i$.
+        \item \textbf{Degree of overlap}: For each layer $l_i \leq 4$ and layer $l_i < l_j \leq 4$, what \% of work in the lower layer $l_i$ is done by individuals who are also in layer $l_j$ 
+        $\frac{\sum_{P \in L_i \cap L_j} W_P}{\sum_{P \in L_i} W_P}$ for $1 \leq l_i \leq 4, l_i < l_j \leq 4$
+        
+        The combinations are 
+        \begin{itemize}
+            \item Problem Identification-Problem Discussion
+            \item Problem Identification-Coding
+            \item Problem Identification-Problem Approval   
+            \item Problem Discussion-Coding
+            \item Problem Discussion-Problem Approval  
+            \item Coding-Problem Approval
+        \end{itemize}
+        I also calculate, for the degree of overlap, the \% of work done by people who are in any higher layer. 
+    \end{enumerate}
+    \item \textbf{Layer HHI ( Work Split)}: 
+    \begin{enumerate}
+        \item At the project-time period level, for all contributors $P$ who are involved in any layer $l_i$, $\sum_{P \in L_i} \left(S_{P, L_i} \right)^2$ where $S_{P,L_i}$ is the share of work that contributor $P$ did in layer $L_i$
+        \item \textcolor{red}{TO DO: For each file $f$, using the git blame to determine the owner
+        \begin{enumerate}
+            \item HHI (by overall LOC across all files)
+            \item HHI (for each file, then average across all)
+        \end{enumerate}}
+    \end{enumerate}
+    \item \textbf{Cooperation}:
+    \begin{enumerate}
+        \item For each discussion (includes comments, PR reviews + PR review comments) + PR, I calculate, across all threads in a project-time period
+        \begin{enumerate}
+            \item \textbf{HHI:} $\frac{1}{|T_p|} \sum_{t \in T_p}^n HHI_{t} $ where $T_i$ contains all threads $t$ (discussions or pull requests) in a project-time period and $HHI_{t}$ represents the HHI of thread t
+            \item \textbf{HHI, average weighted by discussion quantity:} $\sum_{t \in T_p}^n HHI_{t} \cdot \frac{C_{t}}{\sum_{t \in T_p} C_{t}}$ where $C_{t}$ represents the quantity of discussion done in thread t. Now, instead of weighting each problem equally, we weight each thread $t$ by how much work discussion occurred 
+            \item \textbf{Average (across threads):} \# of distinct individuals per thread
+            \item \textbf{Average (across threads, weighted by discussion quantity):} \# of distinct individuals per thread, weighted by the same quantity as  HHI, average weighted by discussion quantity
+            \item \textbf{Cooperation Occured}: \% of threads with more than one distinct individual
+        \end{enumerate}
+    \end{enumerate}
+    \textcolor{red}{Explore all the below ideas later
+    \item \textbf{Communication}: \For each type of contributor (max rank is 1-4)
+    \begin{enumerate}
+        \item what \% of discussion is done with individuals whose highest rank is (1), (2), (3), (4)? For each contributor with max rank $i$, I calculate this average by finding the average (within a project-time period) of the proportion of discussions where contributors of max rank $j$ also contribute
+        \item \# of discussions engaged in by contributors of max rank $i$ in a project-time period
+        \item \$ of contributors of max rank $i$ in a project-time period
+    \end{enumerate}  
+    \item \textbf{Progression through the hierarchy}
+    \item \textbf{Experience/skill}
+    
+\end{enumerate}
+\textbf{Data collection}: Identify and collect all outcomes
+\textbf{Code}: Write out what code would be \textbf{supposing I had all my variables}. Should I just assume that there's no serial correlation within project 
+\textbf{Paper}: Outline the methods section in detail (Here's what we do, this is why we do it)
+Test if not clustering leads to similar results. That makes inference on $ATT_k(x)$ easier - otherwise, I need to pursue long-term next steps. 
+
+
+\end{document}

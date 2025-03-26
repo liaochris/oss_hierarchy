@@ -1,82 +1,105 @@
 \documentclass[source/paper/main.tex]{subfiles}
 \begin{document}
 
+\textcolor{red}{First thing is that I should figure out broadly, what the paper format is going to be. Is it
+\begin{enumerate}
+    \item Theory -> Evidence of theory testing -> Relate it to broader outcomes we care about
+\end{enumerate}}
+
 \textbf{Paragraphs 1-2: Motivation. After reading these paragraphs a reader in any field of economics should believe that if you answer your research question your paper will make an important contribution.}
 
 \begin{enumerate}
-    \item OSS is economically important. Cite usage + value statistic
+    \item OSS is economically important. Cite usage + value statistic 
+    % usage: linux foundation, https://www.linuxfoundation.org/blog/blog/a-summary-of-census-ii-open-source-software-application-libraries-the-world-depends-on
+    % Value: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4693148
     \item A major problem encountered by OSS is developer turnover. Cite project damage statistic 
     %Andreas Schilling, Sven Laumer, and Tim Weitzel. Who will remain? an evaluation of actual person-job and person-team fit to predict developer retention in FLOSS projects. In HICCS, pages 3446–3455. IEEE, 2012.
-    \item Development of an OSS project can be conceptualized as the strategy adopted by an organization. Economics tells us that an organization's structure affects its strategy and outcomes. This suggests that we can say something interesting about how organizational structure allows organizations to be more resilient against a departure
+    \item We know that an organization's structure affects its ability to execute its strategy (in this case, the development of the OSS project) are interrelated. This suggests that we can say something interesting about how organizational structure allows organizations to be more resilient against a departure
+    % I don't like the sue of the word "strategy" very much...
+    % Where do I mention that strategy is one to one with structure? 
 \end{enumerate}
 
 \textbf{Paragraphs 3-4: Challenges. These paragraphs explain why your research question has not already been answered, i.e., what are the central challenges a researcher must tackle to answer this question.}
 
-Empirical challenges
+Central challenges
 \begin{enumerate}
-    \item Exogenous departures
-    \item Identifying combinations of organizational structures that have an effect 
+    \item Disentangling effect of structure: Exogenous departures
+    \item Measuring and Identifying how different organizational structures may act together in tandem
     \item Understanding the mechanisms by which these organizational structures affect OSS-development
-    \item Relating short-term outcomes to long-term OSS-development outcomes
+    \item Relating short-term outcomes to long-term OSS-development outcomes (Is this really an outcome??)
 \end{enumerate}
-Current work: Current literature does not consider the complementarity of organizational structures. Research on impact of organizational structures only provides suggestive evidence on the mechanism by which organizational structures have impacts. The focus of research has been on codebase related outcomes or "project survival" as opposed to more relevant outcomes such as usage. 
+Current work: 
+- Doesn't try to separate relationship between structure and departures
+- Does not consider the complementarity of organizational structure (what's the stattus on widely applicable measures of org structure?)
+- Research on impact of organizational structures only provides suggestive evidence on the mechanism by which organizational structures have impacts. 
+- The focus of research has been on codebase related outcomes or "project survival" as opposed to more relevant outcomes such as usage. 
+% See https://www.sciencedirect.com/science/article/abs/pii/S0268401217310095 for a survey
 
 Model of hierarchy that tells us (some subset of the below) how these organizational features affect project outcomes
 \begin{enumerate}
-    \item Degree of overlap between individuals who participate in several layers of problem solving on the hierarchy (existing theory assumes one person is on one layer)
     \item How work is split between individuals in a layer of problem solving (existing theory assumes each person does the same amount of work)
-    \item Degree of cooperation, such as \# of people you work with on your layer (existing theory assumes no cooperation within layer)
-    \item Extent of communication, such as the \# of people you communicate with below/above your layer of problem solving
-    \item How individuals are “promoted” to higher layers of problem solving.
+    \item Degree of cooperation, overlap (clustering)
+    \item Extent of communication 
 \end{enumerate}
-Existing theory tells us how organizations adapt their organizational structure and strategy in response to external shocks. However, it makes certain assumptions that prevents us from learning about how that adaption depends on existing organizational structure. One example of a puzzle is that we don't know how "degree of overlap" affects response and subsequent outcomes - does it have a positive effect (because they share more knowledge) or negative effect (because their departure affects more areas of problem-solving)?
+Existing theory tells us how organizations adapt their organizational structure and strategy in response to external shocks. However, it makes certain assumptions that prevents us from learning about how that adaption depends on existing organizational structure. One example of a puzzle is that we don't know how communication affects outcomes - does it have a positive effect by sharing knowledge or negative effect by creating reliance and thus inhibiting learning?
 
 \textbf{Paragraph 5: This Paper. This paragraph states in a nutshell what the paper accomplishes and how. }
 
 Goals
 \begin{enumerate}
-    \item Identify key groups of organizational structures that in conjunction affect 
+    \item Collects novel data on OSS organizations
+    \item Identify key groups of organizational structures that in conjunction affect organization using network structure of OSS organizations 
+    % https://crowston.syr.edu/sites/crowston.syr.edu/files/Social%20structure%20of%20Free%20and%20Open%20Source%20Software%20development.pdf pnly other paper that uses network for structure of project, and they are focused on one particular feature (that's actually quite general...)
+    \item Effects on 1) more basic problem solving measures and 2) long-term project outcomes 
+    % novel data on long-term project outcomes
     \item Describe underlying mechanism of the organizational structure, which we show using novel microdata on OSS development from GitHub
-    \item Effects on 1) more basic problem solving measures and 2) long-term project outcomes
     \item Combine this to produce revised theory of hierarchy that tells us how organizational adaption depends on existing organizational structure 
 \end{enumerate}
 
 
 \textbf{Paragraphs 6-7: Model. Summarize the key formal assumptions you will maintain in your analysis.}
-Don't know yet, if this is about the economic model
+Don't know yet, if this is about the economic model. If this is about endogeneity, handle in methods
 
 \textbf{Paragraphs 8-9: Data. Explain where you obtain your data and how you measure the concepts that are central to your study.}
 
 \begin{itemize}
-    \item Data: GitHub
-    \item Setting: Major Python projects, from 2015 onwards
-    \item Define major contributor
-    \item Define departure
-    \item Define problem-solving outcomes and downstream outcomes. If necessary, define microdata that allows us to validate impact on problem-solving outcomes. 
-    \item Define how I measure organizational structures
+    \item Data: GitHub + PyPi + Scorecard
+    \begin{itemize}
+        \item Setting: Major Python projects, from 2015 onwards
+        \item Define major contributor
+        \item Define departure
+        \item Define problem-solving outcomes and downstream outcomes. If necessary, define microdata that allows us to validate impact on problem-solving outcomes. 
+        \item Define how I measure organizational structures
+    \end{itemize}
+    \item Data: Linkedin (from Revelio) + geocoded with Google Maps API, used to validate my data 
 \end{itemize}
 
 \textbf{Paragraphs 10-11: Methods. Explain how you take your model to the data and how you overcome the challenges you raised in paragraphs 3-4.}
 Key Challenges
 \begin{enumerate}
-    \item Endogeneity between effect of organizational structure and departure: causal forest constructs control (to limit selection on observables), \textcolor{red}{How does "rapid" departure suggest that departures are not endogenous to unobservables? } 
-    \item Combinations: use causal forest
-    \item Mechanisms: microdata + \textcolor{red}{fill in how I do this}
-    \item Short to long-term outcomes: \textcolor{red}{fill in how I do this}
+    \item Endogeneity between effect of organizational structure and departure: limit to NYT organizations. Further limit to similar org structure 
+    \item \textcolor{red}{How does "rapid" departure suggest that departures are not endogenous to unobservables? } It's because it's less suggestive of either 1) cyclicality in contribution, 2) loss of motivation because lack of usage/demand \& more suggestive of an exogenous departure like changing jobs, graduating, etc 
+    \item Combinations: Use bins 
+    \item Mechanisms: microdata + \textcolor{red}{fill in how I do this}. Validate departures using LinkedIn data
+    \item Short to long-term outcomes: 
 \end{enumerate}
 
 \textbf{Paragraphs 12-13: Findings. Describe the key findings. Make sure they connect clearly to the motivation in paragraphs 1-2.}
-A few interesting organizational structure effect combinations, such as
-\begin{itemize}
-    \item Increased overlap is bad, except when individuals communicate and cooperate a lot
-    \item Negative effects of unequal work split are mitigated by cooperation, which suggests knowledge diffusion
-    \item Rapid promotion has less negative effects when it occurs during departure because problem solving benefit outweighs cost of increased mistake rate
-\end{itemize}
+
+I confirm prior findings from the literature that contributor departures negatively impact project welfare. Contributor departures negatively impact observable software development activity on GitHub. Projects where the departed contributor held greater importance or where there were fewer key contributors were disproportionally affected. Similar negative effects extend to downstream project outcomes, such as a reduction in the frequency of new software releases.
+% note different sample
+
+Projects characterized by low modularity - that is, those with overlapping responsibilities among key contributors - are less adversely affected by contributor departures. This effect is not universal, and the departure of highly involved contributors in low modularity projects can initially cause disruptions of comparable magnitude to contributor departures from high modularity projects. Importantly, over the long-run, these integrated projects adapt better and outperform less-integrated projects. 
+
+The extend of communication between the departed contributor and other project members also cause projects to experience differential effects. Projects where the departed contributor engaged in limited communication with other project members (key and otherwise) were disproportionately affected. The same is true for projects where the departed contributor engaged in extensive communication with other project members (key and otherwise). These adverse effects are particularly prescient in projects with high modularity although this final case of heterogeneity only causes disproportionate impact on observable software development activity.
 
 \textbf{Paragraphs 14-15: Literature. Lay out the two main ways your paper contributes to the literature. Each paragraph should center around one contribution and should explain precisely how your paper differs from the most closely related recent work.}
+Organizations: How departure affects orgs and what org structures mitigate effects
+% Is there some nuance I can add?
 
-\begin{enumerate}
-    \item Empirics: large scale analysis of departure's impact and how it varies across orgs
-    \item Model: how orgs respond when constrained
-\end{enumerate}
+What's cool about my paper
+- Fairly new data
+- Go beyond Github outcomes and think about SWE outcomes
+- Capture more complete picture of project interactions using graph metrics
+
 \end{document}
