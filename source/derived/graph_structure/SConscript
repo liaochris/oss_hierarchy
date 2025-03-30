@@ -32,3 +32,14 @@ source = ['#source/derived/graph_structure/create_graphs.py',
           '#drive/output/scrape/link_committers_profile/committers_info_push.csv']
 
 env.Precious(env.Python(target, source))
+
+
+source = ['#source/derived/graph_structure/calculate_graph_metrics.py'] + target.copy()
+target = ['#drive/output/derived/graph_structure/graph_metrics.json']
+env.Precious(env.Python(target, source))
+
+
+source = ['#source/derived/graph_structure/calculate_contributor_characteristics.py',
+          '#drive/output/derived/graph_structure/graph_metrics.json']
+target = ['#drive/output/derived/graph_structure/contributor_characteristics.parquet']
+env.Precious(env.Python(target, source))
