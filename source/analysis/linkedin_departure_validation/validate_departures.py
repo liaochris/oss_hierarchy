@@ -11,7 +11,6 @@ from source.scrape.get_linkedin_profiles.docs.get_linkedin_profiles import *
 from joblib import Parallel, delayed
 from datetime import datetime
 import textwrap
-from itertools import pairwise
 
 def Main():
     indir_locations = Path("drive/output/scrape/get_standardized_locations")
