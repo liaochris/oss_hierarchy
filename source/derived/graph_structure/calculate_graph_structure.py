@@ -13,15 +13,7 @@ import concurrent.futures
 import itertools
 from source.lib.JMSLab.SaveData import SaveData
 
-# Worker function moved to module level
-def worker(args):
-    time_period_date, repo = args
-    return CreateGraph(repo, time_period_date, None, df_issue, df_pr, df_pr_commits,
-                       committers_match, commit_cols, time_period, author_thresh, outdir)
-
 def Main():
-    global df_issue, df_pr, df_pr_commits, committers_match, commit_cols, time_period, author_thresh, outdir, logdir
-
     indir_data = Path('drive/output/derived/data_export')
     indir_committers_info = Path('drive/output/scrape/link_committers_profile')
     outdir = Path('drive/output/derived/graph_structure/graphs')
@@ -53,14 +45,10 @@ def Main():
     df_issue['date'] = df_issue['created_at'].dt.to_period('M').dt.to_timestamp()
     time_periods = sorted(ImputeTimePeriod(df_issue.drop_duplicates(['date']), time_period)['time_period'].unique())
     
-    tasks = list(itertools.product(time_periods, repo_list))
     all_logs = []
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        for log_entries in executor.map(worker, tasks):
-            if log_entries is not None:
-                all_logs.extend(log_entries)
-    
-    exported_graphs_log = all_logs
+    for repo, time_period_date in list(itertools.product(time_periods, repo_list)):
+        all_logs = CreateGraph(repo, time_period_date, all_logs, df_issue, df_pr, df_pr_commits,
+                       committers_match, commit_cols, time_period, author_thresh, outdir)
     df_log = pd.DataFrame(exported_graphs_log)
     df_log.to_csv(logdir / "exported_graphs_log.csv", index=False)
 
