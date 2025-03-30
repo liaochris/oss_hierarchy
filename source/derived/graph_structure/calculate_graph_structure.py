@@ -12,21 +12,22 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import concurrent.futures
 import itertools
 from source.lib.JMSLab.SaveData import SaveData
-    
+
+# Worker function moved to module level
 def worker(args):
     time_period_date, repo = args
-    return CreateGraph(repo, time_period_date, exported_graphs_log,
-                        df_issue, df_pr, df_pr_commits,
-                        committers_match, commit_cols, time_period, author_thresh, outdir)
+    return CreateGraph(repo, time_period_date, None, df_issue, df_pr, df_pr_commits,
+                       committers_match, commit_cols, time_period, author_thresh, outdir)
 
 def Main():
+    global df_issue, df_pr, df_pr_commits, committers_match, commit_cols, time_period, author_thresh, outdir, logdir
+
     indir_data = Path('drive/output/derived/data_export')
     indir_committers_info = Path('drive/output/scrape/link_committers_profile')
     outdir = Path('drive/output/derived/graph_structure/graphs')
     logdir = Path('output/derived/graph_structure/graphs')
 
     commit_cols = ['commits','commit additions','commit deletions','commit changes total','commit files changed count']
-    
     time_period = 6
     author_thresh = 1/3
     
@@ -37,6 +38,7 @@ def Main():
     pr_commits_cols = ["repo_name", "commit time", "commit author name", "commit author email", 
                        "pr_number", "commit additions", "commit deletions",
                        "commit changes total", "commit files changed count"]
+
     committers_match = CleanCommittersInfo(indir_committers_info)
     
     df_issue = pd.read_parquet(indir_data / 'df_issue.parquet', columns=issue_cols)
@@ -47,9 +49,10 @@ def Main():
     
     repo_list = sorted(set(df_issue.index).union(set(df_pr.index)).union(set(df_pr_commits.index)))
     exported_graphs_log = []
+    
     df_issue['date'] = df_issue['created_at'].dt.to_period('M').dt.to_timestamp()
     time_periods = sorted(ImputeTimePeriod(df_issue.drop_duplicates(['date']), time_period)['time_period'].unique())
-
+    
     tasks = list(itertools.product(time_periods, repo_list))
     all_logs = []
     with concurrent.futures.ProcessPoolExecutor() as executor:
@@ -59,7 +62,7 @@ def Main():
     
     exported_graphs_log = all_logs
     df_log = pd.DataFrame(exported_graphs_log)
-    df_log.to_csv(logdir /"exported_graphs_log.csv", index=False)
+    df_log.to_csv(logdir / "exported_graphs_log.csv", index=False)
 
 def ProcessData(df_issue, df_pr, df_pr_commits):
     df_issue.set_index('repo_name', inplace=True)
