@@ -5,7 +5,8 @@ import pandas as pd, networkx as nx, ot, numpy as np
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import matplotlib.pylab as pl
 from sklearn.manifold import MDS
- 
+import matplotlib.colors as mcolors
+
 # WHEN DOING SCONSCRIPT, make spec an argument into the script
 spec_cov = {
     "imp_contr": ["total_important"],
@@ -74,11 +75,21 @@ def PrepareCalcData(event_graphs, spec):
     return bary_list, labels
 
 def PlotGraph(x, C, color="C0", s=100):
-    """Plot graph edges and nodes on the current axis."""
     for j in range(C.shape[0]):
         for i in range(j):
             pl.plot([x[i, 0], x[j, 0]], [x[i, 1], x[j, 1]], alpha=C[i, j], color="k")
-    pl.scatter(x[:, 0], x[:, 1], c=color, s=s, zorder=10, edgecolors="k", cmap="tab10", vmax=9)
+    wd = np.sum(C, axis=1)
+    min_size = 10
+    max_size = 300
+    if wd.max() != wd.min():
+        norm = (wd - wd.min()) / (wd.max() - wd.min())
+        sizes = min_size * ((max_size / min_size) ** norm)
+    else:
+        sizes = np.full(wd.shape, s)
+        norm = np.zeros_like(wd)
+    teal_cmap = mcolors.LinearSegmentedColormap.from_list("teal", ["#B2DFDB", "#00695C"])
+    node_colors = teal_cmap(norm)
+    pl.scatter(x[:, 0], x[:, 1], c=node_colors, s=sizes, zorder=10, edgecolors="k")
 
 def PlotSingleGraph(ax, atom, label, global_max):
     """Plot one graph cell on a given axis using global_max for normalization."""
@@ -150,7 +161,7 @@ def PlotCombinedVerticalGraph(event_res, dep, spec, sizebary):
 def ProcessEventTime(rt, event_graphs, spec, sizebary, dep):
     """Process a single event time: compute barycenters, plot, and return results."""
     bary_list, labs = PrepareCalcData(event_graphs, spec)
-    barys = [ComputeBarycenter(gl, sizebary) for gl in bary_list]
+    barys = [ComputeBarycenter(graph_list, sizebary) for graph_list in bary_list]
     out_dir = f"issue/event_study/{dep}/{spec}/representative_graphs"
     os.makedirs(out_dir, exist_ok=True)
     for i, bary in enumerate(barys):
