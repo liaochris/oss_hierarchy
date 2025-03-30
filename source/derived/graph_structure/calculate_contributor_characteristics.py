@@ -3,6 +3,7 @@ from pathlib import Path
 import pandas as pd
 from datetime import datetime
 import json
+from source.lib.JMSLab.SaveData import SaveData
 
 def Main():
     indir = Path('drive/output/derived/graph_structure')
@@ -88,7 +89,12 @@ def Main():
     df = pd.DataFrame(rows)
     df['time_period'] = pd.to_datetime(df['time_period'])
     df['prop_important'] = df['total_important']/df['total_nodes']
-
+    df = df.drop_duplicates()
+    
     SaveData(df, ['repo_name','time_period','actor_id'],
              outdir / 'contributor_characteristics.parquet',
              logdir / 'contributor_characteristics.log')
+    
+
+if __name__ == '__main__':
+    Main()

@@ -132,7 +132,7 @@ def FetchWRDSCompanyMatches(merged_committers, relevant_positions):
 
 def QueryForLinkedinPositions(committers_df, db):
     params = {'user_ids': tuple(committers_df['user_id'].dropna().unique())}
-    return db.raw_sql("SELECT user_id, startdate, enddate FROM revelio.positions WHERE user_id IN %(user_ids)s", params=params)
+    return db.raw_sql("SELECT user_id, startdate, enddate FROM revelio.individual_positions WHERE user_id IN %(user_ids)s", params=params)
 
 def FetchLinkedinJobChanges(committers_linkedin):
     db = wrds.Connection(wrds_username=os.environ.get('WRDS_USERNAME'))
@@ -291,10 +291,10 @@ def PrepareEventStudyData(spec, indir_departures, departed_full, time_period, ro
         lambda lst: [ele.date() for ele in lst if pd.notnull(ele)] if isinstance(lst, list) else [])
     
     df_departure_es['startdate_dep'] = df_departure_es.apply(
-        lambda x: any(x['all_timerange_groups'][0].date() <= d <= x['all_timerange_groups'][1].date() for d in x['startdate_dates'])
+        lambda x: any(x['all_timerange_groups'][0] <= d <= x['all_timerange_groups'][1] for d in x['startdate_dates'])
                   if x['startdate_dates'] else False, axis=1)
     df_departure_es['enddate_dep'] = df_departure_es.apply(
-        lambda x: any(x['all_timerange_groups'][0].date() <= d <= x['all_timerange_groups'][1].date() for d in x['enddate_dates'])
+        lambda x: any(x['all_timerange_groups'][0] <= d <= x['all_timerange_groups'][1] for d in x['enddate_dates'])
                   if x['enddate_dates'] else False, axis=1)
     df_departure_es['corresponding_departure'] = df_departure_es['startdate_dep'] | df_departure_es['enddate_dep']
     
