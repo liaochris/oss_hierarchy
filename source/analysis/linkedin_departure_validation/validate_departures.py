@@ -11,6 +11,7 @@ from source.scrape.get_linkedin_profiles.docs.get_linkedin_profiles import *
 from joblib import Parallel, delayed
 from datetime import datetime
 import textwrap
+from source.lib.JMSLab.SaveData import SaveData
 
 def Main():
     indir_locations = Path("drive/output/scrape/get_standardized_locations")
@@ -46,7 +47,10 @@ def Main():
                             time_period=time_period, rolling_window=rolling_window, outdir= outdir_es,
                             pre_period=5, post_period=5, time_fe=False, individual_fe=False)
 
-    df_departure_linkedin_validation.to_csv(outdir / 'linkedin_validation_stats.csv', index = False)
+    SaveData(df_departure_linkedin_validation, 
+             ['time_period','rolling_window','criteria_col','criteria_pct','consecutive_periods', 'post_period_length','decline_type','decline_stat'],
+             outdir / 'linkedin_validation_stats.csv',
+             outdir_es / 'linkedin_validation_stats.log')
 
 
 def GenerateDepartedFullDataset(departed_committers, github_profile_locations, linkedin_profile_locations, departed_linkedin_profiles, departed_linkedin_positions):
@@ -308,3 +312,7 @@ def PrepareEventStudyData(spec, indir_departures, departed_full, time_period, ro
                         f"Decline Type: {decline_type} | Stat: {decline_stat_fmt}")
     
     return df_departure_es, filename, spec_description
+
+
+if __name__ == '__main__':
+    Main()
