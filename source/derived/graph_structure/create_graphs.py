@@ -14,20 +14,6 @@ import itertools
 import sys
 import linecache
 
-# Customize this variable to restrict tracing to your script file.
-TRACE_FILE = os.path.abspath(__file__)
-
-def trace_lines(frame, event, arg):
-    # Only process 'line' events (i.e., when a new line is about to be executed).
-    if event == 'line':
-        filename = os.path.abspath(frame.f_code.co_filename)
-        # Optionally filter to only trace your script
-        if filename != TRACE_FILE:
-            return trace_lines
-        lineno = frame.f_lineno
-        line = linecache.getline(filename, lineno).strip()
-        print(f"Executing {filename}:{lineno}: {line}")
-    return trace_lines
 
 def Main():
     indir_data = Path('drive/output/derived/data_export')
@@ -340,5 +326,4 @@ def CreateGraph(repo, time_period_date, df_issue, df_pr, df_pr_commits, time_per
     return exported_graphs_log
 
 if __name__ == '__main__':
-    sys.settrace(trace_lines)  # Activate our custom tracer.
     Main()
