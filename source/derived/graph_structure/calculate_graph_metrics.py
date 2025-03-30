@@ -4,9 +4,7 @@ import os
 import pandas as pd
 from pathlib import Path
 from source.lib.helpers import *
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-import matplotlib.pyplot as plt
-import random
+from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import networkx as nx
 from source.derived.contributor_stats.calculate_contributions import *
@@ -76,7 +74,7 @@ def GetImportantContributors(G):
 def ComputeNeighborhoods(G):
     return {node: set(G.neighbors(node)) for node in G.nodes()}
 
-def ComputeImportanceMetrics(G, important_contributors):
+def ComputeImportanceMetrics(G):
     importance_metrics = {}
     n_nodes = G.number_of_nodes()
     betweenness = nx.betweenness_centrality(G)
@@ -326,7 +324,7 @@ def ComputeRepoGraphMetrics(repo, time_period, data):
     if not important_contributors:
         return None
     neighborhoods = ComputeNeighborhoods(G_mod)
-    importance = ComputeImportanceMetrics(G_orig, important_contributors)
+    importance = ComputeImportanceMetrics(G_orig)
     overlap_metrics = ComputeOverlapMetrics(G_mod, important_contributors, neighborhoods)
     clustering_metrics, cluster_aggregates = ComputeClusteringMetrics(G_mod, important_contributors, overlap_metrics)
     agg_cluster_cov = ComputeAggregateEgoClusterCoverage(G_mod, important_contributors, radius=1)
