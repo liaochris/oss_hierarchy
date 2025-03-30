@@ -307,8 +307,9 @@ def PrepareEventStudyData(spec, indir_departures, departed_full, time_period, ro
     df_departure_es = df_departure_es.merge(departure_time, how='left', on=['repo_name', 'actor_id'])
     df_departure_es['relative_time'] -= df_departure_es['treatment_time']
     
-    filename = f"{outdir}/event_study_commits{criteria_pct}_consec{consecutive_periods}_post{post_period_length}_{decline_type}_{decline_stat_fmt}.png"
-    spec_description = (f"\nCriteria: {criteria_pct}% Commits | Consecutive Periods: {consecutive_periods} | Post-Period: {post_period_length}\n"
+    
+    filename = f"{outdir}/event_study_major_months{time_period}_window{rolling_window}D_criteria_commits{criteria_pct}_consec{consecutive_periods}_post{post_period_length}_{decline_type}_{decline_stat_fmt}.png"
+    spec_description = (f"\nTime Period: {time_period} months | Rolling Window: {rolling_window} days \nCriteria: {criteria_pct}% Commits | Consecutive Periods: {consecutive_periods} | Post-Period: {post_period_length}\n"
                         f"Decline Type: {decline_type} | Stat: {decline_stat_fmt}")
     
     return df_departure_es, filename, spec_description
