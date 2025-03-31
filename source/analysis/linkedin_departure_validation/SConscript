@@ -1,4 +1,5 @@
 Import('*')
+import pandas as pd
 
 # Define source files and input dependencies
 source = [
@@ -27,7 +28,7 @@ for time_period in [2, 3, 6]:
             departed_file = f'{indir_departed}/departed_contributors_major_months{time_period}_window{rolling_window}D_criteria_commits_{criteria_pct}pct_consecutive{consecutive_periods}_post_period{post_period_length}_{decline_type}_{decline_stat}.parquet'
             source.append(departed_file)
 
-            filename = f"{outdir_es}/event_study_commits{criteria_pct}_consec{consecutive_periods}_post{post_period_length}_{decline_type}_{decline_stat}.png"
+            filename = f"{outdir_es}/event_study_major_months{time_period}_window{rolling_window}D_criteria_commits{criteria_pct}_consec{consecutive_periods}_post{post_period_length}_{decline_type}_{decline_stat}.png"
             target.append(filename)
 
 env.Python(target, source)  

@@ -1,128 +1,114 @@
 File:  issue/event_study/graphs/indiv_cluster_impo/overall_overlap_2p_back_bin_medianNA_normalized_degree_2p_back_bin_median1.csv 
-MD5:   c683f59495f3cd2474f7b5ffb756d8f9 
+MD5:   03c7f05ad2e0b1ec57d0667f8f40f828 
 Key:   repo_name time_period 
  
- ========================================================================================================================= 
- variable_name                                  type            N   uniqueN     mean            sd        min      max     
- ------------------------------------------------------------------------------------------------------------------------- 
- repo_name                                   character        1,034   77                                                   
- time_period                                    Date          1,034   17                                                   
- prs_opened                                   numeric         1,034             8.567         15.133       0       199     
- commits                                      numeric         1,034            34.102         54.021       0       576     
- commit_additions                             numeric         1,034          21,900.130    194,803.900     0    5,068,151  
- commit_deletions                             numeric         1,034          22,152.370    257,873.900     0    6,066,761  
- commit_changes_total                         numeric         1,034          44,052.500    407,613.300     0    10,135,037 
- commit_files_changed_count                   numeric         1,034            128.126       315.861       0      3,924    
- pr_commits                                   numeric         1,034            12.363         22.888       0       284     
- pr_commit_additions                          numeric         1,034          10,756.010    111,498.400     0    2,477,776  
- pr_commit_deletions                          numeric         1,034           6,281.033     84,190.300     0    2,492,817  
- pr_commit_changes_total                      numeric         1,034          17,037.040    184,157.000     0    4,970,593  
- pr_commit_files_changed_count                numeric         1,034            55.074        165.273       0      2,368    
- push_commits                                 numeric         1,034            21.739         38.154       0       438     
- push_commit_additions                        numeric         1,034          11,144.130    102,849.500     0    2,590,375  
- push_commit_deletions                        numeric         1,034          15,871.330    214,043.800     0    6,066,734  
- push_commit_changes_total                    numeric         1,034          27,015.460    275,415.300     0    6,067,178  
- push_commit_files_changed_count              numeric         1,034            73.051        200.823       0      2,624    
- commits_lt100                                numeric         1,034            33.678         53.247       0       575     
- commit_additions_lt100                       numeric         1,034          17,017.340    158,984.900     0    3,825,905  
- commit_deletions_lt100                       numeric         1,034          17,515.300    232,418.000     0    6,066,761  
- commit_changes_total_lt100                   numeric         1,034          34,532.640    340,770.000     0    7,635,472  
- commit_files_changed_count_lt100             numeric         1,034            101.121       212.546       0      2,996    
- push_commits_lt100                           numeric         1,034            21.667         38.080       0       438     
- push_commit_additions_lt100                  numeric         1,034           9,080.456     97,236.320     0    2,590,375  
- push_commit_deletions_lt100                  numeric         1,034          13,827.420    211,600.400     0    6,066,734  
- push_commit_changes_total_lt100              numeric         1,034          22,907.870    267,738.900     0    6,067,178  
- push_commit_files_changed_count_lt100        numeric         1,034            60.697        157.310       0      2,558    
- pr_commits_lt100                             numeric         1,034            12.011         21.619       0       284     
- pr_commit_additions_lt100                    numeric         1,034           7,936.889     87,240.120     0    2,025,459  
- pr_commit_deletions_lt100                    numeric         1,034           3,687.882     47,520.610     0    1,235,498  
- pr_commit_changes_total_lt100                numeric         1,034          11,624.770    121,875.300     0    2,471,028  
- pr_commit_files_changed_count_lt100          numeric         1,034            40.424         84.892       0      1,126    
- comments                                     numeric         1,034            39.494         69.741       0       835     
- issue_comments                               numeric         1,034            21.438         47.158       0       485     
- pr_comments                                  numeric         1,034            18.056         33.424       0       505     
- own_issue_comments                           numeric         1,034             7.096         17.226       0       261     
- helping_issue_comments                       numeric         1,034            14.342         30.987       0       317     
- own_pr_comments                              numeric         1,034             6.424         14.094       0       157     
- helping_pr_comments                          numeric         1,034            11.632         22.855       0       366     
- linked_pr_issue_comments                     numeric         1,034            17.107         40.821       0       699     
- issues_opened                                numeric         1,034            12.747         23.054       0       225     
- issues_opened_with_linked_pr                 numeric         1,034             9.698         19.351       0       307     
- pr_reviews                                   numeric         1,034             6.703         30.995       0       514     
- pr_review_comments                           numeric         1,034            13.072         37.378       0       535     
- prs_merged                                   numeric         1,034            11.457         18.382       0       210     
- issues_closed                                numeric         1,034             5.980         11.059       0       111     
- first_period                          c("POSIXct", "POSIXt") 1,034   11                                                   
- final_period                                   Date          1,034   10                                                   
- closed_issue                                 numeric          288              0.741         0.336        0        1      
- closed_in_30_days                            numeric          288              0.436         0.363        0        1      
- closed_in_60_days                            numeric          288              0.482         0.371        0        1      
- closed_in_90_days                            numeric          288              0.512         0.373        0        1      
- closed_in_180_days                           numeric          288              0.566         0.376        0        1      
- closed_in_360_days                           numeric          288              0.620         0.367        0        1      
- prs_closed_unmerged                          numeric          353              1.663         3.089        0        21     
- p_prs_closed_unmerged                        numeric          353              0.207         0.280        0        1      
- p_prs_merged                                 numeric          353              0.692         0.348        0        1      
- p_review_state_commented                     numeric          353              0.035         0.296        0        4      
- p_review_state_approved                      numeric          353              0.065         0.235        0        2      
- p_review_state_changes_requested             numeric          353              0.003         0.054        0        1      
- p_prs_merged_30d                             numeric          353              0.660         0.351        0        1      
- p_prs_merged_60d                             numeric          353              0.677         0.349        0        1      
- p_prs_merged_90d                             numeric          353              0.680         0.348        0        1      
- p_prs_merged_180d                            numeric          353              0.690         0.347        0        1      
- p_prs_merged_360d                            numeric          353              0.691         0.348        0        1      
- prs_closed                                   numeric          353              9.805         17.869       0       220     
- p_prs_closed                                 numeric          353              0.896         0.246        0        1      
- mean_pr_reviews                              numeric          45               1.539         1.247        1      6.500    
- time_index                                   integer         1,034             9.484         4.463        1        17     
- departed_actor_id                            numeric         1,034         8,039,461.000 12,965,830.000  124   61,318,160 
- last_pre_period                                Date          1,034   12                                                   
- treatment_period                               Date          1,034   12                                                   
- abandoned_date                                 Date           188     8                                                   
- treated_project                              numeric         1,034               1             0          1        1      
- treatment                                    numeric         1,034             0.387         0.487        0        1      
- treatment_group                              numeric         1,034            11.515         3.701        4        16     
- total_important                              integer          449              1.125         0.375        1        4      
- total_nodes                                  integer          449             13.245         15.488       2       108     
- mean_cluster_overlap                         numeric          449              5.359         17.075       0       100     
- avg_clusters_per_node                        numeric          449              1.033         0.110        1      1.778    
- pct_nodes_one_cluster                        numeric          449             96.790         10.707     22.222    100     
- HHI_normalized_degree                        numeric          46               0.510         0.066      0.270    0.680    
- HHI_individual_coverage                      numeric          46               0.511         0.064      0.276    0.680    
- HHI_individual_coverage_cluster              numeric          46               0.511         0.064      0.276    0.680    
- normalized_degree                            numeric          449              0.697         0.281      0.018      1      
- imp_to_other_avg_edge_weight                 numeric          449              4.324         6.846        0        69     
- important                                    logical          449     3                                                   
- imp_to_other_perc_10                         numeric          449              2.226         6.193        0        69     
- imp_to_other_perc_25                         numeric          449              2.540         6.235        0        69     
- imp_to_other_perc_50                         numeric          449              3.311         6.409        0        69     
- imp_to_other_perc_75                         numeric          449              4.759         6.817        0        69     
- imp_to_other_perc_90                         numeric          449              7.254         9.338        0      89.500   
- imp_to_imp_avg_edge_weight                   numeric          449              5.773         20.173       0       308     
- imp_to_imp_perc_10                           numeric          449              5.696         20.135       0       308     
- imp_to_imp_perc_25                           numeric          449              5.727         20.149       0       308     
- imp_to_imp_perc_50                           numeric          449              5.780         20.181       0       308     
- imp_to_imp_perc_75                           numeric          449              5.822         20.206       0       308     
- imp_to_imp_perc_90                           numeric          449              5.847         20.224       0       308     
- individual_node_coverage                     numeric          32              61.013         14.570     31.250   91.954   
- individual_coverage_cluster                  numeric          32              71.612         13.028     48.780   93.023   
- overall_overlap                              numeric          32              42.409         17.800     14.286   83.333   
- weighted_overall_overlap                     numeric          32              53.528         22.223     9.091    86.364   
- prop_important                               numeric          449              0.164         0.126      0.009    0.500    
- total_downloads                              numeric          667                0             0          0      0.001    
- total_downloads_one_project                  numeric          667                0             0          0      0.001    
- total_downloads_rel                          numeric         1,034               0             0          0      0.001    
- total_downloads_one_project_rel              numeric          667                0             0          0      0.001    
- overall_new_release_count                    numeric          601              5.762         7.825        1        80     
- major_new_release_count                      numeric          601              0.146         0.471        0        7      
- minor_new_release_count                      numeric          601              1.324         2.133        0        21     
- patch_new_release_count                      numeric          601              3.324         5.315        0        46     
- other_new_release_count                      numeric          601              0.967         4.083        0        63     
- major_minor_release_count                    numeric          601              1.471         2.227        0        21     
- major_minor_patch_release_count              numeric          601              4.795         6.482        0        56     
- overall_score                                numeric          895              5.828         1.242      2.500      10     
- overall_increase                             integer          895              0.020         0.140        0        1      
- overall_decrease                             integer          895              0.042         0.202        0        1      
- overall_stable                               integer          895              0.904         0.295        0        1      
- vulnerabilities_score                        numeric          895              8.026         3.512        0        10     
- ------------------------------------------------------------------------------------------------------------------------- 
+ ======================================================================================================================== 
+ variable_name                                  type           N  uniqueN      mean            sd        min      max     
+ ------------------------------------------------------------------------------------------------------------------------ 
+ repo_name                                   character        706   52                                                    
+ time_period                                    Date          706   17                                                    
+ prs_opened                                   numeric         706             24.597         53.190       0       481     
+ commits                                      numeric         706             83.051        168.191       0      1,876    
+ commit_additions                             numeric         706           61,151.880    303,554.200     0    4,939,761  
+ commit_deletions                             numeric         706           43,442.770    238,996.100     0    4,373,807  
+ commit_changes_total                         numeric         706          104,594.600    536,853.300     0    9,313,568  
+ commit_files_changed_count                   numeric         706           1,057.467      4,548.633      0      67,000   
+ pr_commits                                   numeric         706             38.992         92.921       0       822     
+ pr_commit_additions                          numeric         706           38,645.860    231,038.100     0    3,648,398  
+ pr_commit_deletions                          numeric         706           29,299.460    188,554.900     0    3,238,217  
+ pr_commit_changes_total                      numeric         706           67,945.310    417,532.200     0    6,886,615  
+ pr_commit_files_changed_count                numeric         706            640.160       3,551.229      0      65,344   
+ push_commits                                 numeric         706             44.059         98.367       0      1,509    
+ push_commit_additions                        numeric         706           22,506.020    106,203.400     0    1,763,003  
+ push_commit_deletions                        numeric         706           14,143.320     65,975.180     0    1,135,590  
+ push_commit_changes_total                    numeric         706           36,649.340    164,800.200     0    2,426,953  
+ push_commit_files_changed_count              numeric         706            417.307       1,636.180      0      21,196   
+ commits_lt100                                numeric         706             80.890        162.014       0      1,865    
+ commit_additions_lt100                       numeric         706           19,253.270     67,907.120     0    1,075,639  
+ commit_deletions_lt100                       numeric         706           12,401.760     50,105.040     0     776,738   
+ commit_changes_total_lt100                   numeric         706           31,655.020    111,521.300     0    1,852,377  
+ commit_files_changed_count_lt100             numeric         706            421.669       1,175.290      0      11,778   
+ push_commits_lt100                           numeric         706             43.377         96.900       0      1,501    
+ push_commit_additions_lt100                  numeric         706           9,685.044      34,713.160     0     536,218   
+ push_commit_deletions_lt100                  numeric         706           5,745.888      25,091.340     0     373,188   
+ push_commit_changes_total_lt100              numeric         706           15,430.930     53,229.400     0     767,092   
+ push_commit_files_changed_count_lt100        numeric         706            241.949        881.235       0      10,686   
+ pr_commits_lt100                             numeric         706             37.513         86.925       0       791     
+ pr_commit_additions_lt100                    numeric         706           9,568.224      41,923.660     0     724,037   
+ pr_commit_deletions_lt100                    numeric         706           6,655.868      36,115.030     0     633,761   
+ pr_commit_changes_total_lt100                numeric         706           16,224.090     75,319.990     0    1,357,798  
+ pr_commit_files_changed_count_lt100          numeric         706            179.720        481.751       0      4,993    
+ comments                                     numeric         706            185.126        401.224       0      3,562    
+ issue_comments                               numeric         706             83.550        180.778       0      1,640    
+ pr_comments                                  numeric         706            101.576        244.578       0      1,938    
+ own_issue_comments                           numeric         706             25.426         56.101       0       642     
+ helping_issue_comments                       numeric         706             58.123        129.082       0      1,175    
+ own_pr_comments                              numeric         706             29.650         67.360       0       526     
+ helping_pr_comments                          numeric         706             71.926        184.130       0      1,682    
+ linked_pr_issue_comments                     numeric         706             88.096        183.771       0      1,433    
+ issues_opened                                numeric         706             51.799        109.266       0       966     
+ issues_opened_with_linked_pr                 numeric         706             50.844        103.713       0       879     
+ pr_reviews                                   numeric         706             35.272        154.061       0      2,125    
+ pr_review_comments                           numeric         706             75.660        198.983       0      1,698    
+ prs_merged                                   numeric         706             39.025         86.740       0       968     
+ issues_closed                                numeric         706             23.924         53.909       0       479     
+ first_period                          c("POSIXct", "POSIXt") 706    9                                                    
+ final_period                                   Date          706    8                                                    
+ closed_issue                                 numeric         159             0.767          0.314        0        1      
+ closed_in_30_days                            numeric         159             0.401          0.332        0        1      
+ closed_in_60_days                            numeric         159             0.441          0.343        0        1      
+ closed_in_90_days                            numeric         159             0.481          0.348        0        1      
+ closed_in_180_days                           numeric         159             0.530          0.354        0        1      
+ closed_in_360_days                           numeric         159             0.593          0.357        0        1      
+ prs_closed_unmerged                          numeric         195             3.682          11.685       0       108     
+ p_prs_closed_unmerged                        numeric         195             0.220          0.291        0        1      
+ p_prs_merged                                 numeric         195             0.671          0.342        0        1      
+ p_review_state_commented                     numeric         195             0.031          0.147        0      1.261    
+ p_review_state_approved                      numeric         195             0.083          0.250        0      1.200    
+ p_review_state_changes_requested             numeric         195             0.002          0.012        0      0.111    
+ p_prs_merged_30d                             numeric         195             0.629          0.337        0        1      
+ p_prs_merged_60d                             numeric         195             0.644          0.339        0        1      
+ p_prs_merged_90d                             numeric         195             0.653          0.342        0        1      
+ p_prs_merged_180d                            numeric         195             0.668          0.342        0        1      
+ p_prs_merged_360d                            numeric         195             0.670          0.343        0        1      
+ prs_closed                                   numeric         195             14.554         21.156       0       150     
+ p_prs_closed                                 numeric         195             0.888          0.247        0        1      
+ mean_pr_reviews                              numeric         27              1.680          1.243        1        7      
+ time_index                                   integer         706             9.671          4.518        1        17     
+ departed_actor_id                            numeric         706         10,820,168.000 14,589,096.000 1,062  61,318,160 
+ last_pre_period                                Date          706   13                                                    
+ treatment_period                               Date          706   13                                                    
+ abandoned_date                                 Date          82     5                                                    
+ treated_project                              numeric         706               1              0          1        1      
+ treatment                                    numeric         706             0.445          0.497        0        1      
+ treatment_group                              numeric         706             10.990         3.811        4        16     
+ total_important                              integer         267             2.412          1.586        1        9      
+ total_nodes                                  integer         267             32.764         50.506       2       482     
+ mean_cluster_overlap                         numeric         267             36.320         31.817       0       100     
+ avg_clusters_per_node                        numeric         267             1.307          0.390        1      3.191    
+ pct_nodes_one_cluster                        numeric         267             78.671         20.224       25      100     
+ HHI_normalized_degree                        numeric         267             0.131          0.101      0.003    0.500    
+ HHI_individual_coverage                      numeric         96              0.963          0.135      0.333      1      
+ HHI_individual_coverage_cluster              numeric         96              0.963          0.135      0.333      1      
+ normalized_degree                            numeric         267             0.536          0.260      0.022      1      
+ imp_to_other_avg_edge_weight                 numeric         267             4.919          8.387        0        69     
+ individual_node_coverage                     numeric         42              80.797         18.057     28.571    100     
+ individual_coverage_cluster                  numeric         42              94.418         15.867     33.333    100     
+ overall_overlap                              numeric         42                0              0          0        0      
+ weighted_overall_overlap                     numeric         42                0              0          0        0      
+ important                                    numeric         135               1              0          1        1      
+ imp_to_other_perc_10                         numeric         267             2.582          8.180        0        69     
+ imp_to_other_perc_25                         numeric         267             2.855          8.169        0        69     
+ imp_to_other_perc_50                         numeric         267             3.680          8.161        0        69     
+ imp_to_other_perc_75                         numeric         267             5.463          8.624        0        69     
+ imp_to_other_perc_90                         numeric         267             8.130          10.456       0        69     
+ imp_to_imp_avg_edge_weight                   numeric         267             23.689         40.084       0       310     
+ imp_to_imp_perc_10                           numeric         267             16.908         33.156       0       265     
+ imp_to_imp_perc_25                           numeric         267             18.309         34.391       0       265     
+ imp_to_imp_perc_50                           numeric         267             21.738         38.498       0       310     
+ imp_to_imp_perc_75                           numeric         267             27.614         47.190       0     374.500   
+ imp_to_imp_perc_90                           numeric         267             31.710         55.892       0     413.200   
+ prop_important                               numeric         267             0.147          0.096      0.004    0.500    
+ total_downloads                             integer64        462               0        39,591,419.000   0        0      
+ total_downloads_one_project                 integer64        462               0        39,544,068.000   0        0      
+ ------------------------------------------------------------------------------------------------------------------------ 
