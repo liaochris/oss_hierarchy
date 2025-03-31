@@ -60,11 +60,12 @@ def Main():
                     'normalized_degree': actor_data.get('normalized_degree', None),
                     'imp_to_other_avg_edge_weight': actor_data.get('avg_edge_weight', None)
                 }
-                if row in important_contributor_keys:
+                if actor in important_contributor_keys:
                     row['individual_node_coverage'] = actor_data.get('individual_coverage', None)
                     row['individual_coverage_cluster'] = actor_data.get('individual_coverage_cluster', None)
                     row['overall_overlap'] = actor_data.get('overall_overlap', None)
                     row['weighted_overall_overlap'] = actor_data.get('weighted_overall_overlap', None)
+                    row['important'] = 1
                     
                 # Add actor-level percentiles
                 perc = actor_data.get('percentiles', {})
