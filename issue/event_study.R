@@ -15,6 +15,9 @@ library(future.apply)
 library(gridExtra)
 library(SaveData)
 library(ragg)
+library(zoo)
+library(lmtest)
+library(multiwayvcov)
 
 set.seed(1234)
 `%ni%` <- Negate(`%in%`)
@@ -24,6 +27,7 @@ Main <- function() {
   indir <- "drive/output/derived/project_outcomes"
   indir_departed <- "drive/output/derived/contributor_stats/filtered_departed_contributors"
   issue_tempdir <- "issue"
+  indir_contributors <- "drive/output/derived/graph_structure"
   outdir_commit_departures <- "issue/event_study/graphs"
   outdir_graph_departures <- "issue/event_study/graph_departures"
   time_period <- 6
@@ -57,16 +61,26 @@ Main <- function() {
   )
   
   outcomes <- c(
-    # "prs_opened", "commits", "commits_lt100", "comments", "issue_comments", "pr_comments",
-    # "issues_opened", "issues_closed", "prs_merged", "p_prs_merged", "closed_issue",
-    # "p_prs_merged_30d", "p_prs_merged_60d", "p_prs_merged_90d", "p_prs_merged_180d",
-    # "p_prs_merged_360d", "closed_in_30_days", "closed_in_60_days", "closed_in_90_days",
-    # "closed_in_180_days", "closed_in_360_days", "total_downloads","total_downloads_one_project",
-    "total_downloads_rel", "total_downloads_one_project_rel", "overall_new_release_count", "major_new_release_count",
+    "prs_opened", "commits", "commits_lt100", "comments", "issue_comments", "pr_comments",
+    "issues_opened", "issues_closed", "prs_merged", "p_prs_merged", "closed_issue",
+    "p_prs_merged_30d", "p_prs_merged_60d", "p_prs_merged_90d", "p_prs_merged_180d",
+    "p_prs_merged_360d", "closed_in_30_days", "closed_in_60_days", "closed_in_90_days",
+    "total_downloads","total_downloads_one_project", "total_downloads_rel", "total_downloads_one_project_rel",
+    "closed_in_180_days", "closed_in_360_days",  
+    "overall_new_release_count", "major_new_release_count",
     "minor_new_release_count", "patch_new_release_count", "other_new_release_count", "major_minor_release_count",
     "major_minor_patch_release_count", "overall_score", "overall_increase",
-    "overall_decrease", "overall_stable", "vulnerabilities_score")
+    "overall_decrease", "overall_stable", "vulnerabilities_score",
+    "total_nodes")
   
+  fillna <- outcomes[
+    !(grepl("downloads", outcomes, ignore.case = TRUE) |
+      grepl("^p_", outcomes) |
+      grepl("^closed_in_", outcomes) |
+      outcomes %in% c("overall_score", "overall_increase", "overall_decrease", "overall_stable", "vulnerabilities_score"))
+  ]
+
+
   if (graph_departures) {
     na_keep_cols <- c()
   } else {
@@ -85,7 +99,7 @@ Main <- function() {
   
   df_departed <- departed_list$df_departed
   treatment_inelg <- departed_list$treatment_inelg
-  df_covariates <- CleanCovariates(issue_tempdir)
+  df_covariates <- CleanCovariates(indir_contributors)
   df_downloads <- CleanDownloads(issue_tempdir)
   departure_panel <- CreateDeparturePanel(df_project_outcomes, treatment_inelg, df_departed, df_covariates, df_downloads)
   
@@ -94,7 +108,7 @@ Main <- function() {
   treated_projects_count <- length(treated_projects)
   control_projects <- unique(departure_panel %>% filter(repo_name %ni% treated_projects) %>% pull(repo_name))
   control_projects_count <- length(control_projects)
-  
+
   departure_panel_nyt <- unique(departure_panel %>% filter(treated_project == 1))
   project_covars <- c("repo_name", "time_period", "treated_project", "treatment", "time_index", "treatment_group", "departed_actor_id", "final_period")
   departure_panel_na <- departure_panel_nyt %>% 
@@ -112,13 +126,21 @@ Main <- function() {
   
   df_valuable_outcomes <- CleanOutcomesPost(issue_tempdir, departure_panel_nyt)
   departure_panel_nyt <- departure_panel_nyt %>% left_join(df_valuable_outcomes)
-  
+
   covariates_to_split <- unique(unlist(specification_covariates))
   covariate_panel_nyt <- CreateCovariateBins(departure_panel_nyt, covariates_to_split)
   
   GenerateEventStudyGrids(departure_panel_nyt, covariate_panel_nyt, outcomes, specification_covariates, 
                           post = 4, pre = 0, outdir = outdir, na_keep_cols = na_keep_cols,
-                          fillna = T, plot = TRUE)
+                          fillna = fillna, plot = TRUE)
+  
+  df_effect <- ComputeEffectGrid(
+    departure_panel_nyt, pr_columns = c("prs_opened", "prs_merged"), 
+    outcomes = c("overall_new_release_count", "total_downloads", "overall_score"),
+    pre_values = 1:4, post_values = 1:4, leading = TRUE)
+  
+  ExportPlots(df_effect, pr_columns = c("prs_opened", "prs_merged"), post_values = 1:4)
+  
 }
 
 CleanProjectOutcomes <- function(indir, time_period) {
@@ -169,8 +191,8 @@ CleanDepartedContributorsGraph <- function(issue_tempdir) {
   return(list(df_departed = df_departed, treatment_inelg = treatment_inelg, treatment_elg = treatment_elg))
 }
 
-CleanCovariates <- function(issue_tempdir) {
-  df_covariates <- read_parquet(file.path(issue_tempdir, "graph_important.parquet")) %>%
+CleanCovariates <- function(indir) {
+  df_covariates <- read_parquet(file.path(indir, "contributor_characteristics.parquet")) %>%
     mutate(time_period = as.Date(time_period)) %>%
     mutate(actor_id = as.numeric(actor_id)) %>%
     rename(departed_actor_id = actor_id)
@@ -181,19 +203,14 @@ CleanDownloads <- function(issue_tempdir) {
   df_project_downloads <- read_parquet(file.path(issue_tempdir, "github_downloads.parquet")) %>%
     mutate(time_period = as.Date(time_period)) %>%
     group_by(time_period) %>%
-    mutate(total_downloads_period = sum(total_downloads),
-           total_downloads_one_project_period = sum(total_downloads_one_project)) %>%
-    ungroup() %>%
-    mutate(total_downloads = total_downloads/total_downloads_period,
-           total_downloads_one_project = total_downloads_one_project/total_downloads_one_project_period) %>%
     select(repo_name, time_period, total_downloads, total_downloads_one_project)
     return(df_project_downloads)
-  }
+}
     
 
 
 CreateDeparturePanel <- function(df_project_outcomes, treatment_inelg, df_departed, df_covariates, df_downloads, trim_abandoned = TRUE) {
-  df_project_departed <- df_project %>%
+  df_project_departed <- df_project_outcomes %>%
     left_join(df_departed, by = "repo_name") %>%
     mutate(treated_project = 1 - as.numeric(is.na(last_pre_period)),
            treatment = as.numeric(treated_project & time_period >= treatment_period)) %>%
@@ -228,36 +245,45 @@ CleanOutcomesPost <- function(issue_tempdir, departure_panel_nyt) {
     select(repo_name, time_period, total_downloads_rel, total_downloads_one_project_rel)
   
   df_downloads_detailed <- read_parquet(file.path(issue_tempdir, "github_downloads_detailed.parquet")) %>%
-    filter(repo_name %in% treated_projects) %>% 
-    select(-ends_with("downloads")) %>% 
+    filter(repo_name %in% treated_projects) %>%
+    select(-ends_with("downloads")) %>%
     group_by(repo_name, time_period)  %>%
     summarise(across(everything(), sum, na.rm = TRUE))
-  
+
   df_scorecard <- read_parquet(file.path(issue_tempdir, "github_scorecard_scores.parquet")) %>%
     filter(repo_name %in% treated_projects) %>%
     select(c(repo_name,time_period, overall_score, overall_increase, overall_decrease, overall_stable,
              vulnerabilities_score))
-  
-  df_valuable_outcomes <- df_downloads %>% 
-    full_join(df_downloads_detailed) %>% 
+
+  df_valuable_outcomes <- df_downloads %>%
+    full_join(df_downloads_detailed) %>%
     full_join(df_scorecard) %>%
-    mutate(time_period = as.Date(time_period)) %>% 
-  
-  return(df_project_downloads)
+    mutate(time_period = as.Date(time_period)) %>%
+
+  return(df_valuable_outcomes)
 }
 
 NormalizeOutcome <- function(df, outcome, outcome_norm) {
   df_norm <- copy(df)
-  df_pretreatment_mean <- df_norm %>% group_by(repo_name) %>%
-    summarize(pretreatment_mean = mean(get(outcome), na.rm = T))
-  df_norm <- df_norm %>% left_join(df_pretreatment_mean) 
-  df_norm[[outcome_norm]] <- df_norm[[outcome]] / df_norm$pretreatment_mean
+  if (grepl("download", outcome, ignore.case = TRUE)) {
+    df_norm[[outcome]] <- df_norm %>% group_by(time_index) %>%  
+      mutate(norm_outcome = !!sym(outcome) / sum(!!sym(outcome))) %>% 
+      pull(norm_outcome)
+  }
+  # if (grepl("download", outcome, ignore.case = TRUE)) {
+  #     df_norm[[outcome_norm]] <- log(df_norm[[outcome]] / df_norm$mean_outcome )
+  # } else {}
+  df_norm <- df_norm %>% group_by(repo_name) %>%
+    mutate(mean_outcome = mean(get(outcome), na.rm = T)) %>%
+    ungroup()
+  df_norm[[outcome_norm]] <- df_norm[[outcome]] / df_norm$mean_outcome 
   return(df_norm)
 }
 
 CreateCovariateBins <- function(df, covariates, time_period_col = "time_index", k_values = 1:3) {
   df_k_averages <- data.frame(repo_name = unique(df$repo_name))
   for (k in k_values) {
+    
     df_k_periods_mean <- df %>%
       filter(!!sym(time_period_col) < treatment_group,
              time_index < treatment_group,
@@ -300,12 +326,11 @@ CreateCovariateBins <- function(df, covariates, time_period_col = "time_index", 
   return(df_k_averages)
 }
 
-GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, outcomes, specification_covariates, post, pre, outdir, na_keep_cols, fillna = T, plot = FALSE) {
-  plan(multisession)
+GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, outcomes, specification_covariates, post, pre, outdir, na_keep_cols, fillna, plot = FALSE) {
   specs <- names(specification_covariates)
-  future_lapply(specs, function(spec) {
+  for (spec in specs) {
     for (outcome in outcomes) {
-      if (fillna) {
+      if (outcome %in% fillna) {
         departure_panel_nyt[[outcome]] <- ifelse(is.na(departure_panel_nyt[[outcome]]), 0, departure_panel_nyt[[outcome]])
       }
       # Try running the full and early event studies; if error, skip to next outcome
@@ -319,7 +344,7 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
                                          MakeTitle(outcome, paste0(outcome, " - Up to Last Active Period"), df_early))
         list(full = full_samp, early = early_samp, df_early = df_early)
       }, error = function(e) {
-        message("Error in EventStudyAnalysis for outcome: ", outcome, ". Skipping this outcome.")
+        message("Error in EventStudyAnalysis for outcome: ", outcome, spec, ". Skipping this outcome.")
         NULL
       })
       
@@ -336,9 +361,9 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
       outdir_spec <- file.path(outdir, spec)
       dir.create(outdir_outcome_spec, recursive = TRUE, showWarnings = FALSE)
       
-      k <- 2
-      bin_types <- c("bin_median")
-      combos <- expand.grid(k = k, bin = bin_types, stringsAsFactors = FALSE) %>% 
+      k_vector <- 2 #c(2, 3 ,4)
+      bin_types <- c("bin_median") #c("bin_third")
+      combos <- expand.grid(k = k_vector, bin = bin_types, stringsAsFactors = FALSE) %>% 
         mutate(split_specs = paste0(k, "p_back_", bin))
       
       for (split_spec in combos$split_specs) {
@@ -392,10 +417,9 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
         flush.console()
       }
     }
-  })
+  }
   plan(sequential)
 }
-
 
 EventStudyAnalysis <- function(df, outcome, post, pre, title, normalize = TRUE) {
   if (normalize) {
@@ -459,4 +483,100 @@ AdjustYScaleUniformly <- function(plot_list, num_breaks = 5) {
            coord_cartesian(ylim = c(y_min, y_max)) +
            scale_y_continuous(breaks = y_breaks))
 }
+
+AnalyzeEffect <- function(data, outcome, pr_column, pre, post, leading = TRUE) {
+  data <- data %>% arrange(repo_name, time_index)
+  data_transformed <- data %>%
+    group_by(repo_name) %>%
+    mutate(pr_sum = rollapply(get(pr_column), width = pre, align = "right",
+                              FUN = function(x) mean(x, na.rm = TRUE), fill = NA, partial = TRUE),
+           outcome_sum = rollapply(get(outcome), width = post, align = "right",
+                                   FUN = function(x) mean(x, na.rm = TRUE), fill = NA, partial = TRUE)) %>%
+    ungroup()
+  
+  if (leading) {
+    data_transformed <- data_transformed %>%
+      group_by(repo_name) %>%
+      mutate(outcome_sum = lead(outcome_sum, n = 1)) %>%
+      ungroup()
+  }
+  
+  data_model <- data_transformed %>% filter(!is.na(pr_sum), !is.na(outcome_sum), outcome_sum != 0)
+  if(nrow(data_model) == 0) next
+  #   model <- glm(outcome_sum ~ pr_sum + factor(time_period) + factor(repo_name),
+  #                data = data_model, family = "poisson")
+  model <- lm(log(outcome_sum) ~ pr_sum + factor(time_period) + factor(repo_name),
+              data = data_model)
+  cl_vcov <- cluster.vcov(model, data_model$repo_name)
+  model_clustered <- coeftest(model, cl_vcov)
+  model_clustered <- model_clustered[rownames(model_clustered) %in% c("(Intercept)", "pr_sum"), ]
+  
+  return(list(model_clustered = model_clustered))
+}
+
+pr_columns <- c("prs_opened", "prs_merged")
+outcomes <- c("overall_new_release_count","overall_score", "total_downloads")
+pre_values <- 1:4
+post_values <- 1:4
+
+ComputeEffectGrid <- function(data, pr_columns, outcomes, pre_values, post_values, leading = TRUE) {
+  df_effect <- expand.grid(pr_column = pr_columns, outcome = outcomes,
+                           pre = pre_values, post = post_values,
+                           stringsAsFactors = FALSE) %>%
+    mutate(effect = NA_real_, se = NA_real_, p_value = NA_real_)
+  
+  for (i in seq_len(nrow(df_effect))) {
+    pr_col <- df_effect$pr_column[i]
+    outcome_var <- df_effect$outcome[i]
+    pre_val <- df_effect$pre[i]
+    post_val <- df_effect$post[i]
+    
+    res <- tryCatch({
+      AnalyzeEffect(data, outcome = outcome_var, pr_column = pr_col,
+                    pre = pre_val, post = post_val, leading = leading)
+    }, error = function(e) {
+      message(sprintf("Error for pr: %s, outcome: %s, pre: %d, post: %d : %s", 
+                      pr_col, outcome_var, pre_val, post_val, e$message))
+      return(NULL)
+    })
+    
+    if (!is.null(res) && "pr_sum" %in% rownames(res$model_clustered)) {
+      p_col <-  "Pr(>|t|)" # "Pr(>|z|)"
+      df_effect$effect[i] <- res$model_clustered["pr_sum", "Estimate"]
+      df_effect$se[i] <- res$model_clustered["pr_sum", "Std. Error"]
+      df_effect$p_value[i] <- res$model_clustered["pr_sum", p_col]
+    }
+  }
+  # Transform effect and standard error using the function:
+  # f(x) = 100*(exp(x) - 1) with derivative f'(x) = 100*exp(x)
+  df_effect <- df_effect %>%
+    mutate(effect_trans = 100*(exp(effect) - 1),
+           se_trans = 100 * exp(effect) * se)
+  
+  return(df_effect)
+}
+
+ExportPlots <- function(df_effect, pr_columns, post_values) {
+  output_dir <- "issue/github_outcome_importance"
+  
+  for (pr in pr_columns) {
+    for (selected_post in post_values) {
+      plot_data <- df_effect %>% filter(pr_column == pr, post == selected_post)
+      
+      p <- ggplot(plot_data, aes(x = pre, y = effect_trans, color = outcome)) +
+        geom_line(aes(group = outcome)) +
+        geom_point(size = 3) +
+        geom_errorbar(aes(ymin = effect_trans - se_trans, ymax = effect_trans + se_trans), width = 0.2) +
+        labs(title = paste("Effect for", pr, "(post =", selected_post, ")"),
+             x = "# of Pre-Periods Averaged Over",
+             y = paste("% outcome increase associated w/ a 1% increase in", pr)) +
+        theme_minimal()
+      
+      filename <- sprintf("%s_%s.png", pr, selected_post)
+      filepath <- file.path(output_dir, filename)
+      ggsave(filepath, plot = p, width = 8, height = 6)
+    }
+  }
+}
+
 Main()
