@@ -16,7 +16,7 @@ def Main():
     outdir_pull = Path('drive/output/scrape/push_pr_commit_data/pull_request_data/')
     
     pr_dirs = []
-    for subset_year in np.arange(2011, 2024, 1): 
+    for subset_year in np.arange(2015, 2024, 1): 
         for subset_month in np.arange(1, 13, 1):
             if (subset_year != 2023) or (subset_year == 2023 and subset_month < 9):
                 pr_dirs.append(f"pull_request_{subset_year}_{subset_month}.csv")
@@ -26,12 +26,14 @@ def Main():
         already_scraped_list = os.listdir(outdir_pull)
         if pr_data not in already_scraped_list:
             df_pull = pd.read_csv(indir_pull / pr_data)[['Unnamed: 0', 'repo_name','pr_commits_url']]
-            df_pull.to_csv(outdir_pull / pr_data.replace('pull_request','pull_request_data')) # as a placeholder
+            df_pull.to_csv(outdir_pull / pr_data.replace('pull_request','pull_request_data')) 
             
             if df_pull.empty != True:
                 df_pull['commit_list'] = df_pull.parallel_apply(lambda x: grabCommits(x['repo_name'], x['pr_commits_url']), axis = 1 )
                 print(f"Commits for pull_request_data_{subset_year}_{subset_month}.csv obtained")
                 df_pull.to_csv(outdir_pull / pr_data.replace('pull_request','pull_request_data')) # as a placeholder
+        else:
+
 
 def grabCommits(repo, pr_commits_url):
     try:
