@@ -58,7 +58,7 @@ def BuildLinkedDataframe(python_packages, python_package_info):
     df_linked['github repository'] = df_linked['homepage'].apply(lambda x: 'Unavailable' if 'https://github.com/' not in x else x.replace('https://github.com/',''))
     df_linked['github repository'] = df_linked['github repository'].apply(lambda x: "Unavailable" if "/" not in x else x)
 
-    df_linked['license'] = df_linked['license'].apply(lambda x: [ele.split(" :: ")[-1].strip() for ele in x.split("|")])
+    df_linked['license'] = df_linked['license'].apply(lambda x: "|".join([ele.split(" :: ")[-1].strip() for ele in x.split("|")]))
 
     return df_linked[['package', 'github repository', 'license']]
 
