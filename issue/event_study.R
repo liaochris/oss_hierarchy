@@ -22,6 +22,7 @@ library(multiwayvcov)
 set.seed(1234)
 `%ni%` <- Negate(`%in%`)
 
+# SEPARATE INTO CLEANING, EVENT STUDY AND BIN SCATETR
 Main <- function() {
   set.seed(1234)
   indir <- "drive/output/derived/project_outcomes"
@@ -141,7 +142,8 @@ Main <- function() {
   
   
   release_vars <- colnames(departure_panel_pre_treatment)[grepl("release",colnames(departure_panel_pre_treatment))]
-  binscatter_outcomes <- c("overall_score", "vulnerabilities_score", "forks_gained","stars_gained" release_vars)
+  binscatter_outcomes <- c("overall_score", "vulnerabilities_score", "forks_gained","stars_gained",
+                           release_vars)
   departure_panel_pre_treatment <- departure_panel_nyt %>%
     dplyr::filter(time_index < treatment_group)
   BinScatter(departure_panel_pre_treatment, binscatter_outcomes, 
