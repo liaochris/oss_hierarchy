@@ -30,6 +30,7 @@ Main <- function() {
   indir_contributors <- "drive/output/derived/graph_structure"
   outdir_commit_departures <- "issue/event_study/graphs"
   outdir_graph_departures <- "issue/event_study/graph_departures"
+  outdir_binscatter <- "issue/event_study/binscatter"
   time_period <- 6
   rolling_window <- 732
   criteria_pct <- 75
@@ -71,7 +72,7 @@ Main <- function() {
     "minor_new_release_count", "patch_new_release_count", "other_new_release_count", "major_minor_release_count",
     "major_minor_patch_release_count", "overall_score", "overall_increase",
     "overall_decrease", "overall_stable", "vulnerabilities_score",
-    "total_nodes")
+    "total_nodes", "forks_gained","stars_gained")
   
   fillna <- outcomes[
     !(grepl("downloads", outcomes, ignore.case = TRUE) |
@@ -101,7 +102,8 @@ Main <- function() {
   treatment_inelg <- departed_list$treatment_inelg
   df_covariates <- CleanCovariates(indir_contributors)
   df_downloads <- CleanDownloads(issue_tempdir)
-  departure_panel <- CreateDeparturePanel(df_project_outcomes, treatment_inelg, df_departed, df_covariates, df_downloads)
+  df_fork_stars <- CleanForkStars(issue_tempdir)
+  departure_panel <- CreateDeparturePanel(df_project_outcomes, treatment_inelg, df_departed, df_covariates, df_downloads, df_fork_stars)
   
   all_projects <- unique(departure_panel$repo_name)
   treated_projects <- unique(departure_panel %>% filter(treatment == 1) %>% pull(repo_name))
@@ -130,17 +132,33 @@ Main <- function() {
   covariates_to_split <- unique(unlist(specification_covariates))
   covariate_panel_nyt <- CreateCovariateBins(departure_panel_nyt, covariates_to_split)
   
+  for (outcome in fillna) {
+    departure_panel_nyt[[outcome]] <- ifelse(is.na(departure_panel_nyt[[outcome]]), 0, departure_panel_nyt[[outcome]])
+  }
   GenerateEventStudyGrids(departure_panel_nyt, covariate_panel_nyt, outcomes, specification_covariates, 
                           post = 4, pre = 0, outdir = outdir, na_keep_cols = na_keep_cols,
                           fillna = fillna, plot = TRUE)
   
-  df_effect <- ComputeEffectGrid(
-    departure_panel_nyt, pr_columns = c("prs_opened", "prs_merged"), 
-    outcomes = c("overall_new_release_count", "total_downloads", "overall_score"),
-    pre_values = 1:4, post_values = 1:4, leading = TRUE)
   
-  ExportPlots(df_effect, pr_columns = c("prs_opened", "prs_merged"), post_values = 1:4)
+  release_vars <- colnames(departure_panel_pre_treatment)[grepl("release",colnames(departure_panel_pre_treatment))]
+  binscatter_outcomes <- c("overall_score", "vulnerabilities_score", "forks_gained","stars_gained" release_vars)
+  departure_panel_pre_treatment <- departure_panel_nyt %>%
+    dplyr::filter(time_index < treatment_group)
+  BinScatter(departure_panel_pre_treatment, binscatter_outcomes, 
+             outdir = outdir_binscatter)
   
+  # pr_columns <- c("prs_opened", "prs_merged")
+  # outcomes <- c("overall_new_release_count","overall_score", "total_downloads")
+  # pre_values <- 1:4
+  # post_values <- 1:4
+  # 
+  # df_effect <- ComputeEffectGrid(
+  #   departure_panel_nyt, pr_columns = c("prs_opened", "prs_merged"), 
+  #   outcomes = c("overall_new_release_count", "total_downloads", "overall_score"),
+  #   pre_values = 1:4, post_values = 1:4, leading = TRUE)
+  # 
+  # ExportPlots(df_effect, pr_columns = c("prs_opened", "prs_merged"), post_values = 1:4)
+  # 
 }
 
 CleanProjectOutcomes <- function(indir, time_period) {
@@ -207,9 +225,14 @@ CleanDownloads <- function(issue_tempdir) {
     return(df_project_downloads)
 }
     
+CleanForkStars <- function(issue_tempdir) {
+  df_fork_stars <- read_parquet(file.path(issue_tempdir, "github_forks_stars.parquet")) %>%
+    mutate(time_period = as.Date(time_period))
+  return(df_fork_stars)
+}
 
 
-CreateDeparturePanel <- function(df_project_outcomes, treatment_inelg, df_departed, df_covariates, df_downloads, trim_abandoned = TRUE) {
+CreateDeparturePanel <- function(df_project_outcomes, treatment_inelg, df_departed, df_covariates, df_downloads, df_fork_stars, trim_abandoned = TRUE) {
   df_project_departed <- df_project_outcomes %>%
     left_join(df_departed, by = "repo_name") %>%
     mutate(treated_project = 1 - as.numeric(is.na(last_pre_period)),
@@ -227,7 +250,8 @@ CreateDeparturePanel <- function(df_project_outcomes, treatment_inelg, df_depart
   df_project_departed <- df_project_departed %>% 
     left_join(df_treatment_group, by = "repo_name") %>% 
     left_join(df_covariates, by = c("repo_name","departed_actor_id", "time_period")) %>%
-    left_join(df_downloads, by = c("repo_name","time_period"))
+    left_join(df_downloads, by = c("repo_name","time_period")) %>%
+    left_join(df_fork_stars, by = c("repo_name","time_period")) %>%
   return(df_project_departed)
 }
 
@@ -330,9 +354,6 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
   specs <- names(specification_covariates)
   for (spec in specs) {
     for (outcome in outcomes) {
-      if (outcome %in% fillna) {
-        departure_panel_nyt[[outcome]] <- ifelse(is.na(departure_panel_nyt[[outcome]]), 0, departure_panel_nyt[[outcome]])
-      }
       # Try running the full and early event studies; if error, skip to next outcome
       event_result <- tryCatch({
         print("full")
@@ -484,6 +505,44 @@ AdjustYScaleUniformly <- function(plot_list, num_breaks = 5) {
            scale_y_continuous(breaks = y_breaks))
 }
 
+
+BinScatter <- function(data, y_vars, x_var = "prs_opened", group_var = "repo_name", 
+                       outdir) {
+  # Convert variable names to nice labels for axis and title
+  label_lookup <- function(var) {
+    label <- str_to_title(str_replace_all(var, "_", " "))
+    label <- str_replace_all(label, "Release Count", "Releases")
+    label <- str_replace_all(label, "Minor Patch", "Minor + Patch")
+    label <- str_replace_all(label, "Major Minor", "Major + Minor")
+    label <- str_replace_all(label, "Major \\+ Minor \\+ Patch", "Major + Minor + Patch")
+    label <- str_replace_all(label, "Overall Score", "OSSF Scorecard Score")
+    label <- str_replace_all(label, "Vulnerabilities Score", "OSSF Scorecard Vulnerability Score")
+    return(label)
+  }
+  
+  for (y in y_vars) {
+    est <- binsreg(
+      y = data[[y]],
+      x = log(data[[x_var]] + 1),
+      w = as.formula(paste0("~factor(", group_var, ")")),
+      data = data,
+      polyreg = 3, ci = TRUE, cb = TRUE, nbins = 9, nsims = 20000, simsgrid = 100
+    )
+    y_label <- label_lookup(y)
+    plot_title <- paste("Binscatter:", y_label, "vs PRs Opened")
+    
+    ggsave(
+      filename = file.path(outdir, paste0(y, "_binsreg.png")),
+      plot = est$bins_plot +
+        labs(x = "log(PRs Opened + 1)", y = y_label, title = plot_title) +
+        theme_minimal(base_size = 14) +
+        theme(plot.title = element_text(hjust = 0.5), axis.title = element_text(face = "bold")),
+      width = 8, height = 6, dpi = 300
+    )
+  }
+}
+
+
 AnalyzeEffect <- function(data, outcome, pr_column, pre, post, leading = TRUE) {
   data <- data %>% arrange(repo_name, time_index)
   data_transformed <- data %>%
@@ -513,11 +572,6 @@ AnalyzeEffect <- function(data, outcome, pr_column, pre, post, leading = TRUE) {
   
   return(list(model_clustered = model_clustered))
 }
-
-pr_columns <- c("prs_opened", "prs_merged")
-outcomes <- c("overall_new_release_count","overall_score", "total_downloads")
-pre_values <- 1:4
-post_values <- 1:4
 
 ComputeEffectGrid <- function(data, pr_columns, outcomes, pre_values, post_values, leading = TRUE) {
   df_effect <- expand.grid(pr_column = pr_columns, outcome = outcomes,
