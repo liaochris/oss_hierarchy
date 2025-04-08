@@ -200,6 +200,9 @@ def modify_graph_to_match_empirical(G, graph_list, sigma_wd=0.1, sigma_conn=0.1,
 
 
 
+n_graph_dict = dict()
+n_graph_dict['test'] = dict()
+
 from issue.barycenter_calculation import *
 dep = "graphs"
 spec = "project_clus_ov"
@@ -216,11 +219,11 @@ bary_list, labs = PrepareCalcData(event_graphs, spec)
 for graph_ind in [0, 1, 2]:
     graph_list = bary_list[graph_ind] #bary_list[1]
     mats = [nx.to_numpy_array(G) for G in graph_list]
-    Cdict, _ = ot.gromov.gromov_wasserstein_dictionary_learning(mats, 1, sizebary, reg=0.5, random_state = 0)
-    G = nx.from_numpy_array(Cdict[0])
+    Cdict, _ = ot.gromov.gromov_wasserstein_dictionary_learning(mats, 1, sizebary, reg=2, random_state = 0)
+    G = nx.from_numpy_array(Cdict[0].astype(int))
     G.remove_edges_from(nx.selfloop_edges(G))
 
-    mod_G = modify_graph_to_match_empirical(G, graph_list)
+    G = modify_graph_to_match_empirical(G, graph_list)
 
     if graph_ind == 0:
         nx.write_gexf(G, "issue/test.gexf")
@@ -231,7 +234,21 @@ for graph_ind in [0, 1, 2]:
     elif graph_ind == 2:
         nx.write_gexf(G, "issue/test_clustered.gexf")
         plot_gephi_style(G, "issue/test_clustered.png")
-
+    n_graph_dict['test'][graph_ind] = G
 
 barys = [ComputeBarycenter(graph_list, sizebary) for graph_list in bary_list]
 PlotCombinedGraph(barys, labs, event_time=rt, dep=dep, spec=spec, sizebary=sizebary)
+
+graph_dict = n_graph_dict
+
+for graph_ind in [0, 1, 2]:
+    G = degree_graph_dict['test'][graph_ind]['important_edges_removed']
+    if graph_ind == 0:
+        nx.write_gexf(G, "issue/test.gexf")
+        plot_gephi_style(G, "issue/test.png")
+    elif graph_ind == 1:
+        nx.write_gexf(G, "issue/test_unclustered.gexf")
+        plot_gephi_style(G, "issue/test_unclustered.png")
+    elif graph_ind == 2:
+        nx.write_gexf(G, "issue/test_clustered.gexf")
+        plot_gephi_style(G, "issue/test_clustered.png")
