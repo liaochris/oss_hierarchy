@@ -488,22 +488,22 @@ def Main():
         return
 
     indir_github_projects = 'output/derived/collect_github_repos'
-    project_name = 'lunar-analyzer-452002-k2'  # changes whenever I use a new BQ email
+    project_name = 'evident-lock-456103-k6'  # changes whenever I use a new BQ email
     dataset_name = 'source'
     github_projects_name = 'github_repositories'
     github_data_name = 'github_data'
 
     client = bigquery.Client(project=project_name)
     #CreateDataset(client, dataset_name)
-    LoadTableToDataset(client, 'source', github_projects_name, indir_github_projects)
-    GetRawGitHubData(client, github_projects_name, project_name, dataset_name, github_data_name)
+    #LoadTableToDataset(client, 'source', github_projects_name, indir_github_projects)
+    #GetRawGitHubData(client, github_projects_name, project_name, dataset_name, github_data_name)
     
-    GetWatchData(client, project_name, dataset_name, github_data_name)
-    GetReleaseData(client, project_name, dataset_name, github_data_name)
-    GetPushData(client, project_name, dataset_name, github_data_name)
-    GetPullRequestReviewData(client, project_name, dataset_name, github_data_name)
-    GetPullRequestReviewCommentData(client, project_name, dataset_name, github_data_name)
-    GetPullRequestData(client, project_name, dataset_name, github_data_name)
+    #GetWatchData(client, project_name, dataset_name, github_data_name)
+    #GetReleaseData(client, project_name, dataset_name, github_data_name)
+    #GetPushData(client, project_name, dataset_name, github_data_name)
+    #GetPullRequestReviewData(client, project_name, dataset_name, github_data_name)
+    #GetPullRequestReviewCommentData(client, project_name, dataset_name, github_data_name)
+    #GetPullRequestData(client, project_name, dataset_name, github_data_name)
     GetIssueData(client, project_name, dataset_name, github_data_name)
     GetIssueCommentData(client, project_name, dataset_name, github_data_name)
     GetForkData(client, project_name, dataset_name, github_data_name)
