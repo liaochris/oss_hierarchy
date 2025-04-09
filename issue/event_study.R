@@ -16,6 +16,7 @@ library(gridExtra)
 library(SaveData)
 library(ragg)
 library(zoo)
+library(patchwork)
 library(lmtest)
 library(multiwayvcov)
 
@@ -146,8 +147,8 @@ Main <- function() {
                            release_vars)
   departure_panel_pre_treatment <- departure_panel_nyt %>%
     dplyr::filter(time_index < treatment_group)
-  BinScatter(departure_panel_pre_treatment, binscatter_outcomes, 
-             outdir = outdir_binscatter)
+  BinScatter(data = departure_panel_pre_treatment, y_vars = binscatter_outcomes, 
+             outdir = outdir_binscatter, leads = c(0, 1, 2))
   
   # pr_columns <- c("prs_opened", "prs_merged")
   # outcomes <- c("overall_new_release_count","overall_score", "total_downloads")
@@ -434,7 +435,8 @@ GenerateEventStudyGrids <- function(departure_panel_nyt, covariate_panel_nyt, ou
         split_spec_minus_bin <- gsub("_back_bin", "", split_spec)
         filename_saved <- file.path(outdir_outcome_spec, sprintf("%s_%s.pdf", spec, split_spec_minus_bin))
         if (plot) {
-          ggsave(plot = final_plot, filename = filename_saved, width = 9, height = 3 * (2 + nrow(combinations)), limitsize = FALSE)
+          ggsave(plot = final_plot, filename = filename_saved, width = 9, height = 3 * (2 + nrow(combinations)), limitsize = FALSE,
+                 dpi = 60)
         }
         message("Saved file: ", filename_saved)
         flush.console()
@@ -507,132 +509,57 @@ AdjustYScaleUniformly <- function(plot_list, num_breaks = 5) {
            scale_y_continuous(breaks = y_breaks))
 }
 
-
-BinScatter <- function(data, y_vars, x_var = "prs_opened", group_var = "repo_name", 
-                       outdir) {
-  # Convert variable names to nice labels for axis and title
-  label_lookup <- function(var) {
-    label <- str_to_title(str_replace_all(var, "_", " "))
-    label <- str_replace_all(label, "Release Count", "Releases")
-    label <- str_replace_all(label, "Minor Patch", "Minor + Patch")
-    label <- str_replace_all(label, "Major Minor", "Major + Minor")
-    label <- str_replace_all(label, "Major \\+ Minor \\+ Patch", "Major + Minor + Patch")
-    label <- str_replace_all(label, "Overall Score", "OSSF Scorecard Score")
-    label <- str_replace_all(label, "Vulnerabilities Score", "OSSF Scorecard Vulnerability Score")
-    return(label)
-  }
-  
-  for (y in y_vars) {
-    est <- binsreg(
-      y = data[[y]],
-      x = log(data[[x_var]] + 1),
-      w = as.formula(paste0("~factor(", group_var, ")")),
-      data = data,
-      polyreg = 3, ci = TRUE, cb = TRUE, nbins = 9, nsims = 20000, simsgrid = 100
-    )
-    y_label <- label_lookup(y)
-    plot_title <- paste("Binscatter:", y_label, "vs PRs Opened")
-    
-    ggsave(
-      filename = file.path(outdir, paste0(y, "_binsreg.png")),
-      plot = est$bins_plot +
-        labs(x = "log(PRs Opened + 1)", y = y_label, title = plot_title) +
-        theme_minimal(base_size = 14) +
-        theme(plot.title = element_text(hjust = 0.5), axis.title = element_text(face = "bold")),
-      width = 8, height = 6, dpi = 300
-    )
-  }
-}
-
-
-AnalyzeEffect <- function(data, outcome, pr_column, pre, post, leading = TRUE) {
-  data <- data %>% arrange(repo_name, time_index)
-  data_transformed <- data %>%
-    group_by(repo_name) %>%
-    mutate(pr_sum = rollapply(get(pr_column), width = pre, align = "right",
-                              FUN = function(x) mean(x, na.rm = TRUE), fill = NA, partial = TRUE),
-           outcome_sum = rollapply(get(outcome), width = post, align = "right",
-                                   FUN = function(x) mean(x, na.rm = TRUE), fill = NA, partial = TRUE)) %>%
-    ungroup()
-  
-  if (leading) {
-    data_transformed <- data_transformed %>%
-      group_by(repo_name) %>%
-      mutate(outcome_sum = lead(outcome_sum, n = 1)) %>%
-      ungroup()
-  }
-  
-  data_model <- data_transformed %>% filter(!is.na(pr_sum), !is.na(outcome_sum), outcome_sum != 0)
-  if(nrow(data_model) == 0) next
-  #   model <- glm(outcome_sum ~ pr_sum + factor(time_period) + factor(repo_name),
-  #                data = data_model, family = "poisson")
-  model <- lm(log(outcome_sum) ~ pr_sum + factor(time_period) + factor(repo_name),
-              data = data_model)
-  cl_vcov <- cluster.vcov(model, data_model$repo_name)
-  model_clustered <- coeftest(model, cl_vcov)
-  model_clustered <- model_clustered[rownames(model_clustered) %in% c("(Intercept)", "pr_sum"), ]
-  
-  return(list(model_clustered = model_clustered))
-}
-
-ComputeEffectGrid <- function(data, pr_columns, outcomes, pre_values, post_values, leading = TRUE) {
-  df_effect <- expand.grid(pr_column = pr_columns, outcome = outcomes,
-                           pre = pre_values, post = post_values,
-                           stringsAsFactors = FALSE) %>%
-    mutate(effect = NA_real_, se = NA_real_, p_value = NA_real_)
-  
-  for (i in seq_len(nrow(df_effect))) {
-    pr_col <- df_effect$pr_column[i]
-    outcome_var <- df_effect$outcome[i]
-    pre_val <- df_effect$pre[i]
-    post_val <- df_effect$post[i]
-    
-    res <- tryCatch({
-      AnalyzeEffect(data, outcome = outcome_var, pr_column = pr_col,
-                    pre = pre_val, post = post_val, leading = leading)
-    }, error = function(e) {
-      message(sprintf("Error for pr: %s, outcome: %s, pre: %d, post: %d : %s", 
-                      pr_col, outcome_var, pre_val, post_val, e$message))
-      return(NULL)
-    })
-    
-    if (!is.null(res) && "pr_sum" %in% rownames(res$model_clustered)) {
-      p_col <-  "Pr(>|t|)" # "Pr(>|z|)"
-      df_effect$effect[i] <- res$model_clustered["pr_sum", "Estimate"]
-      df_effect$se[i] <- res$model_clustered["pr_sum", "Std. Error"]
-      df_effect$p_value[i] <- res$model_clustered["pr_sum", p_col]
+BinScatter <- function(data, y_vars, x_var="prs_opened", group_var="repo_name", time_var="time_period", 
+                       leads=c(0,1,2), sort_var="time_index", outdir) {
+  lead_within_group <- function(x, grp, sort_val, n=1) { 
+    res <- rep(NA, length(x))
+    for(g in unique(grp)) { 
+      idx <- which(grp == g)
+      ord <- order(sort_val[idx])
+      res[idx[ord]] <- dplyr::lead(x[idx[ord]], n=n)
     }
+    res
   }
-  # Transform effect and standard error using the function:
-  # f(x) = 100*(exp(x) - 1) with derivative f'(x) = 100*exp(x)
-  df_effect <- df_effect %>%
-    mutate(effect_trans = 100*(exp(effect) - 1),
-           se_trans = 100 * exp(effect) * se)
-  
-  return(df_effect)
+  label_lookup <- function(var){ 
+    str_to_title(str_replace_all(var, "_", " ")) %>% 
+      str_replace_all("Release Count", "Releases") %>% 
+      str_replace_all("Minor Patch", "Minor + Patch") %>% 
+      str_replace_all("Major Minor", "Major + Minor") %>% 
+      str_replace_all("Major \\+ Minor \\+ Patch", "Major + Minor + Patch") %>% 
+      str_replace_all("Overall Score", "OSSF Scorecard Score") %>% 
+      str_replace_all("Vulnerabilities Score", "OSSF Scorecard Vulnerability Score")
+  }
+  fixed_effect_labels <- c("No Fixed Effects","Project Fixed Effects","Project + Time Fixed Effects")
+  for(y in y_vars){
+    plots <- list()
+    for(lead in leads){
+      outcome <- if(lead == 0) data[[y]] else 
+        lead_within_group(data[[y]], data[[group_var]], data[[sort_var]], n=lead)
+      for(i in seq_along(fixed_effect_labels)){
+        w_formula <- if(i==1) NULL else if(i==2) 
+          as.formula(paste0("~factor(",group_var,")")) else 
+            as.formula(paste0("~factor(",group_var,") + factor(",time_var,")"))
+        if (i==1) {
+          est <- binsreg(y=outcome, x=log(data[[x_var]]+1), data=data,
+                         polyreg=3, ci=TRUE, cb=TRUE, nbins=8, nsims=20000, simsgrid=100)
+        } else {
+          est <- binsreg(y=outcome, x=log(data[[x_var]]+1), w=w_formula, data=data,
+                        polyreg=3, ci=TRUE, cb=TRUE, nbins=8, nsims=20000, simsgrid=100)
+        }
+        cell_title <- paste(fixed_effect_labels[i], "- Lead", lead)
+        p <- est$bins_plot + labs(x = "log(PRs Opened + 1)", y = label_lookup(y), title = cell_title) +
+          theme_minimal(base_size = 14) + theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+                                                axis.title = element_text(face = "bold"))
+        plots[[length(plots)+1]] <- p
+      }
+    }
+    grid_plot <- wrap_plots(plots, ncol = length(fixed_effect_labels)) +
+      plot_annotation(title = paste("Binscatter:", label_lookup(y), "vs PRs Opened"),
+                      theme = theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold")))
+    ggsave(filename = file.path(outdir, paste0(y, "_binsreg_grid.png")),
+           plot = grid_plot, width = 18, height = 6 * length(leads), dpi = 90)
+  }
 }
 
-ExportPlots <- function(df_effect, pr_columns, post_values) {
-  output_dir <- "issue/github_outcome_importance"
-  
-  for (pr in pr_columns) {
-    for (selected_post in post_values) {
-      plot_data <- df_effect %>% filter(pr_column == pr, post == selected_post)
-      
-      p <- ggplot(plot_data, aes(x = pre, y = effect_trans, color = outcome)) +
-        geom_line(aes(group = outcome)) +
-        geom_point(size = 3) +
-        geom_errorbar(aes(ymin = effect_trans - se_trans, ymax = effect_trans + se_trans), width = 0.2) +
-        labs(title = paste("Effect for", pr, "(post =", selected_post, ")"),
-             x = "# of Pre-Periods Averaged Over",
-             y = paste("% outcome increase associated w/ a 1% increase in", pr)) +
-        theme_minimal()
-      
-      filename <- sprintf("%s_%s.png", pr, selected_post)
-      filepath <- file.path(output_dir, filename)
-      ggsave(filepath, plot = p, width = 8, height = 6)
-    }
-  }
-}
 
 Main()

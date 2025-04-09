@@ -100,17 +100,25 @@ def analyze_repo_radon(repo_path, library, lib_renamed):
 
         for file, blocks in cc_json.items():
             for block in blocks:
-                scores.append(block['complexity'])
-                grades.append(block['rank'])
-                detailed_data.append({
-                    'commit': commit_sha,
-                    'date': dt_str,
-                    'file': file,
-                    'function': block['name'],
-                    'line': block['lineno'],
-                    'complexity': block['complexity'],
-                    'grade': block['rank']
-                })
+                if block != "error":
+                    scores.append(block['complexity'])
+                    grades.append(block['rank'])
+                    detailed_data.append({
+                        'commit': commit_sha,
+                        'date': dt_str,
+                        'file': file,
+                        'function': block['name'],
+                        'line': block['lineno'],
+                        'complexity': block['complexity'],
+                        'grade': block['rank']
+                    })
+                else:
+                    detailed_data.append({
+                        'commit': commit_sha,
+                        'date': dt_str,
+                        'file': file,
+                        'error': 1
+                    })
 
         cc_stats = {
             'total_blocks': len(scores),
@@ -141,27 +149,39 @@ def analyze_repo_radon(repo_path, library, lib_renamed):
 
         # 3. Halstead Metrics
         hal_json = get_radon_json(['radon', 'hal', '-j', '.'], repo_path)
-        effort_scores, bug_scores, volume_scores = [], [], []
+        effort_scores = []
+        time_scores = []
+        bug_scores = []
+        volume_scores = []
+        difficulty_scores = []
 
         for file, file_data in hal_json.items():
             for func_data in file_data.get("functions", []):
                 metrics = func_data[1]
                 if len(metrics) >= 12:
                     effort = metrics[9]
-                    bugs = metrics[10]
+                    time = metrics[10]
+                    bugs = metrics[11]
                     volume = metrics[7]
+                    difficulty = metrics[8]
+
                     if effort > 0:
                         effort_scores.append(effort)
+                    if time > 0:
+                        time_scores.append(time)
                     if bugs > 0:
                         bug_scores.append(bugs)
                     if volume > 0:
                         volume_scores.append(volume)
-                        
+                    if difficulty > 0:
+                        difficulty_scores.append(difficulty)
         hal_stats = {
             'avg_effort': np.mean(effort_scores) if effort_scores else 0,
             'max_effort': max(effort_scores) if effort_scores else 0,
+            'avg_time': np.mean(time_scores) if time_scores else 0,
             'avg_bugs': np.mean(bug_scores) if bug_scores else 0,
-            'avg_volume': np.mean(volume_scores) if volume_scores else 0
+            'avg_volume': np.mean(volume_scores) if volume_scores else 0,
+            'avg_difficulty': np.mean(difficulty_scores) if difficulty_scores else 0
         }
 
         row_data = {
