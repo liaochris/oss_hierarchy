@@ -31,7 +31,7 @@ def GetRawGitHubData(client, github_projects_name, project_name, dataset_name, g
     github_raw_sql = f"""
     SELECT *
     FROM `githubarchive.month.20*`
-    WHERE (_TABLE_SUFFIX BETWEEN '1101' AND '2308') AND repo.name in 
+    WHERE (_TABLE_SUFFIX BETWEEN '1101' AND '2412') AND repo.name in 
     (SELECT github_repository FROM `{project_name}.{dataset_name}.{github_projects_name}`)
     """
     github_data_query = client.query(github_raw_sql, job_config=github_data_config) 
@@ -465,22 +465,21 @@ def GetSubsetData(client, project_name, dataset_name, subset_data_name):
     outdir = f"drive/output/scrape/extract_github_data/{subset_data_name}"
     if not os.path.exists(outdir):
         os.mkdir(outdir)
-
-    for subset_year in np.arange(2015, 2024, 1):
+        
+    for subset_year in np.arange(2015, 2025, 1):
         for subset_month in np.arange(1, 13, 1):
-            if (subset_year != 2023) or (subset_year == 2023 and subset_month < 9):
-                subset_date_sql = f"""
-                SELECT *
-                FROM
-                    `{project_name}.{dataset_name}.{subset_data_name}`
-                WHERE
-                    EXTRACT(MONTH FROM created_at) = {subset_month} AND EXTRACT(YEAR FROM created_at) = {subset_year}
-                """
-                subset_date_query = client.query(subset_date_sql)
-                df_subset = subset_date_query.to_dataframe()
-                df_subset = df_subset
-                df_subset.to_csv(f"drive/output/scrape/extract_github_data/{subset_data_name}/{subset_data_name.replace('_data','')}_{subset_year}_{subset_month}.csv")
-                print(f"{subset_data_name}/{subset_data_name.replace('_data','')}_{subset_year}_{subset_month}.csv extracted")
+            subset_date_sql = f"""
+			SELECT *
+			FROM
+				`{project_name}.{dataset_name}.{subset_data_name}`
+			WHERE
+				EXTRACT(MONTH FROM created_at) = {subset_month} AND EXTRACT(YEAR FROM created_at) = {subset_year}
+			"""
+			
+            subset_date_query = client.query(subset_date_sql)
+            df_subset = subset_date_query.to_dataframe()
+            df_subset.to_csv(f"drive/output/scrape/extract_github_data/{subset_data_name}/{subset_data_name.replace('_data','')}_{subset_year}_{subset_month}.csv")
+            print(f"{subset_data_name}/{subset_data_name.replace('_data','')}_{subset_year}_{subset_month}.csv extracted")
 
 def Main():
     if "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ.keys():
@@ -488,24 +487,24 @@ def Main():
         return
 
     indir_github_projects = 'output/derived/collect_github_repos'
-    project_name = 'evident-lock-456103-k6'  # changes whenever I use a new BQ email
+    project_name = 'arboreal-vision-456400-e1'  # changes whenever I use a new BQ email
     dataset_name = 'source'
     github_projects_name = 'github_repositories'
     github_data_name = 'github_data'
 
     client = bigquery.Client(project=project_name)
-    #CreateDataset(client, dataset_name)
-    #LoadTableToDataset(client, 'source', github_projects_name, indir_github_projects)
-    #GetRawGitHubData(client, github_projects_name, project_name, dataset_name, github_data_name)
+    CreateDataset(client, dataset_name)
+    LoadTableToDataset(client, 'source', github_projects_name, indir_github_projects)
+    GetRawGitHubData(client, github_projects_name, project_name, dataset_name, github_data_name)
     
     #GetWatchData(client, project_name, dataset_name, github_data_name)
     #GetReleaseData(client, project_name, dataset_name, github_data_name)
     #GetPushData(client, project_name, dataset_name, github_data_name)
-    #GetPullRequestReviewData(client, project_name, dataset_name, github_data_name)
-    #GetPullRequestReviewCommentData(client, project_name, dataset_name, github_data_name)
-    #GetPullRequestData(client, project_name, dataset_name, github_data_name)
-    #GetIssueData(client, project_name, dataset_name, github_data_name)
-    #GetIssueCommentData(client, project_name, dataset_name, github_data_name)
+    GetPullRequestReviewData(client, project_name, dataset_name, github_data_name)
+    GetPullRequestReviewCommentData(client, project_name, dataset_name, github_data_name)
+    GetPullRequestData(client, project_name, dataset_name, github_data_name)
+    GetIssueData(client, project_name, dataset_name, github_data_name)
+    GetIssueCommentData(client, project_name, dataset_name, github_data_name)
     GetForkData(client, project_name, dataset_name, github_data_name)
     GetDeleteData(client, project_name, dataset_name, github_data_name)
     GetCreateData(client, project_name, dataset_name, github_data_name)

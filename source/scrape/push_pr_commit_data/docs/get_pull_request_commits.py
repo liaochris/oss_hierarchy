@@ -8,6 +8,9 @@ import numpy as np
 import pandas as pd
 import re
 import time
+import ast
+from urllib.request import Request, urlopen
+from urllib.error import URLError, HTTPError
 
 def Main():
     pandarallel.initialize(progress_bar=True)
@@ -23,33 +26,67 @@ def Main():
     random.shuffle(pr_dirs) # enables parallelization
 
     for pr_data in pr_dirs:
+        pr_file_name = pr_data.replace('pull_request','pull_request_data')
         already_scraped_list = os.listdir(outdir_pull)
-        if pr_data not in already_scraped_list:
-            df_pull = pd.read_csv(indir_pull / pr_data)[['Unnamed: 0', 'repo_name','pr_commits_url']]
-            df_pull.to_csv(outdir_pull / pr_data.replace('pull_request','pull_request_data')) 
-            
-            if df_pull.empty != True:
-                df_pull['commit_list'] = df_pull.parallel_apply(lambda x: grabCommits(x['repo_name'], x['pr_commits_url']), axis = 1 )
-                print(f"Commits for pull_request_data_{subset_year}_{subset_month}.csv obtained")
-                df_pull.to_csv(outdir_pull / pr_data.replace('pull_request','pull_request_data')) # as a placeholder
+        if pr_file_name not in already_scraped_list:
+            df_pull = pd.read_csv(indir_pull / pr_data)[['repo_name','pr_commits_url']].drop_duplicates()
+            df_pull.to_csv(outdir_pull / pr_file_name) # enables parallelization
+            df_pull['commit_list'] = np.nan
         else:
+            df_pull = pd.read_csv(indir_pull / pr_data)[['repo_name','pr_commits_url']].drop_duplicates()
+            df_pull_existing = pd.read_csv(outdir_pull / pr_file_name)
+            for col in ['Unnamed: 0', 'Unnamed: 0.1']:
+                if col in df_pull_existing.columns:
+                    df_pull_existing = df_pull_existing.drop(col, axis = 1)
+            df_pull_existing = df_pull_existing.drop_duplicates()
 
+            print(pr_data)
+            df_pull = pd.merge(df_pull, df_pull_existing, how = 'left')
+            if 'commit_list' not in df_pull.columns:
+                df_pull['commit_list'] = np.nan
+            else:
+                commit_list = ~df_pull['commit_list'].isna() & ~df_pull['commit_list'].apply(lambda x: type(x) == str and x.startswith("HTTP Error 40"))
+                df_pull.loc[commit_list, 'commit_list'] = df_pull.loc[commit_list, 'commit_list'].apply(ast.literal_eval)
+                df_pull['commit_list'] = df_pull['commit_list'].apply(lambda x: np.nan if type(x) == list and len(x) == 0 else x)
+        
+        df_pull = df_pull.reset_index(drop = True)
+        for i in df_pull.index:
+            if (i%100 == 0):
+                print(f"{i} commits for {pr_data} obtained")
+            if type(df_pull.loc[i, 'commit_list']) != list:
+                df_pull.loc[i, 'commit_list'] = GrabCommits(df_pull.loc[i, 'repo_name'], df_pull.loc[i, 'pr_commits_url'])
+                
+        print(f"Commits for {pr_data} obtained")
+        df_pull.to_csv(outdir_pull / pr_file_name)
 
-def grabCommits(repo, pr_commits_url):
+def GrabCommits(repo, pr_commits_url):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.90 Safari/537.36',
+        'Origin': 'http://example.com',
+        'Referer': 'http://example.com/some_page'
+    }
     try:
         pull_info = "/".join(pr_commits_url.split("/")[-3:-1]).replace("pulls","pull")
         scrape_url = f"https://github.com/{repo}/{pull_info}/commits"
-        product = SoupStrainer('div', {'id': 'commits_bucket'})
-        sesh = requests.Session() 
-        page = sesh.get(scrape_url)
-        page_text = str(page.text)
-        if "Please wait a few minutes before you try again" in page_text:
+        req = Request(scrape_url, headers=headers)
+        response = urlopen(req)
+        page_content = response.read()
+        page_text = page_content.decode('utf-8', errors='replace') 
+
+        if "Please wait a few minutes before you try again" in page_text or "Looks like something went wrong!" in page_text or response == 429:
             print('pausing, rate limit hit')
             time.sleep(120)
-        soup = BeautifulSoup(page.content,parse_only = product,features="html.parser")
-        commits = soup.find_all("a", attrs={"id":re.compile(r'commit-details*')})
+            req = Request(scrape_url, headers=headers)
+            response = urlopen(req)
+            page_content = response.read()
+
+        soup = BeautifulSoup(page_content, features="html.parser")
+        commits_pattern = re.compile(r".*/commits/[0-9a-f]+")
+        commits = soup.find_all("a", href=commits_pattern)
         commit_urls = [c['href'].split("/")[-1] for c in commits]
-        return commit_urls
+
+        unique_commit_urls = list(dict.fromkeys(commit_urls)) 
+        return unique_commit_urls
     except Exception as e:
         error = str(e)
         return error
