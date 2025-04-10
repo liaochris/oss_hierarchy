@@ -27,8 +27,8 @@ def Main():
       DATE_TRUNC(DATE(timestamp), MONTH) AS `month`
     FROM `bigquery-public-data.pypi.file_downloads`
     WHERE DATE(timestamp)
-      BETWEEN DATE_TRUNC(DATE_SUB(DATE(2023, 8, 30), INTERVAL 180 MONTH), MONTH)
-        AND DATE(2023, 8, 30)
+      BETWEEN DATE_TRUNC(DATE_SUB(DATE(2024, 12, 31), INTERVAL 180 MONTH), MONTH)
+        AND DATE(2024, 12, 31)
     GROUP BY `month`, `project`
     ORDER BY `month` DESC
     """
