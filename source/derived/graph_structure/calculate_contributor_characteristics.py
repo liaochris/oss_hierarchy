@@ -30,8 +30,8 @@ def Main():
             pct_nodes_one_cluster = cluster_averages.get('pct_nodes_one_cluster', None)
             
             # important contributors
-            contributor_keys = [k for k in project_time.keys() if k != 'repo_overall' and project_time[k].get('overall_overlap',False) != False]
-            important_contributor_keys = [k for k in project_time.keys() if k != 'repo_overall' and project_time[k].get('overall_overlap',False) == False]
+            contributor_keys = [k for k in project_time.keys() if k != 'repo_overall' and project_time[k].get('overall_overlap',False) == False]
+            important_contributor_keys = [k for k in project_time.keys() if k != 'repo_overall' and project_time[k].get('overall_overlap',False) != False]
 
             # Compute HHI values for three metrics across actors in this project_time.
             total_norm = sum(project_time[actor].get('normalized_degree', 0) for actor in important_contributor_keys)
