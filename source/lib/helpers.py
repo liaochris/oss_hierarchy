@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import datetime
+from pathlib import Path
 
 def AddToTableList(table_list, add_list, length):
     table_list = table_list.copy()
@@ -60,3 +61,14 @@ def ImputeTimePeriod(df, time_period_months):
     df['time_period'] = pd.to_datetime(df['time_period'])
     
     return df 
+
+def GetLatestRepoName(repo_name, repo_df):
+    df_repo_group = repo_df[repo_df['repo_name'] == repo_name]
+    if df_repo_group.shape[0] == 0:
+        return repo_name
+    else:
+        repo_group = df_repo_group['repo_group'].values[0]
+    repo_data = repo_df[repo_df['repo_group'] == repo_group]
+    
+    latest_repo = repo_data.loc[repo_data['last_seen'].idxmax()]
+    return latest_repo['repo_name'] 
