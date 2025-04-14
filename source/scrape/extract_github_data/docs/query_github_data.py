@@ -14,8 +14,8 @@ def CreateDataset(client, dataset_name):
     print(f"Created dataset {client.project}.{dataset.dataset_id}")
 
 def LoadTableToDataset(client, dataset_name, table_name, indir_github_projects):
-    df_github_projects = pd.read_csv(Path(indir_github_projects) / 'linked_pypi_github.csv', index_col = False)
-    df_github_projects = df_github_projects[['github repository']].rename({'github repository':'github_repository'}, axis = 1)
+    df_github_projects = pd.read_csv(Path(indir_github_projects) / 'repo_id_history.csv', index_col = False)
+    df_github_projects = df_github_projects[['repo_name']].drop_duplicates()
     
     github_project_ref = client.dataset(dataset_name).table(table_name)
     load_data_job = client.load_table_from_dataframe(df_github_projects, github_project_ref)
@@ -31,8 +31,8 @@ def GetRawGitHubData(client, github_projects_name, project_name, dataset_name, g
     github_raw_sql = f"""
     SELECT *
     FROM `githubarchive.month.20*`
-    WHERE (_TABLE_SUFFIX BETWEEN '1101' AND '2412') AND repo.name in 
-    (SELECT github_repository FROM `{project_name}.{dataset_name}.{github_projects_name}`)
+    WHERE (_TABLE_SUFFIX BETWEEN '1501' AND '2412') AND repo.name in 
+    (SELECT repo_name FROM `{project_name}.{dataset_name}.{github_projects_name}`)
     """
     github_data_query = client.query(github_raw_sql, job_config=github_data_config) 
     github_data_query.result()
@@ -486,8 +486,8 @@ def Main():
         print("Need to set up GOOGLE_APPLICATION_CREDENTIALS environment variable")
         return
 
-    indir_github_projects = 'output/derived/collect_github_repos'
-    project_name = 'arboreal-vision-456400-e1'  # changes whenever I use a new BQ email
+    indir_github_projects = 'output/scrape/extract_github_data'
+    project_name = 'winged-quanta-456615-b4'  # changes whenever I use a new BQ email
     dataset_name = 'source'
     github_projects_name = 'github_repositories'
     github_data_name = 'github_data'
@@ -497,9 +497,9 @@ def Main():
     LoadTableToDataset(client, 'source', github_projects_name, indir_github_projects)
     GetRawGitHubData(client, github_projects_name, project_name, dataset_name, github_data_name)
     
-    #GetWatchData(client, project_name, dataset_name, github_data_name)
-    #GetReleaseData(client, project_name, dataset_name, github_data_name)
-    #GetPushData(client, project_name, dataset_name, github_data_name)
+    GetWatchData(client, project_name, dataset_name, github_data_name)
+    GetReleaseData(client, project_name, dataset_name, github_data_name)
+    GetPushData(client, project_name, dataset_name, github_data_name)
     GetPullRequestReviewData(client, project_name, dataset_name, github_data_name)
     GetPullRequestReviewCommentData(client, project_name, dataset_name, github_data_name)
     GetPullRequestData(client, project_name, dataset_name, github_data_name)
