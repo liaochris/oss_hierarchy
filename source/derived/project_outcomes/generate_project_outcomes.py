@@ -3,22 +3,10 @@ import pandas as pd
 from pathlib import Path
 import numpy as np
 import sys
-import glob
 import warnings
-import random
 from pandarallel import pandarallel
-from source.lib.JMSLab import autofill
 from source.lib.helpers import *
-from ast import literal_eval
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-from glob import glob 
-import datetime
-import itertools
-import time
-from multiprocessing import pool
-from source.lib.helpers import *
-
-### I want to merge in df_ranked_activity_share
+from source.lib.JMSLab.SaveData import SaveData
 
 def Main():
     warnings.filterwarnings("ignore")
@@ -27,15 +15,23 @@ def Main():
 
     indir_data = Path('drive/output/derived/data_export')
     indir_contributors = Path('drive/output/derived/contributor_stats/contributor_data')
+    indir_graph = Path('drive/output/derived/graph_structure')
     outdir_data = Path('drive/output/derived/project_outcomes')
-    
-    commit_cols = ['commits','commit_additions','commit_deletions','commit_changes_total','commit_files_changed count']
+    outdir_log = Path('output/derived/project_outcomes')
+
     SECONDS_IN_DAY = 86400
     closing_day_options = [30, 60, 90, 180, 360]
 
     time_period = int(sys.argv[1])
-    df_issue = pd.read_parquet(indir_data / 'df_issue.parquet')
-    df_pr = pd.read_parquet(indir_data / 'df_pr.parquet')
+    df_issue = pd.read_parquet(indir_data / 'df_issue.parquet', columns=[
+        'repo_name', 'issue_number', 'created_at', 
+        'issue_action', 'type', 'issue_comment_id'
+    ])
+    df_pr = pd.read_parquet(indir_data / 'df_pr.parquet', columns=[
+        'repo_name', 'pr_number', 'created_at','actor_id',
+        'pr_action', 'pr_merged_by_id', 'pr_merged_by_type', 
+        'type', 'pr_review_id', 'pr_review_state'
+    ])
     
     df_issue['created_at'] = pd.to_datetime(df_issue['created_at'])
     df_pr['created_at'] = pd.to_datetime(df_pr['created_at'])
@@ -50,25 +46,48 @@ def Main():
     val_cols = [col for col in df_contributor_panel.columns if 'pct' in col]
     df_contributor_panel = df_contributor_panel.drop(val_cols, axis = 1)
 
-    ConstructRepoPanel(df_contributor_panel, df_issue_selected, df_pr_selected, time_period, SECONDS_IN_DAY, outdir_data, closing_day_options)
+    ConstructRepoPanel(df_contributor_panel, df_issue_selected, df_pr_selected, time_period, SECONDS_IN_DAY, closing_day_options,
+                       outdir_data, outdir_log)
+    
+
+    indir_departed = "drive/output/derived/contributor_stats/filtered_departed_contributors"
+    rolling_window = 732
+    criteria_pct = 75
+    consecutive_periods = 3
+    post_periods = 2
+    df_graph_data = CleanDepartedContributors(indir_departed, indir_graph, time_period, rolling_window, criteria_pct, consecutive_periods, post_periods)
 
 
-def ConstructRepoPanel(df_contributor_panel, df_issue_selected, df_pr_selected, time_period, SECONDS_IN_DAY, outdir_data, closing_day_options):
-    df_repo_panel = df_contributor_panel.drop(['pr_opener','actor_id'], axis = 1)\
-        .rename({'issue_number':'issues_opened','linked_pr_issue_number':'issues_opened_with_linked_pr','pr':'prs_opened'}, axis = 1)\
-        .groupby(['repo_name','time_period']).sum()\
-        .reset_index()
-    df_repo_panel['first_period'] = df_repo_panel.groupby(['repo_name'])['time_period'].transform('min')
-    df_repo_panel['final_period'] = df_repo_panel.groupby(['repo_name'])['time_period'].transform('max')
-    time_periods = df_repo_panel['time_period'].sort_values().unique().tolist()
-    df_balanced = df_repo_panel[['repo_name']].drop_duplicates()
-    df_balanced['time_period'] = [time_periods for i in range(df_balanced.shape[0])]
-    df_balanced = df_balanced.explode('time_period')
-    df_repo_panel_full = pd.merge(df_balanced, df_repo_panel, how = 'left')
-    df_repo_panel_full[['first_period','final_period']] = df_repo_panel_full.groupby(['repo_name'])[['first_period','final_period']].ffill()
-    df_repo_panel_full = df_repo_panel_full.query('time_period >= first_period')
-    df_repo_panel_full = df_repo_panel_full.fillna(0)
-            
+    ### DEPARTED EXCLUDED IN ALL
+    df_graph_data['actor_id'] = pd.to_numeric(df_graph_data['actor_id'])
+    important_contributors = GetImportantContributors(df_graph_data)
+    ConstructOutcomesPanel(important_contributors, df_contributor_panel, df_issue_selected, df_pr_selected, time_period,
+                           SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, "_imp")
+
+    everyone_pre_departure = GetEveryonePreDeparture(df_graph_data)
+    ConstructOutcomesPanel(everyone_pre_departure, df_contributor_panel,df_issue_selected, df_pr_selected, time_period,
+                           SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log,  "_all")
+
+    unimportant_contributors = GetUnimportantContributors(everyone_pre_departure, important_contributors)
+    ConstructOutcomesPanel(unimportant_contributors, df_contributor_panel, df_issue_selected, df_pr_selected, time_period,
+                           SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, "_unimp")
+
+    departed_contributors = GetDepartedContributors(df_graph_data)
+    new_contributors = GetNewContributors(df_graph_data, everyone_pre_departure, departed_contributors)
+    ConstructOutcomesPanel(new_contributors, df_contributor_panel, df_issue_selected, df_pr_selected, time_period,
+                           SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, "_new")
+
+    df_contributor_panel_departed = df_contributor_panel.merge(
+        departed_contributors, left_on=["repo_name", "actor_id"], right_on=["repo_name", "departed_actor_id"]
+    )
+    ConstructRepoPanel(df_contributor_panel_departed, df_issue_selected, df_pr_selected, time_period,
+                    SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, "_departed")
+
+def ConstructRepoPanel(df_contributor_panel, df_issue_selected, df_pr_selected, time_period, SECONDS_IN_DAY, closing_day_options, 
+                       outdir_data, outdir_log, filename_suffix):
+    df_repo_panel = AggregateRepoPanel(df_contributor_panel)
+    df_repo_panel_full = MakeBalancedPanel(df_repo_panel)
+
     df_issues_sans_comments = CreateIssueSansCommentsStats(df_issue_selected)
     df_issues = CreateFullIssueDatasetWithComments(df_issue_selected, df_issues_sans_comments, SECONDS_IN_DAY, closing_day_options)
     df_issues_stats = CreateIssueStats(df_issues)
@@ -78,7 +97,43 @@ def ConstructRepoPanel(df_contributor_panel, df_issue_selected, df_pr_selected, 
     df_prs_stats = CreatePRStats(df_prs_complete)
     df_stats = pd.merge(df_issues_stats, df_prs_stats, how = 'outer')
     df_repo_panel_stats = pd.merge(df_repo_panel_full, df_stats, how = 'left')
-    df_repo_panel_stats.to_parquet(outdir_data / f'project_outcomes_major_months{time_period}.parquet')
+    
+    SaveData(df_repo_panel_stats,
+             ['repo_name','time_period'],
+             outdir_data / f'project_outcomes_major_months{time_period}{filename_suffix}.parquet',
+             outdir_log / f'project_outcomes_major_months{time_period}{filename_suffix}.log')
+
+def AggregateRepoPanel(df_contributor_panel):
+    df_contributor_panel = df_contributor_panel.drop(['pr_opener'], axis=1) \
+        .rename(columns={'issue_number': 'issues_opened','linked_pr_issue_number': 'issues_opened_with_linked_pr',
+                         'pr': 'prs_opened'})
+    df_aggregated = df_contributor_panel.drop('actor_id', axis = 1).groupby(['repo_name', 'time_period']).agg(['sum', 'mean']).reset_index()
+    df_aggregated.columns = [col[0] if col[1] in ['sum', ''] else f"avg_{col[0]}" 
+                             for col in df_aggregated.columns.to_flat_index()]
+    
+    grouping_columns = ['repo_name', 'time_period']
+    aggregation_columns = [col for col in df_contributor_panel.columns 
+                           if col not in grouping_columns + ['actor_id', 'pr_opener']]
+    
+    df_contributor_counts = (df_contributor_panel.groupby(grouping_columns).apply(
+        lambda grp: pd.Series({"contributor_count": grp['actor_id'].nunique(),
+                               **{f"cc_{col}": (grp[col] != 0).sum() for col in aggregation_columns}})).reset_index())
+    df_repo_panel = df_aggregated.merge(df_contributor_counts, on=grouping_columns, how='left')
+    return df_repo_panel
+
+def MakeBalancedPanel(df_repo_panel):
+    df_repo_panel['first_period'] = df_repo_panel.groupby('repo_name')['time_period'].transform('min')
+    df_repo_panel['final_period'] = df_repo_panel.groupby('repo_name')['time_period'].transform('max')
+    unique_time_periods = np.sort(df_repo_panel['time_period'].unique()).tolist()
+    df_balanced_panel = df_repo_panel[['repo_name']].drop_duplicates().copy()
+    df_balanced_panel['time_period'] = [unique_time_periods for _ in range(len(df_balanced_panel))]
+    df_balanced_panel = df_balanced_panel.explode('time_period')
+    df_balanced_panel['time_period'] = pd.to_datetime(df_balanced_panel['time_period'])
+    df_full_panel = df_balanced_panel.merge(df_repo_panel, on=['repo_name', 'time_period'], how='left')
+    df_full_panel[['first_period', 'final_period']] = df_full_panel.groupby('repo_name')[['first_period', 'final_period']].ffill()
+    df_full_panel = df_full_panel.query('time_period >= first_period').fillna(0)
+    return df_full_panel
+
 
 def RemoveDuplicates(df, query, keepcols, duplicatecols, newcolname):
     df_uq = df.query(query).sort_values('created_at', ascending = True)[keepcols]\
@@ -129,7 +184,7 @@ def CreateIssueStats(df_issues):
 
 def CreatePRSansReviewsStats(df_pr_selected):
     pr_keepcols = ['repo_name','pr_number','time_period', 'created_at']
-    pr_merge_keepcols = ['repo_name','pr_number','time_period', 'created_at', 'pr_merged_by_type']
+    pr_merge_keepcols = ['repo_name','pr_number','time_period', 'created_at', 'pr_merged_by_type', 'pr_merged_by_id']
     pr_idcols = ['repo_name','pr_number']
     
     df_opened_prs = RemoveDuplicates(df_pr_selected,'pr_action == "opened"', pr_keepcols, pr_idcols, 'opened_pr')
@@ -164,36 +219,108 @@ def CreateFullPRDatasetWithReviews(df_pr_selected, df_prs_sans_reviews, SECONDS_
         df_prs_complete[f'closed_in_{day}_days'] = pd.to_numeric(df_prs_complete['days_to_close']<day).astype(int)
     
     df_prs_complete['closed_pr'] = df_prs_complete.apply(lambda x: int(x['closed_unmerged_pr'] == 1 or x['merged_pr'] == 1), axis = 1)
+    
+    df_pr_closer_id = df_pr_selected.query('pr_action == "closed" & pr_merged_by_id.isna()')[['repo_name','pr_number','actor_id']].rename(columns={'actor_id':'pr_closed_by_id'})
+    df_prs_complete = pd.merge(df_prs_complete, df_pr_closer_id, how = 'left', on=['repo_name','pr_number'])
+    df_prs_complete['pr_closed_by_id'] = df_prs_complete['pr_closed_by_id'].fillna(df_prs_complete['pr_merged_by_id'])
+
     return df_prs_complete
 
 def CreatePRStats(df_prs_complete):
-    df_prs_stats = df_prs_complete.groupby(['repo_name','time_period'])\
-        .agg({'closed_unmerged_pr':['sum','mean'], 'merged_pr':['sum','mean'],
-              'review_state_commented':'mean', 'review_state_approved': 'mean',
+    # Aggregate repo stats
+    df_repo_stats = df_prs_complete.groupby(['repo_name', 'time_period'])\
+        .agg({'closed_unmerged_pr': ['sum', 'mean'],
+              'merged_pr': ['sum', 'mean'],
+              'review_state_commented': 'mean',
+              'review_state_approved': 'mean',
               'review_state_changes_requested': 'mean',
-              'merged_in_30_days':'mean', 'merged_in_60_days':'mean','merged_in_90_days':'mean',
-              'merged_in_180_days':'mean', 'merged_in_360_days':'mean',
-              'closed_pr':['sum','mean'],
-              'pr_reviews':['sum','mean']})
-    df_prs_stats.columns = df_prs_stats.columns.to_flat_index()
-    df_prs_stats = df_prs_stats.reset_index()\
-        .rename(columns = {('closed_unmerged_pr','sum'): 'prs_closed_unmerged',
-                           ('closed_unmerged_pr','mean'): 'p_prs_closed_unmerged',
-                           ('merged_pr','sum'): 'prs_merged',
-                           ('merged_pr','mean'): 'p_prs_merged',
-                           ('review_state_commented','mean'):'p_review_state_commented',
-                           ('review_state_approved','mean'):'p_review_state_approved',
-                           ('review_state_changes_requested','mean'):'p_review_state_changes_requested',
-                           ('merged_in_30_days', 'mean'): 'p_prs_merged_30d',
-                           ('merged_in_60_days', 'mean'): 'p_prs_merged_60d',
-                           ('merged_in_90_days', 'mean'): 'p_prs_merged_90d',
-                           ('merged_in_180_days', 'mean'): 'p_prs_merged_180d',
-                           ('merged_in_360_days', 'mean'): 'p_prs_merged_360d',
-                           ('closed_pr', 'sum'): 'prs_closed',
-                           ('closed_pr', 'mean'): 'p_prs_closed',
-                           ('pr_reviews', 'sum'): 'pr_reviews',
-                           ('pr_reviews', 'mean'): 'mean_pr_reviews'})
+              'merged_in_30_days': 'mean',
+              'merged_in_60_days': 'mean',
+              'merged_in_90_days': 'mean',
+              'merged_in_180_days': 'mean',
+              'merged_in_360_days': 'mean',
+              'closed_pr': ['sum', 'mean'],
+              'pr_reviews': ['sum', 'mean']}).reset_index()
+    df_repo_stats.columns = [
+        col[0] if col[1] in ['sum', ''] else f"p_{col[0]}" 
+        for col in df_repo_stats.columns.to_flat_index()
+    ]
+    df_repo_stats = df_repo_stats.rename(columns={
+        'closed_unmerged_pr': 'prs_closed_unmerged',
+        'merged_pr': 'prs_merged',
+        'closed_pr': 'prs_closed',
+        'pr_reviews': 'pr_reviews'
+    })
+    
+    name_map = {'closed_pr': 'prs_closed', 'merged_pr': 'prs_merged', 'closed_unmerged_pr': 'prs_closed_unmerged'}
+    actor_cols = list(name_map.keys())
+    df_actor = df_prs_complete.groupby(['repo_name', 'time_period', 'pr_closed_by_id'])[actor_cols].sum().reset_index()
+    df_actor_agg = df_actor.groupby(['repo_name', 'time_period'])\
+        .agg({col: ['mean', lambda s: (s != 0).sum()] for col in actor_cols})\
+        .reset_index()
+    df_actor_agg.columns = ['repo_name', 'time_period'] + [f"avg_{name_map[col]}" if i % 2 == 0 else f"cc_{name_map[col]}"
+                                                           for col in actor_cols for i in (0, 1)]
+    df_prs_stats = df_repo_stats.merge(df_actor_agg, on=['repo_name', 'time_period'], how='left')
     return df_prs_stats
+
+
+def CleanDepartedContributors(indir_departed, indir_graph, time_period, rolling_window, criteria_pct, consecutive_periods, post_periods):
+    file_path = Path(indir_departed) / f"filtered_departed_contributors_major_months{time_period}_window{rolling_window}D_criteria_commits_{criteria_pct}pct_consecutive{consecutive_periods}_post_period{post_periods}_threshold_gap_qty_0.parquet"
+    df_dep = pd.read_parquet(file_path)
+    df_dep['treatment_period'] = pd.to_datetime(df_dep['treatment_period'])
+
+    df_clean = df_dep.loc[
+        (df_dep['present_one_after'] == 0) &
+        (df_dep['treatment_period'].dt.year < 2023) &
+        (~df_dep['abandoned_scraped']) &
+        (~df_dep['abandoned_consecutive_req3_permanentTrue'])
+    ].copy()
+
+    df_clean['repo_count'] = df_clean.groupby('repo_name')['repo_name'].transform('count')
+    df_clean = df_clean.loc[df_clean['repo_count'] == 1].copy()
+    df_clean['departed_actor_id'] = df_clean['actor_id']
+    df_clean['abandoned_date'] = pd.to_datetime(df_clean['abandoned_date_consecutive_req2_permanentTrue'])
+    df_clean_departures = df_clean[['repo_name', 'treatment_period', 'abandoned_date','departed_actor_id']]
+
+    df_graph_classifications = pd.read_parquet(indir_graph / 'contributor_characteristics.parquet').query('time_period.dt.year>=2015')
+    df_graph_data = pd.merge(df_graph_classifications, df_clean_departures, on = ['repo_name'])
+    unique_times = np.sort(df_graph_data['time_period'].unique())
+    time_index_map = {t: i + 1 for i, t in enumerate(unique_times)}
+    df_graph_data['time_index'] = df_graph_data['time_period'].map(time_index_map)
+    df_graph_data['treatment_group'] = df_graph_data['treatment_period'].map(time_index_map)
+    
+    return df_graph_data
+
+def ConstructOutcomesPanel(df_subset, base_panel, df_issue_selected, df_pr_selected, time_period,
+                       SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, suffix):
+    merged_panel = base_panel.merge(df_subset, on=['repo_name', 'actor_id'])
+    ConstructRepoPanel(merged_panel, df_issue_selected, df_pr_selected, time_period,
+                       SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, suffix)
+
+def GetImportantContributors(df_graph_data):
+    return df_graph_data.query(
+        'time_index < treatment_group & time_index >= treatment_group - 4 & ~important.isna() & actor_id != departed_actor_id'
+    )[["repo_name", "actor_id"]].drop_duplicates()
+
+def GetEveryonePreDeparture(df_graph_data):
+    return df_graph_data.query(
+        'time_index < treatment_group & time_index >= treatment_group - 4 & actor_id != departed_actor_id'
+    )[["repo_name", "actor_id"]].drop_duplicates()
+
+def GetUnimportantContributors(everyone_pre, important):
+    return everyone_pre.merge(important, on=["repo_name", "actor_id"], how="left", indicator=True) \
+                        .query("_merge=='left_only'").drop(columns="_merge")
+
+def GetDepartedContributors(df_graph_data):
+    return df_graph_data[["repo_name", "departed_actor_id"]].drop_duplicates()
+
+def GetNewContributors(df_graph_data, everyone_pre, departed):
+    new = df_graph_data[["repo_name", "actor_id"]].drop_duplicates() \
+        .merge(everyone_pre, on=["repo_name", "actor_id"], how="left", indicator=True) \
+        .query("_merge=='left_only'").drop(columns="_merge")
+    new = new.merge(departed, on="repo_name") \
+        .query("actor_id != departed_actor_id")[["repo_name", "actor_id"]].drop_duplicates()
+    return new
 
 
 if __name__ == '__main__':
