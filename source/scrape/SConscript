@@ -4,16 +4,36 @@ Import('*')
 first in `pypi_monthly_downloads`, run
 - query_monthly_pip_downloads.py
 - get_popular_packages.py 
+
 then in `pypi_site_info`, run
 - get_library_json.sh
+
+then run python source/derived/collect_github_repos/link_pypi_github.py 
+
 then in `extract_github_data`, run
+- find_related_repos.py
 - query_github_data.py
-then in `push_pr_commit_data` run 
+
+then in `push_pr_commit_data` run (in parallel)
 - get_pull_request_commits.py
 - get_push_commits.py
-then in `collect_commits` run
+
+then in `collect_commits` run (in parallel)
 - get_commit_data_pr.py
 - get_commit_data_push.py
+
+then, in parallel, 
+in `get_linkedin_profiles` run
+- get_linkedin_profile.py
+in `get_standardized_locations` run 
+- get_standardized_locations.py
+in `get_weekly_scorecard_data` run
+- `get_ossf_scorecard.py` 
+in `get_weekly_truck_factor` run
+- get_truck_factor.py
+in `link_issue_pull_request` run
+- link_using_issue.py
+- link_using_pull_request
 """
 
 
