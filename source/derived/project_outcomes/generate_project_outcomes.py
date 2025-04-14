@@ -47,7 +47,7 @@ def Main():
     df_contributor_panel = df_contributor_panel.drop(val_cols, axis = 1)
 
     ConstructRepoPanel(df_contributor_panel, df_issue_selected, df_pr_selected, time_period, SECONDS_IN_DAY, closing_day_options,
-                       outdir_data, outdir_log)
+                       outdir_data, outdir_log, "")
     
 
     indir_departed = "drive/output/derived/contributor_stats/filtered_departed_contributors"
@@ -56,9 +56,7 @@ def Main():
     consecutive_periods = 3
     post_periods = 2
     df_graph_data = CleanDepartedContributors(indir_departed, indir_graph, time_period, rolling_window, criteria_pct, consecutive_periods, post_periods)
-
-
-    ### DEPARTED EXCLUDED IN ALL
+    ### DEPARTED EXCLUDED IN ALL EXCEPT "_departed"
     df_graph_data['actor_id'] = pd.to_numeric(df_graph_data['actor_id'])
     important_contributors = GetImportantContributors(df_graph_data)
     ConstructOutcomesPanel(important_contributors, df_contributor_panel, df_issue_selected, df_pr_selected, time_period,
