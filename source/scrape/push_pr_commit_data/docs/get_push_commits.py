@@ -80,14 +80,15 @@ def ParseCommitUrls(url_str):
 
 
 def ProcessPushData(df_push, fetcher):
-    df_push["old_commit_urls"] = df_push["old_commit_urls"].apply(ParseCommitUrls)
     df_push["commit_urls"] = df_push["commit_urls"].apply(ParseCommitUrls)
-    df_push["commit_urls"] = df_push.apply(
-        lambda row: row["commit_urls"][1:] if row["commit_urls"] and row["commit_urls"][0].split("/")[-1] == row["push_before"] else row["commit_urls"],
-        axis=1
-    )
-    df_push["commit_urls"] = df_push.apply(lambda x: x["commit_urls"] if len(x["commit_urls"])>len(x["old_commit_urls"]) else x["old_commit_urls"], axis = 1)
-    df_push.drop('old_commit_urls', axis = 1, inplace = True)
+    if 'old_commit_urls' in df_push.columns:
+        df_push["old_commit_urls"] = df_push["old_commit_urls"].apply(ParseCommitUrls)
+        df_push["commit_urls"] = df_push.apply(
+            lambda row: row["commit_urls"][1:] if row["commit_urls"] and row["commit_urls"][0].split("/")[-1] == row["push_before"] else row["commit_urls"],
+            axis=1
+        )
+        df_push["commit_urls"] = df_push.apply(lambda x: x["commit_urls"] if len(x["commit_urls"])>len(x["old_commit_urls"]) else x["old_commit_urls"], axis = 1)
+        df_push.drop('old_commit_urls', axis = 1, inplace = True)
 
     try_index = df_push[(df_push["commit_urls"].apply(len) != df_push["push_size"])].index
     for idx in try_index:
@@ -107,9 +108,9 @@ def Main():
     backup_username = os.environ["BACKUP_GITHUB_USERNAME"]
     backup_token = os.environ["BACKUP_GITHUB_TOKEN"]
     fetcher = GitHubCommitFetcher(repo_df, username, token, backup_username, backup_token)
-    for year in range(2020, 2025):
+    for year in range(2023, 2025):
         for month in range(1, 13):
-            if month >= 7 or year >= 2021:
+            if month >= 9 or year >= 2024:
                 df_push = pd.read_csv(indir_push /  f"push_{year}_{month}.csv", index_col=0)
                 req_cols = ["push_id", "push_size", "repo_name", "push_before", "push_head", "commit_urls"]
                 df_push = df_push[req_cols].drop_duplicates()

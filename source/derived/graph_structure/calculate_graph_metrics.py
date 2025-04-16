@@ -352,11 +352,31 @@ def ComputeRepoGraphMetrics(repo, time_period, data):
             }
         }
     else:
-        imp_to_imp_overall = {
-            'avg_edge_weight': 0,
-            'se_edge_weight': 0,
-            'percentiles': {'10': 0, '25': 0, '50': 0, '75': 0, '90': 0}
+        imp_to_imp_overall = {}
+    other_contributors = set(G_orig.nodes()) - set(important_contributors)
+    imp_to_other_weights = [
+        d['weight']
+        for u, v, d in G_orig.edges(data=True)
+        if (u in important_contributors and v not in important_contributors) or 
+        (v in important_contributors and u not in important_contributors)
+    ]
+    if imp_to_other_weights:
+        mean_other = np.mean(imp_to_other_weights)
+        se_other = np.std(imp_to_other_weights, ddof=1) / np.sqrt(len(imp_to_other_weights)) if len(imp_to_other_weights) > 1 else 0
+        perc_other = np.percentile(np.array(imp_to_other_weights), [10, 25, 50, 75, 90])
+        imp_to_other_overall = {
+            'avg_edge_weight': mean_other,
+            'se_edge_weight': se_other,
+            'percentiles': {
+                '10': perc_other[0],
+                '25': perc_other[1],
+                '50': perc_other[2],
+                '75': perc_other[3],
+                '90': perc_other[4]
+            }
         }
+    else:
+        imp_to_other_overall = {}
     node_metrics = {
         contributor: {
             **importance.get(contributor, {}),
@@ -389,7 +409,8 @@ def ComputeRepoGraphMetrics(repo, time_period, data):
         'aggregate_cluster_coverage': agg_cluster_cov,
         'cluster_averages': cluster_aggregates,
         'total_important': len(important_contributors),
-        'imp_to_imp_comm_overall': imp_to_imp_overall
+        'imp_to_imp_comm_overall': imp_to_imp_overall,
+        'imp_to_other_comm_overall': imp_to_other_overall
     }
     repo_time_metrics = {**node_metrics, 'repo_overall': overall_metrics}
     return repo, time_period, repo_time_metrics

@@ -8,6 +8,7 @@ from pandarallel import pandarallel
 from source.lib.helpers import *
 from source.lib.JMSLab.SaveData import SaveData
 
+
 def Main():
     warnings.filterwarnings("ignore")
     pd.set_option('display.max_columns', None)
@@ -46,43 +47,51 @@ def Main():
     val_cols = [col for col in df_contributor_panel.columns if 'pct' in col]
     df_contributor_panel = df_contributor_panel.drop(val_cols, axis = 1)
 
-    ConstructRepoPanel(df_contributor_panel, df_issue_selected, df_pr_selected, time_period, SECONDS_IN_DAY, closing_day_options,
-                       outdir_data, outdir_log, "")
-    
+    unique_times = df_issue_selected['time_period'].drop_duplicates().sort_values().unique()
+    time_index_map = {t: i + 1 for i, t in enumerate(unique_times)}
 
     indir_departed = "drive/output/derived/contributor_stats/filtered_departed_contributors"
     rolling_window = 732
     criteria_pct = 75
     consecutive_periods = 3
     post_periods = 2
-    df_graph_data = CleanDepartedContributors(indir_departed, indir_graph, time_period, rolling_window, criteria_pct, consecutive_periods, post_periods)
-    ### DEPARTED EXCLUDED IN ALL EXCEPT "_departed"
+    df_clean_departures = CleanDepartedContributors(indir_departed, time_period, rolling_window, criteria_pct, consecutive_periods, post_periods)
+
+    df_repo_panel_dept = ConstructRepoPanel(df_contributor_panel, df_issue_selected, df_pr_selected, df_clean_departures, time_period, SECONDS_IN_DAY, closing_day_options,
+                                            outdir_data, outdir_log, "", time_index_map=time_index_map)
+    
+    df_graph_classifications = pd.read_parquet(indir_graph / 'contributor_characteristics.parquet').query('time_period.dt.year>=2015')
+    df_graph_data = pd.merge(df_graph_classifications, df_clean_departures, on = ['repo_name'], how = 'left')
     df_graph_data['actor_id'] = pd.to_numeric(df_graph_data['actor_id'])
+    df_graph_data['time_index'] = df_graph_data['time_period'].apply(lambda x: time_index_map.get(x, np.nan))
+    df_graph_data = pd.merge(df_graph_data, df_repo_panel_dept[['repo_name','all_treatment_group']].drop_duplicates())
+    
     important_contributors = GetImportantContributors(df_graph_data)
-    ConstructOutcomesPanel(important_contributors, df_contributor_panel, df_issue_selected, df_pr_selected, time_period,
-                           SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, "_imp")
+
+    ConstructOutcomesPanel(important_contributors, df_contributor_panel, df_issue_selected, df_pr_selected, df_clean_departures, time_period,
+                           SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, "_imp", time_index_map)
 
     everyone_pre_departure = GetEveryonePreDeparture(df_graph_data)
-    ConstructOutcomesPanel(everyone_pre_departure, df_contributor_panel,df_issue_selected, df_pr_selected, time_period,
-                           SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log,  "_all")
+    ConstructOutcomesPanel(everyone_pre_departure, df_contributor_panel,df_issue_selected, df_pr_selected, df_clean_departures, time_period,
+                           SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log,  "_all", time_index_map)
 
     unimportant_contributors = GetUnimportantContributors(everyone_pre_departure, important_contributors)
-    ConstructOutcomesPanel(unimportant_contributors, df_contributor_panel, df_issue_selected, df_pr_selected, time_period,
-                           SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, "_unimp")
+    ConstructOutcomesPanel(unimportant_contributors, df_contributor_panel, df_issue_selected, df_pr_selected, df_clean_departures, time_period,
+                           SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, "_unimp", time_index_map)
 
     departed_contributors = GetDepartedContributors(df_graph_data)
     new_contributors = GetNewContributors(df_graph_data, everyone_pre_departure, departed_contributors)
-    ConstructOutcomesPanel(new_contributors, df_contributor_panel, df_issue_selected, df_pr_selected, time_period,
-                           SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, "_new")
+    ConstructOutcomesPanel(new_contributors, df_contributor_panel, df_issue_selected, df_pr_selected, df_clean_departures, time_period,
+                           SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, "_new", time_index_map)
 
     df_contributor_panel_departed = df_contributor_panel.merge(
         departed_contributors, left_on=["repo_name", "actor_id"], right_on=["repo_name", "departed_actor_id"]
     )
-    ConstructRepoPanel(df_contributor_panel_departed, df_issue_selected, df_pr_selected, time_period,
-                    SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, "_departed")
+    ConstructRepoPanel(df_contributor_panel_departed, df_issue_selected, df_pr_selected, df_clean_departures, time_period,
+                    SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, "_departed", time_index_map)
 
-def ConstructRepoPanel(df_contributor_panel, df_issue_selected, df_pr_selected, time_period, SECONDS_IN_DAY, closing_day_options, 
-                       outdir_data, outdir_log, filename_suffix):
+def ConstructRepoPanel(df_contributor_panel, df_issue_selected, df_pr_selected, df_clean_departures, time_period, SECONDS_IN_DAY, closing_day_options, 
+                       outdir_data, outdir_log, filename_suffix, time_index_map):
     df_repo_panel = AggregateRepoPanel(df_contributor_panel)
     df_repo_panel_full = MakeBalancedPanel(df_repo_panel)
 
@@ -95,11 +104,15 @@ def ConstructRepoPanel(df_contributor_panel, df_issue_selected, df_pr_selected, 
     df_prs_stats = CreatePRStats(df_prs_complete)
     df_stats = pd.merge(df_issues_stats, df_prs_stats, how = 'outer')
     df_repo_panel_stats = pd.merge(df_repo_panel_full, df_stats, how = 'left')
+
+    df_repo_panel_dept = ImputeTreatmentPeriodsForControls(df_clean_departures, df_repo_panel_stats)
+    df_repo_panel_dept = AddTimePeriodData(df_repo_panel_dept, time_index_map)
     
-    SaveData(df_repo_panel_stats,
+    SaveData(df_repo_panel_dept,
              ['repo_name','time_period'],
              outdir_data / f'project_outcomes_major_months{time_period}{filename_suffix}.parquet',
              outdir_log / f'project_outcomes_major_months{time_period}{filename_suffix}.log')
+    return df_repo_panel_dept
 
 def AggregateRepoPanel(df_contributor_panel):
     df_contributor_panel = df_contributor_panel.drop(['pr_opener'], axis=1) \
@@ -261,8 +274,7 @@ def CreatePRStats(df_prs_complete):
     df_prs_stats = df_repo_stats.merge(df_actor_agg, on=['repo_name', 'time_period'], how='left')
     return df_prs_stats
 
-
-def CleanDepartedContributors(indir_departed, indir_graph, time_period, rolling_window, criteria_pct, consecutive_periods, post_periods):
+def CleanDepartedContributors(indir_departed, time_period, rolling_window, criteria_pct, consecutive_periods, post_periods):
     file_path = Path(indir_departed) / f"filtered_departed_contributors_major_months{time_period}_window{rolling_window}D_criteria_commits_{criteria_pct}pct_consecutive{consecutive_periods}_post_period{post_periods}_threshold_gap_qty_0.parquet"
     df_dep = pd.read_parquet(file_path)
     df_dep['treatment_period'] = pd.to_datetime(df_dep['treatment_period'])
@@ -279,30 +291,52 @@ def CleanDepartedContributors(indir_departed, indir_graph, time_period, rolling_
     df_clean['departed_actor_id'] = df_clean['actor_id']
     df_clean['abandoned_date'] = pd.to_datetime(df_clean['abandoned_date_consecutive_req2_permanentTrue'])
     df_clean_departures = df_clean[['repo_name', 'treatment_period', 'abandoned_date','departed_actor_id']]
+  
+    return df_clean_departures
 
-    df_graph_classifications = pd.read_parquet(indir_graph / 'contributor_characteristics.parquet').query('time_period.dt.year>=2015')
-    df_graph_data = pd.merge(df_graph_classifications, df_clean_departures, on = ['repo_name'])
-    unique_times = np.sort(df_graph_data['time_period'].unique())
-    time_index_map = {t: i + 1 for i, t in enumerate(unique_times)}
-    df_graph_data['time_index'] = df_graph_data['time_period'].map(time_index_map)
-    df_graph_data['treatment_group'] = df_graph_data['treatment_period'].map(time_index_map)
+def ImputeTreatmentPeriodsForControls(df_clean_departures, df_repo_panel_stats, seed = 42):
+    np.random.seed(seed)
+
+    df_repo_panel_dept = df_repo_panel_stats.merge(df_clean_departures, on=['repo_name'], how='left')
+    treatment_counts = df_clean_departures['treatment_period'].value_counts(normalize=True)
+    treatment_options = treatment_counts.index.tolist()
+    treatment_probs = treatment_counts.values.tolist()
+    sampleTreatment = lambda: np.random.choice(treatment_options, p=treatment_probs)
     
-    return df_graph_data
+    df_repo_panel_dept.sort_values(['repo_name','time_period'], inplace = True)
+    repo_treatment = {}
+    for repo, group in df_repo_panel_dept.groupby('repo_name'):
+        existing = group['treatment_period'].dropna().unique()
+        repo_treatment[repo] = existing[0] if len(existing) > 0 else sampleTreatment()
+    df_repo_panel_dept['control_treatment_period'] = df_repo_panel_dept['repo_name'].map(repo_treatment)
+    df_repo_panel_dept['all_treatment_period'] = df_repo_panel_dept['treatment_period'].fillna(df_repo_panel_dept['control_treatment_period'])
+    return df_repo_panel_dept
 
-def ConstructOutcomesPanel(df_subset, base_panel, df_issue_selected, df_pr_selected, time_period,
-                       SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, suffix):
+def AddTimePeriodData(df_repo_panel_dept, time_index_map):
+    for col in ['time_period','treatment_period']:
+        df_repo_panel_dept[col] = pd.to_datetime(df_repo_panel_dept[col])
+
+    df_repo_panel_dept['time_index'] = df_repo_panel_dept['time_period'].map(time_index_map)
+    df_repo_panel_dept['treatment_group'] = df_repo_panel_dept['treatment_period'].apply(lambda x: time_index_map.get(x, np.nan))
+    df_repo_panel_dept['all_treatment_group'] = df_repo_panel_dept['all_treatment_period'].apply(lambda x: time_index_map.get(x, np.nan))
+
+    df_repo_panel_dept = df_repo_panel_dept[~df_repo_panel_dept['time_period'].isna()]
+    return df_repo_panel_dept
+
+def ConstructOutcomesPanel(df_subset, base_panel, df_issue_selected, df_pr_selected, df_clean_departures, time_period,
+                       SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, suffix, time_index_map):
     merged_panel = base_panel.merge(df_subset, on=['repo_name', 'actor_id'])
-    ConstructRepoPanel(merged_panel, df_issue_selected, df_pr_selected, time_period,
-                       SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, suffix)
+    ConstructRepoPanel(merged_panel, df_issue_selected, df_pr_selected, df_clean_departures, time_period,
+                       SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, suffix, time_index_map)
 
 def GetImportantContributors(df_graph_data):
     return df_graph_data.query(
-        'time_index < treatment_group & time_index >= treatment_group - 4 & ~important.isna() & actor_id != departed_actor_id'
+        '(time_index < all_treatment_group & ~important.isna() & actor_id != departed_actor_id)'
     )[["repo_name", "actor_id"]].drop_duplicates()
 
 def GetEveryonePreDeparture(df_graph_data):
     return df_graph_data.query(
-        'time_index < treatment_group & time_index >= treatment_group - 4 & actor_id != departed_actor_id'
+        '(time_index < all_treatment_group & actor_id != departed_actor_id) '
     )[["repo_name", "actor_id"]].drop_duplicates()
 
 def GetUnimportantContributors(everyone_pre, important):
