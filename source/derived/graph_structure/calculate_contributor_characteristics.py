@@ -28,7 +28,13 @@ def Main():
             mean_overlap = cluster_averages.get('mean_overlap', None)
             avg_clusters_per_node = cluster_averages.get('avg_clusters_per_node', None)
             pct_nodes_one_cluster = cluster_averages.get('pct_nodes_one_cluster', None)
-            
+            imp_to_imp_comm_overall = overall.get('imp_to_imp_comm_overall', None)
+            if imp_to_imp_comm_overall is not None:
+                imp_to_imp_comm_overall = imp_to_imp_comm_overall.get('avg_edge_weight', None)   
+            imp_to_other_comm_overall = overall.get('imp_to_other_comm_overall', None)
+            if imp_to_other_comm_overall is not None:
+                imp_to_other_comm_overall = imp_to_other_comm_overall.get('avg_edge_weight', None)   
+                
             # important contributors
             contributor_keys = [k for k in project_time.keys() if k != 'repo_overall' and 'overall_overlap' not in project_time[k]]
             important_contributor_keys = [k for k in project_time.keys() if k != 'repo_overall' and 'overall_overlap' in project_time[k]]
@@ -57,6 +63,8 @@ def Main():
                     'HHI_normalized_degree': hhi_norm,
                     'HHI_individual_coverage': hhi_ind_cov,
                     'HHI_individual_coverage_cluster': hhi_ind_cov_cluster,
+                    'imp_to_imp_overall': imp_to_imp_comm_overall,
+                    'imp_to_other_overall': imp_to_other_comm_overall,
                     'normalized_degree': actor_data.get('normalized_degree', None),
                     'imp_to_other_avg_edge_weight': actor_data.get('avg_edge_weight', None)
                 }
