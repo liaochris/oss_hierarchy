@@ -108,9 +108,9 @@ def Main():
     backup_username = os.environ["BACKUP_GITHUB_USERNAME"]
     backup_token = os.environ["BACKUP_GITHUB_TOKEN"]
     fetcher = GitHubCommitFetcher(repo_df, username, token, backup_username, backup_token)
-    for year in range(2023, 2025):
+    for year in range(2015, 2025):
         for month in range(1, 13):
-            if month >= 9 or year >= 2024:
+            if year >= 2024 and (month >= 4): # start here
                 df_push = pd.read_csv(indir_push /  f"push_{year}_{month}.csv", index_col=0)
                 req_cols = ["push_id", "push_size", "repo_name", "push_before", "push_head", "commit_urls"]
                 df_push = df_push[req_cols].drop_duplicates()

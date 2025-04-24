@@ -75,10 +75,15 @@ def Main():
     ConstructOutcomesPanel(everyone_pre_departure, df_contributor_panel,df_issue_selected, df_pr_selected, df_clean_departures, time_period,
                            SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log,  "_all", time_index_map)
 
+    everyone = GetEveryone(df_graph_data)
+    ConstructOutcomesPanel(everyone, df_contributor_panel,df_issue_selected, df_pr_selected, df_clean_departures, time_period,
+                           SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log,  "_alltime", time_index_map)
+
     unimportant_contributors = GetUnimportantContributors(everyone_pre_departure, important_contributors)
     ConstructOutcomesPanel(unimportant_contributors, df_contributor_panel, df_issue_selected, df_pr_selected, df_clean_departures, time_period,
                            SECONDS_IN_DAY, closing_day_options, outdir_data, outdir_log, "_unimp", time_index_map)
 
+    ### MODIFY NEW TO BE BALANCED
     departed_contributors = GetDepartedContributors(df_graph_data)
     new_contributors = GetNewContributors(df_graph_data, everyone_pre_departure, departed_contributors)
     ConstructOutcomesPanel(new_contributors, df_contributor_panel, df_issue_selected, df_pr_selected, df_clean_departures, time_period,
@@ -337,6 +342,11 @@ def GetImportantContributors(df_graph_data):
 def GetEveryonePreDeparture(df_graph_data):
     return df_graph_data.query(
         '(time_index < all_treatment_group & actor_id != departed_actor_id) '
+    )[["repo_name", "actor_id"]].drop_duplicates()
+
+def GetEveryone(df_graph_data):
+    return df_graph_data.query(
+        '(actor_id != departed_actor_id) '
     )[["repo_name", "actor_id"]].drop_duplicates()
 
 def GetUnimportantContributors(everyone_pre, important):

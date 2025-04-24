@@ -9,10 +9,10 @@ import os
 import time
 from pathlib import Path
 import warnings
-
+import re
 def ReadPullRequests(pull_request_files):
     df_pull_request = pd.concat([pd.read_csv(pull_request_file, usecols = ['repo_name','pr_number']) 
-        for pull_request_file in pull_request_files]).drop_duplicates().dropna()
+                                 for pull_request_file in pull_request_files]).drop_duplicates().dropna()
 
     return df_pull_request
 
@@ -31,14 +31,22 @@ def GrabPullRequestData(repo_name, pull_request_number):
             time.sleep(120)
             page = sesh.get(scrape_url)
             page_text = str(page.text)
-            
+ 
         issue_link = 'missing'
         title = 'missing'
         text = 'missing'
+
+        soup_github = BeautifulSoup(page.content, features="html.parser")
+        p = soup_github.find("p", string=lambda t: t and "Successfully merging this pull request may close these issues." in t)
+        span = p.find_next_sibling("span") if p else None
+        issue_links = [a["href"] for a in span.find_all("a", {"data-hovercard-type": "issue"})] if span else []
+
         soup = BeautifulSoup(page.content, parse_only = product, features="html.parser")
-        issue_links = soup.find_all("a", attrs={"data-hovercard-type":'issue'})
-        if len(issue_links)>0:
-            issue_link = issue_links[0]['href']
+        other_links = soup.find_all("a")
+        links = list(set([link['href'] for link in other_links if 'href' in link.attrs]))
+        url_pattern = re.compile(r'^https://github\.com/([^/]+)/([^/]+)/(issues|pull)/([^/]+)$')
+        pattern = re.compile(r'^/(.*)/(issues|pull)/(\d+)$')
+        github_links = [github_link for github_link in links if pattern.match(github_link) or url_pattern.match(github_link)]
 
         soup_title = BeautifulSoup(page.content, parse_only = product_title, features="html.parser")        
         title_links = soup_title.find_all("bdi", attrs={"class":'js-issue-title'})
@@ -50,7 +58,7 @@ def GrabPullRequestData(repo_name, pull_request_number):
         if len(text_links)>0:
             text = text_links[0].text
 
-        return [issue_link, title, text]
+        return [issue_links, github_links, title, text]
     except Exception as e:
         error = str(e)
         return error
@@ -64,36 +72,32 @@ def Main():
 
     df_pull_request = ReadPullRequests(pull_request_files)
     repo_list = df_pull_request['repo_name'].unique().tolist()
-
     repo_list = sorted(repo_list)
 
     df_library_all = pd.DataFrame()
     for repo in repo_list:
+        print(repo)
+        print(np.where([ele == repo for ele in repo_list]))
         df_library = df_pull_request[df_pull_request['repo_name'] == repo]
-        lib_name = repo.replace("/","_")
-        print(lib_name)
+        if df_library.shape[0] == 0: continue 
 
-        df_library['linked_issue'] = df_library.parallel_apply(lambda x: 
+        df_library['linked_issue'] = df_library.apply(lambda x: 
             GrabPullRequestData(x['repo_name'], x['pr_number']), axis = 1)
         
+        df_library['linked_issue'] = df_library.apply(lambda x: 
+            GrabPullRequestData(x['repo_name'], x['pr_number']) if 
+            type(x['linked_issue']) == str else x['linked_issue'], axis = 1)
+        
+
         df_library['issue_link'] = df_library['linked_issue'].apply(lambda x: x[0] if type(x) == list else x)
-        df_library['pull_request_title'] = df_library['linked_issue'].apply(lambda x: x[1] if type(x) == list else x)
-        df_library['pull_request_text'] = df_library['linked_issue'].apply(lambda x: x[2] if type(x) == list else x)
+        df_library['other_links'] = df_library['linked_issue'].apply(lambda x: x[1] if type(x) == list else x)
+        df_library['pull_request_title'] = df_library['linked_issue'].apply(lambda x: x[2] if type(x) == list else x)
+        df_library['pull_request_text'] = df_library['linked_issue'].apply(lambda x: x[3] if type(x) == list else x)
 
         df_library_all = pd.concat([df_library_all, df_library])
-    df_library_all.drop('Unnamed: 0', axis = 1).to_parquet(commit_outdir / 'linked_pull_request_to_issue.parquet', index = False)
+        df_library_all.drop('linked_issue', axis = 1).to_parquet(commit_outdir / 'linked_pull_request_to_issue.parquet', index = False)
 
-"""
-    for file in glob.glob('drive/output/scrape/link_issue_pull_request/linked_pull_request/*.csv'):
-        try:
-            df_library = pd.read_csv(file)
-            df_library_all = pd.concat([df_library_all, df_library])
-        except:
-            print("unavailable")
-    df_library_all['pr_number'] = pd.to_numeric(df_library_all['pr_number'], errors = 'coerce')
-    df_library_all['pull_request_title'] = df_library_all['pull_request_title'].astype(str)
-    df_library_all.drop('Unnamed: 0', axis = 1).to_parquet(commit_outdir / 'linked_pull_request_to_issue.parquet', index = False)
-"""
+    df_library_all.drop('linked_issue', axis = 1).to_parquet(commit_outdir / 'linked_pull_request_to_issue.parquet', index = False)
 
 
 if __name__ == '__main__':   

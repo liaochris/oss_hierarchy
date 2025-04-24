@@ -29,8 +29,9 @@ LoadCovariates <- function(dir, nyt = FALSE) {
     mutate(actor_id = as.numeric(actor_id))
   if (!nyt) {
     covariates <- covariates %>%
-      select(-actor_id, -normalized_degree, -imp_to_other_avg_edge_weight, -imp_to_imp_avg_edge_weight, -overall_overlap) %>%
-      distinct(repo_name, time_period, .keep_all = TRUE)
+      select(-actor_id, -imp_to_other_avg_edge_weight, -imp_to_imp_avg_edge_weight, -overall_overlap) %>%
+      distinct(repo_name, time_period, .keep_all = TRUE) %>%
+      rename(graph_importance = normalized_degree)
   } else {
     covariates <- rename(covariates, departed_actor_id = actor_id)
   }
@@ -71,7 +72,7 @@ CreateEventStudyPanel <- function(project_outcomes, covariate_data, github_downl
   panel
 }
 
-CreateCovariateBinsTreated <- function(df, covars_to_split, time_period_col = "time_index", k_values = 2:3) {
+CreateCovariateBinsTreated <- function(df, covars_to_split, time_period_col = "time_index", k_values = 2:4) {
   df_k_avg <- data.frame(repo_name = unique(df$repo_name))
   for (k in k_values) {
     df_k_mean <- df %>% 
@@ -172,38 +173,45 @@ CreateCovariateBinsControl <- function(df, covars_to_split, df_covariate_bin_nyt
   df_k_avg  
 }
   
-
 spec_covariates <- list(
   imp_contr = c("total_important"),
   more_imp = c("normalized_degree"),
   imp_contr_more_imp = c("total_important", "normalized_degree"),
   imp_ratio = c("prop_important"),
   indiv_clus = c("overall_overlap"),
+  indiv_clus_more_imp = c("overall_overlap", "normalized_degree"),
   project_clus_ov = c("mean_cluster_overlap"),
+  project_clus_ov_more_imp  = c("mean_cluster_overlap","normalized_degree"),
+  project_clus_ov_imp_contr = c("mean_cluster_overlap","total_important"),
+  project_clus_ov_more_imp_imp_contr = c("mean_cluster_overlap","normalized_degree", "total_important"),
   project_clus_node = c("avg_clusters_per_node"),
   project_clus_pct_one = c("pct_nodes_one_cluster"),
   indiv_cluster_size = c("overall_overlap", "total_important"),
-  indiv_cluster_impo = c("overall_overlap", "normalized_degree"),
   indiv_cluster_ov_cluster = c("overall_overlap", "mean_cluster_overlap"),
-  #imp_imp_comm = c("imp_to_imp_avg_edge_weight"),
-  #imp_other_comm = c("imp_to_other_avg_edge_weight"),
-  #both_comm = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight"),
-  #comm_imp_more_imp = c("normalized_degree", "imp_to_imp_avg_edge_weight"),
-  #comm_within_more_imp = c("normalized_degree", "imp_to_other_avg_edge_weight"),
-  #both_comm_cluster = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight", "overall_overlap"),
-  #both_comm_ov_cluster = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight", "mean_cluster_overlap"),
-  #comm_cluster = c("imp_to_imp_avg_edge_weight", "overall_overlap"),
-  #comm_within_cluster = c("imp_to_other_avg_edge_weight", "overall_overlap"),
+  imp_imp_comm_dept = c("imp_to_imp_avg_edge_weight"),
+  imp_other_comm_dept = c("imp_to_other_avg_edge_weight"),
+  both_comm_dept = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight"),
+  comm_imp_more_imp_dept = c("normalized_degree", "imp_to_imp_avg_edge_weight"),
+  comm_within_more_imp_dept = c("normalized_degree", "imp_to_other_avg_edge_weight"),
+  both_comm_cluster_dept = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight", "overall_overlap"),
+  both_comm_ov_cluster_dept = c("imp_to_imp_avg_edge_weight", "imp_to_other_avg_edge_weight", "mean_cluster_overlap"),
+  comm_cluster_dept = c("imp_to_imp_avg_edge_weight", "overall_overlap"),
+  comm_within_cluster_dept = c("imp_to_other_avg_edge_weight", "overall_overlap"),
   imp_imp_comm = c("imp_to_imp_overall"),
   imp_other_comm = c("imp_to_other_overall"),
   both_comm = c("imp_to_imp_overall", "imp_to_other_overall"),
   comm_imp_more_imp = c("normalized_degree", "imp_to_imp_overall"),
   comm_within_more_imp = c("normalized_degree", "imp_to_other_overall"),
+  project_clus_ov_imp_imp_comm = c("mean_cluster_overlap","imp_to_imp_overall"),
+  project_clus_ov_imp_other_comm = c("mean_cluster_overlap","imp_to_other_overall"),
+  project_clus_ov_imp_imp_comm_more_imp = c("mean_cluster_overlap","imp_to_imp_overall", "normalized_degree"),
+  project_clus_ov_imp_other_comm_more_imp = c("mean_cluster_overlap","imp_to_other_overall", "normalized_degree"),
   both_comm_cluster = c("imp_to_imp_overall", "imp_to_other_overall", "overall_overlap"),
   both_comm_ov_cluster = c("imp_to_imp_overall", "imp_to_other_overall", "mean_cluster_overlap"),
   comm_cluster = c("imp_to_imp_overall", "overall_overlap"),
   comm_within_cluster = c("imp_to_other_overall", "overall_overlap")
 )
+
 
 # Main Process --------------------------------------------------------------
 Main <- function() {
@@ -215,7 +223,7 @@ Main <- function() {
     covariates = "drive/output/derived/graph_structure"
   )
   params <- list(time_period = 6, rolling_window = 732, criteria_pct = 75, consecutive_periods = 3, post_periods = 2)
-  sample_restrictions <- c("", "_imp", "_all", "_unimp", "_new")  # Different contributor subsets  # Different contributor subsets
+  sample_restrictions <- c("", "_imp", "_all", "_unimp", "_new", "_alltime")  # Different contributor subsets  # Different contributor subsets
   
   project_outcomes <- LoadProjectOutcomes(dirs$outcomes, params$time_period)
   nyt_covariates <- LoadCovariates(dirs$covariates, TRUE)
@@ -239,14 +247,14 @@ Main <- function() {
   df_cov_panel_control <- CreateCovariateBinsControl(df_panel, covars_to_split_sel, df_cov_panel_treated)
   df_cov_panel_control <- df_cov_panel_control %>%
     mutate(across(.cols = -repo_name, .fns = ~ as.numeric(.)))
-  WritePanel(df_panel, dirs$temp, paste0(prefix, "event_study_panel.parquet"))
-  WritePanel(df_cov_panel_treated, dirs$temp, paste0(prefix, "nyt_covariate_bins.parquet"))
-  WritePanel(df_cov_panel_control, dirs$temp, paste0(prefix, "covariate_bins.parquet"))
+  WritePanel(df_panel, dirs$temp, paste0("event_study_panel.parquet"))
+  WritePanel(df_cov_panel_treated, dirs$temp, paste0("nyt_covariate_bins.parquet"))
+  WritePanel(df_cov_panel_control, dirs$temp, paste0("covariate_bins.parquet"))
     
   for (sample_restriction in sample_restrictions[-1]) {
     project_outcomes_suffix <- LoadProjectOutcomes(dirs$outcomes, params$time_period, sample_restriction)
     panel_sample_restrict <- CreateEventStudyPanel(project_outcomes_suffix, covariates, downloads, forks_stars,  downloads_detailed, software_score, not_yet_treated = FALSE)
-    WritePanel(panel_sample_restrict, dirs$temp, paste0(prefix, "event_study_panel", sample_restriction, ".parquet"))
+    WritePanel(panel_sample_restrict, dirs$temp, paste0("event_study_panel", sample_restriction, ".parquet"))
   }
 }
 

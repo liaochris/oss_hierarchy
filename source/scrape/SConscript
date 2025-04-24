@@ -11,12 +11,13 @@ then in `pypi_site_info`, run
 then run python source/derived/collect_github_repos/link_pypi_github.py 
 
 then in `extract_github_data`, run
-- find_related_repos.py
+- source/scrape/extract_github_data/docs/unify_repo_identities.py (modify code to use SaveData + comment + add documentation )
+- source/scrape/extract_github_data/docs/filter_repo_identities.py (modify code to use SaveData + comment + add documentation )
 - query_github_data.py
 
 then in `push_pr_commit_data` run (in parallel)
-- get_pull_request_commits.py
-- get_push_commits.py
+- get_pull_request_commits.py (have to do)
+- get_push_commits.py (finish)
 
 then in `collect_commits` run (in parallel)
 - get_commit_data_pr.py
