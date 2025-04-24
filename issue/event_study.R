@@ -116,6 +116,61 @@ PreparePanelData <- function(indir, indir_departed, issue_tempdir, indir_contrib
   list(panel = df_panel_nyt, outdir = outdir)
 }
 
+
+
+BinScatter <- function(data, y_vars, x_var="prs_opened", group_var="repo_name", time_var="time_period", 
+                       leads=c(0,1,2), sort_var="time_index", outdir) {
+  lead_within_group <- function(x, grp, sort_val, n=1) { 
+    res <- rep(NA, length(x))
+    for(g in unique(grp)) { 
+      idx <- which(grp == g)
+      ord <- order(sort_val[idx])
+      res[idx[ord]] <- dplyr::lead(x[idx[ord]], n=n)
+    }
+    res
+  }
+  label_lookup <- function(var){ 
+    str_to_title(str_replace_all(var, "_", " ")) %>% 
+      str_replace_all("Release Count", "Releases") %>% 
+      str_replace_all("Minor Patch", "Minor + Patch") %>% 
+      str_replace_all("Major Minor", "Major + Minor") %>% 
+      str_replace_all("Major \\+ Minor \\+ Patch", "Major + Minor + Patch") %>% 
+      str_replace_all("Overall Score", "OSSF Scorecard Score") %>% 
+      str_replace_all("Vulnerabilities Score", "OSSF Scorecard Vulnerability Score")
+  }
+  fixed_effect_labels <- c("No Fixed Effects","Project Fixed Effects","Project + Time Fixed Effects")
+  for(y in y_vars){
+    plots <- list()
+    for(lead in leads){
+      outcome <- if(lead == 0) data[[y]] else 
+        lead_within_group(data[[y]], data[[group_var]], data[[sort_var]], n=lead)
+      for(i in seq_along(fixed_effect_labels)){
+        w_formula <- if(i==1) NULL else if(i==2) 
+          as.formula(paste0("~factor(",group_var,")")) else 
+            as.formula(paste0("~factor(",group_var,") + factor(",time_var,")"))
+        if (i==1) {
+          est <- binsreg(y=outcome, x=log(data[[x_var]]+1), data=data,
+                         polyreg=3, ci=TRUE, cb=TRUE, nbins=8, nsims=20000, simsgrid=100)
+        } else {
+          est <- binsreg(y=outcome, x=log(data[[x_var]]+1), w=w_formula, data=data,
+                         polyreg=3, ci=TRUE, cb=TRUE, nbins=8, nsims=20000, simsgrid=100)
+        }
+        cell_title <- paste(fixed_effect_labels[i], "- Lead", lead)
+        p <- est$bins_plot + labs(x = "log(PRs Opened + 1)", y = label_lookup(y), title = cell_title) +
+          theme_minimal(base_size = 14) + theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+                                                axis.title = element_text(face = "bold"))
+        plots[[length(plots)+1]] <- p
+      }
+    }
+    grid_plot <- wrap_plots(plots, ncol = length(fixed_effect_labels)) +
+      plot_annotation(title = paste("Binscatter:", label_lookup(y), "vs PRs Opened"),
+                      theme = theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold")))
+    ggsave(filename = file.path(outdir, paste0(y, "_binsreg_grid.png")),
+           plot = grid_plot, width = 18, height = 6 * length(leads), dpi = 90)
+  }
+}
+
+
 Main <- function() {
   LibrarySetup()
   

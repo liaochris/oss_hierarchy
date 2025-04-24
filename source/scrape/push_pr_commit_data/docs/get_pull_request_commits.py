@@ -98,6 +98,11 @@ def GrabCommits(repo_name, pr_commits_url, primary_auth, backup_auth, repo_df):
 def LoadPRData(pr_filename, indir):
     return pd.read_csv(indir / pr_filename)[["repo_name", "pr_commits_url"]].drop_duplicates()
 
+def TryASTLiteralEval(value):
+    try:
+        return ast.literal_eval(value)
+    except (ValueError, SyntaxError):
+        return np.nan
 
 def MergeExistingPRData(df_new, outdir, out_filename):
     existing_path = outdir / out_filename
@@ -112,7 +117,7 @@ def MergeExistingPRData(df_new, outdir, out_filename):
         valid = (~df_merged["commit_list"].isna()) & (
             ~df_merged["commit_list"].apply(lambda x: isinstance(x, str) and x.startswith("HTTP Error"))
         )
-        df_merged.loc[valid, "commit_list"] = df_merged.loc[valid, "commit_list"].apply(ast.literal_eval)
+        df_merged.loc[valid, "commit_list"] = df_merged.loc[valid, "commit_list"].apply(TryASTLiteralEval)
         df_merged["commit_list"] = df_merged["commit_list"].apply(lambda x: np.nan if isinstance(x, list) and len(x) == 0 else x)
         return df_merged
     df_new["commit_list"] = np.nan
@@ -130,6 +135,7 @@ def UpdatePRCommitList(df_pull, primary_auth, backup_auth, repo_df):
                 df_pull.at[idx, "repo_name"], df_pull.at[idx, "pr_commits_url"],
                 primary_auth, backup_auth, repo_df
             )
+            df_pull['commit_list'] = df_pull['commit_list'].astype('object')
             df_pull.at[idx, "commit_list"] = result["commit_list"]
             df_pull.at[idx, "failure_status"] = result["failure_status"]
     return df_pull
@@ -143,11 +149,10 @@ def Main():
     outdir_pull = Path("drive/output/scrape/push_pr_commit_data/pull_request_data/")
     repo_df = pd.read_csv(indir_repo / "repo_id_history_filtered.csv")
     
-    pr_filenames = [f"pull_request_{year}_{month}.csv" for year in range(2015, 2024)
-                    for month in range(1, 13) if year != 2023 or (year == 2023 and month < 9)]
-    random.shuffle(pr_filenames)
-    
-    for pr_filename in pr_filenames:
+    pr_filenames = [f"pull_request_{year}_{month}.csv" for year in range(2015, 2025)
+                    for month in range(1, 13)]
+    # 2015 8 fails
+    for pr_filename in pr_filenames[8:]:
         out_filename = pr_filename.replace("pull_request", "pull_request_data")
         df_pull = LoadPRData(pr_filename, indir_pull)
         df_pull = MergeExistingPRData(df_pull, outdir_pull, out_filename)

@@ -35,7 +35,6 @@ def Main():
     del df_pr
     gc.collect()
     print("DONE with creating df_pr.parquet")
-    """
 
     issue_data_indir = glob.glob('drive/output/scrape/extract_github_data/issue_data/*.csv')
     issue_data_indir.extend(glob.glob('drive/output/scrape/extract_github_data/issue_comment_data/*.csv'))
@@ -69,7 +68,7 @@ def Main():
     df_push_commits['commit file changes'] = df_push_commits['commit file changes'].astype(str)
     df_push_commits.to_parquet(outdir / 'df_push_commits.parquet')
     print("DONE with creating df_push_commits.parquet")
-    """
+
 def ReadPrIssueData(file_dirs, data_cols):
     df_final = pd.DataFrame(columns=data_cols)
     with concurrent.futures.ThreadPoolExecutor() as executor:

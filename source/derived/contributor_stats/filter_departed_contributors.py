@@ -11,6 +11,7 @@ def Main():
     for time_period in [2,3,6]:
         for rolling_window in [732, 1828]:
             contribution_histories = pd.read_parquet(f'drive/output/derived/contributor_stats/contributor_data/major_contributors_major_months{time_period}_window{rolling_window}D_samplefull.parquet')
+            contribution_histories_2m = pd.read_parquet(f'drive/output/derived/contributor_stats/contributor_data/major_contributors_major_months2_window{rolling_window}D_samplefull.parquet')
             df_specifications = pd.read_csv(indir_departures / f'departed_contributors_specification_summary_major_months{time_period}_window{rolling_window}D.csv')
             for idx in df_specifications.index:
                 df_departure_range = FilterSpecification(df_specifications, idx, time_period, rolling_window, indir_departures, indir_abandoned, outdir_departures_filtered, contribution_histories)
