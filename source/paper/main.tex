@@ -161,24 +161,14 @@ I should feel free to write aspiration sections and comment them out (as long as
 
 \textbf{Paragraphs 1-2: Motivation. After reading these paragraphs a reader in any field of economics should believe that if you answer your research question your paper will make an important contribution.}
 
-Paragraph 1
+A key issue organizations encounter is departures. An organization's capacity to solve problems depends on its members' knowledge. When a key member with  knowledge leaves, unless that key member's knowledge has been shared with the other members, the organization may lose its ability to solve certain problems. I term this knowledge loss. 
 
-A key issue organizations encounter is departures. An organization's capacity depends its members' skills and knowledge. When members, the organization potentially loses more than just an extra set of hands. Knowledge about operational routines, problem solutions, organizational standards, and more may all be lost unless shared and retained by remaining team members. 
+One potential way organizations can mitigate knowledge loss arising from departures is through pre-departure collaboration and communication between its members. Collaboration and communication garners organization members increased exposure to the departed member and potentially more knowledge about how they solve problems. At the same time, collaboration and communication can be time consuming activities that slow down the project's operations. Given  their potential to mitigate the downsides of knowledge loss, there's value to whether and how collaboration and communication affects projects after a key departure. Moreover, given the tradeoffs associated with collaboration and communication, there's also value in understanding the effect of collaboration and communication on organizations prior to departures. 
 
-The impact of departures and more broadly, an organization's capacity is affected by how much 
+% I've kinda ditched the hierarchy motivation in this version of the intro. Just something to keep in midn
+\textbf{Paragraphs 3-4: Challenges. These paragraphs explain why your research question has not already been answered, i.e., what are the central challenges a researcher must tackle to answer this question.}
 
-% How can I rework this
-% What do I cite
-
-\begin{itemize}
-    \item Organizations operation is affected by degree to which organization members coordinate/cooperate/overlap (pick one word) and communicate.
-    \begin{itemize}
-        \item This impacts how they work, how they learn pre-departure which should affect how the organization continues post departure. 
-    \end{itemize}
-    \item Given the downsides of departures, there's obvious value to trying to understand how differences in coordinate/cooperate/overlap (pick one word) and communication allow some organizations to persevere while others flounder
-\end{itemize}
-
-Paragraph 2
+\textbf{Data}\\
 \begin{itemize}
     \item One major challenge is that data on organizations is hard to obtain because proprietary 
     \begin{enumerate}
@@ -199,12 +189,13 @@ Paragraph 2
     \end{enumerate}
 \end{itemize}
 
-\textbf{Paragraphs 3-4: Challenges. These paragraphs explain why your research question has not already been answered, i.e., what are the central challenges a researcher must tackle to answer this question.}
+\textbf{Departure endogeneity}
+Contributor departure is an endogeneous choice that may be affected by organizational structure, so there are endogeneity concerns (who leaves given organizational structure, does that have an effect etc). in OSS, Existing work documents a variety of factors that can contribute to departure such as personal dissatisfaction (\cite{hannon_retaining_2008}, \cite{yu_empirical_2012}) or job or role changes (\cite{miller_why_2019}). 
 
+\textbf{Organizational structure endogeneity}
 \begin{enumerate}
-    \item Already mentioned data
-    \item Each organization is different, each departure is different so have to find way to generalize organizations and departures and also take advantage of heterogeneity to shine light on cool things and not overly broaden as to make things not relevant. 
-    \item Contributor departure is an endogeneous choice that may be affected by organizational structure, so there are endogeneity concerns (who leaves given organizational structure, does that have an effect etc). in OSS, Existing work documents a variety of factors that can contribute to departure such as personal dissatisfaction (\cite{hannon_retaining_2008}, \cite{yu_empirical_2012}) or job or role changes (\cite{miller_why_2019}). 
+    \item If collaboration is a function of problem characteristics, then variation in the problem environment might explain variation in collaboration. I would then be confounding variation in the problem environment with all sorts of "collaboration-related" effects
+    \item Individuals who benefit more from collaboration may collaborate more. This would imply that my estimates are an upper bound on the benefit from collaboration 
 \end{enumerate}
 % Is there something I can add about how even at companies that develop OSS there's high turnover
 
@@ -229,7 +220,7 @@ Existing theory tells us how organizations adapt their organizational structure 
 \textbf{Paragraph 5: This Paper. This paragraph states in a nutshell what the paper accomplishes and how. }
 
 \begin{enumerate}
-    \item Leverage github microdata to identify and examine the effect of plausibly exogeneous departures in OSS projecys. I then examine how pre-departure organizational characteristics influence two types of post-departure outcomes: GitHub project activity (think team performance) and downstream software development (think business outcomes) to understand impact of org structure. Using contributor-level microdata, I validate the causal role of organizational structure.
+    \item Leverage github microdata to identify and examine the effect of plausibly exogeneous departures in OSS projecys. I then examine how pre-departure organizational characteristics influence two types of post-departure outcomes: GitHub project activity (think team performance) and downstream software development (think business outcomes) to understand impact of org structure. Using contributor-level microdata, I probe further at the underlying mechanisms that drive this
 
 \end{enumerate}
 
@@ -243,9 +234,12 @@ Per discussion with Jesse, I can include a model if it makes mechanisms easier t
 \textbf{Paragraphs 8-9: Data. Explain where you obtain your data and how you measure the concepts that
 are central to your study}
 \todo[inline]{Edit this}
-I study a subset of open-source software projects: Python libraries. These libraries are essential to development in Python, one of the world’s most widely used programming languages. Almost all are open source and distributed primarily through the Python Package Index (PyPi). I obtained download and release data from PyPi and restrict the sample to widely used libraries — those with over 1,000 monthly downloads from July 2018 to September 2023. Contributor-level data was acquired from the GitHub Archive, and project-level software quality was measured using the Open Source Software Foundation (OSSF) Scorecard. 
+I study a subset of open-source software projects: Python libraries. These libraries are essential to development in Python, one of the world’s most widely used programming languages. Almost all are open source and distributed primarily through the Python Package Index (PyPi). I obtained download and release data from PyPi and restrict the sample to widely used libraries — those with over 1,000 monthly downloads each month from July 2018 to September 2023. Contributor-level data was acquired from the GitHub Archive, and project-level software quality was measured using the Open Source Software Foundation (OSSF) Scorecard. 
 
-My primary analysis focuses on the impact of major contributor departures—defined as contributors who are highly involved over an extended period and permanently exit the project. To quantify organizational structure, I construct contributor interaction networks for each project using data on contributor participation in GitHub discussions and code reviews. These networks reveal the hierarchical structures that commonly emerge in OSS development (\cite{crowston_coordination_2005}, \cite{crowston_core_2006}, \cite{crowston_hierarchy_2006}), which I use to measure communication and engagement patterns within and across different levels of the contributor hierarchy.
+My primary analysis focuses on the impact of major contributor departures—defined as contributors who are highly involved over an extended period and permanently exit the project. 
+
+\todo[inline]{Currently using network to identify key contributors, test using either network or commits for departed. Org structure characterized using activity - communication and collaboration}
+To quantify organizational structure, I construct contributor interaction networks for each project using data on contributor participation in GitHub discussions and code reviews. These networks reveal the hierarchical structures that commonly emerge in OSS development (\cite{crowston_coordination_2005}, \cite{crowston_core_2006}, \cite{crowston_hierarchy_2006}), which I use to measure communication and engagement patterns within and across different levels of the contributor hierarchy.
 
 \textbf{Paragraphs 10-11: Methods. Explain how you take your model to the data and how you overcome the
 challenges you raised in paragraphs 3-4.}
@@ -256,7 +250,7 @@ I use the linear panel event-study design from \cite{freyaldenhoven_visualizatio
 To isolate plausibly exogenous events, I focus on abrupt departures, defined as cases where the contributor remains highly active in their final pre-departure period. Such departures tend to be driven by external shocks unrelated to the project, such as job changes or major life events, rather than internal or project-related factors such as declining interest, dissatisfaction, or project wind-down, which typically involve gradual disengagement. I assess treatment effect heterogeneity by comparing post-departure outcomes across projects grouped by pre-departure organizational characteristics.
 
 \iffalse
-\textcolor{red}{Ideally, I'd like to be able to just compare projects who experienced departures in similar timeframes but I don't know any methods that allow you to do this. }
+\textcolor{red}{Ideally, I'd like to be able to just compare projects who experienced departures in similar timeframes but I don't know any methods that allow you to do this and still enable you to examine long-term effects without adding restrictions. Perhaps I can add this as a robustness check?. }
 
 % does the miller paper describe "abrupt"
 Quotes from Miller 2019
@@ -270,37 +264,21 @@ Also, Miller 2019 use abrupt engagement and finds different results from other p
 
 \textbf{Paragraphs 12-13: Findings. Describe the key findings. Make sure they connect clearly to the motiva-
 tion in paragraphs 1-2.}
-% add some stuff down the road about microdata
-% add note down the road about binning with organizational characteristics
-% seems like there might be a way to better integrate the 3 paragraphs above... I'll see
 % I also want a robustness for departures (that are vs. aren't abrupt) using that departure filtering event study graph
+\begin{itemize}
+    \item Collaboration matters, but only for collaborators who work together and only over a very extended period of time
+    \item Other collaboration doesn't matter because very little "readjustment" happens in OSS
+\end{itemize}
 
-\textbf{insert results}
-\textbf{edit contingent on results}
-\textcolor{red}{
-\begin{enumerate}
-    \item Why do projects with high modularity do worse? Why do projects with high overlap and high departed overlap do worse than if there was low departed overlap, but better than projects with low overlap? What causes the effect to not be permanent?
-    \item Both high imp->imp + imp->other and low imp->imp + imp->other projects experience similar declines. What makes them similar/different?
-    \item It seems like there's an underlying reason why modularity makes departure worse, particular in the high imp->imp + imp->other case. What is this reason?
-\end{enumerate}
-}
 \textbf{Paragraphs 14-15: Literature. Lay out the two main ways your paper contributes to the literature. Each paragraph should center around one contribution and should explain precisely how your paper differs from the most closely related recent work.}
 \textbf{approach wil be to write down strands of related literature and return to this once I'm done }
 
-Organizations: How departure affects organizations and how organizational structure affects this
-- Brynjolfsson, Milgrom (Handbook): we know organizational characteristics are complementary
-- There's a large literature on management (Bloom) but OSS is volunteer org so it's less about the directing of one or a few important figures
-- Crowston examines social structure but doesn't leverage it for performance outcomes
-struggling a little with this part
-- Each paragraph should center around one contribution and should explain precisely how your paper differs from the most closely related recent work.
-  - Do I think about OSS paper?
-  - Do I think about economics paper (Jager?)
-  - There's a lot of papers in the scientific discovery literature that may be worth looking into
+I think it applies to two literature
+\begin{enumerate}
+    \item Literature on OSS in economics: no one has thought about departures, rare to see big data deployed. Literature on OSS doesn't address endogeneous nature of departures or org structure well 
+    \item Literature on org/team structure: how do org characteristics affect outcomes. In economics, there's the theory (Brynjolfsson, Milgrom - complementary org structures), applications to management (Bloom) and evidence from the inventor literature (Azoulay, Jaravel)
+\end{enumerate}
 
-
-Contribution - contributes to our knowledge of the digital economy
-- very few large scale analyses of OSS
-- ignore interactions between organizational structure
 
 \todo[inline]{Figure out intro + section ordering after I know all the information I will present}
 
@@ -364,7 +342,7 @@ Contribution - contributes to our knowledge of the digital economy
 3. How do I define organizational structure
 - How do I define the network
 - How do I define the hierarchy
-- How do I define the key organizational characteristics?
+- How do I define the key organizational characteristics (collab, communication)
 - What do the key organizational characteristics look like
 
 
@@ -421,181 +399,6 @@ Contribution - contributes to our knowledge of the digital economy
     \item I'll begin the heterogeneous treatment effects analysis by showing that things we might expect to happen do happen. 
     \item Then, I'll validate or provide further intuition behind these results
 \end{enumerate}
-
-
-\subsection{}
-I focus on PRs opened because 
-    \begin{itemize}
-        \item PRs have an easily interpretable unit: they reflect one proposed problem solution (as opposed to commits, which can be different sized bits of problem solutions)
-        \item Anyone can open a PR, so it reflects level of problem-solving activity in project (whereas other measures of problem solving such as PRs merged depends on too many factors people reviewing, solution quality, etc)
-        \item PRs have a very clear intent - to improve the software (as opposed to issues which can be about software bugs, improvements, usage, community issues)
-        \item Opening PRs is a prerequisite to downstream outcomes that projects care about, sch as software releases that address bugs and add new features
-    \end{itemize}
-\todo[inline]{In the appendix, I show the effect of departure on a variety of other outcomes to show that departure affects a variety of outcomes, in addition to PRs Opened}
-\todo[inline]{Insert plot}
-\todo[inline]{
-1) move title to top\\
-2) subfigure titles - use to define y axis\\
-3) Increase x and y axis label font size\\
-4) Increase tick size\\
-5) Move pre-treatment label to subtitle\\
-6) Decrease plot height\\
-}
-
-\todo[inline]{Does it make sense to have a coefficient below 1? I think it can happen, but it doesn't make sense for all the coefficients to be below 1. One way to sanity check things is to plot the average of the normalized outcomes over event time}
-\askjesse[inline]{Is it worth analyzing counts. Response: NO}
-
-
-\subsection{}
-I feel like I can substitute analysis of "basic" things with showing the coefficients on the controls 
-
-
-\longterm[inline]{After I figure out how I want to approach the rest of the analysis, return to the roof of concept analysis to see if what I've done is sufficient, or if it merits further exploration. rn, pro of expanding is provides more insight/sets up rest of analysis, con is it might be too distracting from the real juice}
-
-\subsection{}
-Next, I show more interesting results related to organizational structure. I examine the following structures
-\begin{enumerate}
-    \item Clustering
-    \item Communication
-\end{enumerate}
-
-\textbf{Clustering}
-\begin{itemize}
-    \item Overall Project Overlap: High levels of clustering really help in the medium to long-term, robust to defining it different ways
-
-\begin{figure}[htbp]
-  \centering
-  \begin{subfigure}[b]{0.32\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{temp/project_clus_combined_2p_back_bin_third.png}
-    \caption{PRs opened}
-    \label{fig:clustering_outcome}
-  \end{subfigure}\hfill
-  \begin{subfigure}[b]{0.32\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{temp/project_clus_cc_combined_2p_back_bin_third.png}
-    \caption{\# people opening PRs}
-    \label{fig:clustering_cc}
-  \end{subfigure}\hfill
-  \begin{subfigure}[b]{0.32\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{temp/project_clus_avg_combined_2p_back_bin_third.png}
-    \caption{Avg.\ PRs opened pp}
-    \label{fig:clustering_avg}
-  \end{subfigure}
-  \begin{subfigure}[b]{0.32\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{temp/project_clus_issues_combined_2p_back_bin_third.png}
-    \caption{Issues opened}
-    \label{fig:clustering_issue}
-  \end{subfigure}
-  \begin{subfigure}[b]{0.32\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{temp/project_clus_issues_cc_combined_2p_back_bin_third.png}
-    \caption{\# of people opening issues}
-    \label{fig:clustering_issue_cc}
-  \end{subfigure}
-  \begin{subfigure}[b]{0.32\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{temp/project_clus_issues_avg_combined_2p_back_bin_third.png}
-    \caption{Avg. issues opened pp}
-    \label{fig:clustering_issue_cc}
-  \end{subfigure}
-  \caption{Impact of clustering on various outcomes.}
-  \label{fig:clustering}
-\end{figure}
-
-    \todo[inline]{Add more controls for contributor importance, such as "authored commit share", "truckfactor status"}
-    \item Recall that clustering is defined as the following: Across all key contributors, we compute the average share of each key contributor's collaborators who also work with other key contributors
-    \item \textbf{Observations}
-    \begin{enumerate}
-        \item The effect gets worse over time, but doesn't vary in the beginning, as shown in Figure~\ref{fig:clustering_outcome}
-        \item This isn't due to a change in the \# of issues opened. It seems like there aren't trends indicating decreased issues opened. If anything, clustered projects are most affected.
-        \todo[inline]{SEE BELOW}
-        \begin{enumerate}
-            \item First, show that the rate of issue to PRs is actually decreasing in projects over time, and this happens more in projects that are less clustered
-            \item Second, explore a variety of reasons for why unclustered projects are causing issues to not be converted. See below for an extensive list of reasons (broad ideas, have to think about specific details)
-        \end{enumerate}
-        \todo[inline]{Operationalization of step 1: Link issues to PRs either through the explicit linking, or by checking issue comments to see if they mention the PR. \\
-        2. Calculate the rate\\
-        3. Categorize people as issue opener, key contributor(s) and other discussants\\
-        4. Proceed with the rest of the steps. \textbf{BEFORE STARTING BELOW, THINK ABOUT CONDENSING, REORDERING AND EXECUTION. }}
-        \todo[inline]{For all of these think about variation by organizational structure, and the implications. Also, when evaluating effects, ask about the possibility of a mechanical effect. \\
-        1. General data questions\\
-        - Departed specific \\
-        a) What \% of PRs were opened by the departed (just use open, not authored), and what \% of the last/last two non-author comments were made by the departed?  What \% of first replies are made by the departed (unconditional + conditional on a first reply existing)? How long does this take for the departed (and for all first repliers)\\
-        \textcolor{white}{If the statistics vary, I would be concerned about mechanical effects. If these statistics don't vary, all is well. You can't use an event study with this, but the goal is to understand descriptively whether projects with different organizational structures differ}\\     
-        - General\\
-        a) # comments/issue, # ppl participating/issue, \% closed, attempted close (non-author responded), \textcolor{red}{Add more here - maybe some fo the response time work}\\
-        \textcolor{white}{I'm hoping to better understand how issue discussion might have changed in response to departure and whether the effect varied by organizational structure. This will provide me with a better understanding of how organizational structure might be affecting issue discussion, and how changes in issue discussion lead to less PRs opened. It's possible that this may be too broad and I will need to find a way to connect this more specifically to departure. I can probably do event studies for this - think I already have event studies for \% closed}\\
-        b) How often do issue openers also open a PR (in the same period, next two periods, etc)? What about if we split this statistic into "first-time" issue openers vs. non "first-time", or "important" vs. "unimportant". Also, think about ways I can better understand how joint participation across issues + PRs varies is affected by departure and varies by organizational structure \\
-        \textcolor{white}{I'm hoping to better understand whose driving the effect in PRs. Understanding whether it's driven by experienced or fringe contributors can provide a clearer understanding of the effect of organizational structure, and also narrow down specific effects. For example, if it's fringe contributors who aren't opening PRs, I would want to better understand why and how they're receiving less support to open the PRs. If it's important contributors who aren't opening PRs, I would want to understand what knowledge they're missing now that the departed contributor is gone. }\\
-        \textcolor{purple}{1) \% of PRs opened by departed: There are mechanical differences based on cluster that I should be concerned about. However, I'd expect the effect to be immediate if there was a mechanical effect?? } 
-        c) How do the characteristics of opened PRs change? Such as 1) \% linked to an issue, 2) length of PR text, 3) \# of files changed, code changes, etc\\
-        \textcolor{white}{I'm hoping this will provide further nuance about changes that are happening in projects that are more/less unclustered.}
-        }
-        \todo[inline]{Other planned todos
-        1) Quantify relationship to the departed contributor (\textbf{work on below, tbd})
-        1. were they connected to the departed contributor? How much did they interact? Across how many problems (issues + prs) and fields (issues, prs distinct) did they interact?\\
-        2. Were they also connected to other departed contributors? How long did they stay? \textbf{opportunity to think further here - What's the effect of collaboration?}) \\
-        ii) Analyze outcomes \textbf{work on below, tbd}\\
-        2) Can I prove this is wrong: Effect driven by differences in wrapping up the departed's work? Doesn't seem so bc short-term but who knows?\\
-        3) How do the characteristics of PR reviewing change (reply time, length, \# of people involved, \# of review comments, iterations of changes requested)
-        4) Consider how https://docs.google.com/document/d/1nBp7vdNo48EcdtpVeklCczMOD8eH3-CKIkFl4PPBkvw/edit?tab=t.0 can be executed to provide further insights}
-        \longterm[inline]{As I work, think about the different channels by which the departed contributor could impact overall quantity of PRs opened and the long-term story. Connect to themes such as "knowledge about project workings that's lost" or whether "teams are more productive than individuals (same people, less cooperation)"}
-        \todo[inline]{Aside: If I only use interactixons between clusters for issues, does that enhance the effects?}
-        \item Activity decline is driven by both declines in participation (Figure~\ref{fig:clustering_cc}) and average activity (Figure~\ref{fig:clustering_avg}). How might each be related to organizational structure? \textbf{Working on explanations above}
-
-        
-        \todo[inline]{more advanced questions below}
-        \item Are contributors in unclustered projects less substitutable, and contributors in more clustered projects more substitutable (which is why there is cooperation)?
-        \item How do newcomers fit into organizations depending on clustering?
-
-    \end{enumerate}
-
-    \item There seems to be some interesting nuance here. At the project-level, too much imp<->imp communication is what dooms it. When it comes to imp<->imp what you don't want is to have had no communication with the departed. It also seems like too much communication doesn't help either.  
-\begin{figure}[hp]
-  \centering
-  \begin{subfigure}[b]{0.48\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{temp/imp_imp_combined_2p_back_bin_third.png}
-    \caption{Imp<->Imp (project-wide)}
-  \end{subfigure}
-  \hfill
-  \begin{subfigure}[b]{0.48\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{temp/imp_imp_dept_combined_2p_back_bin_third.png}
-    \caption{Imp<->Imp (departed)}
-  \end{subfigure}
-  \caption{Impact of imp<->imp communication on post-departure outcomes}
-\end{figure}
-    \item Seems like middle amounts of imp<->other communication in the project are best (similar to imp<->other). For the departed, what's interesting is that 
-\begin{figure}[hp]
-  \centering
-  \begin{subfigure}[b]{0.48\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{temp/imp_other_combined_2p_back_bin_third.png}
-    \caption{Imp<->Imp (project-wide)}
-  \end{subfigure}
-  \hfill
-  \begin{subfigure}[b]{0.48\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{temp/imp_other_dept_combined_2p_back_bin_third.png}
-    \caption{Imp<->Imp (departed)}
-  \end{subfigure}
-  \caption{Impact of imp<->imp communication on post-departure outcomes}
-\end{figure}
-
-\end{itemize}
-
-
-
-
-- Departed contributor overlap doesn't seem to matter very much, but it seems like something that'd be good to look into robustness
-- Communication the story is much more nuanced. Overall imp<->other communication, middle third is best. departed imp<->other communication, little is best in the long term?
-- Overall imp<->imp communication: not that much is good, 
-
-
 
 
 \section{Conclusion} \label{sec:conclusion}
