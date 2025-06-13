@@ -9,7 +9,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import ast
-
 from source.lib.helpers import GetLatestRepoName
 from source.scrape.push_pr_commit_data.docs.get_push_commits import GitHubCommitFetcher
 
@@ -151,8 +150,8 @@ def Main():
     
     pr_filenames = [f"pull_request_{year}_{month}.csv" for year in range(2015, 2025)
                     for month in range(1, 13)]
-    # 2015 8 fails
-    for pr_filename in pr_filenames[8:]:
+
+    for pr_filename in pr_filenames:
         out_filename = pr_filename.replace("pull_request", "pull_request_data")
         df_pull = LoadPRData(pr_filename, indir_pull)
         df_pull = MergeExistingPRData(df_pull, outdir_pull, out_filename)
