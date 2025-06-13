@@ -15,7 +15,7 @@ def CreateDataset(client, dataset_name):
     print(f"Created dataset {client.project}.{dataset.dataset_id}")
 
 def LoadTableToDataset(client, dataset_name, table_name, indir_github_projects):
-    df_github_projects = pd.read_csv(Path(indir_github_projects) / 'repo_id_history.csv', index_col = False)
+    df_github_projects = pd.read_csv(Path(indir_github_projects) / 'repo_id_history_filtered.csv', index_col = False)
     df_github_projects = df_github_projects[['repo_name']].drop_duplicates()
     
     github_project_ref = client.dataset(dataset_name).table(table_name)
@@ -470,7 +470,7 @@ def GetSubsetData(client, project_name, dataset_name, subset_data_name):
     if not os.path.exists(outdir_log):
         os.mkdir(outdir_log)
         
-    file_counter = 1
+    file_counter = 0
     for subset_year in np.arange(2015, 2025, 1):
         for subset_month in np.arange(1, 13, 1):
             subset_date_sql = f"""
@@ -484,10 +484,10 @@ def GetSubsetData(client, project_name, dataset_name, subset_data_name):
             subset_date_query = client.query(subset_date_sql)
             df_subset = subset_date_query.to_dataframe()
             
-            SaveData(df_subset.reset_index(), 'index',
+            SaveData(df_subset.reset_index(), ['index'],
             	f"{outdir}/{subset_data_name.replace('_data','')}_{subset_year}_{subset_month}.csv",
             	f"{outdir_log}/{subset_data_name}.log",
-                append=file_counter == 1)
+                append=file_counter != 0)
             file_counter += 1
             
 def Main():

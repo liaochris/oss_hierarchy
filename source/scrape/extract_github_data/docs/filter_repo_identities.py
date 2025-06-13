@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from pathlib import Path
-
+from source.lib.JMSLab.SaveData import SaveData
 def ToUnixSeconds(series):
     dt_series = pd.to_datetime(series)
     if dt_series.dtype.tz is not None:
@@ -12,7 +12,6 @@ def ToUnixSeconds(series):
 def FindBestChainWeighted(df_group):
     df_temp = df_group.copy()
     df_temp['orig_index'] = df_temp.index
-    # df_temp['first_seen'] and df_temp['last_seen'] are assumed to be datetime already
     durations = (df_temp['last_seen'] - df_temp['first_seen']).dt.total_seconds().to_numpy()
 
     # Sort rows by last_seen
@@ -49,14 +48,20 @@ def FindBestChainWeighted(df_group):
     orig_indices = best_chain['orig_index'].to_numpy()
     return df_group.loc[orig_indices].sort_values(by='first_seen')
 
-def FilterByBestChain(df):
-    groups = [FindBestChainWeighted(group_df) for _, group_df in df.groupby('repo_group')]
+def FilterByBestChain(df, group_col):
+    groups = [FindBestChainWeighted(group_df) for _, group_df in df.groupby(group_col)]
     return pd.concat(groups).sort_index()
 
-if __name__ == '__main__':
+def Main():
     indir = Path('output/scrape/extract_github_data')
     df_full = pd.read_csv(indir / 'repo_id_history.csv')
     df_full['first_seen'] = pd.to_datetime(df_full['first_seen'])
     df_full['last_seen'] = pd.to_datetime(df_full['last_seen'])
-    df_filtered = FilterByBestChain(df_full)
-    df_filtered.to_csv(indir / 'repo_id_history_filtered.csv', index=False)
+
+    df_filtered = FilterByBestChain(df_full, 'repo_id')
+
+    SaveData(df_filtered, ['repo_group','first_seen','last_seen','repo_id','repo_name'], 
+             indir / 'repo_id_history_filtered.csv', indir / 'repo_id_history_filtered.log')
+    
+if __name__ == '__main__':
+    Main()
