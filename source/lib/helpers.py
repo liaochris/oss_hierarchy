@@ -72,3 +72,12 @@ def GetLatestRepoName(repo_name, repo_df):
     
     latest_repo = repo_data.loc[repo_data['last_seen'].idxmax()]
     return latest_repo['repo_name'] 
+
+def RemoveDuplicatesFlattened(values):
+    flat = (x for v in values for x in (v if isinstance(v, list) else [v]) if pd.notnull(x))
+    seen, out = set(), []
+    for x in flat:
+        if x not in seen:
+            seen.add(x)
+            out.append(x)
+    return out
