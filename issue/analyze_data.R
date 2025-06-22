@@ -29,7 +29,7 @@ NormalizeOutcome <- function(df, outcome) {
 }
 
 
-EventStudy <- function(df, outcome, method = c("bjs", "sa", "cs", "2s"), normalize = FALSE, title = NULL) {
+EventStudy <- function(df, outcome, method = c("sa", "cs", "2s", "bjs", "es"), normalize = FALSE, title = NULL) {
   method <- match.arg(method)
   df_est <- if (normalize) NormalizeOutcome(df, outcome) else df %>% mutate("{outcome}_norm" := .data[[outcome]])
   yvar <- paste0(outcome, "_norm")
@@ -46,12 +46,6 @@ EventStudy <- function(df, outcome, method = c("bjs", "sa", "cs", "2s"), normali
                         column_to_rownames("term") %>% 
                         as.matrix() 
                       est
-                    },
-                    sa = {
-                      est_formula <- as.formula(sprintf("%s ~ sunab(treatment_group, time_index) | repo_name + time_index",
-                                                        yvar))
-                      est_obj <- feols(est_formula, df_est, vcov = ~ repo_name)
-                      CleanFixEst(est_obj, "time_index::")
                     },
                     cs = {
                       att <- att_gt(yname = yvar, tname = "time_index", idname = "repo_name_id",
@@ -74,6 +68,23 @@ EventStudy <- function(df, outcome, method = c("bjs", "sa", "cs", "2s"), normali
                                     second_stage = ~ i(rel_time, ref = -1),
                                     treatment    = "treatment", cluster_var = "repo_name")
                       CleanFixEst(es2s_obj, "rel_time::")
+                    },
+                    es = {
+                      est <- eventstudyr::EventStudy(estimator = "OLS", data = df_est, outcomevar = yvar, 
+                                              policyvar = "treatment",
+                                              idvar = "repo_name", timevar = "time_index", post = 4,
+                                              pre = 0)$output %>% 
+                        tidy() %>%  
+                        rename(sd = std.error, ci_low = conf.low, ci_high = conf.high) %>%
+                        select(term, estimate, sd, ci_low, ci_high) %>%
+                        mutate(term = ifelse(grepl("lead", term), 
+                                             ifelse(grepl("fd_lead", term), -1*as.numeric(str_sub(term, -1)), 
+                                                    -1*(as.numeric(str_sub(term, -1))+1)), 
+                                             as.numeric(str_sub(term, -1))),
+                               term = ifelse(is.na(term), 0, term)) %>%
+                        column_to_rownames("term") %>% 
+                        as.matrix() 
+                      est
                     }
   )
   res_mat <- EnsureMinusOneRow(res_mat)
@@ -82,7 +93,7 @@ EventStudy <- function(df, outcome, method = c("bjs", "sa", "cs", "2s"), normali
   plot_obj <- plot_fun(res_mat,
                        main     = title,
                        xlab     = "Time to treatment",
-                       keep     = "^-[1-4]|[0-4]",
+                       keep     = "^-[1-5]|[0-5]",
                        drop     = "[[:digit:]]{2}",
                        ref.line = 0)
   list(plot = plot_obj, results = res_mat)
@@ -193,8 +204,9 @@ group_defs <- list(
   list(name = "Other",   col = "ind_other_collab_2bin", bins = c(1, 0)),
   list(name = "Other",   col = "ind_other_collab_3bin", bins = c(2, 1, 0))
 )
-metrics <- c("sa", "cs", "2s", "bjs") # BJS HAS KNOWN ISSUE
-metrics_fn <- c("Sun and Abraham 2020", "Callaway and Sant'Anna 2020", "Gardner 2021", "Borusyak et. al 2024")
+metrics <- c("cs", "2s", "bjs", "es") # BJS HAS KNOWN ISSUE
+metrics_fn <- c("Callaway and Sant'Anna 2020", 
+                "Gardner 2021", "Borusyak et. al 2024", "Freyaldenhoven et. al 2021")
 
 modes <- list(
   list(normalize = FALSE, file = "issue/output/prs_opened.png"),
@@ -214,9 +226,9 @@ df_panel_nyt %>% mutate(relative_time = time_index - treatment_group) %>% group_
 dev.off()
 
 for (norm in c(TRUE, FALSE)) {
-  for (m in metrics[[2]]) {
+  for (m in metrics) {
     norm_str <- ifelse(norm, "_norm", "")
-    png(paste0("issue/output/prs_opened_collab_",m,".png"))
+    png(paste0("issue/output/collab/prs_opened_collab_",m,norm_str,".png"))
     for (g in list(group_defs[[1]])) {
       subsets <- lapply(g$bins, function(b) {
         RemoveOutliers(df_panel_nyt, "prs_opened") %>% filter(.data[[g$col]] == b)
