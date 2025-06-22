@@ -116,31 +116,54 @@ EnsureMinusOneRow <- function(est_mat) {
   }
   est_mat
 }
-
-CompareES <- function(..., collab_type, legend_labels) {
+CompareES <- function(..., collab_type, legend_labels, file_path = NULL) {
   es_list <- list(...)
-  results <- lapply(es_list, `[[`, "results")
-  plot_fn <- fixest::coefplot
+  results  <- lapply(es_list, `[[`, "results")
+  plot_fn  <- fixest::coefplot
   
-  plot_fn(results,xlab = "Time to treatment", keep = "^-[1-5]|[0-5]", drop = "[[:digit:]]{2}", ref.line = 0)
+  if (!is.null(file_path)) {
+    png(filename = file_path)
+  }
+  
+  plot_fn(
+    results,
+    xlab     = "Time to treatment",
+    keep     = "^-[1-5]|[0-5]",
+    drop     = "[[:digit:]]{2}",
+    ref.line = 0
+  )
   
   n <- length(results)
   legend_labels <- if (n == 2) {
-    c(paste(collab_type, "Collaborative"),
-      paste(collab_type, "Uncollaborative"))
+    c(
+      paste(collab_type, "Collaborative"),
+      paste(collab_type, "Uncollaborative")
+    )
   } else if (n == 3) {
-    c(paste(collab_type, "Most Collaborative"),
+    c(
+      paste(collab_type, "Most Collaborative"),
       paste(collab_type, "Moderately Collaborative"),
-      paste(collab_type, "Least Collaborative"))
+      paste(collab_type, "Least Collaborative")
+    )
   } else {
     stopifnot(length(legend_labels) == n)
     legend_labels
   }
   
-  # Add the legend
-  legend("topright", col = seq_len(n), pch = 20, lwd = 1, lty = seq_len(n),
-         legend = legend_labels)
+  legend(
+    "topright",
+    col    = seq_len(n),
+    pch    = 20,
+    lwd    = 1,
+    lty    = seq_len(n),
+    legend = legend_labels
+  )
+  
+  if (!is.null(file_path)) {
+    dev.off()
+  }
 }
+
 RemoveOutliers <- function(df_panel_nyt, col, lower = 0.01, upper = 0.99) {
   mean_prs_df <- df_panel_nyt %>%
     group_by(repo_name) %>%
@@ -172,13 +195,38 @@ group_defs <- list(
 )
 metrics <- c("sa", "cs", "2s", "bjs") # BJS HAS KNOWN ISSUE
 metrics_fn <- c("Sun and Abraham 2020", "Callaway and Sant'Anna 2020", "Gardner 2021", "Borusyak et. al 2024")
-es_list <- lapply(metrics, function(m) {
-  EventStudy(df_panel_nyt, "prs_opened", m, title = "", normalize = F)
-})
-do.call(
-  CompareES,
-  c(es_list, list(collab_type = "", legend_labels = metrics_fn))
+
+modes <- list(
+  list(normalize = FALSE, file = "issue/output/prs_opened.png"),
+  list(normalize = TRUE,  file = "issue/output/prs_opened_norm.png")
 )
+
+for (mode in modes) {
+  # build the list of ES objects for this mode
+  es_list <- lapply(metrics, function(m) {
+    EventStudy(
+      df_panel_nyt,
+      "prs_opened",
+      m,
+      title     = "",
+      normalize = mode$normalize
+    )
+  })
+  
+  # dispatch to CompareES, passing along the right file path
+  do.call(
+    CompareES,
+    c(
+      es_list,
+      list(
+        collab_type   = "",
+        legend_labels = metrics_fn,
+        file_path     = mode$file
+      )
+    )
+  )
+}
+
 
 for (m in metrics[[2]]) {
   for (g in list(group_defs[[1]])) {
