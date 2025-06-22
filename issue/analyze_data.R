@@ -202,46 +202,36 @@ modes <- list(
 )
 
 for (mode in modes) {
-  # build the list of ES objects for this mode
-  es_list <- lapply(metrics, function(m) {
-    EventStudy(
-      df_panel_nyt,
-      "prs_opened",
-      m,
-      title     = "",
-      normalize = mode$normalize
-    )
-  })
+    es_list <- lapply(metrics, function(m) {
+    EventStudy(df_panel_nyt, "prs_opened", m, title = "", normalize = mode$normalize)})
   
-  # dispatch to CompareES, passing along the right file path
-  do.call(
-    CompareES,
-    c(
-      es_list,
-      list(
-        collab_type   = "",
-        legend_labels = metrics_fn,
-        file_path     = mode$file
-      )
-    )
-  )
+  do.call(CompareES, c(es_list, list(collab_type = "", legend_labels = metrics_fn, file_path = mode$file)))
 }
 
+png("issue/output/naive_prs_opened.png")
+df_panel_nyt %>% mutate(relative_time = time_index - treatment_group) %>% group_by(relative_time) %>% 
+  summarize(mean(prs_opened)) %>% filter(abs(relative_time) <= 5) %>% plot()
+dev.off()
 
-for (m in metrics[[2]]) {
-  for (g in list(group_defs[[1]])) {
-    subsets <- lapply(g$bins, function(b) {
-      RemoveOutliers(df_panel_nyt, "prs_opened") %>% filter(.data[[g$col]] == b)
-    })
-
-    es_list <- lapply(subsets, function(df_sub) {
-      EventStudy(df_sub, "prs_opened", m, title = "", normalize = F)
-    })
-
-    do.call(
-      CompareES,
-      c(es_list, list(collab_type = g$name))
-    )
+for (norm in c(TRUE, FALSE)) {
+  for (m in metrics[[2]]) {
+    norm_str <- ifelse(norm, "_norm", "")
+    png(paste0("issue/output/prs_opened_collab_",m,".png"))
+    for (g in list(group_defs[[1]])) {
+      subsets <- lapply(g$bins, function(b) {
+        RemoveOutliers(df_panel_nyt, "prs_opened") %>% filter(.data[[g$col]] == b)
+      })
+      
+      es_list <- lapply(subsets, function(df_sub) {
+        EventStudy(df_sub, "prs_opened", m, title = "", normalize = norm)
+      })
+      
+      do.call(
+        CompareES,
+        c(es_list, list(collab_type = g$name))
+      )
+    }
+    dev.off()
   }
 }
 
