@@ -68,6 +68,7 @@ def Main():
         
         # remove already committed
         committers_match = CleanCommittersInfo(indir_committers_info)
+        committers_match = committers_match[committers_match['actor_name'].apply(lambda x: "[bot]" in x)]
         df_pr_commit_stats = LinkCommits(df_pr_selected, df_pr_commits_selected, committers_match, commit_cols, 'pr')
         df_push_commit_stats = LinkCommits(None, df_push_commits_selected, committers_match, commit_cols, 'push')
         df_issue_selected = LinkIssuePR(df_issue_selected_unlinked, df_linked_issues)
@@ -161,6 +162,9 @@ def ImputeTimePeriod(df, time_period_months):
     df['time_period'] = pd.to_datetime(df['time_period'])
     return df 
 
+def union_sets_of_sets(sets_series):
+    return set().union(*sets_series)
+
 def AssignPRAuthorship(df_pr_commit_stats, df_pr_selected, author_thresh, commit_cols):
     pr_reviewers = df_pr_selected.query('type == "PullRequestReviewEvent"').groupby(
         ['repo_name','pr_number'])['actor_id'].agg(list).reset_index().rename({'actor_id':'reviewers_id'}, axis = 1)
@@ -169,8 +173,10 @@ def AssignPRAuthorship(df_pr_commit_stats, df_pr_selected, author_thresh, commit
     df_pr_commit_stats['reviewers_id']  = df_pr_commit_stats['reviewers_id'].apply(
         lambda x: set() if pd.isnull(x) else x)
     commit_cols_share = [f"{col} share" for col in commit_cols]
+    sum_columns = commit_cols_share + commit_cols
+    agg_dict = {'created_at': 'min', **{col: 'sum' for col in sum_columns},'reviewers_id':union_sets_of_sets}
+    df_pr_commit_stats = df_pr_commit_stats.groupby(['repo_name', 'commit_author_id', 'pr_number','actor_id'], as_index=False).agg(agg_dict)
     commit_author_bool = df_pr_commit_stats.apply(lambda x: any([x[col]>author_thresh for col in commit_cols_share]) and 
-                                                  "[bot]" not in x['actor_login'] and 
                                                   x['actor_id'] not in x['reviewers_id'], axis = 1)
     df_pr_commit_author_stats = df_pr_commit_stats[commit_author_bool]
     return df_pr_commit_author_stats

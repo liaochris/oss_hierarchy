@@ -81,3 +81,8 @@ def RemoveDuplicatesFlattened(values):
             seen.add(x)
             out.append(x)
     return out
+
+def WeightedMean(values, weights, zero_weight_return = np.nan):
+    if weights.sum() == 0:
+        return zero_weight_return
+    return (values * weights).sum() / weights.sum()

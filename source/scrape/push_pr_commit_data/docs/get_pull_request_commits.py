@@ -127,7 +127,7 @@ def MergeExistingPRData(df_new, outdir, out_filename):
 def UpdatePRCommitList(df_pull, primary_auth, backup_auth, repo_df):
     for idx in df_pull.index:
         if idx % 1000 == 0:
-            print(f"{idx} commits processed")
+            print(f"{idx} PRs processed")
         current_list = df_pull.at[idx, "commit_list"]
         if not isinstance(current_list, list) or (isinstance(current_list, list) and len(current_list) == 250):
             result = GrabCommits(
@@ -151,13 +151,14 @@ def Main():
     pr_filenames = [f"pull_request_{year}_{month}.csv" for year in range(2015, 2025)
                     for month in range(1, 13)]
 
-    for pr_filename in pr_filenames:
+    for pr_filename in pr_filenames[68:]:
         out_filename = pr_filename.replace("pull_request", "pull_request_data")
         df_pull = LoadPRData(pr_filename, indir_pull)
         df_pull = MergeExistingPRData(df_pull, outdir_pull, out_filename)
         df_pull.reset_index(drop=True, inplace=True)
         df_pull = UpdatePRCommitList(df_pull, primary_auth, backup_auth, repo_df)
         print("Commits for", pr_filename, "obtained")
+        # USE SAVE DATA
         df_pull.to_csv(outdir_pull / out_filename, index=False)
 
 
