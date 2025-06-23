@@ -51,7 +51,7 @@ EventStudy <- function(df, outcome, method = c("cs", "2s", "bjs", "es"), normali
                       att <- att_gt(yname = yvar, tname = "time_index", idname = "repo_name_id",
                                     gname = "treatment_group", xformla = ~1, data = df_est,
                                     control_group = "notyettreated", allow_unbalanced_panel = T,
-                                    clustervars = "repo_name")
+                                    clustervars = "repo_name", est_method =  "dr")
                       est <- aggte(att, type = "dynamic", na.rm = TRUE) %>% 
                         tidy() %>%  
                         rename(sd = std.error, ci_low = conf.low, ci_high = conf.high) %>%
@@ -70,20 +70,20 @@ EventStudy <- function(df, outcome, method = c("cs", "2s", "bjs", "es"), normali
                       CleanFixEst(es2s_obj, "rel_time::")
                     },
                     es = {
-                      est <- eventstudyr::EventStudy(estimator = "OLS", data = df_est, outcomevar = yvar, 
-                                              policyvar = "treatment",
-                                              idvar = "repo_name", timevar = "time_index", post = 4,
-                                              pre = 0)$output %>% 
-                        tidy() %>%  
-                        rename(sd = std.error, ci_low = conf.low, ci_high = conf.high) %>%
+                      est <- eventstudyr::EventStudy(estimator="OLS",data=df_est,outcomevar=yvar,
+                                                     policyvar="treatment",idvar="repo_name",
+                                                     timevar="time_index",post=4,pre=0)$output %>%
+                        tidy() %>%
+                        rename(sd=std.error, ci_low=conf.low, ci_high=conf.high) %>%
                         select(term, estimate, sd, ci_low, ci_high) %>%
-                        mutate(term = ifelse(grepl("lead", term), 
-                                             ifelse(grepl("fd_lead", term), -1*as.numeric(str_sub(term, -1)), 
-                                                    -1*(as.numeric(str_sub(term, -1))+1)), 
-                                             as.numeric(str_sub(term, -1))),
-                               term = ifelse(is.na(term), 0, term)) %>%
-                        column_to_rownames("term") %>% 
-                        as.matrix() 
+                        mutate(term = case_when(
+                          str_detect(term, "fd_lead") ~ -as.numeric(str_extract(term, "\\d+$")),
+                          str_detect(term, "lead")    ~ -(as.numeric(str_extract(term, "\\d+$")) + 1),
+                          str_detect(term, "lag")     ~  as.numeric(str_extract(term, "\\d+$")),
+                          TRUE                         ~ 0
+                        )) %>%
+                        column_to_rownames("term") %>%
+                        as.matrix()
                       est
                     }
   )
@@ -214,7 +214,7 @@ modes <- list(
 
 for (mode in modes) {
   es_list <- lapply(metrics, function(m) {
-    EventStudy(RemoveOutliers(df_panel_nyt, "prs_opened"), mode$outcome, m, title = "", normalize = mode$normalize)
+    EventStudy(df_panel_nyt, mode$outcome, m, title = "", normalize = mode$normalize)
   })
   png(mode$file)
   do.call(CompareES, c(es_list, list(legend_labels = metrics_fn)))
@@ -225,13 +225,13 @@ for (mode in modes) {
 for(norm in c(TRUE,FALSE)) {
   norm_str <- ifelse(norm, "_norm", "")
   for(m in metrics[1:3]) {
-    for(g in group_defs) {
+    for(g in group_defs[1]) {
       combo_grid <- expand.grid(lapply(g$filters, `[[`, "vals"), 
                                 KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
       print(combo_grid)
       print(g$legend_labels)
       es_list <- apply(combo_grid, 1, function(vals_row){
-        df_sub<-RemoveOutliers(df_panel_nyt,"prs_opened")
+        df_sub<-df_panel_nyt %>% filter(repo_name != "pantsbuild/pants")
         for(i in seq_along(vals_row)){
           col_name<-g$filters[[i]]$col
           df_sub<-df_sub %>% filter(.data[[col_name]]==vals_row[[i]])
@@ -244,7 +244,7 @@ for(norm in c(TRUE,FALSE)) {
       es_list     <- es_list[success_idx]
       labels      <- g$legend_labels[success_idx]
       
-      out_path <- paste0("issue/output/collab/", g$fname_prefix, m, norm_str, ".png")
+      out_path <- paste0("issue/output/collab/", g$fname_prefix, m, norm_str, "wo.png")
       png(out_path)
       do.call(CompareES, c(es_list, list(legend_labels = labels)))
       dev.off()

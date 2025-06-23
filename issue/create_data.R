@@ -124,8 +124,12 @@ Main <- function() {
   df_panel_nyt <- df_panel_nyt  %>%
     left_join(df_collab) %>%
     filter(repo_name %in% unique(df_collab$repo_name))
-  
-  
+  sum(is.na(df_panel_nyt))
+  df_panel_nyt <- df_panel_nyt %>%
+    group_by(repo_name) %>%
+    fill(all_of(colnames(df_collab)), .direction = "up") %>%
+    ungroup()
+  sum(is.na(df_panel_nyt))
 }
 
 Main()
