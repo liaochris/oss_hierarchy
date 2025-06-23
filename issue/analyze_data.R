@@ -29,11 +29,11 @@ NormalizeOutcome <- function(df, outcome) {
 }
 
 
-EventStudy <- function(df, outcome, method = c("sa", "cs", "2s", "bjs", "es"), normalize = FALSE, title = NULL) {
+EventStudy <- function(df, outcome, method = c("cs", "2s", "bjs", "es"), normalize = FALSE, title = NULL) {
   method <- match.arg(method)
   df_est <- if (normalize) NormalizeOutcome(df, outcome) else df %>% mutate("{outcome}_norm" := .data[[outcome]])
   yvar <- paste0(outcome, "_norm")
-  
+
   # compute coefficients & std errors
   res_mat <- switch(method,
                     bjs = {
@@ -50,7 +50,7 @@ EventStudy <- function(df, outcome, method = c("sa", "cs", "2s", "bjs", "es"), n
                     cs = {
                       att <- att_gt(yname = yvar, tname = "time_index", idname = "repo_name_id",
                                     gname = "treatment_group", xformla = ~1, data = df_est,
-                                    control_group = "notyettreated", allow_unbalanced_panel = TRUE,
+                                    control_group = "notyettreated", allow_unbalanced_panel = T,
                                     clustervars = "repo_name")
                       est <- aggte(att, type = "dynamic", na.rm = TRUE) %>% 
                         tidy() %>%  
@@ -114,65 +114,23 @@ CleanFixEst <- function(est_obj, term_prefix) {
 
 EnsureMinusOneRow <- function(est_mat) {
   if (!("-1" %in% rownames(est_mat))) {
-    blank_row <- matrix(
-      c(0,          # estimate
-        0,   # sd
-        0,   # ci_low
-        0),  # ci_high
-      nrow = 1
-    )
+    blank_row <- matrix(c(0, 0, 0, 0), nrow = 1)
     colnames(blank_row) <- colnames(est_mat)
     rownames(blank_row) <- "-1"
     est_mat <- rbind(est_mat, blank_row)
   }
   est_mat
 }
-CompareES <- function(..., collab_type, legend_labels, file_path = NULL) {
+CompareES <- function(..., legend_labels) {
   es_list <- list(...)
   results  <- lapply(es_list, `[[`, "results")
   plot_fn  <- fixest::coefplot
   
-  if (!is.null(file_path)) {
-    png(filename = file_path)
-  }
+  plot_fn(results, xlab = "Time to treatment", keep = "^-[1-5]|[0-5]", drop = "[[:digit:]]{2}")
   
-  plot_fn(
-    results,
-    xlab     = "Time to treatment",
-    keep     = "^-[1-5]|[0-5]",
-    drop     = "[[:digit:]]{2}",
-    ref.line = 0
-  )
-  
-  n <- length(results)
-  legend_labels <- if (n == 2) {
-    c(
-      paste(collab_type, "Collaborative"),
-      paste(collab_type, "Uncollaborative")
-    )
-  } else if (n == 3) {
-    c(
-      paste(collab_type, "Most Collaborative"),
-      paste(collab_type, "Moderately Collaborative"),
-      paste(collab_type, "Least Collaborative")
-    )
-  } else {
-    stopifnot(length(legend_labels) == n)
-    legend_labels
-  }
-  
-  legend(
-    "topright",
-    col    = seq_len(n),
-    pch    = 20,
-    lwd    = 1,
-    lty    = seq_len(n),
-    legend = legend_labels
-  )
-  
-  if (!is.null(file_path)) {
-    dev.off()
-  }
+  stopifnot(length(legend_labels) == length(results))
+  legend("topleft", col = seq_along(results), pch = 20,
+         lwd = 1, lty = seq_along(results), legend = legend_labels)
 }
 
 RemoveOutliers <- function(df_panel_nyt, col, lower = 0.01, upper = 0.99) {
@@ -199,51 +157,97 @@ df_panel_nyt <- df_panel_nyt %>%
   mutate(repo_name_id = as.integer(factor(repo_name, levels = sort(unique(repo_name)))))
 
 group_defs <- list(
-  list(name = "Departed", col = "ind_key_collab_2bin", bins = c(1, 0)),
-  list(name = "Departed", col = "ind_key_collab_3bin", bins = c(2, 1, 0)),
-  list(name = "Other",   col = "ind_other_collab_2bin", bins = c(1, 0)),
-  list(name = "Other",   col = "ind_other_collab_3bin", bins = c(2, 1, 0))
-)
-metrics <- c("cs", "2s", "bjs", "es") # BJS HAS KNOWN ISSUE
-metrics_fn <- c("Callaway and Sant'Anna 2020", 
-                "Gardner 2021", "Borusyak et. al 2024", "Freyaldenhoven et. al 2021")
+  list(filters = list(list(col = "ind_key_collab_2bin", vals = c(1, 0))),
+       fname_prefix  = "prs_opened_collab_",
+       legend_labels = c("Dept. Collaborative", "Dept. Uncollaborative")),
+  list(filters = list(list(col = "ind_key_collab_2bin", vals = c(1, 0)),
+                      list(col = "departed_involved_2bin", vals = c(1, 0))),
+       fname_prefix  = "prs_opened_collab_involved_",
+       legend_labels = c("Dept. Collaborative + Involved", "Dept. Uncollaborative + Involved",
+                         "Dept. Collaborative + Uninvolved", "Dept. Uncollaborative + Uninvolved")),
+  list(filters = list(list(col = "ind_key_collab_2bin", vals = c(1, 0)),
+                      list(col = "departed_involved_3bin", vals = c(2, 1, 0))),
+       fname_prefix  = "prs_opened_collab_involved_3b_",
+       legend_labels = c("Dept. Collaborative + Involved", "Dept. Uncollaborative + Involved",
+                         "Dept. Collaborative + Less involved", "Dept. Uncollaborative + Less involved",
+                         "Dept. Collaborative + Uninvolved", "Dept. Uncollaborative + Uninvolved")),
+  list(filters = list(list(col = "departed_involved_2bin", vals = c(1, 0))),
+       fname_prefix  = "prs_opened_involved_",
+       legend_labels = c("Dept. Involved", "Dept. Uninvolved")),
+  list(filters = list(list(col = "departed_involved_3bin", vals = c(2, 1, 0))),
+     fname_prefix  = "prs_opened_involved_3b_",
+     legend_labels = c("Dept. Involved", "Dept. Less involved","Dept. Uninvolved")),
+  list(filters = list(list(col = "ind_key_collab_2bin", vals = c(1, 0)),
+                         list(col = "key_contributor_count_2bin", vals = c(1, 0))),
+          fname_prefix  = "prs_opened_collab_key_",
+          legend_labels = c("Dept. Collaborative + Many Key", "Dept. Uncollaborative + Many Key",
+                            "Dept. Collaborative + Few Key", "Dept. Uncollaborative + Few Key")),
+  list(filters = list(list(col = "key_contributor_count_2bin", vals = c(1, 0))),
+       fname_prefix  = "prs_opened_key_",
+       legend_labels = c("Many Key", "Few Key")),
+  list(filters = list(list(col = "ind_key_collab_2bin", vals = c(1, 0)),
+                      list(col = "total_contributor_count_2bin", vals = c(1, 0))),
+          fname_prefix  = "prs_opened_collab_total_",
+          legend_labels = c("Dept. Collaborative + Many Contributors", "Dept. Uncollaborative + Many Contributors",
+                            "Dept. Collaborative + Few Contributors", "Dept. Uncollaborative + Few Contributors")),
+  list(filters = list(list(col = "total_contributor_count_2bin", vals = c(1, 0))),
+       fname_prefix  = "prs_opened_total_",
+       legend_labels = c("Many Contributors", "Few Contributors")),
+  list(filters = list(list(col = "ind_key_collab_2bin", vals = c(1, 0)),
+                      list(col = "problem_count_2bin", vals = c(1, 0))),
+          fname_prefix  = "prs_opened_collab_problem_",
+          legend_labels = c("Dept. Collaborative + Many Problems", "Dept. Uncollaborative + Many Problems",
+                            "Dept. Collaborative + Few Problems", "Dept. Uncollaborative + Few Problems")),
+  list(filters = list(list(col = "problem_count_2bin", vals = c(1, 0))),
+       fname_prefix  = "prs_opened_problem_",
+       legend_labels = c("Many Problems", "Few Problems")))
+
+metrics <- c("cs", "2s", "es") # BJS HAS KNOWN ISSUE
+metrics_fn <- c("Callaway and Sant'Anna 2020", "Gardner 2021", "Freyaldenhoven et. al 2021")
 
 modes <- list(
-  list(normalize = FALSE, file = "issue/output/prs_opened.png"),
-  list(normalize = TRUE,  file = "issue/output/prs_opened_norm.png")
+  list(normalize = FALSE, file = "issue/output/prs_opened.png", outcome = "prs_opened"),
+  list(normalize = TRUE,  file = "issue/output/prs_opened_norm.png", outcome = "prs_opened"),
+  list(normalize = FALSE, file = "issue/output/commits.png", outcome = "commits"),
+  list(normalize = TRUE,  file = "issue/output/commits_norm.png", outcome = "commits")
 )
 
 for (mode in modes) {
-    es_list <- lapply(metrics, function(m) {
-    EventStudy(df_panel_nyt, "prs_opened", m, title = "", normalize = mode$normalize)})
-  
-  do.call(CompareES, c(es_list, list(collab_type = "", legend_labels = metrics_fn, file_path = mode$file)))
+  es_list <- lapply(metrics, function(m) {
+    EventStudy(RemoveOutliers(df_panel_nyt, "prs_opened"), mode$outcome, m, title = "", normalize = mode$normalize)
+  })
+  png(mode$file)
+  do.call(CompareES, c(es_list, list(legend_labels = metrics_fn)))
+  dev.off()
 }
 
-png("issue/output/naive_prs_opened.png")
-df_panel_nyt %>% mutate(relative_time = time_index - treatment_group) %>% group_by(relative_time) %>% 
-  summarize(mean(prs_opened)) %>% filter(abs(relative_time) <= 5) %>% plot()
-dev.off()
 
-for (norm in c(TRUE, FALSE)) {
-  for (m in metrics) {
-    norm_str <- ifelse(norm, "_norm", "")
-    png(paste0("issue/output/collab/prs_opened_collab_",m,norm_str,".png"))
-    for (g in list(group_defs[[1]])) {
-      subsets <- lapply(g$bins, function(b) {
-        RemoveOutliers(df_panel_nyt, "prs_opened") %>% filter(.data[[g$col]] == b)
-      })
+for(norm in c(TRUE,FALSE)) {
+  norm_str <- ifelse(norm, "_norm", "")
+  for(m in metrics[1:3]) {
+    for(g in group_defs) {
+      combo_grid <- expand.grid(lapply(g$filters, `[[`, "vals"), 
+                                KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
+      print(combo_grid)
+      print(g$legend_labels)
+      es_list <- apply(combo_grid, 1, function(vals_row){
+        df_sub<-RemoveOutliers(df_panel_nyt,"prs_opened")
+        for(i in seq_along(vals_row)){
+          col_name<-g$filters[[i]]$col
+          df_sub<-df_sub %>% filter(.data[[col_name]]==vals_row[[i]])
+        }
+        tryCatch(EventStudy(df_sub,"prs_opened",method=m,title="",normalize=norm),
+                 error=function(e) NULL)
+        },
+        simplify=FALSE)
+      success_idx <- which(!sapply(es_list,is.null))
+      es_list     <- es_list[success_idx]
+      labels      <- g$legend_labels[success_idx]
       
-      es_list <- lapply(subsets, function(df_sub) {
-        EventStudy(df_sub, "prs_opened", m, title = "", normalize = norm)
-      })
-      
-      do.call(
-        CompareES,
-        c(es_list, list(collab_type = g$name))
-      )
+      out_path <- paste0("issue/output/collab/", g$fname_prefix, m, norm_str, ".png")
+      png(out_path)
+      do.call(CompareES, c(es_list, list(legend_labels = labels)))
+      dev.off()
     }
-    dev.off()
   }
 }
-
