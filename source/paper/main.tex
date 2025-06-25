@@ -285,41 +285,36 @@ I think it applies to two literature
 \section{Data} \label{sec:data}
 \longterm[inline]{I may want to think about data as data sources, and data definitions}
 \begin{enumerate}
-    \item What is an open source software project (unit of measurement)?. 
+    \item What is an open source software project (unit of measurement)?.
     \begin{itemize}
-        \item Appendix: how I map PyPi projects to github repositories
+        \item Appendix: How I map PyPi projects to github repositories
         \item Appendix: How I match repo names to repo ids in cases where identity changes
     \end{itemize}
     \item Who are contributors and how do contributors contribute to the project?
+    
     \begin{itemize}
-        \item Describe the many purposes of an issue and define the key concepts in an issue thread: Issue Opened, Issue Comment, Issue closed. Add a screenshot to help inform what these are like
+        \item Describe the many purposes of an issue and define the key concepts in an issue thread. Add a screenshot to help inform what these are like
+        \item Describe the purpose of a PR, and define the key concepts in a PR thread. Add a screenshot to help inform what these are like. 
         \begin{itemize}
-            \item Appendix: How I measure issues closed (is it based off of only issues that are opened, or all recorded events?)
+            \item Appendix: How I measure PRs merged and other related concepts (is it a subset of opened PRs?)
         \end{itemize}
-        \item Describe the purpose of a PR, and define the key concepts in a PR thread: PR opened, PR comment, PR review, PR review comment, PR merged/unmerged. Add a screenshot to help inform what these are like. 
+        \item Units of code change: commits, which come from pushes + PRs. 
         \begin{itemize}
-            \item With time: PR to issue linkage rate
-            \item Appendix: How I measure PRs merged and other related concepts (is it based off of only issues that are opened, or all recorded events?)
-        \end{itemize}
-        \item Units of code change: commits
-        \begin{itemize}
-            \item Where commits come from: pushes + PRs (show examples of both), and how I define commits as sum of both
-            \item Appendix (shift to correct section): Results with robustness to different ways of defining departures using commits
-            \item Appendix: describe how I deal with the fact that push and PR commits can be overlapping? 
+            \item Appendix: How are commits measured and deal with the fact that push and PR commits can be overlapping? 
         \end{itemize}
     \end{itemize}
-    \item Measurement: Aggregation to the 6 month level
-    \begin{itemize}
-        \item With time (shift to correction section): Robustness check showing that results do not depend on the 6 month aggregation. 
-    \end{itemize}
-    \item Appendix: Data availability (when is it first available, what is the availability rate)
-    \item Measurement of downstream outcomes
+    \item Measurement of downstream outcomes - the deifne the ones that I end up using. 
     \begin{itemize}
         \item Describe software releases, the various types and measurement
         \item Define software quality (security measure, not user experience based)
         \item Downloads
     \end{itemize}
-    \item How do we measure the key organizational characteristics of interest: 
+    \item Measurement: Aggregation to the 6 month level
+    \begin{itemize}
+        \item Appendix: Robustness to 3 month measurements (if necessary)
+    \end{itemize}
+    \item Appendix: Data availability (when is it first available, what is the availability rate)
+
 \end{enumerate}
 \textcolor{red}{To Dos
 \begin{enumerate}
@@ -331,24 +326,60 @@ I think it applies to two literature
 \end{enumerate}}
 
 \subsection{Measuring Departure}
-2. How do I define departure 
-- commits pct, minimum number of periods
-- abrupt
-- restrictions on post-period activity 
-- how many projects have departures, how many departures
-  - how many projects have only one departure and end up being used
-- picture of the ES graph for my chosen specification?
+\begin{enumerate}
+    \item Subset of contributors whose code contributions were above the 75th percentile for at least 3 consecutive periods before
+    \item Commits declined immediately to 0 in the "departure" period
+    \item Departure is permanent
+    \item Departure means all other activities in all other areas ceases too 
+    \todo[inline]{check if this zero activity rule applies starting the departure period or period after departure}
+    \item Project only experienced one departure. 
+\end{enumerate}
+\todo[inline]{Incorporate picture of the ES graph for my chosen specification?}
 \subsection{Measuring Organizational Structure}
-3. How do I define organizational structure
-- How do I define the network
-- How do I define the hierarchy
-- How do I define the key organizational characteristics (collab, communication)
-- What do the key organizational characteristics look like
+The key ingredients needed are a definition of key contributor and  problems the project solves. 
+\subsubsection{Defining key contributors}
+\begin{enumerate}
+    \item Construct a network of interactions between contributors based off issue threads, PR threads and PR review threads.
+    \begin{itemize}
+        \item Include example
+    \end{itemize}
+    \item Mark contributor as key if they meet either one of the two criteria in any of the past 3 time periods \textbf{AND} they're still active
+    \begin{enumerate}
+        \item their degree (number of nodes they were connected to) z score exceeded 1.5 or had the highest z score 
+        \item they are the departed contributor
+    \end{enumerate} 
+\end{enumerate}
+\subsubsection{Defining the set of problems}
+\begin{enumerate}
+    \item First construct a mapping between issues + PRs. This helps create a dataset of "problems" that projects address
+    \begin{itemize}
+        \item Three problem types: unlinked issues, unlinked PRs, linked
+        \item Construct linkage using the following criteria
+        \begin{enumerate}
+          \item Use the provided link.
+          \item For each remaining unlinked issue/PR, find a counterpart that mutually references it and choose the closest number.
+          \item If no mutual reference exists, find any one-way reference and choose the closest number
+        \end{enumerate}
+    \end{itemize}
+    \item Only keep projects that have at least two key contributors in all pre-treatment periods (henceforth known as pre periods)
+\end{enumerate}
+\subsubsection{Defining collaboration}
+For a given project $i$ in time period $t$, and problems $P_{it} = \{p_{it}^1, \cdots, p_{it}^{N_{it}} \}$ where $N_{it}$ is the number of problems faced by project $i$ in time period $t$
+\begin{itemize}
+    \item Let $C_{it}$ denote the set of all contributors to project $i$ in time $t$. We can decompose all contributors into key and other contributors: $C_{it} = C_{it}^{key} \cup C_{it}^{other}$ 
+    \item For each problem $p_{it}^k$ you have a set of collaborators $C_{it}^{k} \subseteq C_{it}^{key} $ that consists of key ($C_{it}^{k, key} = C_{it}^{k} \cap C_{it}^{key}$) and other collaborators ($C_{it}^{k, other} = C_{it}^{k} \cap C_{it}^{other}$)
+\end{itemize}
+Define collaboration as when 2 or more key contributors are both involved in a problem and the collaboration score
+\begin{equation}
+    CollabScore_{it} = \frac{1}{N_{it}}\sum_{k=1}^{N_{it}}\mathbf{1}\bigl\{|C_{it}^{k,\mathrm{key}}|\ge2\bigr\}
+\end{equation}
+This definition of collaboration has a nice decomposition. Let $P_{it}^d = \{p_{it}^{k} \mid d \in C_{it}^k, 1 \leq k \leq N_{it} \}$ be the set of problems where the departed contributor $d$ is involved and let $N_{it}^d = |P_{it}^d|$. Use the superscript $nd$ to denote problems where the departed contributor is not involved. I can describe collaboration as a weighted average of collaboration in problems where the departed contributor is and is not involved. 
+\begin{align*}
+    CollabScore_{it} &= \frac{N_{it}^d}{N_{it}} CollabScore_{it}^d + \frac{N_{it} - N_{it}^d}{N_{it}} CollabScore_{it}^{nd} \\
+    &= \frac{N_{it}^d}{N_{it}} \frac{1}{N_{it}^d} \sum_{k \in P_{it}^d} \mathbf{1}\bigl\{|C_{it}^{k,\mathrm{key}}|\ge2\bigr\} + \frac{N_{it} - N_{it}^d}{N_{it}} \frac{1}{N_{it} - N_{it}^d} \sum_{k \notin P_{it}^d} \mathbf{1}\bigl\{|C_{it}^{k,\mathrm{key}}|\ge2\bigr\}
+\end{align*}
 
-
-
-
-\textcolor{blue}{Aspirational To Dos
+\subsection{Aspirational To Dos}
 \begin{enumerate}
     \item Read this  \href{https://pubs.aeaweb.org/doi/pdfplus/10.1257/jep.36.3.211}{paper} in order to understand how to motivate the paper using descriptive statistics
     \item Provide insight into what a project is like, such as
@@ -360,12 +391,13 @@ I think it applies to two literature
         \item Provide estimates of data coverage at a project level 
     \end{itemize}
     \item Add reference to showing that results are not sensitive to changes in parameters/if they are, justify why mine is reasonable 
-    \item Describe parameters + when describing parameters, use subset of projects (full subset described in footnotes or appendix table)
-\end{enumerate}}
+\end{enumerate}
 
 
 
 \section{Methods} \label{sec:method}
+
+
 
 \textcolor{red}{To do's
 \begin{enumerate}
@@ -377,21 +409,196 @@ I think it applies to two literature
     \item Defend exogeneity for HTE
     \item Discuss how I execute different subsamples and 
     \item Describe power issues, how I examine downstream outcomes and the interpretation of downstream outcome coefficients
-    \item Is there anything else I do to prove causal validation?
+    \item Methods used for causal validation 
 \end{enumerate}}
+\todo[inline]{Revisit methods once I work more on results to see what's the best way to present them}
 
 \subsection{Estimating the Effect of Contributor Departures}
-- Define treatment date
-- Define groups
-- Write out the event study formula that I'm running
+\subsubsection{Technical Details}
+\begin{enumerate}
+    \item I use an event study to identify the causal effect of departures on project outcomes. I adopt heterogeneity robust measures to evaluate ATEs because I want to consider heterogeneous effects by projects with different characteristics
+    \item Treatment experienced by projects is the departure, and treatment date is the departure date
+    \item My sample consists of all treated projects, and control group within the sample is not-yet-treated
+    \item My outcome is the number of pull requests opened in a time period
+\end{enumerate}
+\subsubsection{Causal Identification}
+\begin{enumerate}
+    \item No anticipation: Projects don't adjust their behavior prior to the departure date. I only use abrupt departures (which do occur in the literature), so presumably, there's little time for the project to react/adjust it's behavior
+    \todo[inline]{Add literature refs on abrupt departure + context }
+    \item Parallel trends: Projects that experience departures would have opened the same number of PRs had a departure not occurred. Fundamentally, the departure isn't associated with any other project changes that would affect the number of pull requests opened.
+    \begin{enumerate}
+        \item Abrupt departures are more likely to be unassociated with project characteristics that would endogenously affect the outcome because they're often associated with job changes. Since OSS contribution for most is a hobby, not their main career consideration, job changes are a good source of exogeneous variation because it's unlikely they're related to project related factors that make departure endogenous, but they can often disrupt contribution because the new job may prohibit or limit OSS contribution, or involve increased time that distracts from OSS 
+        \todo[inline]{Add literature cites from that paper using abrupt departures, also make this more concise}
+        \todo[inline]{\textbf{Show this is true}: Abrupt departures aren't associated with changes in demand for the departed contributor's services - the number of issues opened, forks, stars and downloads are still increasing. Moreover, the departure date is unrelated to the proximity to major software releases/updates}
+        \todo[inline]{Can I show that organizational characteristics that might lead to dissatisfaction/change aren't the driving reason for departure/aren't systematically changing in a way that would explain their departure? For example, we don't see declines or increases in contributor count prior to their departure (signalling broad organizational changes) or changes in the distribution of communication z score/key contributors (which also suggests changes in how people are communicating/working) or in the sentiment of their communications (are they getting burnt out?)}
+    \end{enumerate}
+\end{enumerate}
 
-- According to \cite{freyaldenhoven_visualization_2021}, what are the assumptions that need to hold?
-- Defend the abrupt departures thing
 \subsection{Heterogeneous Effects}
-- How do I split by pre-departure organizational structure to get heterogeneous treatment effects
-- Defend causality here
+\longterm[inline]{Not too sure how to organize the methods section into subsections yet. Will determine based off what's most crucial to help people understand my results. }
+\longterm[inline]{Random forest will help because it can deal with continuous values in a more systematic way }
+\todo[inline]{Adopt consistent language with collaboration stuff}
+
+
+Let
+\begin{itemize}
+  \item $C_{it}$ be the collaboration score of project $i$ at relative time $t$ (with $t=0$ at departure),
+  \item $N_{it}$ be the number of problems addressed by project $i$ at time $t$, and
+  \item $I$ be the set of all projects.
+\end{itemize}
+Note that there's an abuse of notation here as I haven't specified that the actual time period corresponding to $t=0$ varies across different projects. 
+
+Define each project’s 5-period pre-departure weighted average score and the overall mean across project averages
+
+\[
+\bar C_i \;=\;
+\frac{\displaystyle\sum_{t=-5}^{-1} N_{it}\,C_{it}}
+     {\displaystyle\sum_{t=-5}^{-1} N_{it}},
+\qquad 
+\bar C \;=\;
+\frac{1}{\lvert I\rvert}\sum_{i\in I}\bar C_i.
+\]
+
+Project $i$ is classified as collaborative when $\bar C_i > \bar C$ and uncollaborative otherwise. Define key and other contributor collaborativeness similarly. 
+
+
+\todo[inline]{Write better. Note two nuances - there's comparing projects, and evaluating actual outcomes (relative to 0, no difference)}
+To assess whether two project types are affected differently by departure, I conduct a Wald test on whether the difference in event study coefficients during the period of departure and the 5 periods after are different from zero. More precisely, let the event study coefficients of project type 1 and 2 from $t=0$ to $t=5$ be defined as
+\[
+\hat{\boldsymbol\beta}^{(1)} = \bigl(\hat\beta^{(1)}_{0}, \hat\beta^{(1)}_{1}, \dots, \hat\beta^{(1)}_{5}\bigr)^\top,
+\quad
+\hat{\boldsymbol\beta}^{(2)} = \bigl(\hat\beta^{(2)}_{0}, \hat\beta^{(2)}_{1}, \dots, \hat\beta^{(2)}_{5}\bigr)^\top.
+\]
+Define
+\[
+\Delta = \hat{\boldsymbol\beta}^{(1)} - \hat{\boldsymbol\beta}^{(2)}.
+\]
+I can then write my null hypothesis as \[
+H_0: \Delta = \mathbf{0}
+\]
+I am testing one hypothesis - write out math from \href{https://en.wikipedia.org/wiki/Wald_test#Test(s)_on_multiple_parameters}{Wikipedia}
+
+Do I want a single or multiple hypotheses?
+
 
 \section{Results} \label{sec:result}
+Goal: Summarize results, figure out what are next steps
+Helps me get towards my goal of having a paper that explains how collaboration affects things. 
+
+For project $t$ in time period $k$, my outcome is the z score of the outcome, transformed using the pre-treatment mean and standard deviation. This allows me to express my event study coefficients in units of standard deviation. 
+
+Projects experience significant declines in the quantity of PRs opened following departures. The effects worsen throughout the year after the departure before plateauing. On average, around a year after the contributor's departure, the quantity of PRs opened has decreased by 0.5 standard deviations. 
+
+I then examine how projects are affected by whether the departed contributor was collaborative (henceforth, refer to projects where the departed contributor was collaborative as collaborative projects and the complement set of projects as uncollaborative projects). Post-departure, collaborative projects experience a continued decline in PRs opened which is significantly different from uncollaborative projects, whose outcomes are relatively unaffected. 
+
+One concern is that collaborative contributors might also tend to be more important and involved with the project. We'd expect this to bias downwards the negative effects of collaboration, as the departure of more important contributors might worsen the effects experienced by the project
+
+1) Are collaborative projects more involved?
+2) Note that there's no mechanical relationship between collaboration and departed contributor importance, as the denominators are different. 
+
+I find that projects where the departed contributor was more involved don't experience differential effects that are statistically significant. This result is odd because we'd expect projects where the departed contributor is more important to be more affected. 
+
+It could be that our measure of involvement, which considers problems, not just PRs, is too broad. I next try a more precise measure - whether the departed opened many or few PRs. When I do this, I do find very clear differences in the direction we expect. Projects where the departed opened many PRs experience dramatic declines in PRs opened following their departure. $p<1e-5$
+
+We can narrow down the subset of projects that are most affected even further, by conditioning on both departed involvement and whether they were active in opening PRs. I find that the projects with a very active departed contributor who was also very involved in problem solving are precisely the most affected projects. 
+
+Surprisingly, projects where the departed contributor was only active in opening PRs or in problems broadly seem fairly unaffected and are statistically indistinguishable from projects where the departed was neither involved in opening PRs or problem solving more broadly. 
+
+
+Second, I actually find that important contributors only
+cause projects to experience worse outcomes in the medium term. Overall, there's no statistically significant difference in outcomes between projects that experienced important vs. less important departures. Examining the interaction of collaboration and departed reveals shows two things. First, projects that experience the departure of collaborative contributors, irrespective of the contributor's importance, are negatively affected. Second of all, if there is any true difference between important and less important departures in the medium term, it largely affects uncollaborative projects. 
+\todo[inline]{fill in stuff about wald test for collaborative comparison}
+\todo[inline]{Is the first a result that should be explored more before? Given that the first seems like it could be noise, I'm not too inclined to dig into uncollaborative x importance}
+
+
+\todo[inline]{Fill in with more detail, but tldr
+1. Conditioning on departed involvement in PRs opened DOES matter
+2. Uncollaborative projects - many PRs opened, really affected as expected
+3. Collaborative projects - effects are really interesting. 
+}
+
+Something interesting to note is that we'd expect projects with more collaborative departed contributors to have more important contributors to collaborate with. As such, we'd actually expect collaborative projects to do better post-departure because there are more experienced hands on deck. I find that this is somewhat true - 38\% of collaborative projects also have above average numbers of key contributors, compared to 30\% of uncollaborative projects, although this difference is not huge. 
+
+What might also be interesting to consider is whether the negative effect of departures is mitigated among projects with a collaborative departure when that project has more key contributors. 
+
+I find weak evidence that projects with less key contributors experience worse outcomes throughout the ensuing 2.5 years post-departure. These effects do not not extend to either collaborative or uncollaborative projects. Neither collaborative nor uncollaborative project outcomes are affected by whether the number of pre-departure key contributors. 
+
+We'd also expect projects with more collaborative departed contributors to have more total contributors, since there are more opportunities for collaboration. As such, we'd actually expect collaborative projects to do better post-departure because there are more hands on deck overall. I find that this is true - 38\% of collaborative projects also have above average numbers of key contributors, compared to 19\% of uncollaborative projects. 
+
+Oddly enough, I find that projects with more contributors tend to do worse post-departure. Moreover, this effect is specific to just collaborative projects. 
+\todo[inline]{Why?? This is quite odd. Are these projects being shut down?}
+
+Perhaps projects where the departed contributor handled more problems (raw counts) will be more affected. After all, leaving more problems unsolved requires more time to address. I find that the quantity of problems the departed contributor works on does not explain much and neither does its effect when conditioning in projects with collaborative or uncollaborative departures. 
+
+You might also say - the departed contributor is irrelevant, since they're not participating post-departure. What if everything is explained by collaboration between all the other contributors and the connections they're making?
+
+I find that actually, collaboration between the other contributors doesn't matter. It also doesn't explain anything meaningful about how projects with a collaborative departed contributor might behave differently post-departure. 
+
+
+\todo[inline]{fill in file names + files}
+
+
+I find that more collaborative projects do experience significant decreases in the quantity of PRs opened following a departure, whereas uncollaborative projects are unaffected. 
+\todo[inline]{ Show robsutness using periods other than 5 pre periods once I figure out the final statistic}
+
+\todo[inline]{Show results}
+\begin{enumerate}
+    \item Takeaway from logs with zeros is to levels and normalize, or to normalize outcomes by a reasonable measure.
+    \item Takeaway from AER:I Abadie is that nonsignificant results with interesting confidence intervals should also be covered. 
+\end{enumerate}
+
+\todo[inline]{\href{https://www.jonathandroth.com/assets/files/roth_pretrends_testing.pdf}{Check Roth for pretrends testing}}
+\todo[inline]{Rule out the easy confounders/explanations first before dividing into more interesting explanations}
+What I'm hoping to establish next is whether/the degree to which the decline in PRs is mechanical
+\begin{enumerate}
+    \item Am I confounding the effect of how collaborative the departed contributor is with how important/involved the departed contributor is? 
+    \todo[inline]{Explain that because the denominator on departed contributor involvement is the \# of questions the departed is involved in, there's no mechanical relationship between departed contributor involvement and collaboration}
+    \todo[inline]{Examine what happens when I split by departed contributor importance. I can do this by calculating departed involvement as the proportion of problems they're involved in, and comparing event study results for the more/less involved bins x collaboration. I should also examine how things vary by more/less involved bins. I expect there to be a difference based off the more/less involved bins - I don't know what I will see when I interact collaboration with the results. }
+    \textcolor{blue}{Note: calculations done, called "departed\_involved\_2bin"}
+    \item How does collaborative score vary by 
+    \begin{enumerate}
+        \item Key contributor count \textcolor{blue}{"key\_contributor\_count\_2bin"}
+        \item Total contributor count \textcolor{blue}{"total\_contributor\_count\_2bin"}
+        \item Problem count \textcolor{blue}{"problem\_count\_2bin"}
+    \end{enumerate}
+    and how do each of the factors above interact with collaborative score in determining the outcome? For the last two consider how size is related to the proportion/count difference. 
+    \todo[inline]{Execute the task above. Definitions should be straightforward}
+    \item What is the effect of collaboration among other contributors (No effect). Might the presence of prior collaboration among other contributors have an effect depending on how collaborative the departed contributor was? 
+    \todo[inline]{Describe in more detail results for other collaboration}
+    \todo[inline]{Execute the task above. One hypothesis is that other collaboration is only helpful when the departed contributor was collaborative and task allocation is required. This is because other departed contributors now need to reallocate what tasks they are working on to account for the departed's loss, but this reallocation only happens if there's collaboration with the deprated $\iff $ responsibiltiies can easily be reallocated}
+    \item Departed contributors can affect whether PRs are opened in two ways: By opening PRs themselves/authoring the majority of the commits involved in the PR, or by contributing to discussion that leads to PRs being opened. Can I identify how active departed contributors are in each and see
+    \begin{enumerate}
+        \item Whether the discussion mechanism has any effect on post-departure outcomes
+        \item How both factors interact with collaboration (Expect collaboration to interact with discussion in more interesting ways)
+    \end{enumerate}
+    \todo[inline]{Execute the above. 1) Does the effect of departed involvement change when we also vary by PR opening intensity (test 2 variations of opening PRs: one that excludes non-opening/commit involvement in PRS and one that does), 2) How does collaboration interact with PR opening intensity to affect outcomes, 3) What's the best way to loop departed involvement in as well - answer will be easier after I know 1}
+    \textcolor{blue}{Note: Calculated prop of PRs opened/authored by departed, out of all the author is involved in. Note that the denominator is all PRs implemented by the departed not all PRs implemented by the project. If I had the denominator be total problems, I wouldn't be able to differentiate, holding departed involvement constant, projects with high/low departed involvement because then the lower bound of departed PR opening would be mechanically increasing in departed PR involvement}
+    \textbf{complicated}
+    
+
+    \item Mass departures in collaborative projects, is there a systematic proximity to release in either
+
+    \item There's a persistent (and a decrease) in PRs opened over time, so it's not just that projects have been abandoned. What's driving this? Are people able to somewhat wrap up problems that the departed was involved in?
+    \item \textbf{What is their role as a collaborator?}
+    \item Why does Sun and Abraham yield different results? It might be instructive to compare the disaggregated Sun & Abraham results with the CS results. Note that they seem to agree when it comes to full sample estimates
+
+    
+\end{enumerate}
+
+
+What's going on with the three bin split? How can I reconcile results between techniques where two suggest that moderate collaboration leaves projects worse off and one suggests that intense collaboration leaves projects worse off?
+Why is there a downwards trend with the collaborative subsample estimates? 
+
+
+
+
+
+
+
+
+5 Iterate back and forth
+
+
 \textbf{Goals}
 \begin{enumerate}
     \item First, show that departures affect a wide variety of outcomes
@@ -399,7 +606,10 @@ I think it applies to two literature
     \item I'll begin the heterogeneous treatment effects analysis by showing that things we might expect to happen do happen. 
     \item Then, I'll validate or provide further intuition behind these results
 \end{enumerate}
-
+\textbf{Robustness}
+\begin{enumerate}
+    \item What do development related characteristics look like prior to departure? I'm trying to see if I can provide quantitative evidence of "no anticipation" in that behavior across a wide range of measures is unchanged
+\end{enumerate}
 
 \section{Conclusion} \label{sec:conclusion}
 
