@@ -16,19 +16,22 @@ library(didimputation)
 library(did2s)
 library(dplyr)
 library(rlang)
+library(aod)
 
 NormalizeOutcome <- function(df, outcome) {
   outcome_norm <- paste(outcome, "norm", sep = "_")
   df_norm <- df %>%
     group_by(repo_name) %>%
     mutate(mean_outcome = mean(get(outcome)[ time_index < treatment_group & 
-                                               time_index >= (treatment_group - 5)], na.rm = TRUE)) %>%
+                                               time_index >= (treatment_group - 5)], na.rm = TRUE),
+           sd_outcome = sd(get(outcome)[ time_index < treatment_group & 
+                                           time_index >= (treatment_group - 5)], na.rm = TRUE)) %>%
     ungroup()
-  df_norm[[outcome_norm]] <- df_norm[[outcome]] / df_norm$mean_outcome
+  df_norm[[outcome_norm]] <- (df_norm[[outcome]] - df_norm$mean_outcome)/df_norm$sd_outcome
   df_norm
 }
 
-
+#
 EventStudy <- function(df, outcome, method = c("cs", "2s", "bjs", "es"), normalize = FALSE, title = NULL) {
   method <- match.arg(method)
   df_est <- if (normalize) NormalizeOutcome(df, outcome) else df %>% mutate("{outcome}_norm" := .data[[outcome]])
@@ -64,7 +67,7 @@ EventStudy <- function(df, outcome, method = c("cs", "2s", "bjs", "es"), normali
                     `2s` = {
                       rel_df <- df_est %>% mutate(rel_time = time_index - treatment_group)
                       es2s_obj <- did2s(rel_df, yname = yvar,
-                                    first_stage  = ~ 1 | repo_name + time_index,
+                                    first_stage  = ~ 0 | repo_name + time_index,
                                     second_stage = ~ i(rel_time, ref = -1),
                                     treatment    = "treatment", cluster_var = "repo_name")
                       CleanFixEst(es2s_obj, "rel_time::")
@@ -121,37 +124,66 @@ EnsureMinusOneRow <- function(est_mat) {
   }
   est_mat
 }
-CompareES <- function(..., legend_labels) {
+CompareES <- function(..., legend_labels, title = "") {
   es_list <- list(...)
   results  <- lapply(es_list, `[[`, "results")
   plot_fn  <- fixest::coefplot
   
-  plot_fn(results, xlab = "Time to treatment", keep = "^-[1-5]|[0-5]", drop = "[[:digit:]]{2}")
+  plot_fn(results, xlab = "Time to treatment", keep = "^-[1-5]|[0-5]", drop = "[[:digit:]]{2}",
+          main = title)
   
   stopifnot(length(legend_labels) == length(results))
   legend("topleft", col = seq_along(results), pch = 20,
          lwd = 1, lty = seq_along(results), legend = legend_labels)
+  
+  if (length(results)>=2) {
+    combos <- combn(length(results), 2)
+    p_vals <- apply(combos, 2, function(idx) {
+      p <- CompareEventCoefsWald(results[idx], terms = 0:5)
+      paste0(legend_labels[idx[1]], " vs ", legend_labels[idx[2]], ": p=", signif(p, 3))
+    })
+    
+    # add them as a second legend
+    legend("bottomleft",
+           legend = p_vals,
+           bty    = "n",
+           cex    = 0.8)
+  }
 }
 
-RemoveOutliers <- function(df_panel_nyt, col, lower = 0.01, upper = 0.99) {
-  mean_prs_df <- df_panel_nyt %>%
+CompareEventCoefsWald <- function(tidy_list, terms = 0:5) {
+  sel <- as.character(terms)
+  t1  <- tidy_list[[1]][sel, ]
+  t2  <- tidy_list[[2]][sel, ]
+  delta <- t1[,"estimate"] - t2[,"estimate"]
+  var_sum <- t1[,"sd"]^2 + t2[,"sd"]^2
+  
+  Sigma <- diag(var_sum, nrow = length(var_sum))
+  p_val <- wald.test(b = delta, Sigma = Sigma, Terms = seq_along(delta))$result$chi2[["P"]]
+  return(as.numeric(p_val))
+}
+
+CheckPreTreatmentThreshold <- function(df_panel_nyt, periods_count, outcome, count_thresh) {
+  notsmall_preperiod <- df_panel_nyt %>%
+    filter(time_index >= (treatment_group - periods_count),
+           time_index <  treatment_group) %>%
+    group_by(repo_name) %>%
+    summarise(meets_threshold = all(.data[[outcome]] >= count_thresh),
+              .groups = "drop") %>%
+    filter(meets_threshold) %>% pull(repo_name) 
+  df_panel_nyt %>% filter(repo_name %in% notsmall_preperiod)
+}
+
+HasMinPreTreatmentPeriods <- function(df_panel_nyt, periods_count) {
+  df_panel_nyt %>%
     group_by(repo_name) %>%
     summarise(
-      mean_outcome = mean({{ col }}, na.rm = TRUE),
+      n_pre = sum(time_index < treatment_group),
       .groups = "drop"
-    )
-  
-  quantile_values <- quantile(
-    mean_prs_df$mean_outcome,
-    probs = c(lower, upper),
-    na.rm = TRUE
-  )
-  nonextreme_repos <- mean_prs_df %>%
-    filter(mean_outcome %in% quantile_values) %>%
+    ) %>%
+    filter(n_pre >= periods_count) %>%
     pull(repo_name)
-  df_panel_nyt %>% filter(repo_name %in% nonextreme_repos)
 }
-
 
 df_panel_nyt <- df_panel_nyt %>%
   mutate(repo_name_id = as.integer(factor(repo_name, levels = sort(unique(repo_name)))))
@@ -159,51 +191,21 @@ df_panel_nyt <- df_panel_nyt %>%
 group_defs <- list(
   list(filters = list(list(col = "ind_key_collab_2bin", vals = c(1, 0))),
        fname_prefix  = "prs_opened_collab_",
-       legend_labels = c("Dept. Collaborative", "Dept. Uncollaborative")),
-  list(filters = list(list(col = "ind_key_collab_2bin", vals = c(1, 0)),
-                      list(col = "departed_involved_2bin", vals = c(1, 0))),
-       fname_prefix  = "prs_opened_collab_involved_",
-       legend_labels = c("Dept. Collaborative + Involved", "Dept. Uncollaborative + Involved",
-                         "Dept. Collaborative + Uninvolved", "Dept. Uncollaborative + Uninvolved")),
-  list(filters = list(list(col = "ind_key_collab_2bin", vals = c(1, 0)),
-                      list(col = "departed_involved_3bin", vals = c(2, 1, 0))),
-       fname_prefix  = "prs_opened_collab_involved_3b_",
-       legend_labels = c("Dept. Collaborative + Involved", "Dept. Uncollaborative + Involved",
-                         "Dept. Collaborative + Less involved", "Dept. Uncollaborative + Less involved",
-                         "Dept. Collaborative + Uninvolved", "Dept. Uncollaborative + Uninvolved")),
+       legend_labels = c("Dept. Collab", "Dept. Uncollab")),
+  list(filters = list(list(col = "departed_involved_2bin", vals = c(1, 0)),
+                      list(col = "departed_opened_2bin", vals = c(1, 0))),
+       fname_prefix  = "prs_opened_involved_departed_opened_",
+       legend_labels = c("Dept. Inv. + Opened Many", "Dept. Uninv. + Opened Many",
+                         "Dept. Inv. + Opened Few", "Dept. Uninv. + Opened Few")),
   list(filters = list(list(col = "departed_involved_2bin", vals = c(1, 0))),
        fname_prefix  = "prs_opened_involved_",
-       legend_labels = c("Dept. Involved", "Dept. Uninvolved")),
-  list(filters = list(list(col = "departed_involved_3bin", vals = c(2, 1, 0))),
-     fname_prefix  = "prs_opened_involved_3b_",
-     legend_labels = c("Dept. Involved", "Dept. Less involved","Dept. Uninvolved")),
-  list(filters = list(list(col = "ind_key_collab_2bin", vals = c(1, 0)),
-                         list(col = "key_contributor_count_2bin", vals = c(1, 0))),
-          fname_prefix  = "prs_opened_collab_key_",
-          legend_labels = c("Dept. Collaborative + Many Key", "Dept. Uncollaborative + Many Key",
-                            "Dept. Collaborative + Few Key", "Dept. Uncollaborative + Few Key")),
-  list(filters = list(list(col = "key_contributor_count_2bin", vals = c(1, 0))),
-       fname_prefix  = "prs_opened_key_",
-       legend_labels = c("Many Key", "Few Key")),
-  list(filters = list(list(col = "ind_key_collab_2bin", vals = c(1, 0)),
-                      list(col = "total_contributor_count_2bin", vals = c(1, 0))),
-          fname_prefix  = "prs_opened_collab_total_",
-          legend_labels = c("Dept. Collaborative + Many Contributors", "Dept. Uncollaborative + Many Contributors",
-                            "Dept. Collaborative + Few Contributors", "Dept. Uncollaborative + Few Contributors")),
-  list(filters = list(list(col = "total_contributor_count_2bin", vals = c(1, 0))),
-       fname_prefix  = "prs_opened_total_",
-       legend_labels = c("Many Contributors", "Few Contributors")),
-  list(filters = list(list(col = "ind_key_collab_2bin", vals = c(1, 0)),
-                      list(col = "problem_count_2bin", vals = c(1, 0))),
-          fname_prefix  = "prs_opened_collab_problem_",
-          legend_labels = c("Dept. Collaborative + Many Problems", "Dept. Uncollaborative + Many Problems",
-                            "Dept. Collaborative + Few Problems", "Dept. Uncollaborative + Few Problems")),
-  list(filters = list(list(col = "problem_count_2bin", vals = c(1, 0))),
-       fname_prefix  = "prs_opened_problem_",
-       legend_labels = c("Many Problems", "Few Problems")))
+       legend_labels = c("Dept. Inv.", "Dept. Uninv.")),
+  list(filters = list(list(col = "departed_opened_2bin", vals = c(1, 0))),
+       fname_prefix  = "prs_opened_departed_opened_",
+       legend_labels = c("Dept. Opened Many", "Dept. Opened Few")))
 
-metrics <- c("cs", "2s", "es") # BJS HAS KNOWN ISSUE
-metrics_fn <- c("Callaway and Sant'Anna 2020", "Gardner 2021", "Freyaldenhoven et. al 2021")
+metrics <- c("cs") # BJS HAS KNOWN ISSUE
+metrics_fn <- c("Callaway and Sant'Anna 2020")
 
 modes <- list(
   list(normalize = FALSE, file = "issue/output/prs_opened.png", outcome = "prs_opened"),
@@ -214,7 +216,7 @@ modes <- list(
 
 for (mode in modes) {
   es_list <- lapply(metrics, function(m) {
-    EventStudy(df_panel_nyt, mode$outcome, m, title = "", normalize = mode$normalize)
+    EventStudy(CheckPreTreatmentThreshold(df_panel_nyt, 3, "prs_opened", 5) , mode$outcome, m, title = "", normalize = mode$normalize)
   })
   png(mode$file)
   do.call(CompareES, c(es_list, list(legend_labels = metrics_fn)))
@@ -224,14 +226,14 @@ for (mode in modes) {
 
 for(norm in c(TRUE,FALSE)) {
   norm_str <- ifelse(norm, "_norm", "")
-  for(m in metrics[1:3]) {
-    for(g in group_defs[1]) {
+  for(m in metrics) {
+    for(g in group_defs) {
       combo_grid <- expand.grid(lapply(g$filters, `[[`, "vals"), 
                                 KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
       print(combo_grid)
       print(g$legend_labels)
       es_list <- apply(combo_grid, 1, function(vals_row){
-        df_sub<-df_panel_nyt %>% filter(repo_name != "pantsbuild/pants")
+        df_sub<-CheckPreTreatmentThreshold(df_panel_nyt, 3, "prs_opened", 5) 
         for(i in seq_along(vals_row)){
           col_name<-g$filters[[i]]$col
           df_sub<-df_sub %>% filter(.data[[col_name]]==vals_row[[i]])
@@ -244,10 +246,78 @@ for(norm in c(TRUE,FALSE)) {
       es_list     <- es_list[success_idx]
       labels      <- g$legend_labels[success_idx]
       
-      out_path <- paste0("issue/output/collab/", g$fname_prefix, m, norm_str, "wo.png")
+      out_path <- paste0("issue/output/collab/", g$fname_prefix, m, norm_str, ".png")
       png(out_path)
       do.call(CompareES, c(es_list, list(legend_labels = labels)))
       dev.off()
     }
   }
 }
+
+g <- list(filters = list(list(col = "ind_key_collab_2bin", vals = c(1, 0))),
+       fname_prefix  = "prs_opened_collab_",
+       legend_labels = c("Dept. Collab", "Dept. Uncollab"))
+# loop over normalization, method, and the four (authored, involved) combos  
+for(norm in c(TRUE, FALSE)) {  
+  norm_str <- ifelse(norm, "_norm", "")  
+  for(met in metrics) {  
+    for(a in 0:1) {  
+      for(i in 0:1) {  
+        combo_grid <- expand.grid(lapply(g$filters, `[[`, "vals"), 
+                                  KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
+        es_list <- apply(combo_grid, 1, function(vals_row){
+          df_sub <- CheckPreTreatmentThreshold(df_panel_nyt, 3, "prs_opened", 5) %>%  
+            filter(departed_authored_2bin == a, departed_involved_2bin == i)  
+          for(i in seq_along(vals_row)){
+            col_name<-g$filters[[i]]$col
+            df_sub<-df_sub %>% filter(.data[[col_name]]==vals_row[[i]])
+          }
+          tryCatch(EventStudy(df_sub,"prs_opened",method=m,title = "",normalize=norm),
+                   error=function(e) NULL)
+        },
+        simplify=FALSE)
+        success_idx <- which(!sapply(es_list,is.null))
+        es_list     <- es_list[success_idx]
+        labels      <- g$legend_labels[success_idx]
+        
+        # output path  
+        out_path <- paste0(  
+          "issue/output/collab_imp/auth", a, "_inv", i, "_", met, norm_str, ".png"  
+        )  
+        # plot  
+        png(out_path) 
+        do.call(CompareES, c(es_list, list(legend_labels = labels), title=paste0("Departed Inv.: ", i, ", Departed Authored: ", a)))
+        dev.off()  
+      }  
+    }  
+  }  
+}
+
+norm <- T
+norm_str <- ifelse(norm, "_norm", "")  
+combo_grid <- expand.grid(lapply(g$filters, `[[`, "vals"), 
+                          KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
+es_list <- apply(combo_grid, 1, function(vals_row){
+  df_sub <- CheckPreTreatmentThreshold(df_panel_nyt, 3, "prs_opened", 5) %>%  
+    filter(departed_authored_2bin != 1 | departed_involved_2bin != 1)  
+  for(i in seq_along(vals_row)){
+    col_name<-g$filters[[i]]$col
+    df_sub<-df_sub %>% filter(.data[[col_name]]==vals_row[[i]])
+  }
+  tryCatch(EventStudy(df_sub,"prs_opened",method=m,title = "",normalize=norm),
+           error=function(e) NULL)
+},
+simplify=FALSE)
+success_idx <- which(!sapply(es_list,is.null))
+es_list     <- es_list[success_idx]
+labels      <- g$legend_labels[success_idx]
+
+# output path  
+out_path <- paste0(  
+  "issue/output/collab_imp/auth_n1_inv_n1_", met, norm_str, ".png"  
+)  
+# plot  
+png(out_path) 
+do.call(CompareES, c(es_list, list(legend_labels = labels), title=paste0("Departed Inv != 1, Departed Authored != 1")))
+dev.off()  
+
