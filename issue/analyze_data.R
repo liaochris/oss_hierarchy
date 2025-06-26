@@ -18,6 +18,7 @@ library(dplyr)
 library(rlang)
 library(aod)
 
+
 NormalizeOutcome <- function(df, outcome) {
   outcome_norm <- paste(outcome, "norm", sep = "_")
   df_norm <- df %>%
@@ -51,6 +52,7 @@ EventStudy <- function(df, outcome, method = c("cs", "2s", "bjs", "es"), normali
                       est
                     },
                     cs = {
+                      set.seed(420)
                       att <- att_gt(yname = yvar, tname = "time_index", idname = "repo_name_id",
                                     gname = "treatment_group", xformla = ~1, data = df_est,
                                     control_group = "notyettreated", allow_unbalanced_panel = T,
@@ -175,7 +177,7 @@ CheckPreTreatmentThreshold <- function(df_panel_nyt, periods_count, outcome, cou
 }
 
 HasMinPreTreatmentPeriods <- function(df_panel_nyt, periods_count) {
-  df_panel_nyt %>%
+  projects <- df_panel_nyt %>%
     group_by(repo_name) %>%
     summarise(
       n_pre = sum(time_index < treatment_group),
@@ -183,6 +185,7 @@ HasMinPreTreatmentPeriods <- function(df_panel_nyt, periods_count) {
     ) %>%
     filter(n_pre >= periods_count) %>%
     pull(repo_name)
+  df_panel_nyt %>% filter(repo_name %in% projects)
 }
 
 df_panel_nyt <- df_panel_nyt %>%
