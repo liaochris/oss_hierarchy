@@ -18,7 +18,7 @@ WritePanel <- function(df, dir, filename) {
 # Data Cleaning Functions ---------------------------------------------------
 LoadProjectOutcomes <- function(dir, period, suffix = "") {
   path <- file.path(dir, sprintf("project_outcomes_major_months%d%s.parquet", period, suffix))
-  df <- ReadParquetDate(path, c("time_period","treatment_period")) %>%
+  df <- ReadParquetDate(path, c("time_period","treatment_period", "first_period", "final_period")) %>%
     filter(year(time_period) < 2023 | (year(time_period) == 2023 & month(time_period) == 1)) %>%
     mutate(time_index = dense_rank(time_period))
 }
@@ -85,27 +85,6 @@ Main <- function() {
   sample_restrictions <- c("", "_imp", "_all", "_unimp", "_new", "_alltime")  # Different contributor subsets  # Different contributor subsets
   
   project_outcomes <- LoadProjectOutcomes(dirs$outcomes, params$time_period)
-  project_outcomes_full <- expand.grid(repo_name = unique(project_outcomes$repo_name),
-                        time_index = unique(project_outcomes$time_index)) %>%
-    left_join(project_outcomes)
-  project_outcomes_full <- expand.grid(
-    repo_name  = unique(project_outcomes$repo_name),
-    time_index = unique(project_outcomes$time_index)
-  ) %>%
-    left_join(project_outcomes, by = c("repo_name", "time_index")) %>%
-    group_by(repo_name) %>%
-    fill(
-      treatment_period,
-      abandoned_date,
-      departed_actor_id,
-      treatment_group,
-      .direction = "downup"
-    ) %>%
-    group_by(time_index) %>%
-    fill(time_period, .direction = "downup") %>%
-    mutate(prs_opened = replace_na(prs_opened, 0)) %>%
-    ungroup()
-  
   
   nyt_covariates <- LoadCovariates(dirs$covariates, nyt = TRUE)
   downloads <- LoadGithubMetrics(dirs$temp, "downloads")
@@ -119,16 +98,32 @@ Main <- function() {
   downloads_detailed <- downloads_detailed %>%
     anti_join(duplicates, by = c("repo_name", "time_period"))
   
-  df_panel_nyt <- CreateEventStudyPanel(project_outcomes_full, nyt_covariates, downloads, forks_stars, downloads_detailed, software_score, not_yet_treated = TRUE)
+  df_panel_nyt <- CreateEventStudyPanel(project_outcomes, nyt_covariates, downloads, forks_stars, downloads_detailed, software_score, not_yet_treated = TRUE)
   df_collab <- ReadParquetDate("issue/project_collaboration.parquet", c("time_period", "treatment_period"))
   df_panel_nyt <- df_panel_nyt  %>%
     left_join(df_collab) %>%
     filter(repo_name %in% unique(df_collab$repo_name))
+  
   sum(is.na(df_panel_nyt))
-  df_panel_nyt <- df_panel_nyt %>%
+  df_panel_nyt <- expand.grid(repo_name = unique(df_panel_nyt$repo_name),
+                                   time_index = unique(df_panel_nyt$time_index)) %>%
+    left_join(df_panel_nyt, by = c("repo_name", "time_index")) %>%
     group_by(repo_name) %>%
-    fill(all_of(colnames(df_collab)), .direction = "up") %>%
-    ungroup()
+    fill(
+      treatment_period,
+      abandoned_date,
+      departed_actor_id,
+      treatment_group,
+      all_of(colnames(df_collab)),
+      .direction = "downup"
+    ) %>%
+    group_by(time_index) %>%
+    fill(time_period, .direction = "downup") %>%
+    mutate(prs_opened = replace_na(prs_opened, 0),
+           commits = replace_na(commits, 0)) %>%
+    ungroup() %>%
+    filter(time_period >= first_period & time_period <= final_period)
+  
   sum(is.na(df_panel_nyt))
 }
 
