@@ -84,47 +84,50 @@ Main <- function() {
   params <- list(time_period = 6, rolling_window = 732, criteria_pct = 75, consecutive_periods = 3, post_periods = 2)
   sample_restrictions <- c("", "_imp", "_all", "_unimp", "_new", "_alltime")  # Different contributor subsets  # Different contributor subsets
   
-  project_outcomes <- LoadProjectOutcomes(dirs$outcomes, params$time_period)
-  
-  nyt_covariates <- LoadCovariates(dirs$covariates, nyt = TRUE)
-  downloads <- LoadGithubMetrics(dirs$temp, "downloads")
-  forks_stars <- LoadGithubMetrics(dirs$temp, "forks_stars")
-  downloads_detailed <- LoadGithubMetrics(dirs$temp, "downloads_detailed")
-  software_score <- LoadGithubMetrics(dirs$temp, "scorecard_scores")
-  
-  ### LOOK INTO WHY THEY ARE DUPLICATES AND RESOLVE
-  duplicates <- downloads_detailed %>% group_by(repo_name, time_period) %>% 
-    filter(n() > 1) %>% arrange(repo_name, time_period)
-  downloads_detailed <- downloads_detailed %>%
-    anti_join(duplicates, by = c("repo_name", "time_period"))
-  
-  df_panel_nyt <- CreateEventStudyPanel(project_outcomes, nyt_covariates, downloads, forks_stars, downloads_detailed, software_score, not_yet_treated = TRUE)
-  df_collab <- ReadParquetDate("issue/project_collaboration.parquet", c("time_period", "treatment_period"))
-  df_panel_nyt <- df_panel_nyt  %>%
-    left_join(df_collab) %>%
-    filter(repo_name %in% unique(df_collab$repo_name))
-  
-  sum(is.na(df_panel_nyt))
-  df_panel_nyt <- expand.grid(repo_name = unique(df_panel_nyt$repo_name),
-                                   time_index = unique(df_panel_nyt$time_index)) %>%
-    left_join(df_panel_nyt, by = c("repo_name", "time_index")) %>%
-    group_by(repo_name) %>%
-    fill(
-      treatment_period,
-      abandoned_date,
-      departed_actor_id,
-      treatment_group,
-      all_of(colnames(df_collab)),
-      .direction = "downup"
-    ) %>%
-    group_by(time_index) %>%
-    fill(time_period, .direction = "downup") %>%
-    mutate(prs_opened = replace_na(prs_opened, 0),
-           commits = replace_na(commits, 0)) %>%
-    ungroup() %>%
-    filter(time_period >= first_period & time_period <= final_period)
-  
-  sum(is.na(df_panel_nyt))
+  for (sample in sample_restrictions) {
+    project_outcomes <- LoadProjectOutcomes(dirs$outcomes, params$time_period, sample)
+    nyt_covariates <- LoadCovariates(dirs$covariates, nyt = TRUE)
+    downloads <- LoadGithubMetrics(dirs$temp, "downloads")
+    forks_stars <- LoadGithubMetrics(dirs$temp, "forks_stars")
+    downloads_detailed <- LoadGithubMetrics(dirs$temp, "downloads_detailed")
+    software_score <- LoadGithubMetrics(dirs$temp, "scorecard_scores")
+    
+    ### LOOK INTO WHY THEY ARE DUPLICATES AND RESOLVE
+    duplicates <- downloads_detailed %>% group_by(repo_name, time_period) %>% 
+      filter(n() > 1) %>% arrange(repo_name, time_period)
+    downloads_detailed <- downloads_detailed %>%
+      anti_join(duplicates, by = c("repo_name", "time_period"))
+    
+    df_panel_nyt <- CreateEventStudyPanel(project_outcomes, nyt_covariates, downloads, forks_stars, downloads_detailed, software_score, not_yet_treated = TRUE)
+    df_collab <- ReadParquetDate("issue/project_collaboration.parquet", c("time_period", "treatment_period"))
+    df_panel_nyt <- df_panel_nyt  %>%
+      left_join(df_collab) %>%
+      filter(repo_name %in% unique(df_collab$repo_name))
+    
+    sum(is.na(df_panel_nyt))
+    df_panel_nyt <- expand.grid(repo_name = unique(df_panel_nyt$repo_name),
+                                time_index = unique(df_panel_nyt$time_index)) %>%
+      left_join(df_panel_nyt, by = c("repo_name", "time_index")) %>%
+      group_by(repo_name) %>%
+      fill(
+        treatment_period,
+        abandoned_date,
+        departed_actor_id,
+        treatment_group,
+        all_of(colnames(df_collab)),
+        .direction = "downup"
+      ) %>%
+      group_by(time_index) %>%
+      fill(time_period, .direction = "downup") %>%
+      mutate(avg_prs_opened = replace_na(avg_prs_opened, 0),
+             prs_opened = replace_na(prs_opened, 0),
+             commits = replace_na(commits, 0)) %>%
+      ungroup() %>%
+      filter(time_period >= first_period & time_period <= final_period)
+    
+    sum(is.na(df_panel_nyt))
+    df_panel_nyt %>% write_parquet(paste0("issue/df_panel_nyt", sample, ".parquet"))
+  }
 }
 
 Main()
