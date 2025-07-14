@@ -10,13 +10,30 @@ import re
 from source.scrape.link_issue_pull_request.docs.link_using_pull_request import ReadPullRequests
 from source.lib.JMSLab.SaveData import SaveData
 import numpy as np
+import os
+import warnings
 
 def readIssue(issue_files):
-    df_issue = pd.concat([pd.read_csv(issue_file, usecols = ['repo_name','issue_number']) 
-        for issue_file in issue_files]).drop_duplicates().dropna()
+    if isinstance(issue_files, str):
+        issue_files = [issue_files]
 
+    def _safe_read(path):
+        if not os.path.exists(path):
+            warnings.warn(f"Issue file not found: {path}")
+            return pd.DataFrame(columns=['repo_name', 'issue_number'])
+        try:
+            return pd.read_csv(path, usecols=['repo_name', 'issue_number'])
+        except Exception as err:
+            warnings.warn(f"Failed to read {path!r}: {err}")
+            return pd.DataFrame(columns=['repo_name', 'issue_number'])
+
+    df_list = [_safe_read(p) for p in issue_files]
+    if not df_list:
+        return pd.DataFrame(columns=['repo_name', 'issue_number'])
+
+    df_issue = pd.concat(df_list, ignore_index=True)
+    df_issue = df_issue.drop_duplicates().dropna(subset=['repo_name', 'issue_number'])
     return df_issue
-
 
 def GrabIssueData(repo_name, issue_number):
     try:
@@ -67,9 +84,12 @@ def Main():
     pr_index = df_pull_request.drop_duplicates().set_index(['repo_name','pr_number']).index
     df_issue = df_issue.loc[~df_issue.set_index(['repo_name','issue_number']).index.isin(pr_index)]
 
-    df_library_all = pd.DataFrame()    
-    for repo in repo_list[5603:]:
+    df_library_all = pd.read_parquet(commit_outdir / 'linked_issue_to_pull_request.parquet', engine='pyarrow') if (commit_outdir / 'linked_issue_to_pull_request.parquet').exists() else pd.DataFrame()
+    for repo in repo_list:
         print(np.where([ele == repo for ele in repo_list]))
+        if df_library_all.query('repo_name == @repo').shape[0] > 0:
+            print(f"Skipping {repo} as it has already been processed.")
+            continue
         df_library = df_issue[df_issue['repo_name'] == repo].dropna()
         if df_library.shape[0] == 0: continue 
         df_library['linked_pull_request'] = df_library.parallel_apply(lambda x: 
