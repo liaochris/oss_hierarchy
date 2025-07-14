@@ -121,6 +121,10 @@ Main <- function() {
       fill(time_period, .direction = "downup") %>%
       mutate(avg_prs_opened = replace_na(avg_prs_opened, 0),
              prs_opened = replace_na(prs_opened, 0),
+             prs_opened_dept_comm_avg_above = replace_na(prs_opened_dept_comm_avg_above, 0),
+             prs_opened_dept_comm_avg_below = replace_na(prs_opened_dept_comm_avg_below, 0),
+             prs_opened_dept_comm = replace_na(prs_opened_dept_comm, 0),
+             prs_opened_dept_never_comm = replace_na(prs_opened_dept_never_comm, 0),
              commits = replace_na(commits, 0)) %>%
       ungroup() %>%
       filter(time_period >= first_period & time_period <= final_period)
