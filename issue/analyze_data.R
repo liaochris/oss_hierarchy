@@ -22,9 +22,9 @@ library(aod)
 NormalizeOutcome <- function(df, outcome, default_outcome = "prs_opened") {
   outcome_norm <- paste(outcome, "norm", sep = "_")
   sd_outcome_var <- ifelse(grepl("count", outcome), default_outcome, outcome)
-  if (grepl("n_avg_", outcome)) {
+  if (grepl("n_avg_", outcome)& startsWith(outcome, "n_avg_")) {
     sd_outcome_var <- sub("n_avg_", "", outcome)
-  } else if (grepl("avg_", outcome)) {
+  } else if (grepl("avg_", outcome) & startsWith(outcome, "avg_")) {
     sd_outcome_var <- sub("avg_", "", outcome)
   } else {
     sd_outcome_var <- sd_outcome_var
@@ -32,10 +32,10 @@ NormalizeOutcome <- function(df, outcome, default_outcome = "prs_opened") {
 
   df_norm <- df %>%
     group_by(repo_name) %>%
-    mutate(mean_outcome = mean(get(outcome)[ time_index < treatment_group & 
-                                               time_index >= (treatment_group - 5)], na.rm = TRUE),
-           sd_outcome = sd(get(sd_outcome_var)[ time_index < treatment_group & 
-                                           time_index >= (treatment_group - 5)], na.rm = TRUE)) %>%
+    mutate(mean_outcome = mean(get(outcome)[time_index < treatment_group & 
+                                              time_index >= (treatment_group - 5)], na.rm = TRUE),
+           sd_outcome = sd(get(sd_outcome_var)[time_index < treatment_group & 
+                                                 time_index >= (treatment_group - 5)], na.rm = TRUE)) %>%
     ungroup()
   df_norm[[outcome_norm]] <- (df_norm[[outcome]])/df_norm$sd_outcome
   df_norm
@@ -171,6 +171,9 @@ CompareEventCoefsWald <- function(tidy_list, terms = 0:5) {
     return(NA_real_)
   }
   avail_sorted <- available[order(as.numeric(available))]
+  if (len(avail_sorted) < 4) {
+    return(NA)
+  }
   t1  <- tidy_list[[1]][avail_sorted, ]
   t2  <- tidy_list[[2]][avail_sorted, ]
   delta <- t1[,"estimate"] - t2[,"estimate"]
@@ -245,7 +248,13 @@ df_panel_nyt <-df_panel_nyt  %>%
   mutate(avg_prs_opened_nondep = prs_opened_nondep/nodep_contributor_count,
          avg_prs_opened_predep = prs_opened_predep/predep_contributor_count,
          n_avg_prs_opened_nondep = nodep_contributor_count_neg1*prs_opened_nondep/nodep_contributor_count,
-         n_avg_prs_opened_predep = predep_contributor_count_neg1*prs_opened_predep/predep_contributor_count)
+         n_avg_prs_opened_predep = predep_contributor_count_neg1*prs_opened_predep/predep_contributor_count,
+         avg_prs_opened_dept_comm_avg_above = prs_opened_dept_comm_avg_above/contributors_dept_comm_avg_above,
+         avg_prs_opened_dept_comm_avg_below = prs_opened_dept_comm_avg_below/contributors_dept_comm_avg_below,
+         avg_prs_opened_dept_comm_2avg_above = prs_opened_dept_comm_2avg_above/contributors_dept_comm_2avg_above,
+         avg_prs_opened_dept_comm_2avg_below = prs_opened_dept_comm_2avg_below/contributors_dept_comm_2avg_below,
+         avg_prs_opened_dept_comm_3avg_above = prs_opened_dept_comm_3avg_above/contributors_dept_comm_3avg_above,
+         avg_prs_opened_dept_comm_3avg_below = prs_opened_dept_comm_3avg_below/contributors_dept_comm_3avg_below)
 
 for (df_name in c('df_panel_nyt')) {
   output_root <- if (df_name == 'df_panel_nyt') 'issue/output' else ""
@@ -312,7 +321,13 @@ for (df_name in c('df_panel_nyt')) {
           if (df_name == 'df_panel_nyt') {
             outcome_vec <- c(outcome_vec, "avg_prs_opened_nondep", "avg_prs_opened_predep",
                              "n_avg_prs_opened_nondep", "n_avg_prs_opened_predep", 
-                             "prs_opened_dept_comm", "prs_opened_dept_never_comm")
+                             "prs_opened_dept_comm", "prs_opened_dept_never_comm",
+                             "prs_opened_dept_comm_avg_above", "prs_opened_dept_comm_avg_below",
+                             "prs_opened_dept_comm_2avg_above", "prs_opened_dept_comm_2avg_below",
+                             "prs_opened_dept_comm_3avg_above", "prs_opened_dept_comm_3avg_below",
+                             "avg_prs_opened_dept_comm_avg_above","avg_prs_opened_dept_comm_avg_below",
+                             "avg_prs_opened_dept_comm_2avg_above","avg_prs_opened_dept_comm_2avg_below",
+                             "avg_prs_opened_dept_comm_3avg_above","avg_prs_opened_dept_comm_3avg_below")
           }
           for (outcome in outcome_vec) {
             combo_grid <- expand.grid(lapply(g$filters, `[[`, "vals"), 
@@ -328,7 +343,7 @@ for (df_name in c('df_panel_nyt')) {
                        error=function(e) e)
             },
             simplify=FALSE)
-            success_idx <- which(!sapply(es_list,is.null))
+            success_idx <- which(!sapply(es_list,is.null) & sapply(es_list,function (x) "plot" %in% names(x)))
             es_list     <- es_list[success_idx]
             labels      <- g$legend_labels[success_idx]
             
@@ -353,7 +368,13 @@ for (df_name in c('df_panel_nyt')) {
     if (df_name == 'df_panel_nyt') {
       outcome_vec <- c(outcome_vec, "avg_prs_opened_nondep", "avg_prs_opened_predep",
                        "n_avg_prs_opened_nondep", "n_avg_prs_opened_predep", 
-                       "prs_opened_dept_comm", "prs_opened_dept_never_comm")
+                       "prs_opened_dept_comm", "prs_opened_dept_never_comm",
+                       "prs_opened_dept_comm_avg_above", "prs_opened_dept_comm_avg_below",
+                       "prs_opened_dept_comm_2avg_above", "prs_opened_dept_comm_2avg_below",
+                       "prs_opened_dept_comm_3avg_above", "prs_opened_dept_comm_3avg_below",
+                       "avg_prs_opened_dept_comm_avg_above","avg_prs_opened_dept_comm_avg_below",
+                       "avg_prs_opened_dept_comm_2avg_above","avg_prs_opened_dept_comm_2avg_below",
+                       "avg_prs_opened_dept_comm_3avg_above","avg_prs_opened_dept_comm_3avg_below")
     }
     for (outcome in outcome_vec) {
       es_list <- apply(combo_grid, 1, function(vals_row){
