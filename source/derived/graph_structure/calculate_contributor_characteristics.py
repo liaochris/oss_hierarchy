@@ -66,7 +66,8 @@ def Main():
                     'imp_to_imp_overall': imp_to_imp_comm_overall,
                     'imp_to_other_overall': imp_to_other_comm_overall,
                     'normalized_degree': actor_data.get('normalized_degree', None),
-                    'imp_to_other_avg_edge_weight': actor_data.get('avg_edge_weight', None)
+                    'imp_to_other_avg_edge_weight': actor_data.get('avg_edge_weight', None),
+                    'communication_log': actor_data.get('communication_log', None),
                 }
                 if actor in important_contributor_keys:
                     row['individual_node_coverage'] = actor_data.get('individual_coverage', None)
@@ -99,7 +100,7 @@ def Main():
     df['time_period'] = pd.to_datetime(df['time_period'])
     df['prop_important'] = df['total_important']/df['total_nodes']
     df = df.drop_duplicates()
-    
+
     SaveData(df, ['repo_name','time_period','actor_id'],
              outdir / 'contributor_characteristics.parquet',
              logdir / 'contributor_characteristics.log')

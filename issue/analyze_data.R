@@ -21,14 +21,20 @@ library(aod)
 
 NormalizeOutcome <- function(df, outcome, default_outcome = "prs_opened") {
   outcome_norm <- paste(outcome, "norm", sep = "_")
-  sd_outcome <- ifelse(grepl("count", outcome), default_outcome, outcome)
-  sd_outcome <- ifelse(grepl("avg_", outcome), sub("avg_", "", outcome), sd_outcome)
-  
+  sd_outcome_var <- ifelse(grepl("count", outcome), default_outcome, outcome)
+  if (grepl("n_avg_", outcome)) {
+    sd_outcome_var <- sub("n_avg_", "", outcome)
+  } else if (grepl("avg_", outcome)) {
+    sd_outcome_var <- sub("avg_", "", outcome)
+  } else {
+    sd_outcome_var <- sd_outcome_var
+  }
+
   df_norm <- df %>%
     group_by(repo_name) %>%
     mutate(mean_outcome = mean(get(outcome)[ time_index < treatment_group & 
                                                time_index >= (treatment_group - 5)], na.rm = TRUE),
-           sd_outcome = sd(get(sd_outcome)[ time_index < treatment_group & 
+           sd_outcome = sd(get(sd_outcome_var)[ time_index < treatment_group & 
                                            time_index >= (treatment_group - 5)], na.rm = TRUE)) %>%
     ungroup()
   df_norm[[outcome_norm]] <- (df_norm[[outcome]])/df_norm$sd_outcome
@@ -236,8 +242,10 @@ df_panel_nyt <- df_panel_nyt %>% left_join(df_predep_cc) %>% left_join(df_nodep_
   ) %>%
   ungroup()
 df_panel_nyt <-df_panel_nyt  %>%
-  mutate(avg_prs_opened_nondep = nodep_contributor_count_neg1*prs_opened_nondep/nodep_contributor_count,
-         avg_prs_opened_predep = predep_contributor_count_neg1*prs_opened_predep/predep_contributor_count)
+  mutate(avg_prs_opened_nondep = prs_opened_nondep/nodep_contributor_count,
+         avg_prs_opened_predep = prs_opened_predep/predep_contributor_count,
+         n_avg_prs_opened_nondep = nodep_contributor_count_neg1*prs_opened_nondep/nodep_contributor_count,
+         n_avg_prs_opened_predep = predep_contributor_count_neg1*prs_opened_predep/predep_contributor_count)
 
 for (df_name in c('df_panel_nyt')) {
   output_root <- if (df_name == 'df_panel_nyt') 'issue/output' else ""
@@ -300,9 +308,11 @@ for (df_name in c('df_panel_nyt')) {
     for(met in metrics) {  
       for(a in c(0,1)) {  
         for(i in c(0,1)) {  
-          outcome_vec <- c("prs_opened", "total_contributor_count")
+          outcome_vec <- c("prs_opened", "total_contributor_count", "prs_opened_nondep", "prs_opened_predep")
           if (df_name == 'df_panel_nyt') {
-            outcome_vec <- c(outcome_vec, "avg_prs_opened_nondep", "avg_prs_opened_predep")
+            outcome_vec <- c(outcome_vec, "avg_prs_opened_nondep", "avg_prs_opened_predep",
+                             "n_avg_prs_opened_nondep", "n_avg_prs_opened_predep", 
+                             "prs_opened_dept_comm", "prs_opened_dept_never_comm")
           }
           for (outcome in outcome_vec) {
             combo_grid <- expand.grid(lapply(g$filters, `[[`, "vals"), 
@@ -338,9 +348,12 @@ for (df_name in c('df_panel_nyt')) {
     norm_str <- ifelse(norm, "_norm", "")  
     combo_grid <- expand.grid(lapply(g$filters, `[[`, "vals"), 
                               KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
-    outcome_vec <- c("avg_prs_opened", "prs_opened", "total_contributor_count")
+    outcome_vec <- c("avg_prs_opened", "prs_opened", "total_contributor_count", 
+                     "prs_opened_nondep", "prs_opened_predep")
     if (df_name == 'df_panel_nyt') {
-      outcome_vec <- c(outcome_vec, "avg_prs_opened_nondep", "avg_prs_opened_predep")
+      outcome_vec <- c(outcome_vec, "avg_prs_opened_nondep", "avg_prs_opened_predep",
+                       "n_avg_prs_opened_nondep", "n_avg_prs_opened_predep", 
+                       "prs_opened_dept_comm", "prs_opened_dept_never_comm")
     }
     for (outcome in outcome_vec) {
       es_list <- apply(combo_grid, 1, function(vals_row){

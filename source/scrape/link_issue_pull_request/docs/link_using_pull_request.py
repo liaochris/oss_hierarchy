@@ -4,18 +4,37 @@ import glob
 from pandarallel import pandarallel
 from bs4 import BeautifulSoup, SoupStrainer
 import requests
-import random
-import os
 import time
 from pathlib import Path
-import warnings
 import re
+import os
+import warnings
+
 def ReadPullRequests(pull_request_files):
-    df_pull_request = pd.concat([pd.read_csv(pull_request_file, usecols = ['repo_name','pr_number']) 
-                                 for pull_request_file in pull_request_files]).drop_duplicates().dropna()
+    if isinstance(pull_request_files, str):
+        pull_request_files = [pull_request_files]
 
+    def _safe_read(path):
+        if not os.path.exists(path):
+            warnings.warn(f"Pull request file not found: {path}")
+            return pd.DataFrame(columns=['repo_name', 'pr_number'])
+        try:
+            return pd.read_csv(path, usecols=['repo_name', 'pr_number'])
+        except Exception as err:
+            warnings.warn(f"Failed to read {path!r}: {err}")
+            return pd.DataFrame(columns=['repo_name', 'pr_number'])
+
+    df_list = [_safe_read(p) for p in pull_request_files]
+    if not df_list:
+        return pd.DataFrame(columns=['repo_name', 'pr_number'])
+
+    df_pull_request = pd.concat(df_list, ignore_index=True)
+    df_pull_request = (
+        df_pull_request
+        .drop_duplicates()
+        .dropna(subset=['repo_name', 'pr_number'])
+    )
     return df_pull_request
-
 
 def GrabPullRequestData(repo_name, pull_request_number):
     try:

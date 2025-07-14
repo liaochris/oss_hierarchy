@@ -335,6 +335,8 @@ def ComputeRepoGraphMetrics(repo, time_period, data):
         node: {nbr: d['weight'] for nbr, d in subG[node].items()}
         for node in important_contributors
     }
+    communication_log = {node: {nbr: data['weight'] for nbr, data in G_orig[node].items()} for node in G_orig.nodes()}
+
     weights_all = [d['weight'] for u, v, d in subG.edges(data=True)]
     if weights_all:
         mean_all = np.mean(weights_all)
@@ -388,7 +390,8 @@ def ComputeRepoGraphMetrics(repo, time_period, data):
             'individual_coverage_cluster': clustering_metrics.get(contributor, {}).get('individual_coverage_cluster'),
             **comm_metrics.get(contributor, {}),
             'imp_to_imp_comm': imp_comm_metrics.get(contributor, {}),
-            'imp_to_imp_edge_weights': imp_to_imp_edge_weights.get(contributor, {})
+            'imp_to_imp_edge_weights': imp_to_imp_edge_weights.get(contributor, {}),
+            'communication_log': communication_log.get(contributor, {})
         }
         for contributor in important_contributors
     }
@@ -400,6 +403,7 @@ def ComputeRepoGraphMetrics(repo, time_period, data):
             **importance.get(contributor, {}),
             **comm_metrics.get(contributor, {}),
             'imp_to_imp_comm': imp_comm_metrics.get(contributor, {}),
+            'communication_log': communication_log.get(contributor, {})
         }
     total_nodes, total_edges = GetGraphSize(G_orig)
     overall_metrics = {
