@@ -19,13 +19,16 @@ library(rlang)
 library(aod)
 
 
+
 NormalizeOutcome <- function(df, outcome, default_outcome = "prs_opened") {
   outcome_norm <- paste(outcome, "norm", sep = "_")
   sd_outcome_var <- ifelse(grepl("count", outcome), default_outcome, outcome)
-  if (grepl("n_avg_", outcome)& startsWith(outcome, "n_avg_")) {
+  if (grepl("n_avg_", outcome) & startsWith(outcome, "n_avg_")) {
     sd_outcome_var <- sub("n_avg_", "", outcome)
   } else if (grepl("avg_", outcome) & startsWith(outcome, "avg_")) {
     sd_outcome_var <- sub("avg_", "", outcome)
+  } else if (grepl("_dept_", outcome)) {
+    sd_outcome_var <- gsub("_dept.*", "", outcome)
   } else {
     sd_outcome_var <- sd_outcome_var
   }
@@ -135,19 +138,19 @@ EnsureMinusOneRow <- function(est_mat) {
   }
   est_mat
 }
-CompareES <- function(..., legend_labels, title = "") {
+CompareES <- function(..., legend_labels, title = "", add_p = TRUE) {
   es_list <- list(...)
   results  <- lapply(es_list, `[[`, "results")
   plot_fn  <- fixest::coefplot
   
   plot_fn(results, xlab = "Time to treatment", ylab = "", keep = "^-[1-5]|[0-5]", drop = "[[:digit:]]{2}",
-          main = title)
+          main = title, order = as.character(-5:5))
   
   stopifnot(length(legend_labels) == length(results))
   legend("topleft", col = seq_along(results), pch = 20,
          lwd = 1, lty = seq_along(results), legend = legend_labels)
   
-  if (length(results)>=2) {
+  if (length(results)>=2 & add_p) {
     combos <- combn(length(results), 2)
     p_vals <- apply(combos, 2, function(idx) {
       p <- CompareEventCoefsWald(results[idx], terms = 0:5)
@@ -171,7 +174,7 @@ CompareEventCoefsWald <- function(tidy_list, terms = 0:5) {
     return(NA_real_)
   }
   avail_sorted <- available[order(as.numeric(available))]
-  if (len(avail_sorted) < 4) {
+  if (length(avail_sorted) < 4) {
     return(NA)
   }
   t1  <- tidy_list[[1]][avail_sorted, ]
@@ -180,7 +183,9 @@ CompareEventCoefsWald <- function(tidy_list, terms = 0:5) {
   var_sum <- t1[,"sd"]^2 + t2[,"sd"]^2
   
   Sigma <- diag(var_sum, nrow = length(var_sum))
-  p_val <- wald.test(b = delta, Sigma = Sigma, Terms = seq_along(delta))$result$chi2[["P"]]
+  p_val <- p_val <- tryCatch({
+    wald.test(b = delta, Sigma = Sigma, Terms = seq_along(delta))$result$chi2[["P"]]
+  }, error = function(e) NA)
   return(as.numeric(p_val))
 }
 
@@ -244,17 +249,53 @@ df_panel_nyt <- df_panel_nyt %>% left_join(df_predep_cc) %>% left_join(df_nodep_
     predep_contributor_count_neg1 = predep_contributor_count[time_index - treatment_group == -1][1]
   ) %>%
   ungroup()
-df_panel_nyt <-df_panel_nyt  %>%
-  mutate(avg_prs_opened_nondep = prs_opened_nondep/nodep_contributor_count,
-         avg_prs_opened_predep = prs_opened_predep/predep_contributor_count,
-         n_avg_prs_opened_nondep = nodep_contributor_count_neg1*prs_opened_nondep/nodep_contributor_count,
-         n_avg_prs_opened_predep = predep_contributor_count_neg1*prs_opened_predep/predep_contributor_count,
-         avg_prs_opened_dept_comm_avg_above = prs_opened_dept_comm_avg_above/contributors_dept_comm_avg_above,
-         avg_prs_opened_dept_comm_avg_below = prs_opened_dept_comm_avg_below/contributors_dept_comm_avg_below,
-         avg_prs_opened_dept_comm_2avg_above = prs_opened_dept_comm_2avg_above/contributors_dept_comm_2avg_above,
-         avg_prs_opened_dept_comm_2avg_below = prs_opened_dept_comm_2avg_below/contributors_dept_comm_2avg_below,
-         avg_prs_opened_dept_comm_3avg_above = prs_opened_dept_comm_3avg_above/contributors_dept_comm_3avg_above,
-         avg_prs_opened_dept_comm_3avg_below = prs_opened_dept_comm_3avg_below/contributors_dept_comm_3avg_below)
+SafeDivide <- function(numerator, denominator) {
+  result <- numerator / denominator
+  ifelse(is.finite(result), result, 0)
+}
+
+df_panel_nyt <- df_panel_nyt %>%
+  mutate(
+    avg_prs_opened_nondep = SafeDivide(prs_opened_nondep, nodep_contributor_count),
+    avg_prs_opened_predep = SafeDivide(prs_opened_predep, predep_contributor_count),
+    avg_prs_opened_dept_comm = SafeDivide(prs_opened_dept_comm, contributors_dept_comm),
+    avg_prs_opened_dept_never_comm = SafeDivide(prs_opened_dept_never_comm, contributors_dept_never_comm),
+    n_avg_prs_opened_nondep = SafeDivide(nodep_contributor_count_neg1 * prs_opened_nondep, nodep_contributor_count),
+    n_avg_prs_opened_predep = SafeDivide(predep_contributor_count_neg1 * prs_opened_predep, predep_contributor_count),
+    avg_prs_opened_dept_comm_avg_above = SafeDivide(prs_opened_dept_comm_avg_above, contributors_dept_comm_avg_above),
+    avg_prs_opened_dept_comm_avg_below = SafeDivide(prs_opened_dept_comm_avg_below, contributors_dept_comm_avg_below),
+    avg_prs_opened_dept_comm_2avg_above = SafeDivide(prs_opened_dept_comm_2avg_above, contributors_dept_comm_2avg_above),
+    avg_prs_opened_dept_comm_2avg_below = SafeDivide(prs_opened_dept_comm_2avg_below, contributors_dept_comm_2avg_below),
+    avg_prs_opened_dept_comm_3avg_above = SafeDivide(prs_opened_dept_comm_3avg_above, contributors_dept_comm_3avg_above),
+    avg_prs_opened_dept_comm_3avg_below = SafeDivide(prs_opened_dept_comm_3avg_below, contributors_dept_comm_3avg_below),
+    avg_prs_opened_dept_never_comm_predep = SafeDivide(prs_opened_dept_never_comm_predep, contributors_dept_never_comm_predep),
+    prs_opened_dept_comm_avg_3avg_bw = prs_opened_dept_comm_avg_above - prs_opened_dept_comm_3avg_above,
+    avg_prs_opened_dept_comm_avg_3avg_bw = SafeDivide(prs_opened_dept_comm_avg_above - prs_opened_dept_comm_3avg_above,
+                                                      contributors_dept_comm_avg_above - contributors_dept_comm_3avg_above)
+  )
+
+comm_label_map <- c(
+  "prs_opened_dept_comm"    = "Comm",
+  "prs_opened_dept_never_comm"    = "No comm",
+  "prs_opened_dept_never_comm_predep"    = "No comm pre-dep",
+  "prs_opened_dept_comm_avg_above"    = "Above avg. comm.",
+  "prs_opened_dept_comm_2avg_above"   = "Above 2xavg. comm.",
+  "prs_opened_dept_comm_3avg_above"   = "Above 3xavg. comm.",
+  "prs_opened_dept_comm_avg_below"    = "Below avg. comm.",
+  "prs_opened_dept_comm_2avg_below"   = "Below 2xavg. comm.",
+  "prs_opened_dept_comm_3avg_below"   = "Below 3xavg. comm.",
+  "prs_opened_dept_comm_avg_3avg_bw"  = "BW avg–3xavg. comm.",
+  "avg_prs_opened_dept_comm"    = "Comm",
+  "avg_prs_opened_dept_never_comm"    = "No comm",
+  "avg_prs_opened_dept_never_comm_predep"    = "No comm pre-dep",
+  "avg_prs_opened_dept_comm_avg_above"    = "Above avg. comm.",
+  "avg_prs_opened_dept_comm_2avg_above"   = "Above 2xavg. comm.",
+  "avg_prs_opened_dept_comm_3avg_above"   = "Above 3xavg. comm.",
+  "avg_prs_opened_dept_comm_avg_below"    = "Below avg. comm.",
+  "avg_prs_opened_dept_comm_2avg_below"   = "Below 2xavg. comm.",
+  "avg_prs_opened_dept_comm_3avg_below"   = "Below 3xavg. comm.",
+  "avg_prs_opened_dept_comm_avg_3avg_bw"  = "BW avg–3xavg. comm."
+)
 
 for (df_name in c('df_panel_nyt')) {
   output_root <- if (df_name == 'df_panel_nyt') 'issue/output' else ""
@@ -317,88 +358,190 @@ for (df_name in c('df_panel_nyt')) {
     for(met in metrics) {  
       for(a in c(0,1)) {  
         for(i in c(0,1)) {  
+          paired_outcomes <- list(
+            "prs_opened_dept_never_comm" = "prs_opened_dept_comm",
+            #"prs_opened_dept_comm_avg_above" = "prs_opened_dept_comm_avg_below",
+            #"prs_opened_dept_comm_2avg_above" = "prs_opened_dept_comm_2avg_below",
+            #"prs_opened_dept_comm_3avg_above" = "prs_opened_dept_comm_3avg_below",
+            #"avg_prs_opened_dept_comm_avg_above" = "avg_prs_opened_dept_comm_avg_below",
+            #"avg_prs_opened_dept_comm_2avg_above" = "avg_prs_opened_dept_comm_2avg_below",
+            #"avg_prs_opened_dept_comm_3avg_above" = "avg_prs_opened_dept_comm_3avg_below",
+            "avg_prs_opened_dept_never_comm" = "avg_prs_opened_dept_comm",
+            "prs_opened_dept_comm_avg_3avg_bw" = c('prs_opened_dept_comm_3avg_above','prs_opened_dept_comm_avg_below'),
+            "prs_opened_dept_never_comm_predep" = "prs_opened_dept_comm",
+            "avg_prs_opened_dept_comm_avg_3avg_bw" = c('avg_prs_opened_dept_comm_3avg_above','avg_prs_opened_dept_comm_avg_below'),
+            "avg_prs_opened_dept_never_comm_predep" = "avg_prs_opened_dept_comm",
+            "prs_opened_dept_comm_per_problem_avg_above" = "prs_opened_dept_comm_per_problem_avg_below",
+            "prs_opened_dept_comm_per_problem_min_avg_above" = "prs_opened_dept_comm_per_problem_min_avg_below"
+          )
+          
           outcome_vec <- c("prs_opened", "total_contributor_count", "prs_opened_nondep", "prs_opened_predep")
           if (df_name == 'df_panel_nyt') {
             outcome_vec <- c(outcome_vec, "avg_prs_opened_nondep", "avg_prs_opened_predep",
                              "n_avg_prs_opened_nondep", "n_avg_prs_opened_predep", 
-                             "prs_opened_dept_comm", "prs_opened_dept_never_comm",
-                             "prs_opened_dept_comm_avg_above", "prs_opened_dept_comm_avg_below",
-                             "prs_opened_dept_comm_2avg_above", "prs_opened_dept_comm_2avg_below",
-                             "prs_opened_dept_comm_3avg_above", "prs_opened_dept_comm_3avg_below",
-                             "avg_prs_opened_dept_comm_avg_above","avg_prs_opened_dept_comm_avg_below",
-                             "avg_prs_opened_dept_comm_2avg_above","avg_prs_opened_dept_comm_2avg_below",
-                             "avg_prs_opened_dept_comm_3avg_above","avg_prs_opened_dept_comm_3avg_below")
+                             names(paired_outcomes))  # only include the "above"/"comm" side
           }
+          
           for (outcome in outcome_vec) {
             combo_grid <- expand.grid(lapply(g$filters, `[[`, "vals"), 
                                       KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
-            es_list <- apply(combo_grid, 1, function(vals_row){
-              df_sub <- panel %>%  
-                filter(departed_authored_2bin == a, departed_involved_2bin == i)  
-              for(i in seq_along(vals_row)){
-                col_name<-g$filters[[i]]$col
-                df_sub<-df_sub %>% filter(.data[[col_name]]==vals_row[[i]])
-              }
-              tryCatch(EventStudy(df_sub,outcome,method=m,title = "",normalize=norm),
-                       error=function(e) e)
-            },
-            simplify=FALSE)
-            success_idx <- which(!sapply(es_list,is.null) & sapply(es_list,function (x) "plot" %in% names(x)))
-            es_list     <- es_list[success_idx]
-            labels      <- g$legend_labels[success_idx]
             
-            # output path  
-            out_path <-file.path(output_root,  paste0("collab_imp/auth", a, "_inv", i, "_", met, norm_str, "_",outcome,".png"))  
-            # plot  
-            png(out_path) 
-            do.call(CompareES, c(es_list, list(legend_labels = labels), title=paste0("Departed Inv.: ", i, ", Departed Authored: ", a,"\n", outcome, df_name)))
-            dev.off()  
+            es_list <- list()
+            label_list <- list()
+            
+            for (row_idx in seq_len(nrow(combo_grid))) {
+              vals_row <- combo_grid[row_idx, ]
+              
+              df_sub <- panel %>%  
+                filter(departed_authored_2bin == a, departed_involved_2bin == i)
+              
+              for (j in seq_along(vals_row)) {
+                col_name <- g$filters[[j]]$col
+                df_sub <- df_sub %>% filter(.data[[col_name]] == vals_row[[j]])
+              }
+              
+              if (outcome %in% names(paired_outcomes)) {
+                paired <- c(outcome, paired_outcomes[[outcome]])
+                for (oc in paired) {
+                  res <- tryCatch(EventStudy(df_sub, oc, method = m, title = "", normalize = norm), error = function(e) e)
+                  if (!is.null(res) && "plot" %in% names(res)) {
+                    es_list[[length(es_list) + 1]] <- res
+                    pretty_name <- ifelse(oc %in% names(comm_label_map), comm_label_map[[oc]], oc)
+                    label_list[[length(label_list) + 1]] <- paste0(g$legend_labels[[row_idx]], " + ", pretty_name)
+                  }
+                }
+              } else {
+                res <- tryCatch(EventStudy(df_sub, outcome, method = m, title = "", normalize = norm), error = function(e) e)
+                if (!is.null(res) && "plot" %in% names(res)) {
+                  es_list[[length(es_list) + 1]] <- res
+                  label_list[[length(label_list) + 1]] <- g$legend_labels[[row_idx]]
+                }
+              }
+            }
+            
+            out_path <- file.path(output_root, paste0("collab_imp/auth", a, "_inv", i, "_", met, norm_str, "_", outcome, ".png"))
+            png(out_path)
+            if (outcome %in% c("prs_opened_dept_comm_avg_3avg_bw","avg_prs_opened_dept_comm_avg_3avg_bw",
+                               "prs_opened_dept_never_comm", "avg_prs_opened_dept_never_comm",
+                               "prs_opened_dept_never_comm_predep","avg_prs_opened_dept_never_comm_predep")) {
+              for (k in seq_along(g$legend_labels)) {
+                legend_label <- g$legend_labels[[k]]
+                label_mask <- vapply(label_list, function(lbl) grepl(legend_label, lbl, fixed = TRUE), logical(1))
+                
+                es_split <- es_list[label_mask]
+                label_split <- label_list[label_mask]
+                
+                if (length(es_split) > 0) {
+                  plot_title <- paste0("Departed Inv.: ", i, ", Departed Authored: ", a, "\n", outcome, df_name, " — ", legend_label)
+                  out_path_split <- file.path(output_root, paste0("collab_imp/auth", a, "_inv", i, "_", met, norm_str, "_", outcome, "_", gsub("\\s+", "", legend_label), ".png"))
+                  
+                  png(out_path_split)
+                  do.call(CompareES, c(es_split, list(legend_labels = label_split, title = plot_title)))
+                  dev.off()
+                }
+              }
+            } else {
+              out_path <- file.path(output_root, paste0("collab_imp/auth", a, "_inv", i, "_", met, norm_str, "_", outcome, ".png"))
+              png(out_path)
+              do.call(CompareES, c(es_list, list(legend_labels = label_list, title = paste0("Departed Inv.: ", i, ", Departed Authored: ", a, "\n", outcome, df_name))))
+              dev.off()
+            }
+            dev.off()
           }
         }  
       }  
     }  
   }
   
+  paired_outcomes <- list(
+    "prs_opened_dept_never_comm" = "prs_opened_dept_comm",
+    #"prs_opened_dept_comm_avg_above" = "prs_opened_dept_comm_avg_below",
+    #"prs_opened_dept_comm_2avg_above" = "prs_opened_dept_comm_2avg_below",
+    #"prs_opened_dept_comm_3avg_above" = "prs_opened_dept_comm_3avg_below",
+    #"avg_prs_opened_dept_comm_avg_above" = "avg_prs_opened_dept_comm_avg_below",
+    #"avg_prs_opened_dept_comm_2avg_above" = "avg_prs_opened_dept_comm_2avg_below",
+    #"avg_prs_opened_dept_comm_3avg_above" = "avg_prs_opened_dept_comm_3avg_below",
+    "avg_prs_opened_dept_never_comm" = "avg_prs_opened_dept_comm",
+    "prs_opened_dept_comm_avg_3avg_bw" = c('prs_opened_dept_comm_3avg_above','prs_opened_dept_comm_avg_below'),
+    "prs_opened_dept_never_comm_predep" = "prs_opened_dept_comm",
+    "avg_prs_opened_dept_comm_avg_3avg_bw" = c('avg_prs_opened_dept_comm_3avg_above','avg_prs_opened_dept_comm_avg_below'),
+    "avg_prs_opened_dept_never_comm_predep" = "avg_prs_opened_dept_comm",
+    "prs_opened_dept_comm_per_problem_avg_above" = "prs_opened_dept_comm_per_problem_avg_below",
+    "prs_opened_dept_comm_per_problem_min_avg_above" = "prs_opened_dept_comm_per_problem_min_avg_below"
+  )
+  
   for (norm in c(TRUE, FALSE)) {
     norm_str <- ifelse(norm, "_norm", "")  
     combo_grid <- expand.grid(lapply(g$filters, `[[`, "vals"), 
                               KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
+    
     outcome_vec <- c("avg_prs_opened", "prs_opened", "total_contributor_count", 
                      "prs_opened_nondep", "prs_opened_predep")
     if (df_name == 'df_panel_nyt') {
       outcome_vec <- c(outcome_vec, "avg_prs_opened_nondep", "avg_prs_opened_predep",
                        "n_avg_prs_opened_nondep", "n_avg_prs_opened_predep", 
-                       "prs_opened_dept_comm", "prs_opened_dept_never_comm",
-                       "prs_opened_dept_comm_avg_above", "prs_opened_dept_comm_avg_below",
-                       "prs_opened_dept_comm_2avg_above", "prs_opened_dept_comm_2avg_below",
-                       "prs_opened_dept_comm_3avg_above", "prs_opened_dept_comm_3avg_below",
-                       "avg_prs_opened_dept_comm_avg_above","avg_prs_opened_dept_comm_avg_below",
-                       "avg_prs_opened_dept_comm_2avg_above","avg_prs_opened_dept_comm_2avg_below",
-                       "avg_prs_opened_dept_comm_3avg_above","avg_prs_opened_dept_comm_3avg_below")
+                       names(paired_outcomes))  # only lead outcomes
     }
+    
     for (outcome in outcome_vec) {
-      es_list <- apply(combo_grid, 1, function(vals_row){
-        df_sub <- panel %>%  
-          filter(departed_authored_2bin != 1 | departed_involved_2bin != 1)  
-        for(i in seq_along(vals_row)){
-          col_name<-g$filters[[i]]$col
-          df_sub<-df_sub %>% filter(.data[[col_name]]==vals_row[[i]])
-        }
-        tryCatch(EventStudy(df_sub,outcome,method=m,title = "",normalize=norm),
-                 error=function(e) NULL)
-      },
-      simplify=FALSE)
-      success_idx <- which(!sapply(es_list,is.null))
-      es_list     <- es_list[success_idx]
-      labels      <- g$legend_labels[success_idx]
+      es_list <- list()
+      label_list <- list()
       
-      # output path  
-      out_path <- paste0(  
-        file.path(output_root, "collab_imp/auth_n1_inv_n1_"), met, norm_str, "_",outcome, ".png"  
-      )  
-      # plot  
+      for (row_idx in seq_len(nrow(combo_grid))) {
+        vals_row <- combo_grid[row_idx, ]
+        df_sub <- panel %>% filter(departed_authored_2bin != 1 | departed_involved_2bin != 1)
+        
+        for (j in seq_along(vals_row)) {
+          col_name <- g$filters[[j]]$col
+          df_sub <- df_sub %>% filter(.data[[col_name]] == vals_row[[j]])
+        }
+        
+        if (outcome %in% names(paired_outcomes)) {
+          paired <- c(outcome, paired_outcomes[[outcome]])
+          for (oc in paired) {
+            res <- tryCatch(EventStudy(df_sub, oc, method = m, title = "", normalize = norm), error = function(e) NULL)
+            if (!is.null(res) && "plot" %in% names(res)) {
+              es_list[[length(es_list) + 1]] <- res
+              pretty_name <- ifelse(oc %in% names(comm_label_map), comm_label_map[[oc]], oc)
+              label_list[[length(label_list) + 1]] <- paste0(g$legend_labels[[row_idx]], " + ", pretty_name)
+            }
+          }
+        } else {
+          res <- tryCatch(EventStudy(df_sub, outcome, method = m, title = "", normalize = norm), error = function(e) NULL)
+          if (!is.null(res) && "plot" %in% names(res)) {
+            es_list[[length(es_list) + 1]] <- res
+            label_list[[length(label_list) + 1]] <- g$legend_labels[[row_idx]]
+          }
+        }
+      }
+      
+      out_path <- paste0(file.path(output_root, "collab_imp/auth_n1_inv_n1_"), met, norm_str, "_", outcome, ".png")  
       png(out_path) 
-      do.call(CompareES, c(es_list, list(legend_labels = labels), title=paste0("Departed Inv != 1, Departed Authored != 1")))
+      if (outcome %in% c("prs_opened_dept_comm_avg_3avg_bw","avg_prs_opened_dept_comm_avg_3avg_bw",
+                         "prs_opened_dept_never_comm", "avg_prs_opened_dept_never_comm",
+                         "prs_opened_dept_never_comm_predep", "avg_prs_opened_dept_never_comm_predep")) {
+        for (k in seq_along(g$legend_labels)) {
+          legend_label <- g$legend_labels[[k]]
+          label_mask <- vapply(label_list, function(lbl) grepl(legend_label, lbl, fixed = TRUE), logical(1))
+          
+          es_split <- es_list[label_mask]
+          label_split <- label_list[label_mask]
+          
+          if (length(es_split) > 0) {
+            plot_title <- paste0("Departed Inv.: ", i, ", Departed Authored: ", a, "\n", outcome, df_name, " — ", legend_label)
+            out_path_split <- file.path(output_root, paste0("collab_imp/auth_n1_inv_n1_", met, norm_str, "_", outcome, "_", gsub("\\s+", "", legend_label), ".png"))
+            
+            png(out_path_split)
+            do.call(CompareES, c(es_split, list(legend_labels = label_split, title = plot_title)))
+            dev.off()
+          }
+        }
+      } else {
+        out_path <- file.path(output_root, paste0("collab_imp/auth_n1_inv_n1_", met, norm_str, "_", outcome, ".png"))
+        png(out_path)
+        do.call(CompareES, c(es_list, list(legend_labels = label_list, title = paste0("Departed Inv.: ", i, ", Departed Authored: ", a, "\n", outcome, df_name))))
+        dev.off()
+      }
       dev.off()  
     }
   }
