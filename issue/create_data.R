@@ -82,7 +82,8 @@ Main <- function() {
     covariates = "drive/output/derived/graph_structure"
   )
   params <- list(time_period = 6, rolling_window = 732, criteria_pct = 75, consecutive_periods = 3, post_periods = 2)
-  sample_restrictions <- c("", "_imp", "_all", "_unimp", "_new", "_alltime")  # Different contributor subsets  # Different contributor subsets
+  #sample_restrictions <- c("", "_imp", "_all", "_unimp", "_new", "_alltime")  # Different contributor subsets
+  sample_restrictions <- c("")
   
   for (sample in sample_restrictions) {
     project_outcomes <- LoadProjectOutcomes(dirs$outcomes, params$time_period, sample)
@@ -121,10 +122,13 @@ Main <- function() {
       fill(time_period, .direction = "downup") %>%
       mutate(avg_prs_opened = replace_na(avg_prs_opened, 0),
              prs_opened = replace_na(prs_opened, 0),
+             prs_opened_prob = replace_na(prs_opened_prob, 0),
              prs_opened_dept_comm_avg_above = replace_na(prs_opened_dept_comm_avg_above, 0),
              prs_opened_dept_comm_avg_below = replace_na(prs_opened_dept_comm_avg_below, 0),
              prs_opened_dept_comm = replace_na(prs_opened_dept_comm, 0),
              prs_opened_dept_never_comm = replace_na(prs_opened_dept_never_comm, 0),
+             prs_opened_predep = replace_na(prs_opened_predep, 0),
+             prs_opened_nondep = replace_na(prs_opened_nondep, 0),
              commits = replace_na(commits, 0)) %>%
       ungroup() %>%
       filter(time_period >= first_period & time_period <= final_period)

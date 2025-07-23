@@ -53,7 +53,7 @@ EventStudy <- function(df, outcome, method = c("cs", "2s", "bjs", "es"), normali
   res_mat <- switch(method,
                     bjs = {
                       est <- did_imputation(df_est, yname = yvar, gname = "treatment_group", 
-                                            tname = "time_index", idname = "repo_name", horizon = T, pretrends = -5:-1) %>% 
+                                            tname = "time_index", idname = "repo_name", horizon = T, pretrends = -4:-1) %>% 
                         rename(sd = std.error, ci_low = conf.low, ci_high = conf.high) %>%
                         select(term, estimate, sd, ci_low, ci_high) %>%
                         drop_na() %>%
@@ -110,7 +110,7 @@ EventStudy <- function(df, outcome, method = c("cs", "2s", "bjs", "es"), normali
   plot_obj <- plot_fun(res_mat,
                        main     = title,
                        xlab     = "Time to treatment",
-                       keep     = "^-[1-5]|[0-5]",
+                       keep     = "^-[1-4]|[0-4]",
                        drop     = "[[:digit:]]{2}",
                        ref.line = 0)
   list(plot = plot_obj, results = res_mat)
@@ -143,8 +143,8 @@ CompareES <- function(..., legend_labels, title = "", add_p = TRUE) {
   results  <- lapply(es_list, `[[`, "results")
   plot_fn  <- fixest::coefplot
   
-  plot_fn(results, xlab = "Time to treatment", ylab = "", keep = "^-[1-5]|[0-5]", drop = "[[:digit:]]{2}",
-          main = title, order = as.character(-5:5))
+  plot_fn(results, xlab = "Time to treatment", ylab = "", keep = "^-[1-4]|[0-4]", drop = "[[:digit:]]{2}",
+          main = title, order = as.character(-4:4))
   
   stopifnot(length(legend_labels) == length(results))
   legend("topleft", col = seq_along(results), pch = 20,
@@ -153,7 +153,7 @@ CompareES <- function(..., legend_labels, title = "", add_p = TRUE) {
   if (length(results)>=2 & add_p) {
     combos <- combn(length(results), 2)
     p_vals <- apply(combos, 2, function(idx) {
-      p <- CompareEventCoefsWald(results[idx], terms = 0:5)
+      p <- CompareEventCoefsWald(results[idx], terms = 0:4)
       paste0(legend_labels[idx[1]], " vs ", legend_labels[idx[2]], ": p=", signif(p, 3))
     })
     
@@ -165,7 +165,7 @@ CompareES <- function(..., legend_labels, title = "", add_p = TRUE) {
   }
 }
 
-CompareEventCoefsWald <- function(tidy_list, terms = 0:5) {
+CompareEventCoefsWald <- function(tidy_list, terms = 0:4) {
   sel <- as.character(terms)
   m1 <- as.matrix(tidy_list[[1]])
   m2 <- as.matrix(tidy_list[[2]])
@@ -271,8 +271,18 @@ df_panel_nyt <- df_panel_nyt %>%
     avg_prs_opened_dept_never_comm_predep = SafeDivide(prs_opened_dept_never_comm_predep, contributors_dept_never_comm_predep),
     prs_opened_dept_comm_avg_3avg_bw = prs_opened_dept_comm_avg_above - prs_opened_dept_comm_3avg_above,
     avg_prs_opened_dept_comm_avg_3avg_bw = SafeDivide(prs_opened_dept_comm_avg_above - prs_opened_dept_comm_3avg_above,
-                                                      contributors_dept_comm_avg_above - contributors_dept_comm_3avg_above)
-  )
+                                                      contributors_dept_comm_avg_above - contributors_dept_comm_3avg_above),
+    avg_prs_opened_dept_comm_per_problem_avg_above = SafeDivide(prs_opened_dept_comm_per_problem_avg_above, contributors_dept_comm_per_problem_avg_above),
+    avg_prs_opened_dept_comm_per_problem_avg_below = SafeDivide(prs_opened_dept_comm_per_problem_avg_below, contributors_dept_comm_per_problem_avg_below),
+    avg_prs_opened_dept_comm_per_problem_min_avg_above = SafeDivide(prs_opened_dept_comm_per_problem_min_avg_above, contributors_dept_comm_per_problem_min_avg_above),
+    avg_prs_opened_dept_comm_per_problem_min_avg_below = SafeDivide(prs_opened_dept_comm_per_problem_min_avg_below, contributors_dept_comm_per_problem_min_avg_below),
+    avg_prs_opened_dept_comm_per_problem_2avg_above = SafeDivide(prs_opened_dept_comm_per_problem_2avg_above, contributors_dept_comm_per_problem_2avg_above),
+    avg_prs_opened_dept_comm_per_problem_2avg_below = SafeDivide(prs_opened_dept_comm_per_problem_2avg_below, contributors_dept_comm_per_problem_2avg_below),
+    avg_prs_opened_dept_comm_per_problem_min_2avg_above = SafeDivide(prs_opened_dept_comm_per_problem_min_2avg_above, contributors_dept_comm_per_problem_min_2avg_above),
+    avg_prs_opened_dept_comm_per_problem_min_2avg_below = SafeDivide(prs_opened_dept_comm_per_problem_min_2avg_below, contributors_dept_comm_per_problem_min_2avg_below)
+  ) %>%
+  #### FLAG
+  mutate(prs_opened = prs_opened_prob)
 
 comm_label_map <- c(
   "prs_opened_dept_comm"    = "Comm",
@@ -294,13 +304,28 @@ comm_label_map <- c(
   "avg_prs_opened_dept_comm_avg_below"    = "Below avg. comm.",
   "avg_prs_opened_dept_comm_2avg_below"   = "Below 2xavg. comm.",
   "avg_prs_opened_dept_comm_3avg_below"   = "Below 3xavg. comm.",
-  "avg_prs_opened_dept_comm_avg_3avg_bw"  = "BW avg–3xavg. comm."
+  "avg_prs_opened_dept_comm_avg_3avg_bw"  = "BW avg–3xavg. comm.",
+  "prs_opened_dept_comm_per_problem_avg_above" = "Above avg. comm/p",
+  "prs_opened_dept_comm_per_problem_avg_below" = "Below avg. comm/p",
+  "prs_opened_dept_comm_per_problem_min_avg_above" = "Above avg. comm/p",
+  "prs_opened_dept_comm_per_problem_min_avg_below" = "Below avg. comm/p",
+  "avg_prs_opened_dept_comm_per_problem_avg_above"= "Above avg. comm/p",
+  "avg_prs_opened_dept_comm_per_problem_avg_below"= "Below avg. comm/p",
+  "avg_prs_opened_dept_comm_per_problem_min_avg_above"= "Above avg. comm/p",
+  "avg_prs_opened_dept_comm_per_problem_min_avg_below"= "Below avg. comm/p",
+  "prs_opened_dept_comm_per_problemy_2avg_above" = "Above 2xavg. comm/p",
+  "prs_opened_dept_comm_per_problem_2avg_below" = "Below 2xavg. comm/p",
+  "prs_opened_dept_comm_per_problem_min_2avg_above" = "Above 2xavg. comm/p",
+  "prs_opened_dept_comm_per_problem_min_2avg_below" = "Below 2xavg. comm/p",
+  "avg_prs_opened_dept_comm_per_problem_2avg_above"= "Above 2xavg. comm/p",
+  "avg_prs_opened_dept_comm_per_problem_2avg_below"= "Below 2xavg. comm/p",
+  "avg_prs_opened_dept_comm_per_problem_min_2avg_above"= "Above 2xavg. comm/p",
+  "avg_prs_opened_dept_comm_per_problem_min_2avg_below"= "Below 2xavg. comm/p"
+  
 )
 
 for (df_name in c('df_panel_nyt')) {
   output_root <- if (df_name == 'df_panel_nyt') 'issue/output' else ""
-  output_root <- if (df_name == 'df_panel_nyt_all') 'issue/output_all' else output_root
-  output_root <- if (df_name == 'df_panel_nyt_alltime') 'issue/output_alltime'  else output_root
 
   modes <- list(
     list(normalize = FALSE, file = file.path(output_root, "prs_opened.png"), outcome = "prs_opened"),
@@ -321,7 +346,7 @@ for (df_name in c('df_panel_nyt')) {
   }
   
   
-  for(norm in c(TRUE,FALSE)) {
+  for(norm in c(TRUE)) {
     norm_str <- ifelse(norm, "_norm", "")
     for(m in metrics) {
       for(g in group_defs) {
@@ -349,32 +374,38 @@ for (df_name in c('df_panel_nyt')) {
     }
   }
   
+  paired_outcomes <- list(
+    "prs_opened_dept_never_comm" = "prs_opened_dept_comm",
+    #"prs_opened_dept_comm_avg_above" = "prs_opened_dept_comm_avg_below",
+    #"prs_opened_dept_comm_2avg_above" = "prs_opened_dept_comm_2avg_below",
+    #"prs_opened_dept_comm_3avg_above" = "prs_opened_dept_comm_3avg_below",
+    #"avg_prs_opened_dept_comm_avg_above" = "avg_prs_opened_dept_comm_avg_below",
+    #"avg_prs_opened_dept_comm_2avg_above" = "avg_prs_opened_dept_comm_2avg_below",
+    #"avg_prs_opened_dept_comm_3avg_above" = "avg_prs_opened_dept_comm_3avg_below",
+    "avg_prs_opened_dept_never_comm" = "avg_prs_opened_dept_comm",
+    "prs_opened_dept_comm_avg_3avg_bw" = c('prs_opened_dept_comm_3avg_above','prs_opened_dept_comm_avg_below'),
+    "prs_opened_dept_never_comm_predep" = "prs_opened_dept_comm",
+    "avg_prs_opened_dept_comm_avg_3avg_bw" = c('avg_prs_opened_dept_comm_3avg_above','avg_prs_opened_dept_comm_avg_below'),
+    "avg_prs_opened_dept_never_comm_predep" = "avg_prs_opened_dept_comm",
+    "prs_opened_dept_comm_per_problem_avg_above" = "prs_opened_dept_comm_per_problem_avg_below",
+    "prs_opened_dept_comm_per_problem_min_avg_above" = "prs_opened_dept_comm_per_problem_min_avg_below",
+    "avg_prs_opened_dept_comm_per_problem_avg_above" = "avg_prs_opened_dept_comm_per_problem_avg_below",
+    "avg_prs_opened_dept_comm_per_problem_min_avg_above" = "avg_prs_opened_dept_comm_per_problem_min_avg_below",
+    "prs_opened_dept_comm_per_problem_2avg_above" = "prs_opened_dept_comm_per_problem_2avg_below",
+    "prs_opened_dept_comm_per_problem_min_2avg_above" = "prs_opened_dept_comm_per_problem_min_2avg_below",
+    "avg_prs_opened_dept_comm_per_problem_2avg_above" = "avg_prs_opened_dept_comm_per_problem_2avg_below",
+    "avg_prs_opened_dept_comm_per_problem_min_2avg_above" = "avg_prs_opened_dept_comm_per_problem_min_2avg_below"
+  )
+  
   g <- list(filters = list(list(col = "ind_key_collab_2bin", vals = c(1, 0))),
          fname_prefix  = "prs_opened_collab_",
          legend_labels = c("Dept. Collab", "Dept. Uncollab"))
   # loop over normalization, method, and the four (authored, involved) combos  
-  for(norm in c(TRUE, FALSE)) {  
+  for(norm in c(TRUE)) {  
     norm_str <- ifelse(norm, "_norm", "")  
     for(met in metrics) {  
       for(a in c(0,1)) {  
         for(i in c(0,1)) {  
-          paired_outcomes <- list(
-            "prs_opened_dept_never_comm" = "prs_opened_dept_comm",
-            #"prs_opened_dept_comm_avg_above" = "prs_opened_dept_comm_avg_below",
-            #"prs_opened_dept_comm_2avg_above" = "prs_opened_dept_comm_2avg_below",
-            #"prs_opened_dept_comm_3avg_above" = "prs_opened_dept_comm_3avg_below",
-            #"avg_prs_opened_dept_comm_avg_above" = "avg_prs_opened_dept_comm_avg_below",
-            #"avg_prs_opened_dept_comm_2avg_above" = "avg_prs_opened_dept_comm_2avg_below",
-            #"avg_prs_opened_dept_comm_3avg_above" = "avg_prs_opened_dept_comm_3avg_below",
-            "avg_prs_opened_dept_never_comm" = "avg_prs_opened_dept_comm",
-            "prs_opened_dept_comm_avg_3avg_bw" = c('prs_opened_dept_comm_3avg_above','prs_opened_dept_comm_avg_below'),
-            "prs_opened_dept_never_comm_predep" = "prs_opened_dept_comm",
-            "avg_prs_opened_dept_comm_avg_3avg_bw" = c('avg_prs_opened_dept_comm_3avg_above','avg_prs_opened_dept_comm_avg_below'),
-            "avg_prs_opened_dept_never_comm_predep" = "avg_prs_opened_dept_comm",
-            "prs_opened_dept_comm_per_problem_avg_above" = "prs_opened_dept_comm_per_problem_avg_below",
-            "prs_opened_dept_comm_per_problem_min_avg_above" = "prs_opened_dept_comm_per_problem_min_avg_below"
-          )
-          
           outcome_vec <- c("prs_opened", "total_contributor_count", "prs_opened_nondep", "prs_opened_predep")
           if (df_name == 'df_panel_nyt') {
             outcome_vec <- c(outcome_vec, "avg_prs_opened_nondep", "avg_prs_opened_predep",
@@ -423,7 +454,11 @@ for (df_name in c('df_panel_nyt')) {
             png(out_path)
             if (outcome %in% c("prs_opened_dept_comm_avg_3avg_bw","avg_prs_opened_dept_comm_avg_3avg_bw",
                                "prs_opened_dept_never_comm", "avg_prs_opened_dept_never_comm",
-                               "prs_opened_dept_never_comm_predep","avg_prs_opened_dept_never_comm_predep")) {
+                               "prs_opened_dept_never_comm_predep","avg_prs_opened_dept_never_comm_predep",
+                               "prs_opened_dept_comm_per_problem_avg_above","prs_opened_dept_comm_per_problem_min_avg_above",
+                               "avg_prs_opened_dept_comm_per_problem_avg_above","avg_prs_opened_dept_comm_per_problem_min_avg_above",
+                               "prs_opened_dept_comm_per_problem_2avg_above","prs_opened_dept_comm_per_problem_min_2avg_above",
+                               "avg_prs_opened_dept_comm_per_problem_2avg_above","avg_prs_opened_dept_comm_per_problem_min_2avg_above")) {
               for (k in seq_along(g$legend_labels)) {
                 legend_label <- g$legend_labels[[k]]
                 label_mask <- vapply(label_list, function(lbl) grepl(legend_label, lbl, fixed = TRUE), logical(1))
@@ -453,24 +488,10 @@ for (df_name in c('df_panel_nyt')) {
     }  
   }
   
-  paired_outcomes <- list(
-    "prs_opened_dept_never_comm" = "prs_opened_dept_comm",
-    #"prs_opened_dept_comm_avg_above" = "prs_opened_dept_comm_avg_below",
-    #"prs_opened_dept_comm_2avg_above" = "prs_opened_dept_comm_2avg_below",
-    #"prs_opened_dept_comm_3avg_above" = "prs_opened_dept_comm_3avg_below",
-    #"avg_prs_opened_dept_comm_avg_above" = "avg_prs_opened_dept_comm_avg_below",
-    #"avg_prs_opened_dept_comm_2avg_above" = "avg_prs_opened_dept_comm_2avg_below",
-    #"avg_prs_opened_dept_comm_3avg_above" = "avg_prs_opened_dept_comm_3avg_below",
-    "avg_prs_opened_dept_never_comm" = "avg_prs_opened_dept_comm",
-    "prs_opened_dept_comm_avg_3avg_bw" = c('prs_opened_dept_comm_3avg_above','prs_opened_dept_comm_avg_below'),
-    "prs_opened_dept_never_comm_predep" = "prs_opened_dept_comm",
-    "avg_prs_opened_dept_comm_avg_3avg_bw" = c('avg_prs_opened_dept_comm_3avg_above','avg_prs_opened_dept_comm_avg_below'),
-    "avg_prs_opened_dept_never_comm_predep" = "avg_prs_opened_dept_comm",
-    "prs_opened_dept_comm_per_problem_avg_above" = "prs_opened_dept_comm_per_problem_avg_below",
-    "prs_opened_dept_comm_per_problem_min_avg_above" = "prs_opened_dept_comm_per_problem_min_avg_below"
-  )
+
   
-  for (norm in c(TRUE, FALSE)) {
+  
+  for (norm in c(TRUE)) {
     norm_str <- ifelse(norm, "_norm", "")  
     combo_grid <- expand.grid(lapply(g$filters, `[[`, "vals"), 
                               KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
@@ -519,7 +540,11 @@ for (df_name in c('df_panel_nyt')) {
       png(out_path) 
       if (outcome %in% c("prs_opened_dept_comm_avg_3avg_bw","avg_prs_opened_dept_comm_avg_3avg_bw",
                          "prs_opened_dept_never_comm", "avg_prs_opened_dept_never_comm",
-                         "prs_opened_dept_never_comm_predep", "avg_prs_opened_dept_never_comm_predep")) {
+                         "prs_opened_dept_never_comm_predep", "avg_prs_opened_dept_never_comm_predep",
+                         "prs_opened_dept_comm_per_problem_avg_above","prs_opened_dept_comm_per_problem_min_avg_above",
+                         "avg_prs_opened_dept_comm_per_problem_avg_above","avg_prs_opened_dept_comm_per_problem_min_avg_above",
+                         "prs_opened_dept_comm_per_problem_2avg_above","prs_opened_dept_comm_per_problem_min_2avg_above",
+                         "avg_prs_opened_dept_comm_per_problem_2avg_above","avg_prs_opened_dept_comm_per_problem_min_2avg_above")) {
         for (k in seq_along(g$legend_labels)) {
           legend_label <- g$legend_labels[[k]]
           label_mask <- vapply(label_list, function(lbl) grepl(legend_label, lbl, fixed = TRUE), logical(1))
