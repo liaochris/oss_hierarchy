@@ -13,6 +13,7 @@ jobs:
       with:
           # The root LaTeX file to be compiled
           root_file: source/paper/main.tex source/paper/external/utility_theory.tex source/paper/external/model_shared_JMS.tex source/paper/external/github_data_proposal.tex
+          compiler: pdflatex
           args: -bibtex
 
     - name: Move Components
