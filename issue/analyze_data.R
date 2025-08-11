@@ -1,5 +1,5 @@
-library(did)
 library(tidyverse)
+library(did)
 library(arrow)
 library(gridExtra)
 library(ggplot2)
@@ -321,8 +321,9 @@ comm_label_map <- c(
   "avg_prs_opened_dept_comm_per_problem_2avg_below"= "Below 2xavg. comm/p",
   "avg_prs_opened_dept_comm_per_problem_min_2avg_above"= "Above 2xavg. comm/p",
   "avg_prs_opened_dept_comm_per_problem_min_2avg_below"= "Below 2xavg. comm/p"
-  
 )
+
+length(unique(df_panel_nyt$repo_name))
 
 for (df_name in c('df_panel_nyt')) {
   output_root <- if (df_name == 'df_panel_nyt') 'issue/output' else ""
@@ -383,9 +384,9 @@ for (df_name in c('df_panel_nyt')) {
     "avg_prs_opened_dept_comm_2avg_above" = "avg_prs_opened_dept_comm_2avg_below",
     "avg_prs_opened_dept_comm_3avg_above" = "avg_prs_opened_dept_comm_3avg_below",
     "avg_prs_opened_dept_never_comm" = "avg_prs_opened_dept_comm",
-    #"prs_opened_dept_comm_avg_3avg_bw" = c('prs_opened_dept_comm_3avg_above','prs_opened_dept_comm_avg_below'),
+    "prs_opened_dept_comm_avg_3avg_bw" = c('prs_opened_dept_comm_3avg_above','prs_opened_dept_comm_avg_below'),
     "prs_opened_dept_never_comm_predep" = "prs_opened_dept_comm",
-    #"avg_prs_opened_dept_comm_avg_3avg_bw" = c('avg_prs_opened_dept_comm_3avg_above','avg_prs_opened_dept_comm_avg_below'),
+    "avg_prs_opened_dept_comm_avg_3avg_bw" = c('avg_prs_opened_dept_comm_3avg_above','avg_prs_opened_dept_comm_avg_below'),
     "avg_prs_opened_dept_never_comm_predep" = "avg_prs_opened_dept_comm",
     "prs_opened_dept_comm_per_problem_avg_above" = "prs_opened_dept_comm_per_problem_avg_below",
     "prs_opened_dept_comm_per_problem_min_avg_above" = "prs_opened_dept_comm_per_problem_min_avg_below",
@@ -455,6 +456,7 @@ for (df_name in c('df_panel_nyt')) {
             if (outcome %in% c("prs_opened_dept_comm_avg_3avg_bw","avg_prs_opened_dept_comm_avg_3avg_bw",
                                "prs_opened_dept_never_comm", "avg_prs_opened_dept_never_comm",
                                "prs_opened_dept_never_comm_predep","avg_prs_opened_dept_never_comm_predep",
+                               "prs_opened_dept_comm_avg_above",
                                "prs_opened_dept_comm_per_problem_avg_above","prs_opened_dept_comm_per_problem_min_avg_above",
                                "avg_prs_opened_dept_comm_per_problem_avg_above","avg_prs_opened_dept_comm_per_problem_min_avg_above",
                                "prs_opened_dept_comm_per_problem_2avg_above","prs_opened_dept_comm_per_problem_min_2avg_above",
@@ -541,6 +543,7 @@ for (df_name in c('df_panel_nyt')) {
       if (outcome %in% c("prs_opened_dept_comm_avg_3avg_bw","avg_prs_opened_dept_comm_avg_3avg_bw",
                          "prs_opened_dept_never_comm", "avg_prs_opened_dept_never_comm",
                          "prs_opened_dept_never_comm_predep", "avg_prs_opened_dept_never_comm_predep",
+                         "prs_opened_dept_comm_avg_above",
                          "prs_opened_dept_comm_per_problem_avg_above","prs_opened_dept_comm_per_problem_min_avg_above",
                          "avg_prs_opened_dept_comm_per_problem_avg_above","avg_prs_opened_dept_comm_per_problem_min_avg_above",
                          "prs_opened_dept_comm_per_problem_2avg_above","prs_opened_dept_comm_per_problem_min_2avg_above",
