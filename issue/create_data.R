@@ -1,6 +1,7 @@
 library(tidyverse)
 library(arrow)
 library(lubridate)
+library(SaveData)
 
 set.seed(1234)
 `%notin%` <- Negate(`%in%`)
@@ -127,14 +128,16 @@ Main <- function() {
              prs_opened_dept_comm_avg_below = replace_na(prs_opened_dept_comm_avg_below, 0),
              prs_opened_dept_comm = replace_na(prs_opened_dept_comm, 0),
              prs_opened_dept_never_comm = replace_na(prs_opened_dept_never_comm, 0),
-             prs_opened_predep = replace_na(prs_opened_predep, 0),
-             prs_opened_nondep = replace_na(prs_opened_nondep, 0),
+             #prs_opened_predep = replace_na(prs_opened_predep, 0),
+             #prs_opened_nondep = replace_na(prs_opened_nondep, 0),
              commits = replace_na(commits, 0)) %>%
       ungroup() %>%
       filter(time_period >= first_period & time_period <= final_period)
     
     sum(is.na(df_panel_nyt))
-    df_panel_nyt %>% write_parquet(paste0("issue/df_panel_nyt", sample, ".parquet"))
+    SaveData(df_panel_nyt, c("repo_name","time_period"),
+             paste0("issue/df_panel_nyt", sample, ".csv"),
+             paste0("issue/df_panel_nyt", sample, ".log"))
   }
 }
 
