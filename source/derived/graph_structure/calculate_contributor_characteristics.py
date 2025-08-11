@@ -67,7 +67,7 @@ def Main():
                     'imp_to_other_overall': imp_to_other_comm_overall,
                     'normalized_degree': actor_data.get('normalized_degree', None),
                     'imp_to_other_avg_edge_weight': actor_data.get('avg_edge_weight', None),
-                    'communication_log': actor_data.get('communication_log', None),
+                    'communication_log': str(actor_data.get('communication_log', None)),
                 }
                 if actor in important_contributor_keys:
                     row['individual_node_coverage'] = actor_data.get('individual_coverage', None)
