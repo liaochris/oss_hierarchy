@@ -29,6 +29,10 @@
 \usepackage{verbatim}
 \usepackage[framemethod=tikz]{mdframed}
 \usepackage{subcaption}
+\captionsetup[sub]{subrefformat=parens}
+\DeclareCaptionLabelFormat{subpanel}{Panel~(#2):}
+\captionsetup[sub]{labelformat=subpanel, labelsep=space}
+
 \usepackage{caption}
 \usepackage{lipsum}
 \usepackage{mathtools}
@@ -37,10 +41,10 @@
 \usepackage{amsthm}
 \usepackage{epsfig}
 \usepackage[
-backend=bibtex,
-style=authoryear-comp,
-sorting=ynt
-]{biblatex}
+  backend=biber,      
+  authordate, 
+]{biblatex-chicago}
+
 \usepackage[colorlinks,allcolors=blue]{hyperref}
 \usepackage[shortlabels]{enumitem}
 \usepackage{subfiles} % Best loaded last in the preamble
@@ -51,8 +55,9 @@ sorting=ynt
 
 \setcounter{MaxMatrixCols}{10}
 
-\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
-\newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{C}[1]{>{\centering\let\newline\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\let\newline\\arraybackslash\hspace{0pt}}m{#1}}
 
 
 
@@ -77,7 +82,7 @@ sorting=ynt
 \newcommandx{\thiswillnotshow}[2][1=]{\OldTodo[disable,#1]{#2}}
 \newcommandx{\askjesse}[2][1=]{\OldTodo[linecolor=Plum,backgroundcolor=Plum!25,bordercolor=Plum,#1]{\textbf{{Ask Jesse:}} #2}}
 \newcommandx{\longterm}[2][1=]{\OldTodo[linecolor=Blue,backgroundcolor=Blue!25,bordercolor=Blue,#1]{\textbf{{Long-term:}} #2}}
-\newcommandx{\takeaway}[2][1=]{\OldTodo[linecolor=Green,backgroundcolor=Green!25,bordercolor=Green,#1]{\textbf{{Takeaways:}} #2}}
+\newcommandx{\donow}[2][1=]{\OldTodo[linecolor=Green,backgroundcolor=Green!25,bordercolor=Green,#1]{\textbf{{Do Now:}} #2}}
 
 
 \topmargin=-1.5cm \textheight=23cm \oddsidemargin=0.5cm
@@ -120,20 +125,28 @@ sorting=ynt
 \newcommand{\red}[1]{{\color{red} #1}}
 \newcommand{\blue}[1]{{\color{blue} #1}}
 
-\newcolumntype{L}[1]{>{\raggedright\let\newline\\arraybackslash\hspace{0pt}}m{#1}}
-\newcolumntype{C}[1]{>{\centering\let\newline\\arraybackslash\hspace{0pt}}m{#1}}
-\newcolumntype{R}[1]{>{\raggedleft\let\newline\\arraybackslash\hspace{0pt}}m{#1}}
+
+% required by modelsummary
+\usepackage{tabularray}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{codehigh}
+\usepackage[normalem]{ulem}
+\UseTblrLibrary{booktabs}
+\UseTblrLibrary{siunitx}
+\newcommand{\tinytableTabularrayUnderline}[1]{\underline{#1}}
+\newcommand{\tinytableTabularrayStrikeout}[1]{\sout{#1}}
+\NewTableCommand{\tinytableDefineColor}[3]{\definecolor{#1}{#2}{#3}}
+
 
 \begin{document}
 
 \begin{titlepage}
 \title{Collaboration in Organizations: Evidence from Open Source Software}
-\author{Christopher Liao
-
-\thanks{I am indebted to my advisors Jesse Shapiro and Ali Hortaçsu. I thank Jordan Rosenthal-Kay, James Traina, Noah Sobel-Lewin, Krishna Dasari, Anjali Pullabhotla, Luis Garicano, Josh Lerner, Frank Nagel, Victor Lima, Kotaro Yoshida, Jeff Gortmaker, Ruru Hoong, Ruby Zhang and Matthew Lee Chen, and members of the Harvard Predoc Workshop and the UChicago Honors Workshop for helpful comments and suggestions.}
-
+\author{Christopher Liao\thanks{I thank my  advisors Jesse Shapiro and Ali Hortaçsu, Jordan Rosenthal-Kay, James Traina, Noah Sobel-Lewin, Krishna Dasari, Anjali Pullabhotla, Luis Garicano, Josh Lerner, Frank Nagel, Victor Lima, Kotaro Yoshida, Jeff Gortmaker, Ruru Hoong, Ruby Zhang and Matthew Lee Chen, and members of the Harvard Predoc Workshop and the UChicago Honors Workshop for helpful comments and suggestions.}}
 \date{\today}
 \maketitle
+
 \begin{abstract}
 \noindent Placeholder\\
 \vspace{0in}\\
@@ -147,45 +160,38 @@ sorting=ynt
 \pagebreak \newpage
 
 \section{Introduction} \label{sec:intro}
-
-\todo[inline]{To do's for the introduction\\
-2) Rewrite motivation to emphasize organizational resilience as the thing we don't know\\
-5) Rewrite methods to suit what I'm currently doing\\
-6) Rewrite findings\\
-7) Write literature – understand what the literature has done}
-
-\textbf{Paragraphs 1-2: Motivation. After reading these paragraphs a reader in any field of economics should believe that if you answer your research question your paper will make an important contribution.}
-\todo[inline]{
-1. Evaluate whether I need to just focus on collaboration (depends on whether/how I incorporate communication)\\
-2. Is knowledge loss a useful term\\
-3. Think about whether there's an angle to describe "we don't know how organizations benefit from collaboration". I could approach it from a pre-post departure tradeoffs angle, a "what types of projects benefit most", "what types of departures benefit most", or a "the different opposing forces" angle. 
-4. Is there a way to incorporate the model of hierarchy and how it doesn't tell us about collaboration?
+\todo[inline]{Things I want to make sure are clear when I'm writing\\
+1. Make sure it's clear here that I'm interested in collaboration BETWEEN imp people\\
+2. Notes for writing sample- change collaborative to collaborative\\
+3. departed contributor- make sure I'm calling it project, not organization
 }
 
-A key issue organizations encounter is departures. \todo[inline]{Is there a citation I can use to characterize the costs of collaboration?}
-An organization's problem-solving ability depends on the knowledge of its contributors; hence, departures can not only lead to less hands on deck, but also the shrinking of the organization's knowledge base and problem-solving ability. Oftentimes, the more important the departed contributor, the greater the repercussions. One way organizations can mitigate the repercussions of departures is through collaboration. Collaboration can expose contributors to a wider variety of tasks, allowing collaborators to expand their own knowledge base through learning from others and limit how much knowledge an organization would lose following a departure (\cite{hamilton_team_2003}, \cite{rashid_systematic_2019}). On the other hand, collaboration might also lead to investments in team-specific capital that are inaccessible and ill-fitted for the organization's broader objectives post-departure, negatively affecting collaborators (\cite{jaravel_team-specific_2018}, \cite{azoulay_does_2019}). \todo[inline]{Should I be worried about the fact that I'm giving examples I can't really test?} Moreover, collaboration can also create organizational burdens, as collaboration involves repeating information, dealing with scheduling frictions and learning about new problems, all of which are time consuming and can detract from the organization's primary focus. \todo[inline]{I want to amend "repeating information, dealing with scheduling frictions and learning about new problems" based off what I find to be time consuming in the paper} In this paper, my goal is to understand whether collaboration is effective in mitigating the repercussions of important departures in organizations and the tradeoffs associated with collaboration. \todo[inline]{1. I'm not sure if I want to mention tradeoffs if it's not a major portion of my analysis and 2. Do I want to try and put tradeoffs on the same scale as impacts?}
+\textbf{Paragraphs 1-2: Motivation. After reading these paragraphs a reader in any field of economics should believe that if you answer your research question your paper will make an important contribution.}
 
+A major issue organizations encounter is contributor departures. An organization's problem-solving ability depends on the knowledge of its contributors; hence, departures can not only lead to fewer hands on deck, but also the shrinking of the organization's knowledge base and problem-solving ability. Oftentimes, the more important the departed contributor, the greater the repercussions. One way organizations can mitigate the repercussions of departures is through collaboration. Collaboration can expose contributors to a wider variety of tasks, allowing collaborators to expand their own knowledge base through learning from others and limit how much knowledge an organization would lose following a departure (\cite{hamilton_team_2003}, \cite{rashid_systematic_2019}). On the other hand, collaboration might also lead to investments in team-specific capital that are inaccessible and ill-fitted for the organization's broader objectives post-departure, negatively affecting collaborators (\cite{jaravel_team-specific_2018}, \cite{azoulay_does_2019}).  Moreover, collaboration can also create organizational burdens, as collaboration involves waiting for others which can be time-consuming and detract from the organization's primary focus. An outstanding puzzle is how the benefits and drawbacks of collaboration interact to shape organizational performance following a important contributor’s departure and the situations where one effect may dominate over another. Understanding that is the goal of this paper.
 
-\todo[inline]{Consider whether to change contributors with members}
+\todo[inline]{I want to rephrase ``Collaboration can expose contributors to a wider variety of tasks, allowing collaborators to expand their own knowledge base through learning from others and limit how much knowledge an organization would lose following a departure" to speak more closely to what I'm examining in the paper}
 
 \textbf{Paragraphs 3-4: Challenges. These paragraphs explain why your research question has not already been answered, i.e., what are the central challenges a researcher must tackle to answer this question.}
 
 There are two major challenges that must be addressed to assess how collaboration affects projects following the departure of an important contributor. First, granular data about organizations is typically inaccessible to researchers. Second, departures and an organization's collaborative nature are both endogenous, which makes identifying their causal effect on an organization difficult. 
 
-I address the first challenge by studying organizational departures using evidence from open source software (OSS) development organizations. OSS is software that is freely available for use and modification, and is considered a public good. OSS is widely used - a recent report found that 97\% of all software included open source code (\cite{fred_bals_six_2025}). Prominent examples of OSS projects include the operating system Linux, the operating system of choice for 96.4\% of the top one million web servers (\cite{w3cook_os_2015})\footnote{Ubuntu, CentOS, Debian, Fedora, SUSE and Redhat are all Linux-based}, and the machine learning framework PyTorch, which is used by 63\% of all organizations training artificial intelligence/machine learning models (\cite{lawson_shaping_2024}). \todo[inline]{Add Python}
+I address the first challenge by studying organizational departures using evidence from open source software (OSS) development organizations. OSS is software that is freely available for use and modification, and is considered a public good. OSS is widely used - a recent report found that 97\% of all software included open source code (\cite{fred_bals_six_2025}). Prominent examples of OSS projects include the operating system Linux, the operating system of choice for 96.4\% of the top one million web servers (\cite{w3cook_os_2015})\footnote{Ubuntu, CentOS, Debian, Fedora, SUSE and Redhat are all Linux-based}, and the machine learning framework PyTorch, which is used by 63\% of all organizations training artificial intelligence/machine learning models (\cite{lawson_shaping_2024}). 
 
-Granular OSS development activity is publicly available for research. Moreover, concerns about the repercussions of departures are particularly acute in the OSS community as most contributors are mostly volunteers (\cite{robles_evolution_2005}, \cite{xu_volunteers_2010}) which leads to high turnover (\cite{izquierdo-cortazar_using_2009}, \cite{rashid_systematic_2019}). Past research has found that departures negatively affect software quality (\cite{mockus_organizational_2010}; \cite{foucault_impact_2015}).
+Granular OSS development activity is publicly available for research. Moreover, concerns about the repercussions of departures are particularly acute in the OSS community as most contributors are volunteers (\cite{robles_evolution_2005}, \cite{xu_volunteers_2010}) which leads to high turnover (\cite{izquierdo-cortazar_using_2009}, \cite{rashid_systematic_2019})\footnote{This is also a problem in companies that develop OSS. Software developers have an annual turnover rate of 57.3\% (\cite{terlecki_employee_2025}}). Past research has found that departures negatively affect software quality (\cite{mockus_organizational_2010}; \cite{foucault_impact_2015}).
 
-Identifying the causal effect of departures on organizations and the causal effect of collaboration on mitigating the repercussions of departures is difficult because departure and collaboration are choices made by individual contributors and the organization. Contributor departure can occur for personal reasons unobservable to the researcher, such as personal dissatisfaction with the project (\cite{hannon_retaining_2008}, \cite{yu_empirical_2012}) or employment changes (\cite{miller_why_2019}), that may be related to underlying trends in organizational outcomes. Similarly, projects may choose to be more collaborative because collaboration is more conducive to success in their problem environment or contributors happen to enjoy working together. A naive analysis would risk confounding differences in a project's problem environment or its contributor's personalities with the actual effect of collaboration. 
-
-\todo[inline]{Consider adding smth about how at companies that develop OSS there's high turnover}
+Identifying the causal effect of departures on organizations and the causal effect of collaboration on mitigating the repercussions of departures is challenging because departure and collaboration are choices made by individual contributors and the organization. Contributor departure can occur for personal reasons unobservable to the researcher, such as personal dissatisfaction with the project (\cite{hannon_retaining_2008}, \cite{yu_empirical_2012}) or employment changes (\cite{miller_why_2019}), that may be related to underlying trends in organizational outcomes. Similarly, projects may choose to be more collaborative because collaboration is more conducive to success in their problem environment or contributors happen to enjoy working together. A naive analysis would risk confounding differences in a project's problem environment or  contributor's personalities with the actual effect of collaboration. 
 
 \textbf{Paragraph 5: This Paper. This paragraph states in a nutshell what the paper accomplishes and how. }
 
-In this paper, I leverage data on open source software to identify a set of plausibly exogenous important departures and quantify the effects of these departures on OSS projects. I analyze how pre-departure organizational characteristics affect software development activity and extend these results to characterize the impacts on downstream business outcomes. Finally, I probe at the underlying mechanisms that drive collaboration's effect and characterize tradeoffs that collaborative organizations encounter prior to departures. 
+In this paper, I leverage data on open source software to identify a set of plausibly exogenous important departures and quantify the effects of these departures on OSS projects. I analyze how pre-departure organizational characteristics and prior collaboration between the departed contributor and other important contributor affect software development activity. Finally, I probe at the underlying mechanisms that drive collaboration's effect and characterize tradeoffs that collaborative organizations encounter prior to departures. 
 
-\todo[inline]{Return to this once I finish the paper}
-\todo[inline]{Think more about the way I can deploy random forest (throughout the rest of the paper, before incorporating here). Is the benefit of the random forest to help with hypothesis generation for what factors mitigate departures? Or to better probe at the effects of departures}
+\todo[inline]{Return to this once I finish the paper. I sholud figure out whether
+`` and extend these results to characterize the impacts on downstream business outcomes. " is going in the paper}
+\longterm[inline]{Random Forest can help in a few ways:
+1) Identifying aspects of organizations that predict not doing poorly post-departure 
+2) See if there's a way random forest can explain tradeoffs
+3) Random forest will help because it can deal with continuous values in a more systematic way. Right now I'm essentially assuming functional form - can think about how to phrase}
 
 \longterm[inline]{Paragraphs 6-7: Model. Summarize the key formal assumptions you will maintain in your analysis.
 
@@ -211,39 +217,29 @@ Existing theory tells us how organizations adapt their organizational structure 
 
 \textbf{Paragraphs 8-9: Data. Explain where you obtain your data and how you measure the concepts that
 are central to your study}
-I obtain data on OSS organizations and their software development activity from the Github Archive (\cite{github_archive_github_2025}). My paper hones in on a particular type of OSS organization - those developing widely used\footnote{I define widely used as those with at least 1000 monthly downloads each month from September 2018 to July 2023} Python libraries - because data on usage and software version updates is available through the Python Package Index \todo[inline]{Cite}. Python libraries are collections of pre-written software that provide a diverse range of functionality and are essential to software development in Python, the world's most widely used programming language as of July 2025 (\cite{paul_jansen_tiobe_2025}). The action-level data from the Github Archive (\cite{github_archive_github_2025}) allow me to identify important contributors and track their contribution and departure patterns. 
+I obtain data on OSS organizations and their software development activity from the Github Archive (\cite{github_archive_github_2025}). My paper hones in on a particular type of OSS organization - those developing widely used Python libraries - because data on usage and software version updates is available through the Python Package Index. Python libraries are collections of pre-written software that provide a diverse range of functionality and are essential to software development in Python, the world's most widely used programming language as of July 2025 (\cite{paul_jansen_tiobe_2025}). Focusing on organizations that all develop the same software category also allows me to avoid dealing with differential unobservable trends across different software categories, such as trends in the popularity of different programming languages. The action-level data from the Github Archive (\cite{github_archive_github_2025}) allow me to identify important contributors and track their contribution and departure patterns. 
 
-\todo[inline]{Do I need more detail? }
+\todo[inline]{Add to if I end up using other datasets}
 
 \textbf{Paragraphs 10-11: Methods. Explain how you take your model to the data and how you overcome the
 challenges you raised in paragraphs 3-4.}
 
-I identify a set of important departures that are unrelated to unobservable organizational trends by examining the effect of abrupt departures. Abrupt departures occur when an important contributor is highly active for several consecutive periods until their departure, afterwhich they cease to ever be involved in the organization in any capacity. The literature has found that abrupt departures tend to be driven by external shocks unrelated to the project, such as job changes or major life events, rather than internal or project-related factors such as declining interest, dissatisfaction, or project wind-down, which typically involve gradual disengagement  \cite{miller_why_2019}. 
+I identify a set of important departures that are plausibly unrelated to unobservable organizational trends by examining the effect of abrupt departures. Abrupt departures occur when an important contributor is highly active for several consecutive periods until their departure, afterwhich they cease to ever be involved in the organization in any capacity. The literature found that abrupt departures tend to be driven by external shocks unrelated to the project, such as job changes or major life events, rather than internal or project-related factors such as declining interest, dissatisfaction, or project wind-down, which typically involve gradual disengagement (\cite{miller_why_2019}). 
 
-I estimate the empirical effect of important departures using an event study design. My observations are at the organization level and the treatment date is the time period of the important departure. The control group consists of not-yet-treated projects that eventually experience a single departure, which guards against bias introduced by unobserved differences between projects that do and do not undergo departures. To simplify the identification of dynamic effects, I restrict the sample to organizations that only ever experienced a single important departure, so that the treatment is binary and irreversible. My primary estimation method is \cite{callaway_difference--differences_2021}. 
+I estimate the empirical effect of important departures using an event study design. My observations are at the organization level and the treatment date is the time period of the important departure. The control group consists of not-yet-treated projects that eventually experience a single departure, which guards against bias introduced by unobserved differences between projects that do and do not undergo departures. To simplify the identification of dynamic effects, I restrict the sample to organizations that only ever experienced a single important departure, so that the treatment is binary and irreversible. My primary estimation method is \cite{callaway_difference--differences_2021}, which allows me to estimate dynamic treatment effects robust to heterogeneity in treatment timing and use the full set of ``not-yet-treated'' projects as controls. 
 
-\todo[inline]{Improve this paragraph. Broadly I'm thinking something like this:
-Add sentences below after I ensure I'm actually executing those tasks:
-1. I define collaboration as joint involvement in problem solving between the departed contributor and other key contributors, and I show that my measure of collaboration is unrelated to measures of broader organization-wide collaboration. 
-2. To ensure that collaboration with other key contributors is an option, I only include OSS organizations that have multiple key contributors in all preperiods. 
-3. Finally, among {x, y, z} dimension, projects with collaborative departed contributors are observably similar to projects with uncollaborative departed contributors. 
-- Also think about how I can show that collaborative projects are observably similar to uncollaborative projects??
+I define ``collaboration” as the rate at which the departing important contributor works alongside other important contributors. Crucially, this metric is defined solely with respect to the departing individual and is therefore orthogonal to broader “other collaboration” measures among non‐departing actors. To guarantee that such dyadic collaboration is possible and projects do not operate in different problem environments, I restrict the sample to OSS projects that, in every pre‐departure period, feature at least two key contributors. I assess post‐departure outcomes conditional on collaboration by stratifying projects into bins based on their collaboration rates.  To address potential confounding between collaborativeness and the treatment effect, I interact these collaboration bins with additional covariates when evaluating post-departure project outcomes.
+
+\todo[inline]{
+Do this:
+1. show that my measure of collaboration is unrelated to measures of broader organization-wide collaboration. 
+2. Among {x, y, z} dimension, projects with collaborative departed contributors are observably similar to projects with uncollaborative departed contributors. 
+- Project age at departure time, Forks, stars, departure date, 
 }
-
-\if
-% does the miller paper describe "abrupt"
-Quotes from Miller 2019
- One such blog post describes how “as [my project’s] pop-
-ularity rose and rose, my drive to continue to create new projects, fell. All while the
-burden of supporting the needs of the massive user bases of my successful projects and
-the pressure of maintaining those projects grew.”
-
-Also, Miller 2019 use abrupt engagement and finds different results from other papers
-\fi
 
 \textbf{Paragraphs 12-13: Findings. Describe the key findings. Make sure they connect clearly to the motiva-
 tion in paragraphs 1-2.}
-\todo[inline]{Here, outline both what I've already found and what I'm hoping to find so I have a better sense of next step}
+\todo[inline]{Finish this section }
 
 \begin{enumerate}
     \item Departures matter
@@ -257,7 +253,7 @@ tion in paragraphs 1-2.}
             \item Why do those contributors increase their productivity? Think about this from the perspective of what this teaches us about organizations
             \begin{itemize}
                 \item Is collaboration with the departed contributor indicative of broader, project-specific trends? How: Examine "other collaboration"
-                \item How are the key contributor(s) they work with affected? We would suspect these individuals either benefit most (or suffer most)
+                \item How are the important contributor(s) they work with affected? We would suspect these individuals either benefit most (or suffer most)
                 \begin{itemize}
                     \item Use this to segway into better understanding what's going on with communication. 
                 \end{itemize}
@@ -276,249 +272,247 @@ tion in paragraphs 1-2.}
     \textcolor{red}{
     \begin{itemize}
             \item Why do those contributors leave? Think about this from the perspective of what this teaches us about organizations
-            \item Are the ones who are leaving the key contributor collaborators? 
+            \item Are the ones who are leaving the important contributor collaborators? 
         \end{itemize}
     }
     \item New contributors are very productive, even more so than existing ones. Why?
 \end{enumerate}
 
 
-\todo[inline]{It would be nice to place a number on "impacts"}
+\todo[inline]{It would be nice to place a number on "impacts" caused by departure (what's the headline number?)}
 % I also want a robustness for departures (that are vs. aren't abrupt) using that departure filtering event study graph
 
 \textbf{Paragraphs 14-15: Literature. Lay out the two main ways your paper contributes to the literature. Each paragraph should center around one contribution and should explain precisely how your paper differs from the most closely related recent work.}
-\textbf{approach wil be to write down strands of related literature and return to this once I'm done }
 
-I think it applies to two literature
-\begin{enumerate}
-    \item Literature on OSS in economics: no one has thought about departures, rare to see big data deployed. Literature on OSS doesn't address endogeneous nature of departures or org structure well 
-    \item Literature on org/team structure: how do org characteristics affect outcomes. In economics, there's the theory (Brynjolfsson, Milgrom - complementary org structures), applications to management (Bloom) and evidence from the inventor literature (Azoulay, Jaravel)
-\end{enumerate}
+Open source software has long been a topic of interest in the economics literature. In the past, researchers have been interested in why and how people contribute to OSS (\cite{lerner_open_2001}, \cite{lerner_simple_2002}, \cite{hann_economic_2002}, \cite{lakhani_how_2003}, \cite{robert_g_wolf_why_2003}, 
+\cite{hertel_motivation_2003}, \cite{krishnamurthy_intrinsic_2006}, \cite{chakravarty_link_2007}, \cite{xu_what_2020}, \cite{wang_monetary_2022}, \cite{conti_incentivizing_2023}), how open source software organizations are structured (\cite{mockus_two_2002}, \cite{crowston_coordination_2005}, \cite{den_besten_allocation_2008}) and what the factors affecting project success are (\cite{mustonen_copyleft--economics_2003}, \cite{fershtman_open_2007}, \cite{comino_planning_2007}, \cite{belenzon_motivation_2008}, \cite{giuri_skills_2010}). There has also been more recent work that has studied the economic impact of open source software on firms (\cite{nagle_open_2017}, \cite{nagle_learning_2018}), its value (\cite{hoffmann_value_2024}) and potential industrial policy (\cite{gortmaker_open_2025}). Work on OSS contributor departures in the economics literature is sparse, although it is a topic of much interest to the information systems and software engineering literature. \cite{rashid_systematic_2019} provides an detailed overview of that literature. There has been extensive work that seeks to understand the prevalence, motivations and ways OSS organizations can mitigate departures (\cite{robles_evolution_2005}, \cite{hannon_retaining_2008}, \cite{westlund_retaining_2008}, \cite{xu_volunteers_2010}, \cite{yu_empirical_2012}, \cite{miller_why_2019}). There is also work on when abandoned projects are revived (\cite{avelino_abandonment_2019}) and how contributors can engage in ``knowledge sharing" behaviors (\cite{von_krogh_community_2003}, \cite{rashid_exploring_2017}) within an OSS organization. Existing literature has found that software quality can be reduced by both contributor departures (\cite{mockus_organizational_2010}) and the presence of newcomers (\cite{foucault_impact_2015}). Past work has also sought to quantify the impacts of contributor departures based off metrics that measure potential damage incurred to the existing codebase by a departure (\cite{izquierdo-cortazar_using_2009}, \cite{rigby_quantifying_2016}, \cite{nassif_revisiting_2017}). The work most closely related to mine, \cite{rigby_quantifying_2016}, has found that the presence of ``successor" contributors who worked on similar tasks to the departed contributor has the potential to mitigate the impact of contributor departures, though there are several important distinctions between their analysis and mine. 
+First, this paper examines 92 projects as opposed to 5. Second, I focus on projects that experience one plausibly exogenous departure to avoid confounding underlying project trends with the impact of departure whereas \cite{rigby_quantifying_2016} examines all departures that occur in a project. Finally, whereas \cite{rigby_quantifying_2016} consider hypothetical impacts on a project based on potential damage to the codebase and hypothetical mitigations based on the presence of a successor, I analyze the actual impacts experienced by projects following departures and am able to quantify, using realized outcomes, how factors such as collaboration affect projects post-departure. 
+\todo[inline]{Autofill 92}
+There is also a large literature on organizational structure and how it affects organizational outcomes (\cite{bloom_measuring_2007}, \cite{brynjolfsson_1_2012}, \cite{ichniowski_7_2012}). However, the work that is most similar to mine actually comes from the literature on innovation that evaluates the impact of premature inventor deaths (\cite{jaravel_team-specific_2018}, \cite{azoulay_does_2019}). The most closely related work is \cite{jaravel_team-specific_2018}, which finds that co-inventor publication activity is negatively affected by premature deaths and that the effects are driven by close-knit teams with extensive experience collaborating. This paper differs in two key ways. First, my unit of observation is an organization, not a team; this distinction matters for several reasons. There are many more individuals in an organization who could both be affected by departure. Moreover, OSS contributors have reputations to preserve that would be damaged if they stopped fulfilling their key duties. One might also imagine that there's a higher ceiling to invention quality than there is to work done in an OSS organization. Second, in my setting, collaboration and contributions are much more visible; I can observe all communication between contributors, which provides more granular measurements of collaboration and examine how individual characteristics of the departed contributor, within an organization, matter. 
 
-
-\todo[inline]{Ensure that each sentence in each section of the introduction clearly maps to a theme/subsection of the paper}
 
 \section{Data} \label{sec:data}
-\longterm[inline]{I may want to think about data as data sources, and data definitions}
-\todo[inline]{When I return to this, first think about the big pieces, then match what I've already written to the big pieces/what still needs to be filled in for the big pieces, and then write}
-\begin{enumerate}
-    \item What is an open source software project (unit of measurement)?.
-    \begin{itemize}
-        \item Appendix: How I map PyPi projects to github repositories
-        \item Appendix: How I match repo names to repo ids in cases where identity changes
-    \end{itemize}
-    \item Who are contributors and how do contributors contribute to the project (describe a "problem unit")?
-    \begin{itemize}
-        \item Describe the many purposes of an issue and define the key concepts in an issue thread. Add a screenshot to help inform what these are like
-        \item Describe the purpose of a PR, and define the key concepts in a PR thread. Add a screenshot to help inform what these are like. 
-        \begin{itemize}
-            \item Appendix: How I measure PRs merged and other related concepts (is it a subset of opened PRs?)
-        \end{itemize}
-        \item Units of code change: commits, which come from pushes + PRs. 
-        \begin{itemize}
-            \item Appendix: How are commits measured and deal with the fact that push and PR commits can be overlapping? 
-        \end{itemize}
-    \end{itemize}
-    \item Measurement of downstream outcomes - the deifne the ones that I end up using. 
-    \begin{itemize}
-        \item Describe software releases, the various types and measurement
-        \item Define software quality (security measure, not user experience based)
-        \item Downloads
-    \end{itemize}
-    \item Measurement: Aggregation to the 6 month level
-    \begin{itemize}
-        \item Appendix: Robustness to 3 month measurements (if necessary)
-    \end{itemize}
-    \item Appendix: Data availability (when is it first available, what is the availability rate)
-\end{enumerate}
-\todo[inline]{I think define problems first, then define departure, then define organizational structure. along the way define the different splits I use. }
-\subsection{Measuring Departure}
-\begin{enumerate}
-    \item Subset of contributors whose code contributions were above the 75th percentile for at least 3 consecutive periods before
-    \item Commits declined immediately to 0 in the "departure" period
-    \item Departure is permanent
-    \item Departure means all other activities in all other areas ceases too 
-    \todo[inline]{check if this zero activity rule applies starting the departure period or period after departure}
-    \item Project only experienced one departure. 
-\end{enumerate}
-\subsection{Measuring Organizational Structure}
-The key ingredients needed are a definition of key contributor and  problems the project solves. 
-\subsubsection{Defining key contributors}
-\begin{enumerate}
-    \item Construct a network of interactions between contributors based off issue threads, PR threads and PR review threads.
-    \begin{itemize}
-        \item Include example
-    \end{itemize}
-    \item Mark contributor as key if they meet either one of the two criteria in any of the past 3 time periods \textbf{AND} they're still active
-    \begin{enumerate}
-        \item their degree (number of nodes they were connected to) z score exceeded 1.5 or had the highest z score 
-        \item they are the departed contributor
-    \end{enumerate} 
-\end{enumerate}
-\subsubsection{Defining the set of problems}
-\begin{enumerate}
-    \item First construct a mapping between issues + PRs. This helps create a dataset of "problems" that projects address
-    \begin{itemize}
-        \item Three problem types: unlinked issues, unlinked PRs, linked
-        \item Construct linkage using the following criteria
-        \begin{enumerate}
-          \item Use the provided link.
-          \item For each remaining unlinked issue/PR, find a counterpart that mutually references it and choose the closest number.
-          \item If no mutual reference exists, find any one-way reference and choose the closest number
-        \end{enumerate}
-    \end{itemize}
-    \item Only keep projects that have at least two key contributors in all pre-treatment periods (henceforth known as pre periods)
-\end{enumerate}
-\subsubsection{Defining collaboration}
-For a given project $i$ in time period $t$, and problems $P_{it} = \{p_{it}^1, \cdots, p_{it}^{N_{it}} \}$ where $N_{it}$ is the number of problems faced by project $i$ in time period $t$
+\subsection{Data sample}
+
+I am interested in OSS organizations that develop widely used Python libraries - defined as libraries with at least 1000 monthly downloads each month from September 2018 to July 2023. I focus on the subset of organizations whose development data is publicly available on GitHub. 
+
+The unit of observation is an open source software project. In Panel~\subref{fig:dask-home} of Figure~\ref{fig:dask-screenshots}, I show an example homepage for the Github project \textbf{dask/dask}. Each open source software project has contributors who work on problems. Conceptually, a problem consist of at least one of two components: discussion and solution evaluation. To initiate discussion of a problem, a contributor opens an issue, and discussion occurs in the issue thread. Panel~\subref{fig:dask-issue} of Figure~\ref{fig:dask-screenshots} depicts an example issue thread. If a solution is required for a particular problem, contributors will make code changes. The solver can open a pull request (PR) that is linked to a solution and requests others to review their solution prior to incorporating it into the software. Any general subsequent discussion that occurs regarding the pull request occurs in the pull request thread, and any discussion about specific code changes (with references to the code) occur in the pull request thread.\footnote{There are two exceptions. First, sometimes these code changes are implemented without approval. Second, sometimes pull requests are opened without a prior discussion} Solutions consist of changes to the software's codebase. Each change is called a commit. I define an OSS project’s activity within a time period as all activity within a six-month interval—either January through June or July through December of the relevant calendar year and my period of observation spans from 2015 to 2023. Panel~\subref{fig:project-summary-stats} provides further summary statistics on project activity and contributors. All aforementioned data on development activity are obtained from the GitHub Archive (\cite{github_archive_github_2025}), via Google BigQuery.
+
+\donow[inline]{
+Provide insight into what a project is like with a table and add other summary stats that may be interesting as I read the paper (don't delete this)
+}
+
+\subsection{Departures, Collaboration and Important Contributors}
+\subsubsection{Defining Contributor Departures}
+I am interested in the departure effects of contributors who worked extensively on code development. I defined the set of contributors who had worked extensively on code development as those with code contributors above the 75th percentile in each period for at least 3 consecutive periods. From this subset, I classify a contributor as “departed” if, after ranking above the 75th percentile of commits for at least three consecutive periods, their activity across all areas (commits, discussion participation, etc) ceases in the immediately following period and remains at that state for all future observable periods. Finally, we subset to projects that only experience one departure to simplify the identification of treatment effects. Finally, I subset to only include projects with at least 2 important contributors (defined in Section~\ref{sec:collab_imp_contr}) and at least 5 pull requests opened in each of the 5 pre periods prior to departure. This leaves me with 92 departed contributors, and hence 92 projects. Panel~\subref{fig:departed-summary-stats} of Figure~\ref{fig:summary-stats} displays the number of contributors left after each successful filtering. 
+
+\todo[inline]{Use autofills for 92 + summary stats table}
+
+\subsubsection{Defining Collaboration and Important Contributors} \label{sec:collab_imp_contr}
+
+I focus exclusively on collaboration between the departing contributor and other important contributors for three reasons related to the OSS community. First, interactions among unimportant contributors are uncommon because they typically aim only to have their own solutions adopted, rather than to engage with the broader community (\cite{hippel_open_2003}). Second, collaborations in which a non-key contributor engages with a key contributor are largely procedural, as important contributors must approve solutions proposed by unimportant contributors, so variation offers little insight into voluntary collaborative behavior. Finally, behavior among important contributor is most interesting in OSS projects because at the individual contributor level, important contributors are vastly more influential in shaping project outcomes (\cite{crowston_core_2006}). Henceforth, when I refer to collaboration, I refer to collaboration between the departed contributor and other important contributors. 
+
+To operationalize collaboration, we must first specify what constitutes an “important contributor.” Prior case studies of the OSS community (\cite{cox_cathedrals_1998}, \cite{mockus_two_2002}, \cite{gacek_many_2004}) have suggested that the structure of OSS projects is akin to a hierarchy or onion, so the concept that there is a wide gulf of importance between certain contributors and others is accepted in the literature. One natural criteria to evaluate a contributor's importance is to base it off how often they are involved in the organization's discussions. To examine the discussions, I follow \cite{crowston_hierarchy_2006} and construct an undirected social network for each time period in which nodes represent contributors and edges record the number of exchanges in issue and pull request threads. If one contributor’s comment follows another’s within the same thread, I treat that as one exchange. For example, the conversation depicted in Panel~\subref{fig:dask-issue} of Figure~\ref{fig:dask-screenshots} would represent two exchanges between the users engaging in the conversation. A contributor is deemed important in period $t$ if, during any of the three most recent periods ($t,;t-1,;t-2$), they are active and satisfy at least one of the following two criteria: their network degree—or number of unique peers they have exchanged messages with—yields a $z$‐score exceeding 1.5 or ranks highest among all contributors, or they are the focal departed contributor under study. 
+
+\subsection{Defining Collaboration} \label{sec:defining_collab}
+For a given project $i$ in time period $t$, and problems $P_{i,t} = \{p_{i,t}^1, \cdots, p_{i,t}^{N_{i,t}} \}$ where $N_{i,t}$ is the number of problems faced by project $i$ in time period $t$
 \begin{itemize}
-    \item Let $C_{it}$ denote the set of all contributors to project $i$ in time $t$. We can decompose all contributors into key and other contributors: $C_{it} = C_{it}^{key} \cup C_{it}^{other}$ 
-    \item For each problem $p_{it}^k$ you have a set of collaborators $C_{it}^{k} \subseteq C_{it}^{key} $ that consists of key ($C_{it}^{k, key} = C_{it}^{k} \cap C_{it}^{key}$) and other collaborators ($C_{it}^{k, other} = C_{it}^{k} \cap C_{it}^{other}$)
+    \item Let $C_{i,t}$ denote the set of all contributors to project $i$ in time $t$. We can decompose all contributors into important and other contributors: $C_{i,t} = C_{i,t}^{imp} \cup C_{i,t}^{other}$ 
+    \item For each problem $p_{i,t}^k$ you have a set of collaborators $C_{i,t}^{k} \subseteq C_{i,t}^{imp} $ that consists of important ($C_{i,t}^{k, imp} = C_{i,t}^{k} \cap C_{i,t}^{imp}$) and other collaborators ($C_{i,t}^{k, other} = C_{i,t}^{k} \cap C_{i,t}^{other}$)
 \end{itemize}
-Define collaboration as when 2 or more key contributors are both involved in a problem and the collaboration score
+Collaboration occurs in a problem when 2 or more important contributors are both involved. Hence, overall collaborativeness is deined as as 
 \begin{equation}
-    CollabScore_{it} = \frac{1}{N_{it}}\sum_{k=1}^{N_{it}}\mathbf{1}\bigl\{|C_{it}^{k,\mathrm{key}}|\ge2\bigr\}
+    \mathrm{OverallCollab}_{i,t} = \frac{1}{N_{i,t}}\sum_{k=1}^{N_{i,t}}\mathbf{1}\bigl\{|C_{i,t}^{k,imp}|\ge2\bigr\}
 \end{equation}
-This definition of collaboration has a nice decomposition. Let $P_{it}^d = \{p_{it}^{k} \mid d \in C_{it}^k, 1 \leq k \leq N_{it} \}$ be the set of problems where the departed contributor $d$ is involved and let $N_{it}^d = |P_{it}^d|$. Use the superscript $nd$ to denote problems where the departed contributor is not involved. I can describe collaboration as a weighted average of collaboration in problems where the departed contributor is and is not involved. 
+The collaboration score has a nice decomposition. Let $d$ denote the departed contributor. We can then define $P_{i,t}^d = \{p_{i,t}^{k} \mid d \in C_{i,t}^k, 1 \leq k \leq N_{i,t} \}$ as the set of problems where the departed contributor $d$ is involved and $N_{i, t}^d = |P_{i,t}^d|$ as the number of problems where the departed contributor is involved. 
+I can describe the overall collaborativeness as a function of collaborativeness metrics that involve and totally exclude the departed contributor. 
+Define 
 \begin{align*}
-    CollabScore_{it} &= \frac{N_{it}^d}{N_{it}} CollabScore_{it}^d + \frac{N_{it} - N_{it}^d}{N_{it}} CollabScore_{it}^{nd} \\
-    &= \frac{N_{it}^d}{N_{it}} \frac{1}{N_{it}^d} \sum_{k \in P_{it}^d} \mathbf{1}\bigl\{|C_{it}^{k,\mathrm{key}}|\ge2\bigr\} + \frac{N_{it} - N_{it}^d}{N_{it}} \frac{1}{N_{it} - N_{it}^d} \sum_{k \notin P_{it}^d} \mathbf{1}\bigl\{|C_{it}^{k,\mathrm{key}}|\ge2\bigr\}
+     \mathrm{DepartedCollab}_{i,t} &= \frac{1}{N_{i,t}^d} \sum_{k \in P_{i,t}^d} \mathbf{1}\bigl\{|C_{i,t}^{k,\mathrm{key}}|\ge2\bigr\} \\
+     \mathrm{OtherCollab}_{i,t} &= \frac{1}{N-N_{i,t}^{d}} \sum_{k \notin P_{i,t}^d} \mathbf{1}\bigl\{|C_{i,t}^{k,\mathrm{key}}|\ge2\bigr\}
 \end{align*}
-\subsection{Sample}
-All projects have at least 2 key contributors and at least 5 PRs opened in the pre period. 
-
-\subsection{Aspirational To Dos}
-\begin{enumerate}
-    \item Read this  \href{https://pubs.aeaweb.org/doi/pdfplus/10.1257/jep.36.3.211}{paper} in order to understand how to motivate the paper using descriptive statistics
-    \item Provide insight into what a project is like, such as
-    \begin{itemize}
-        \item How many people are in a project at a given point in time (can I divide it into important/unimportant people)?
-        \item What are churn rates like among both hierarchies?
-        \item How many problems are they solving, how much disussion is there and what solutions are proposed?
-        \item What do outcomes look like for these projects?
-        \item Provide estimates of data coverage at a project level     
-        \item How many time periods do I have projects for
-        \item How much discussion and people per problem?
-    \end{itemize}
-    \item Add reference to showing that results are not sensitive to changes in parameters/if they are, justify why mine is reasonable 
-\end{enumerate}
-
-
+then we can rewrite $OverallCollab_{i,t}$ as the following
+\begin{align*}
+    \mathrm{OverallCollab}_{i,t} &= \frac{N_{i,t}^d}{N_{i,t}} \frac{1}{N_{i,t}^d} \sum_{k \in P_{i,t}^d} \mathbf{1}\bigl\{|C_{i,t}^{k,\mathrm{key}}|\ge2\bigr\} + \frac{N-N_{i,t}^{d}}{N_{i,t}} \frac{1}{N-N_{i,t}^{d}} \sum_{k \notin P_{i,t}^d} \mathbf{1}\bigl\{|C_{i,t}^{k,\mathrm{key}}|\ge2\bigr\} \\
+    &= \frac{N_{i,t}^d}{N_{i,t}}\mathrm{DepartedCollab}_{i,t} + \frac{N-N_{i,t}^{d}}{N_{i,t}} \mathrm{OtherCollab}_{i,t}
+\end{align*}
+Henceforth, most collaboration-related analyses will focus on $\mathrm{DepartedCollab}_{i,t}$
 
 \section{Methods} \label{sec:method}
+\subsection{Estimating the impact of departures} \label{sec:main_method}
+Denote by $G_i$ the first period where project $i$'s departed contributor is no longer part of the project. Accordingly, project $i$'s treatment indicator at time $t$ is defined as
+$$
+D_{i,t} = \mathbf{1}\{t \ge G_i\}.
+$$
 
+My primary outcome of interest $y_{i,t}$ is the number of pull requests opened by project $i$ in time period $t$. I focus on pull requests because they're the most direct measure of production effort that projects are engaging in. I transform the outcome into a z-score to enable cross-project comparisons under one unit - standard deviations - in spite of underlying cross-project differences in the number of pull requests opened. To avoid contaminating treatment effect estimation, I standardized based on the pre-treatment mean and standard deviation, calculated using the 5 periods prior to treatment.
 
-
-\textcolor{red}{To do's
-\begin{enumerate}
-    \item Define notation and express ES equation
-    \item What normalizations etc
-    \item Discuss assumptions
-    \item Discuss the interpretation of the event study coefficient
-    \item Discuss how I execute the HTE and how the coefficient interpretation changes with HTE
-    \item Discuss how I analyze with Wald
-    \item Defend exogeneity for HTE
-    \item Discuss how I execute different subsamples and 
-    \item Describe power issues, how I examine downstream outcomes and the interpretation of downstream outcome coefficients
-    \item Methods used for causal validation 
-\end{enumerate}}
-\todo[inline]{Revisit methods once I work more on results to see what's the best way to present them}
-
-\subsection{Estimating the Effect of Contributor Departures}
-Define each time period as $t \in \{1, \cdots, T\}$ where $t=1$ is INSERTEARLIESTDATE and $t=T$ is INSERTLATESTDATE. For each project $i$, let $T_i$ (where $1 < T_i < T$) denote the period of the key contributor’s $d_i$'s departure (henceforth the treatment date), and define the treatment indicator as $D_{it} = \mathbf{1}\{\,t \ge T_i\}$. A project's treatment date $T_i$ is the first time period where the departed key contributor $d_i$ is inactive in the project. 
-
-My primary outcome $Y_{it}$ is the z-score of the number of pull requests opened by all contributors in project $i$ in time period $t$. Throughout the paper, I also consider other outcomes, which are also expressed in units of z-score. Formally, define $Y_{it}^c$ as the quantity of pull requests opened by all contributors in project $i$ in time period $t$, the pre-treatment mean as $\bar{Y}_{it}^{pre} = \frac{1}{5}\sum_{t=T_i-5}^{T_i-1} Y_{it}^c$ and pre-treatment standard deviation as $\sigma_{it}^{pre} = \frac{1}{5}\sum_{t=T_i-5}^{T_i-1} \left (Y_{it}^c - \bar{Y}_{it}^{pre} \right)^2$. Then, $Y_{it} = \frac{Y_{it}^c - \bar{Y}_{it}^{pre}}{\sigma_{it}^{pre}}$. Standardizing all projects such that the units are in standard deviations allows me to compare projects in a uniform way in spite of drastic differences in counts.  
-
-\todo[inline]{Write theta, write how it disaggregates to g-t after i say I use CS}
-If the outcome $Y_{it}$ is the z-score of pull requests opened by project $i$ in time period $t$, the parameter of interest in my setting is the causal effect of a key contributor departure on the project after $k$ periods, in units of standard deviation. 
-\begin{equation}
-    \theta_{k} = E[]
+Define a cohort $g$ as projects with the same treatment date $g = G_i$. For all $t \geq g$, I define the group‐time average treatment effect as 
+\begin{equation} \label{eq:group_time}
+\mathrm{ATT}(g,t) = \mathbb{E}\bigl [ y_{i,t}(1)-y_{i,t}(0)\mid G_i = g \bigr ].
 \end{equation}
-I estimate $\theta_k$ using \cite{callaway_difference--differences_2021} because it allows for using not-yet-treated projects as the control group in my setting, which strengthens the plausibility of my identification assumptions. . 
+Let $k = t - g$. Our primary estimate of interest, the average effect \(k\) periods after departure is
+\begin{equation}\label{eq:event_study_time}
+\mathrm{ATT}(k) =
+\mathbb{E}\bigl[y_{i,G_i+k}(1)-y_{i,G_i+k}(0)\bigr] = 
+\sum_{g} \Pr\!\bigl(G_i = g \mid G_i + k \le T\bigr)\,\mathrm{ATT}\bigl(g,\,g+k\bigr).
+\end{equation}
 
-\t
-The assumptions required by \cite{callaway_difference--differences_2021} for causal identification are 
-\todo[inline]{Turn into a paragraph, use math}
+My estimation does not involve covariates so the overlap assumption from \cite{callaway_difference--differences_2021} is not relevant. Treatment is irreversible, by definition of $D_{i,t}$ and I assume that $\{Y_{i,1},\dots,Y_{i,T},D_{i,1},\dots,D_{i,T}\}_{i=1}^n$ are independent and identically distributed. Hence, identification of $\mathrm{ATT}(g,t)$ (and hence $\mathrm{ATT}(k)$) requires the following assumptions:\\
+\textbf{Limited treatment anticipation}: There exists $\delta\ge0$ such that for all $t<g-\delta$, $\mathbb{E}[Y_{i,t}(g)\mid G_i=g] = \mathbb{E}[Y_{i,t}(0)\mid G_i=g].$\\
+I assume no treatment anticipation ($\delta=0$) in my setting, as I am analyzing abrupt departures that are more associated with factors unrelated to project outcomes such as a job or company change. It's worth noting that the full process of a job transition, from giving notice to finding a new job, can occur within the six month window that constitutes a time period in my analysis, especially given the healthy labor market experienced by tech companies over the past decade.\\
+\textbf{Parallel trends based on ``not-yet-treated" groups and no anticipation}. For each $g\in\mathcal{G}$ and each $s, t$ such that $g \leq t \leq s$, we assume \[\mathbb{E}\bigl[Y_{i,t}(0)-Y_{i,t-1}(0)\,\bigm|\,G_i = g\bigr] =  \mathbb{E}\bigl[Y_{i,t}(0)-Y_{i,t-1}(0)\,\bigm|\,D_{i,s}=0,\,G_i > g\bigr]\]
+
+The parallel trends assumption states that in the absence of treatment, treated projects would have experienced the same outcome evolution as not-yet-treated projects. 
+There are two reasons why I believe the parallel trends assumption is plausible in my setting. First, the analysis uses ``not-yet-treated'' projects as controls, which makes it more likely that underlying, time-invariant factors that differ between eventually treated and never-treated projects do not confound the analysis. 
+
+Second, my analysis focuses on abrupt departures, which survey evidence from \cite{miller_why_2019} shows is associated with ``some kind of transition (e.g., switching jobs or leaving academia)" or because of contributors were ``having children or getting married." Switching jobs or leaving academia increases the difficulty of contributing to OSS because new jobs may not support contributing to OSS or incur additional demands on one's time that take time away from contributing to OSS. These are also departure reasons that are unrelated to unobservable project factors, such as declining outside interest or personal dissatisfaction, which could cause parallel trends violations. Finally, \cite{miller_why_2019}'s focus on abrupt departures lead to the finding that major life changes were cited as a departure reason far more often than reasons such as "lacking peer support or losing interest that are more commonly discussed in the literature" which suggests that focusing on abrupt departures is not just sufficient, but also necessary for obtaining fulfilling the parallel trends assumption. 
+
+
+\donow[inline]{
+
+Once I get the WRDS access, see if I can incorporate the picture of the ES graph of corporate departues for my chosen specification and subset to the main subset of projects I'm using? Highlights how many of these are corporate related. TBH, it looks a little less impressive than I'd like but it is what it is. Also, see if I can get it as a proper event study estimate as opposed to what I'm doing right now}
+\textbf{already done}
+
+\todo[inline]{\textbf{Show this is true}:
+Abrupt departures aren't associated with changes in demand for the departed contributor's services - the number of issues opened, forks, stars and downloads are still increasing. 
+Moreover, the departure date is unrelated to the proximity to major software releases/updates}
+\todo[inline]{Can I show that organizational characteristics that might lead to dissatisfaction/change aren't the driving reason for departure/aren't systematically changing in a way that would explain their departure? For example, we don't see declines or increases in contributor count prior to their departure (signalling broad organizational changes) or changes in the distribution of communication z score/important contributors (which also suggests changes in how people are communicating/working) or in the sentiment of their communications (are they getting burnt out?)}
+\textbf{still need todo}
+
+
+Under these assumptions, the $ATT(k)$ is identified by the estimated parameter
+\begin{equation}
+\widehat{\mathrm{ATT}}(k) = \sum_{g=1}^{T-k}
+\Pr\bigl(G_i = g \mid G_i + k \le T\bigr) \widehat{ATT}(g, k)
+\end{equation}
+where
+\begin{equation}\label{eq:event_study_time}
+\widehat{ATT}(g,k) = \E\bigl(y_{i,g+k} - y_{i,g-1}\mid G_i = g\bigr) - \E\bigl(y_{i,g+k} - y_{i,g-1}\mid D_{i,g+k} = 0\bigr).
+\end{equation}
+
+\subsection{Heterogeneous Treatment Effects}
+\subsubsection{Organizational-level Classification Recipe}
+I am interested in analyzing how treatment effects vary by organizational characteristics. In this section I will describe a recipe for categorizing projects based on their organizational characteristics. For any project–time metric \(M_{i,t}\) with aggregation weights \(W_{i,t}\):
 \begin{enumerate}
-    \item No anticipation: Projects don't adjust their behavior prior to the departure date. I only use abrupt departures (which do occur in the literature), so presumably, there's little time for the project to react/adjust it's behavior
-    \todo[inline]{Add literature refs on abrupt departure + context }
-    \item Parallel trends: Projects that experience departures would have opened the same number of PRs had a departure not occurred. Fundamentally, the departure isn't associated with any other project changes that would affect the number of pull requests opened.
-    \begin{enumerate}
-        \item Abrupt departures are more likely to be unassociated with project characteristics that would endogenously affect the outcome because they're often associated with job changes. Since OSS contribution for most is a hobby, not their main career consideration, job changes are a good source of exogeneous variation because it's unlikely they're related to project related factors that make departure endogenous, but they can often disrupt contribution because the new job may prohibit or limit OSS contribution, or involve increased time that distracts from OSS 
-        \todo[inline]{Add literature cites from that paper using abrupt departures, also make this more concise}
-        \todo[inline]{\textbf{Show this is true}: Abrupt departures aren't associated with changes in demand for the departed contributor's services - the number of issues opened, forks, stars and downloads are still increasing. Moreover, the departure date is unrelated to the proximity to major software releases/updates}
-        \todo[inline]{Can I show that organizational characteristics that might lead to dissatisfaction/change aren't the driving reason for departure/aren't systematically changing in a way that would explain their departure? For example, we don't see declines or increases in contributor count prior to their departure (signalling broad organizational changes) or changes in the distribution of communication z score/key contributors (which also suggests changes in how people are communicating/working) or in the sentiment of their communications (are they getting burnt out?)}
-        \todo[inline]{Incorporate picture of the ES graph of corporate departues for my chosen specification? Highlights how many of these are corporate related}
-    \end{enumerate}
+    \item Compute the \(K\)-period pre-departure average for each project \(i\):
+   \[
+     \bar X_i
+     \;=\;
+     \frac{\sum_{k=1}^{K} W_{i,\,G_i-k}\,X_{i,\,G_i-k}}
+          {\sum_{k=1}^{K} W_{i,\,G_i-k}}.
+   \]
+    \item Compute the cross-sectional mean of these averages: 
+     $\bar X = \frac{1}{N}\sum_{i=1}^N \bar X_i.$
+    \item Define the binary classifier
+   \[
+     f_i^M \;=\; \mathbf{1}\{\bar X_i > \bar X\},
+     \text{so }
+     f_i^M = 
+     \begin{cases}
+       1 & \text{(``high'') if pre‐departure average exceeds the overall mean},\\
+       0 & \text{(``low'') otherwise}.
+     \end{cases}
+   \]
+\end{enumerate}
+\medskip
+I apply this to categorize projects based on three attributes
+\begin{itemize}
+  \setlength\itemsep{0.5em}
+  \item \textbf{Departed contributor collaborativeness:}
+    \[
+      M_{i,t} = \mathrm{DepartedCollab}_{i,t},\quad
+      W_{i,t} = N^d_{i,t}
+    \]
+    For example, projects with \(f_i^M=1\) have ``high'' departed contributor collaborativeness.
+  \item \textbf{Departed contributor involvement:}
+    \[
+      M_{i,t} = \frac{N^d_{i,t}}{N_{i,t}},\quad
+      W_{i,t} = N^d_{i,t}
+    \]
+    Projects with \(f_i^M=1\) have ``high'' departed contributor involvement
+  \item \textbf{Departed contributor pull request involvement:}
+    \[
+      M_{i,t} = \mathrm{PRShare}_{i,t}
+      = \frac{\text{pull requests opened by departed at}(i,t)}{\text{total pull requests opened in }(i,t)},
+      \quad
+      W_{i,t} = N^d_{i,t}
+    \]
+    Projects with \(f_i^M=1\) have ``high'' departed contributor  pull request involvement.
+    \item \textbf{Departed contributor }
+\end{itemize}
+
+\subsubsection{Contributor-level Classification Recipe}
+1. Want to subset by contributors as well
+2. Everyone except departed
+3. Everyone except departed + present prior to departure
+4. Based off communicativeness. Recall network described in Section 2.2 (also add math for that section). 0 or non-zero. 
+5. Based off communicativeness. Recall network described in Section 2.2 (also add math for that section). Take the average of all the nodes across all pre periods. If it's above average, high communicativeness. Otherwise low, conditional on non-zero communicativeness
+6. Communicativeness/problems worked w/ the departed
+\todo[inline]{Define communication under the metrics described above}
+
+\subsubsection{Treatment Effects using Sample Subsets}
+Note that we may also be interested in combinations of the categories above. Say, for example, we're interested in the effect of a project departure in projects where the departed contributor was collaborative. Our parameter of interest would still be $ATT(k)$, but calculated using the subset of projects $i$ where $f_i^M = 1$ when $M_{i,t} = \mathrm{DepartedCollab}_{i,t}$ and $W_{i,t} = N_{i,t}^d$. 
+
+I believe the key identification assumptions still hold when I subset to projects that have a particular attribute, such as a collaborative departed contributor. Within the literature, there does not exist evidence that departed contributors who are more or less collaborative, involved, or involved in opening pull requests are more likely to inform projects of an impending departure ahead of time. Second, the parallel trends assumption might actually be more plausible using a sample subset as now, I'm now only evaluating the plausibility of parallel trends conditioning on a departed contributor characteristic that's the same across all projects in my sample.
+\todo[inline]{I'm not sure how much I believe this - people who are more involved might feel more responsibility abt informing, or be more affected by project underlying trends and hence choose to leave}
+
+One note is that the underlying reasons whether some projects have highly collaborative departed contributors or less collaborative departed contributors (or any other attributes) are unrelated to whether parallel trends hold. Whether parallel trends holds is related to whether departures are plausibly exogenous to trends in project outcomes, conditional on projects that fulfill a particular attribute. 
+
+To test whether the treatment effect differs between two mutually exclusive subsets (e.g.\ collaborative vs.\ non-collaborative projects), we first estimate separate event-study coefficients for each group over the window \(k=0,\dots,5\). Denote event study estimates for the treatment effect $k$ periods after treatment for subset 1 as $\widehat{ATT}^1(k)$ and for subset 2 as $\widehat{ATT}^2(k)$. The full vector of treatment effect estimators is hence
+\begin{align*}
+\widehat{ATT}^1
+&= \bigl(\widehat{ATT}(0)^1,\;\widehat{ATT}(1)^1,\;\dots,\;\widehat{ATT}(5)^1\bigr)^{\!\top},\\
+\widehat{ATT}^2
+&= \bigl(\widehat{ATT}(0)^2,\;\widehat{ATT}(1)^2,\;\dots,\;\widehat{ATT}(5)^2\bigr)^{\!\top},
+\end{align*}
+and their difference as $\Delta = \widehat{ATT}^1 - \widehat{ATT}^2$. To assess whether the two subsets exhibit statistically different treatment effects over the departure period and the five subsequent periods, I conduct a Wald test of
+\[
+H_0\colon \Delta = \mathbf{0},
+\]
+\subsection{Outcome decomposition}
+\todo[inline]{Do when results require it}
+\subsection{Downstream outcomes} 
+\textbf{if I have time}
+\begin{enumerate}
+    \item Downstream outcomes and the interpretation of downstream outcome coefficients
 \end{enumerate}
 
-\todo[inline]{Describe what I fulfill with the assumptions}
-Under the previous two assumptions, an event study estimate 
-
-\subsection{Heterogeneous Effects}
-\longterm[inline]{Random forest will help because it can deal with continuous values in a more systematic way. Right now I'm essentially assuming functional form - can think about how to phrase}
-\todo[inline]{Ensure language and math is consistent with data section}
-\todo[inline]{Note two nuances - there's comparing projects, and evaluating actual outcomes (relative to 0, no difference).}
-\todo[inline]{Add subsubsections}
-
-Recall that $C_{it}$ is the collaboration score of project $i$ in time period $t$, $N_{it}$ is the number of problems addressed by project $i$ at time $t$ and $I$ is the set of all projects.
-
-Define each project’s pre-departure weighted average collaboration score $\bar C_i$,  the overall average project collaboration score $\bar C$ and project collaborativeness $C_i \in \{0, 1\}$ as
-
-\[
-\bar C_i \;=\;
-\frac{\displaystyle\sum_{t=-5}^{-1} N_{it}\,C_{it}}
-     {\displaystyle\sum_{t=-5}^{-1} N_{it}}
-\qquad 
-\bar C \;=\;
-\frac{1}{\lvert I\rvert}\sum_{i\in I}\bar C_i
-\qquad 
-C_i = \mathbf{1}\{\bar C_i > \bar C\}
-\]
-I can also extend this definition to characterize project $i$'s departed contributor collaborativeness $C_i^d$ and other contributor collaborativeness $C_i^{nd}$.  
-\todo[inline]{Define uncollaborativeness}
-
-To compare statistically how collaborative and uncollaborative projects perform post-departure, I can use a Wald test. First, I estimate separate event study estimates for collaborative and uncollaborative projects. 
-
-I will be testing whether the difference in event study coefficients  
-
-To assess whether two project types are affected differently by departure, I conduct a Wald test on whether the difference in event study coefficients during the period of departure and the 5 periods after are different from zero. More precisely, let the event study coefficients for collaborative projects $\hat{\boldsymbol\theta}^{(c)}$, uncollaborative projects $\hat{\boldsymbol\theta}^{(u)}$ and their diference from $t=0$ to $t=5$ be defined as
-\[
-  \hat{\boldsymbol\theta}^{(c)}
-    = \bigl(\hat\theta^{(c)}_{0},\,\hat\theta^{(c)}_{1},\,\dots,\,\hat\theta^{(c)}_{5}\bigr)^{\!\top}
-  \quad
-  \hat{\boldsymbol\theta}^{(u)}
-    = \bigl(\hat\theta^{(u)}_{0},\,\hat\theta^{(u)}_{1},\,\dots,\,\hat\theta^{(u)}_{5}\bigr)^{\!\top}
-    \qquad 
-  \Delta = \hat{\boldsymbol\theta}^{(c)} - \hat{\boldsymbol\theta}^{(u)}
-\]
-
-My null hypothesis is \[
-H_0: \Delta = \mathbf{0}
-\]
-
-For expositional clarity, I define the short‐term treatment effects as the event‐study coefficients in the first three post‐departure periods,
-$\{\hat\theta_{0},\hat\theta_{1},\,\hat\theta_{2},\,\hat\theta_{3}\}$ 
-and the long-term effects as those in the fourth period and beyond. 
-
-\todo[inline]{Define what it means for a contributor to be more or less involved. }
 
 
 \section{Results} \label{sec:result}
+
 \todo[inline]{Describe, in more detail, how to interpret one of the graphs. }
 \todo[inline]{I feel like there's not enough analysis and too much graph interpretation. I think we can improve this by moving information to the figure notes and outlining more what I want to gain from the paper}
-\input{source/paper/figures/prs_opened}
-Figure~\ref{fig:prs_opened} presents results on how the departure of key contributors affects projects. Panel~\ref{fig:all_prs_opened} shows that projects experience statistically significant declines in the quantity of pull requests opened. These declines appear immediately following the departure and persist for two periods after. \todo[inline]{Discuss: what are the main takeaways? Project outcomes tend to trend upwards over time but imprecisely. Also, it's not mechanical} Panel~\ref{fig:all_prs_opened_collab} shows that post-departure project outcomes differ significantly depending on departed contributor collaborativeness. While projects where the departed contributor was collaborative are severely affected for several periods following the departure, projects where the departed contributor was uncollaborative are much less affected, particular in the long-term. 
-\todo[inline]{What is the sd figure in quantity of PRs opened}
-\todo[inline]{Align the axes to both be -2 to 2}
-\todo[inline]{Systematize usage of "outcomes" over "activity"}
+Panel~\ref{fig:all_prs_opened} of Figure~\ref{fig:prs_opened} depicts an event study plot of project outcomes following contributor departures for the four periods prior to departure and five periods after. For each estimate, I depict 95\% simultaneous confidence bands. I find that immediately following a departure, project experience noticeable declines in the quantity of PRs opened, measured in standard deviations (SD). This decline worsens for two periods after and stabilizes in the region of half a SD four periods after a contributor leaves. Finally, pretrends are statistically indistinguishable from zero, strengthening the plausibility of the parallel trends assumption. 
 
-The results from Panel~\ref{fig:all_prs_opened_collab} are quite puzzling because the literature suggests that collaboration improves project-outcomes post departure.  \todo[inline]{Cite literature} For example, collaboration with the departed contributor prior to departure can help other contributors understand what the departed contributor's contributions were. This might, for instance, allow other contributors to react accordingly to make up the lost effort following a departure. 
+Panel~\ref{fig:all_prs_opened_collab} of Figure~\ref{fig:prs_opened} depicts an event study plot with estimates from two mutually exclusive project subsamples: projects with and without collaborative departed contributors. Immediately after a contributor’s departure (event time $k=0$), both types of projects see a decline in PRs opened. In subsequent periods, however, projects whose departing contributors had been collaborative suffer ever-larger declines. Two years after a contributor’s departure, projects that lost a collaborative team member open about 1.5 SD fewer PRs—nearly three times the average decline across all projects. By contrast, although projects with uncollaborative departures exhibit the same initial dip, they rebound over time—so much so that their long-run departure effect is statistically indistinguishable from zero. Pretrends for event study estimates from both samples are statistically indistinguishable from 0. The difference in event study estimates for $k>0$ is also statistically significant. The results observed in Panel~\ref{fig:all_prs_opened_collab} differ from the hypothesized effect of collaboration in OSS projects, which posits that having collaborators can limit the repercussions of contributor departures (\cite{rashid_systematic_2019}), and align more closely with results from \cite{jaravel_team-specific_2018}, which show that close-knit teams are most harmed by departures. 
 
-One potential explanation of Panel~\ref{fig:all_prs_opened_collab} is that collaborative departed contributors might simultaneously be more involved with the project. If this were true, my comparison in Panel~\ref{fig:all_prs_opened_collab} would confound the impact of collaborative versus uncollaborative departed contributors with departed contributor involvement. I address whether this is a concern in the following figures. First, I examine how post-departure project outcomes vary by contributor involvement in Figure~\ref{fig:prs_opened_more_imp}. Then, I examine how collaboration interacts with contributor involvement to affect post-departure project outcomes in Figure~\ref{fig:prs_opened_inv_collab}
+
+Fig 2: Everyone else (predep, nondep) 
+- People in uncollaborative projects are less (statistically insignificantly) affected by departures but there still is a decline
+- New people really help
+- Difference in everyone else is smaller than difference including departed - suggests that there is some confounding between importance and collab
+
+Fig 3: Communication (has vs. never communicated with departed contributor)
+- People can work together w/o communicating!
+- Communicators really worse off. But only in collaborative projects. Also only in the long term???
+
+Fig 4: Intensive margin communication
+
+Fig 5: Avg communication??
+
+Fig 5: Involvement
+
+Then tradeoffs? 
+A potential concern associated with interpreting Panel~\ref{fig:all_prs_opened_collab} is that collaborative departed contributors might also be more involved with the project. We would expect that the departure of more involved contributors would harm projects Panel~\ref{fig:all_prs_opened_collab} might be confounding the impact of departed contributor collaborativeness with departed contributor involvement or importance. 
+1. Greater involvement in opening PRs doesn't affect things (that's interesting - it suggests that there's some level of communication going on between ppl)
+2. Greater involvement in problems does seem to have some effect, but it's statistically insignificant and doesn't fully explain collaboration either
+3. Even in involved only, collab still has a distinguishable effect
+I address whether this is a concern in the following figures. First, I examine how post-departure project outcomes vary by contributor involvement in Figure~\ref{fig:prs_opened_more_imp}. Then, I examine how collaboration interacts with contributor involvement to affect post-departure project outcomes in Figure~\ref{fig:prs_opened_inv_collab}
 \todo[inline]{First, I should address whether it is true that collaborative departed contributors are more involved. Recall that mathematically the definition of collaboration is unrelated to the definition of involvement}
 
-\input{source/paper/figures/prs_opened_more_imp}
+
 In Panel~\ref{fig:prs_opened_involved}, I find that while the departure of more involved contributors tends to affect projects more negatively, these effects are not statistically insignificant. This might be because my measure of departed involvement, which considers all problems, not just pull requests, is too broad. In Panel~\ref{fig:prs_opened_opened}, I divide projects by whether the departed contributor was historically more or less involved in opening pull requests. This comparison reveals statistically significant differences that align more with expectations. Projects where the departed contributor opened many pull requests experience statistically significant more severe declines than projects where the departed contributor opens few pull requests. In fact, these projects seem almost unaffected by departure. 
 \todo[inline]{Describe effect stability over time}
 
@@ -529,11 +523,10 @@ Finally, in Panel~\ref{fig:prs_opened_involved_opened}, I examine how departed c
 \todo[inline]{For right most plot, make the legend and coefficients seaprable + improve legend}
 \todo[inline]{Feel like I can make the paragraph above smoother}
 
-\input{source/paper/figures/prs_opened_collab}
 
 Figure~\ref{fig:prs_opened_more_imp} tells us that departed contributor involvement does affect post-departure project outcomes. In Figure~\ref{fig:prs_opened_inv_collab}, I find that the nature of the departed contributor's involvement also affects the impact of collaboration with the departed contributor. 
 
-In Panel~\ref{fig:prs_opened_integral}, I find that in projects with integral departed contributors, whether the departed contributor was collaborative or not determined whether projects avoided negative effects post-departure. The results from Panel~\ref{fig:prs_opened_integral} suggest that even when activity is heavily concentrated in the hands of one contributor, with collaboration, projects can overcome the ramifications of departures. When the departed contributor is not integral, Panel~\ref{fig:prs_opened_nonintegral} shows that uncollaborative projects tend to outperform collaborative projects, although the difference is not statistically significant. Results from aggregating non-integral departed contributors broadly extend to the 3 granular subcategories that make it up: the evidence from Panels~\ref{fig:prs_opened_noninv_nonopen}, \subref{fig:prs_opened_inv_nonopen} and \subref{fig:prs_opened_nonvinv_open} suggest that uncollaborative projects tend to outperform collaborative projects. 
+In Panel~\ref{fig:prs_opened_integral}, I find that in projects with integral departed contributors, whether the departed contributor was collaborative or not determined whether projects avoided negative effects post-departure. The results from Panel~\ref{fig:prs_opened_integral} suggest that even when activity is heavily concentrated in the hands of one contributor, with collaboration, projects can overcome the ramifications of departures. When the departed contributor is not integral, Panel~\ref{fig:prs_opened_nonintegral} shows that uncollaborative projects tend to outperform collaborative projects, although the difference is not statistically significant. Results from aggregating non-integral departed contributors broadly extend to the 3 granular subcategories that make it up: the evidence from Panels~\ref{fig:prs_opened_noninv_nonopen}, \subref*{fig:prs_opened_inv_nonopen} and \subref*{fig:prs_opened_nonvinv_open} suggest that uncollaborative projects tend to outperform collaborative projects. 
 \todo[inline]{This is also an interesting result - we'd expect collaboration to be less important}
 
 \todo[inline]{How should I deal with the crazy 5 period point estimate}
@@ -561,7 +554,6 @@ Let $Y_k$ be the outcome at time $k$ and $\bar Y_k$ be the average outcome per c
 Empirically, I can estimate both of the following expressions, which allows me to characterize how changes in the average and contributor count affect the outcome. 
 
 
-\input{source/paper/figures/prs_opened_imp_avg}
 
 I make a few modifications to the sample. First, in the raw outcome count, all problems where the departed contributor was involved in were excluded. 
 
@@ -569,12 +561,12 @@ I exclude all pull requests the departed contributor was involved in because I'm
 
 Finally, the denominator in my average is the total number of contributors, across all aspects of the project, except for the departed contributor. I use this denominator as opposed to something like the number of people who open pull requests because I want to account for changes along the extensive margin (whether people open pull requests) and along the intensive margin (conditional on opening one pull request, how many they open). 
 
-Panels~\subref{fig:prs_opened_nondep}, ~\subref{fig:avg_prs_opened_nondep}, ~\subref{fig:impact_avg_prs_opened_nondep} all use the sample of pull requests that exclude activity that the departed contributor was involved in. Panels~\subref{fig:prs_opened_nondep} shows that in projects where the departed contributor was integral, the quantity of pull requests opened by all other contributors rises in the period following departure. Panel~\subref{fig:avg_prs_opened_nondep} replaces the outcome with the standardized average quantity of pull requests opened. We see in Panel~\subref{fig:avg_prs_opened_nondep} that the rise in Panel~\subref{fig:prs_opened_nondep} is driven by increases in average activity per contributor. Finally, in Panel~\subref{fig:impact_avg_prs_opened_nondep}, we see that the effect of the increase in average on the quantity of pull requests opened accounts for almost the entire effect.
+Panels~\subref*{fig:prs_opened_nondep}, ~\subref*{fig:avg_prs_opened_nondep}, ~\subref*{fig:impact_avg_prs_opened_nondep} all use the sample of pull requests that exclude activity that the departed contributor was involved in. Panels~\subref*{fig:prs_opened_nondep} shows that in projects where the departed contributor was integral, the quantity of pull requests opened by all other contributors rises in the period following departure. Panel~\subref*{fig:avg_prs_opened_nondep} replaces the outcome with the standardized average quantity of pull requests opened. We see in Panel~\subref*{fig:avg_prs_opened_nondep} that the rise in Panel~\subref*{fig:prs_opened_nondep} is driven by increases in average activity per contributor. Finally, in Panel~\subref*{fig:impact_avg_prs_opened_nondep}, we see that the effect of the increase in average on the quantity of pull requests opened accounts for almost the entire effect.
 \todo[inline]{Perhaps replace panel E with a barplot showing what \% of the change is due to which factor}
 
 
 I also show the effect of contributor departures on the average activity of all individuals who had first participated in the project prior to the departure. This subset is of particular interest because they are the most likely beneficiaries of collaboration. 
-Panels~\subref{fig:prs_opened_predep}, ~\subref{fig:avg_prs_opened_predep}, ~\subref{fig:impact_avg_prs_opened_predep} mirror the previous analysis except that we replace outcomes with a version that also excludes contributions by contributors who first participated prior to the contributor's departure. These are individuals who are most plausibly benefited by the contributor's departure, as the most direct effect of collaboration is probably on the people who are working with you. I find the same qualitative results. \textbf{One noteworthy point is that the point estimates when outcomes are averages decrease when we exclude new contributors, which suggests that new contributors are just as productive, if not more productive at opening pull requests than existing contributors on a per-capita basis. This is quite interesting and merits further exploration.}
+Panels~\subref*{fig:prs_opened_predep}, ~\subref*{fig:avg_prs_opened_predep}, ~\subref*{fig:impact_avg_prs_opened_predep} mirror the previous analysis except that we replace outcomes with a version that also excludes contributions by contributors who first participated prior to the contributor's departure. These are individuals who are most plausibly benefited by the contributor's departure, as the most direct effect of collaboration is probably on the people who are working with you. I find the same qualitative results. \textbf{One noteworthy point is that the point estimates when outcomes are averages decrease when we exclude new contributors, which suggests that new contributors are just as productive, if not more productive at opening pull requests than existing contributors on a per-capita basis. This is quite interesting and merits further exploration.}
 
 
 
@@ -587,7 +579,7 @@ $\bar Y_{k}^{!0} $ is average outcome among only individuals whose individual ou
 \end{align*}
 \todo[inline]{Estimate, ideally it's mostly intensive not extensive margin}
 
-\input{source/paper/figures/prs_opened_unimp_avg}
+
 \todo[inline]{also do barplots for bottom row}
 \todo[inline]{takeaway is that it's caused by departures not changes in the average which is interesting. Should I dig into more why people leave? (technically 2 todos ig) }
 
@@ -597,9 +589,7 @@ $\bar Y_{k}^{!0} $ is average outcome among only individuals whose individual ou
 - Binned event study with other collaborative\\
 - Binned event study with other collaborative, focusing on integral vs. non-integral departures
 }
-
-
-\input{source/paper/figures/prs_opened_comm_int}
+\todo[inline]{Frame COMMUNICATION as an investment in long-term capital}
 
 In projects where the departed contributor was integral
 \begin{itemize}
@@ -613,7 +603,6 @@ Now, consider the intensive margin of communication - only for collaborative pro
     \item it also seems like along the intensive margin, communicating MORE helps
 \end{itemize}
 
-\input{source/paper/figures/prs_opened_comm_nonint}
 
 In projects where the departed contributor was not integral
 \begin{itemize}
@@ -638,11 +627,19 @@ What about if we focus on the specific contributors that we had designated their
 
 \todo[inline]{Execute tests of whether they're learning}
 
+
+I do not observe meaningful tradeoffs made by collaborative projects, prior to a departure that suggest that collaboration creates additional burdens. 
+In Figure~\ref{}, I show how the pre-period distribution of various measures varies by project collaborativeness. 
+Panel \textbf{INSERT} show that collaborative projects tend to open more PRs in both the aggregate, and per contributor, although work done per problem is similar irrespective of collaborativeness. The key distinguishing factor is that by definition, collaborative projects have more important contributors working together per problem, although they have a similar quantity of unimportant contributors per problem. This means that the quantity work done per problem is similar irrespective of collaborativeness, the type of work done is different - collaborative projects tend to have PRs that receive more reviews and review comments, which are review work, as opposed to issue discussion. In collaborative projects, important contributors also do a greater share of the work. Finally, I find that collaborative projects actually resolve problems at much faster paces. A regression of average project-period problem resolution time on a variety of covariates explains that this is largely driven by the increased role "important contributors" play in collaborative projects, as 
+
+
+
 \todo[inline]{Characterize tradeoffs
 1. Do collaborative and uncollaborative projects differ in productivity?\\
+Collaborative projects, in the pre-period, produce more in the aggregate, and are slightly more productive (per contributor) but otherwise there is no observable difference
+
 2. Do collaborative and uncollaborative projects differ in the total number of discussants present per problem? \\
 3. Does collaborative and uncollaborative projects differ in how much time it takes to close a PR/issue? \\
-
 4. What are the implications of having more discussants/reviewers?\\
 - When review comments are made, how much additional change (code-wise) is needed (additional commits, LOC changed etc)? \\
 - Are more discussants associated with more comments, longer closing time? We can also look at first comment time and define closing time as last - first comment time. \\
@@ -693,7 +690,7 @@ What I'm hoping to establish next is whether/the degree to which the decline in 
     \textcolor{blue}{Note: calculations done, called "departed\_involved\_2bin"}
     \item How does collaborative score vary by 
     \begin{enumerate}
-        \item Key contributor count \textcolor{blue}{"key\_contributor\_count\_2bin"}
+        \item important contributor count \textcolor{blue}{"key\_contributor\_count\_2bin"}
         \item Total contributor count \textcolor{blue}{"total\_contributor\_count\_2bin"}
         \item Problem count \textcolor{blue}{"problem\_count\_2bin"}
     \end{enumerate}
@@ -726,9 +723,26 @@ What I'm hoping to establish next is whether/the degree to which the decline in 
 
 \section{Conclusion} \label{sec:conclusion}
 
+\newpage
+\todo[inline]{Check bibliography}
+\printbibliography
 
 
-\singlespacing
+\input{source/paper/figures/dask_github_explainer}
+\input{source/paper/tables/summary_stats}
+
+\input{source/paper/figures/prs_opened}
+\input{source/paper/figures/prs_opened_contr_subset}
+\input{source/paper/figures/prs_opened_comm}
+\input{source/paper/figures/prs_opened_comm_int_marg}
+
+\input{source/paper/figures/prs_opened_more_imp}
+\input{source/paper/figures/prs_opened_collab}
+\input{source/paper/figures/prs_opened_imp_avg}
+\input{source/paper/figures/prs_opened_unimp_avg}
+\input{source/paper/figures/prs_opened_comm_int}
+\input{source/paper/figures/prs_opened_comm_nonint}
+
 
 
 \clearpage
@@ -745,20 +759,53 @@ What I'm hoping to establish next is whether/the degree to which the decline in 
 \section*{Figures} \label{sec:fig}
 \addcontentsline{toc}{section}{Figures}
 
-%\begin{figure}[hp]
-%  \centering
-%  \includegra\phics[width=.6\textwidth]{../fig/placeholder.pdf}
-%  \caption{Placeholder}
-%  \label{fig:placeholder}
-%\end{figure}
-
-
 
 
 \clearpage
 
 \section*{Appendix A. Placeholder} \label{sec:appendixa}
-\addcontentsline{toc}{section}{Appendix A}
 
+
+
+\begin{itemize}
+    \item Appendix: How I map PyPi projects to github repositories
+    \item Appendix: How I match repo names to repo ids in cases where identity changes
+    \item Appendix: How are commits measured and deal with the fact that push and PR commits can be overlapping? 
+    \item Appendix: Robustness to 3 month measurements (if necessary)
+\end{itemize}
+\subsubsection{Defining the set of problems (the linking process)}
+\begin{enumerate}
+    \item First construct a mapping between issues + PRs. This helps create a dataset of "problems" that projects address
+    \begin{itemize}
+        \item Three problem types: unlinked issues, unlinked PRs, linked
+        \item Construct linkage using the following criteria
+        \begin{enumerate}
+          \item Use the provided link.
+          \item For each remaining unlinked issue/PR, find a counterpart that mutually references it and choose the closest number.
+          \item If no mutual reference exists, find any one-way reference and choose the closest number
+        \end{enumerate}
+    \end{itemize}
+    \item Only keep projects that have at least two important contributors in all pre-treatment periods (henceforth known as pre periods)
+\end{enumerate}
+\subsection{If this comes up, define other outcomes}
+
+
+\begin{enumerate}
+    \item Measurement of downstream outcomes - the deifne the ones that I end up using. 
+    \item Describe software releases, the various types and measurement
+    \item Define software quality (security measure, not user experience based)
+    \item Downloads
+\end{enumerate}
+
+\subsection{Aspirational To Dos for data section }
+\begin{enumerate}
+    \item Read this  \href{https://pubs.aeaweb.org/doi/pdfplus/10.1257/jep.36.3.211}{paper} in order to understand how to motivate the paper using descriptive statistics
+    \item Provide insight into what a project is like, such as
+    \begin{itemize}
+        \item What are churn rates like among both hierarchies?
+        \item Provide estimates of data coverage at a project level     
+    \end{itemize}
+    \item Add reference to showing that results are not sensitive to changes in parameters/if they are, justify why mine is reasonable 
+\end{enumerate}
 
 \end{document}

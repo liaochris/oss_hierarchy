@@ -1,0 +1,64 @@
+\begin{figure}[ht]
+
+    \caption{Descriptive statistics of key project metrics} \label{fig:summary-stats}
+  
+  \centering
+  \medskip
+
+  % Panel A
+\begin{subfigure}[b]{0.9\textwidth}
+  \centering
+  \footnotesize
+  \caption{Project summary statistics}
+  \label{fig:project-summary-stats}
+  \begin{tabular}{@{}l r *{5}{r}@{}}
+    \toprule
+    Metric                        & Mean   & \multicolumn{5}{c}{Percentiles} \\
+    \cmidrule(lr){3-7}
+                                  &        & 10th   & 25th   & 50th   & 75th   & 90th   \\
+    \midrule
+    Contributors                   & 106.72 & 9      & 20     & 49     & 120    & 239    \\
+    Problems                       & 204.99 & 11     & 35     & 89     & 257    & 562    \\
+    Unlinked issues                & 110.61 & 4      & 15     & 44     & 146    & 292    \\
+    Unlinked pull requests         & 73.77  & 3      & 10     & 28     & 80     & 170    \\
+    Linked issue–pull request pairs & 20.61  & 0      & 1      & 5      & 20     & 53     \\
+    Discussions per problem        & 4.03   & 2      & 2.76   & 3.67   & 4.82   & 6.46   \\
+    Contributors per problem       & 1.95   & 1.45   & 1.68   & 1.96   & 2.19   & 2.45   \\
+    Time periods per project       & 13.86  & 8      & 10     & 15     & 18     & 18     \\
+    \bottomrule
+  \end{tabular}
+\end{subfigure}
+
+  \bigskip
+
+  % Panel B
+  \begin{subfigure}[b]{0.9\textwidth}
+\caption{Contributor counts by filtering stage} \label{fig:departed-summary-stats}
+    \centering
+    \small
+    \begin{tabular}{@{}p{0.65\textwidth} r@{}}
+      \toprule
+      Filter & \multicolumn{1}{c}{Contributors Remaining} \\
+      \midrule
+      All contributors                                    & 1,076,901 \\
+      $\ge 3$ consecutive periods above 75th pct.\ commits &   13,773   \\
+      Made 0 commits after departure                      &    7,646   \\
+      In projects with only one departure                 &    1,594   \\
+      Excluding departures from projects abandoned ≤ 3 periods later or contributors who remained active in the project &    262   \\
+      In projects with $\ge 2$ important contributors     &       92   \\
+      \bottomrule
+    \end{tabular}
+  \end{subfigure}
+    \bigskip
+  % Notes and overall caption
+  \vspace{1ex}
+  \begin{minipage}{0.9\textwidth}
+    \small
+    \textbf{Table Notes:}
+    Panel~\subref{fig:project-summary-stats} presents the mean and selected percentiles (10th, 25th, 50th, 75th, 90th) for key project–period metrics: number of contributors, problems, unlinked issues, unlinked pull requests, linked issue–pull request pairs, discussions per problem, and contributors per problem. All statistics are based on project–time period observations. The last row includes the mean and selected percentiles for the number of periods each project appears in. 
+    Panel~\subref{fig:departed-summary-stats} shows the number of contributors remaining after each filtering step.
+  \end{minipage}
+
+
+\end{figure}
+\pagebreak
