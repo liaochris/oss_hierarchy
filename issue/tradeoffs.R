@@ -27,7 +27,7 @@ PlotPreperiodDensity <- function(
       collab_label = factor(
         ind_key_collab_2bin,
         levels = c(1, 0),
-        labels = c("Dept. Collab", "Dept. Uncollab")
+        labels = c("High", "Low")
       )
     )
   
@@ -44,7 +44,7 @@ PlotPreperiodDensity <- function(
   if(show_legend) {
     p <- p +
       guides(fill = guide_legend(
-        title = NULL,
+        title = "Departed contributor collaborativeness",
         keywidth = unit(0.7, "lines"),
         keyheight = unit(0.5, "lines"),
         label.theme = element_text(size = 12),
@@ -61,7 +61,6 @@ PlotPreperiodDensity <- function(
       size  = 4
     ) +
     labs(
-      title = plot_title,
       x     = x_label,
       y     = NULL
     ) +
@@ -106,7 +105,7 @@ MakeDensityPanel <- function(main_title = "Pre-Treatment Density Distributions")
       margin_bottom = 0
     ),
     PlotPreperiodDensity(
-      df_pre,
+      df_panel_nyt,
       "contr_per_pr",
       "Average # of Contributions per PR",
       margin_top    = 3,
@@ -114,7 +113,7 @@ MakeDensityPanel <- function(main_title = "Pre-Treatment Density Distributions")
     ),
     # second row: no margins
     PlotPreperiodDensity(
-      df_pre,
+      df_panel_nyt,
       "problem_avg_imp_contr_count",
       "Average Important Contributors per PR",
       margin_top    = 0,
@@ -128,28 +127,28 @@ MakeDensityPanel <- function(main_title = "Pre-Treatment Density Distributions")
       margin_bottom = 0
     ),
     PlotPreperiodDensity(
-      df_pre,
+      df_panel_nyt,
       "review_count",
       "Average # of Reviews",
       margin_top    = 0,
       margin_bottom = 0
     ),
+    PlotPreperiodDensity(
+      df_panel_nyt,
+      "review_comment_count",
+      "Average # of Review Comments",
+      margin_top    = 0,
+      margin_bottom = 0
+    ),
     # third row: no margins, coef annotation top-left, no legend
     PlotPreperiodDensity(
-      df_pre,
-      "important_share",
+      df_panel_nyt,
+      "important_contributions_share",
       "Average Share by Important Contributors",
       plot_title    = NULL,
       anno_x        = -Inf,
       anno_hjust    = 0,
       anno_vjust    = 1,
-      margin_top    = 0,
-      margin_bottom = 0
-    ),
-    PlotPreperiodDensity(
-      df_pre,
-      "review_comment_count",
-      "Average # of Review Comments",
       margin_top    = 0,
       margin_bottom = 0
     ),
@@ -179,9 +178,12 @@ MakeDensityPanel <- function(main_title = "Pre-Treatment Density Distributions")
   
   return(final)
 }
-
+df_panel_nyt <- df_panel_nyt %>%
+  mutate(avg_cc_prs_opened = prs_opened/cc_prs_opened,
+         contr_per_pr = total_contributions/prs_opened,
+         problem_avg_imp_contr_count = problem_avg_contr_count-problem_avg_unimp_contr_count)
 #––– 3) Render –––
-density_panel <- MakeDensityPanel("Outcomes based on Departed Contributor Collaborativeness")
+density_panel <- MakeDensityPanel("")
 density_panel
 # Save to file
 ggsave(
@@ -194,11 +196,12 @@ ggsave(
 # 
 reg_model <- feols(
   close_time ~ review_count + contr_per_pr + prop_review_count_na +
-    ind_key_collab + problem_avg_imp_contr_count + problem_avg_unimp_contr_count + important_share |
+    ind_key_collab + problem_avg_imp_contr_count + problem_avg_unimp_contr_count + important_contributions_share |
     time_index,
-  data    = df_pre,
+  data    = df_panel_nyt %>% mutate(relative_time = time_index - treatment_group) %>% filter(relative_time >= -5, relative_time <= -1),
   cluster = ~repo_name
 )
+
 cov_rename <- c(
   "review_count"                     = "Average # of Reviews",
   "contr_per_pr"                     = "Average # of Contributions per PR",
@@ -206,16 +209,70 @@ cov_rename <- c(
   "ind_key_collab"                   = "Departed Contributor Collaborativeness",
   "problem_avg_imp_contr_count"      = "Average # of Important Contributors",
   "problem_avg_unimp_contr_count"    = "Average # of Unimportant Contributors",
-  "important_share"                  = "Average Share by Important Contributors"
+  "important_contributions_share"                  = "Average Share by Important Contributors"
 )
+library(modelsummary)
+library(tibble)
+library(kableExtra)  # ensure available
 
-# Extract clustered SE
-cluster_se <- sqrt(diag(vcov(reg_model)))
-modelsummary(
-  reg_model,
-  coef_map = cov_rename,
-  output   = "issue/output/collab_regression_table.tex"
-)
+options(modelsummary_factory_latex = "kableExtra")  # force plain tabular backend
+
+InsertDashedLines <- function(tex) {
+  tex <- sub("(?m)^\\s*Observations\\s*&", "\\\\hdashline\nObservations &", tex, perl = TRUE)
+  tex <- sub("(?m)^\\s*\\$R\\^2\\$\\s*&", "\\\\hdashline\n$R^2$ &", tex, perl = TRUE)
+  tex <- sub("(?m)^\\s*Time FE\\s*&", "\\\\hdashline\nTime FE &", tex, perl = TRUE)
+  tex
+}
+
+MakeRegressionFigure <- function(
+    reg_model,
+    cov_rename,
+    caption   = "Determinants of pull request close time",
+    label     = "fig:close_time_regression",
+    file_path = "issue/output/collab_regression_figure.tex"
+) {
+  models  <- list("PR closing time" = reg_model)
+  
+  gof_map <- tribble(
+    ~raw,             ~clean,                 ~fmt, ~omit,
+    "Num.Obs.",       "Observations",         0,    FALSE,
+    "R2",             "$R^2$",                3,    FALSE,
+    "Std.Errors",     "SE clustered by repo", 0,    FALSE,
+    "FE: time_index", "Time FE",              0,    FALSE
+  )
+  
+  latex_tabular <- modelsummary(
+    models,
+    coef_map         = cov_rename,
+    estimate         = "{estimate}",
+    statistic        = "std.error",
+    statistic_rename = c("std.error" = "SE"),
+    shape            = term ~ model + statistic,   # Estimate | SE columns
+    gof_map          = gof_map,                    # keeps only these GOF rows
+    gof_omit         = NULL,
+    escape           = FALSE,
+    output           = "latex_tabular"
+  )
+  
+  latex_tabular <- InsertDashedLines(latex_tabular)
+  
+  figure_tex <- paste0(
+    "\\begin{figure}[!htbp]\n",
+    "\\centering\n",
+    "{\\small\n",
+    latex_tabular, "\n",
+    "}\n",
+    "\\caption{", caption, "}\n",
+    "\\label{", label, "}\n",
+    "\\end{figure}\n"
+  )
+  
+  writeLines(figure_tex, file_path)
+  invisible(file_path)
+}
+
+
+MakeRegressionFigure(reg_model, cov_rename)
 
 # 
 # df_plot_preperiod_density(
