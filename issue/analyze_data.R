@@ -19,16 +19,21 @@ library(rlang)
 library(aod)
 
 
-
 NormalizeOutcome <- function(df, outcome, default_outcome = "prs_opened") {
   outcome_norm <- paste(outcome, "norm", sep = "_")
   sd_outcome_var <- ifelse(grepl("count", outcome), default_outcome, outcome)
+  if (grepl("_predep", outcome)) {
+    sd_outcome_var <- sub("_predep", "", outcome)
+  } else if (grepl("_nondep", outcome)) {
+    sd_outcome_var <- sub("_nondep", "", outcome)
+  }
   if (grepl("n_avg_", outcome) & startsWith(outcome, "n_avg_")) {
-    sd_outcome_var <- sub("n_avg_", "", outcome)
+    sd_outcome_var <- sub("n_avg_", "", sd_outcome_var)
   } else if (grepl("avg_", outcome) & startsWith(outcome, "avg_")) {
-    sd_outcome_var <- sub("avg_", "", outcome)
-  } else if (grepl("_dept_", outcome)) {
-    sd_outcome_var <- gsub("_dept.*", "", outcome)
+    sd_outcome_var <- sub("avg_", "", sd_outcome_var)
+  }
+  if (grepl("_dept_", outcome)) {
+    sd_outcome_var <- gsub("_dept.*", "", sd_outcome_var)
   } else {
     sd_outcome_var <- sd_outcome_var
   }
@@ -41,6 +46,8 @@ NormalizeOutcome <- function(df, outcome, default_outcome = "prs_opened") {
                                                  time_index >= (treatment_group - 5)], na.rm = TRUE)) %>%
     ungroup()
   df_norm[[outcome_norm]] <- (df_norm[[outcome]] - df_norm$mean_outcome)/df_norm$sd_outcome
+  print(weighted.mean(df_norm$sd_outcome/df_norm$mean_outcome, df_norm$mean_outcome))
+  print(mean(df_norm$sd_outcome/df_norm$mean_outcome))
   df_norm %>% filter(is.finite(get(outcome_norm)))
 }
 
@@ -374,15 +381,15 @@ df_panel_nyt <- df_panel_nyt %>%
   mutate(
     avg_prs_opened_nondep = prs_opened_nondep / nodep_contributor_count,
     avg_prs_opened_predep = prs_opened_predep / predep_contributor_count,
-    avg_prs_opened_dept_comm = SafeDivide(prs_opened_dept_comm, contributors_dept_comm),
-    avg_prs_opened_dept_never_comm = SafeDivide(prs_opened_dept_never_comm, contributors_dept_never_comm),
+    avg_prs_opened_dept_comm = prs_opened_dept_comm/contributors_dept_comm,
+    avg_prs_opened_dept_never_comm = prs_opened_dept_never_comm / contributors_dept_never_comm,
     n_avg_prs_opened_nondep = nodep_contributor_count_neg1 * avg_prs_opened_nondep,
     n_avg_prs_opened_predep = predep_contributor_count_neg1 * avg_prs_opened_predep,
     avg_prs_opened_dept_comm_avg_above = SafeDivide(prs_opened_dept_comm_avg_above, contributors_dept_comm_avg_above),
     avg_prs_opened_dept_comm_avg_below = SafeDivide(prs_opened_dept_comm_avg_below, contributors_dept_comm_avg_below),
     n_avg_prs_opened_dept_comm_avg_above = contributors_dept_comm_avg_above_neg1 * avg_prs_opened_dept_comm_avg_above,
     n_avg_prs_opened_dept_comm_avg_below = contributors_dept_comm_avg_below_neg1 * avg_prs_opened_dept_comm_avg_below,
-    avg_prs_opened_dept_never_comm_predep = SafeDivide(prs_opened_dept_never_comm_predep, contributors_dept_never_comm_predep),
+    avg_prs_opened_dept_never_comm_predep = prs_opened_dept_never_comm_predep / contributors_dept_never_comm_predep,
     n_avg_prs_opened_dept_comm = contributors_dept_comm_neg1 * avg_prs_opened_dept_comm,
     n_avg_prs_opened_dept_never_comm_predep = contributors_dept_never_comm_predep_neg1 * avg_prs_opened_dept_never_comm_predep,
     n_avg_prs_opened_dept_never_comm = contributors_dept_never_comm_neg1 * avg_prs_opened_dept_never_comm_predep,
@@ -415,7 +422,9 @@ comm_label_map <- c(
   "n_avg_prs_opened_dept_comm" = "Yes", 
   "n_avg_prs_opened_dept_never_comm_predep" = "No",
   "n_avg_prs_opened_dept_comm_avg_above" = "Above average",
-  "n_avg_prs_opened_dept_comm_avg_below" = "Below average"
+  "n_avg_prs_opened_dept_comm_avg_below" = "Below average",
+  "prs_opened_dept_comm_2avg_above" = "Above 2xaverage",
+  "prs_opened_dept_comm_2avg_below" = "Below 2xaverage"
 )
 
 length(unique(df_panel_nyt$repo_name))
@@ -573,19 +582,19 @@ SaveCompare <- function(path, es_list, legend_labels, legend_title, ylim = NULL,
 
 for (df_name in c('df_panel_nyt')) {
   output_root <- if (df_name == 'df_panel_nyt') 'issue/output' else ""
-  all_collab_ylim <- c(-3.5, 3.5)
+  all_collab_ylim <- c(-4, 4.5)
   pre_nondep_ylim <- c(-4, 4.5)
-  comm_nondep_ylim <- c(-2, 4)
-  comm_predep_ylim <- c(-2.5, 3)
-  
+  comm_nondep_ylim <- c(-4, 4.5)
+  comm_predep_ylim <- c(-4, 4.5)
+  spec_ylim <-  c(-4, 4.5)
   modes <- list(
     list(normalize = TRUE, file = file.path(output_root, "prs_opened_norm.png"), outcome = "prs_opened")
   )
   panel <- get(df_name)
   panel <- panel %>% 
     mutate(repo_name_id = as.integer(factor(repo_name, levels = sort(unique(repo_name)))))
-  panel <- panel %>%
-    filter(repo_name %in% CheckPreTreatmentThreshold(df_panel_nyt, 3, "prs_opened", 5))
+  #panel <- panel %>%
+  #  filter(repo_name %in% CheckPreTreatmentThreshold(df_panel_nyt, 3, "prs_opened", 5))
   
   for (mode in modes) {
     es_list <- lapply(metrics, function(m) {
@@ -618,11 +627,7 @@ for (df_name in c('df_panel_nyt')) {
         
         out_path <- paste0(file.path(output_root, "collab/"), g$fname_prefix, met, norm_str, ".png")
         png(out_path)
-        if (g$fname_prefix == "prs_opened_collab_") {
-          do.call(CompareES, c(es_list, list(legend_labels = labels, ylim = all_collab_ylim, legend_title = legend_title)))
-        } else {
-          do.call(CompareES, c(es_list, list(legend_labels = labels, legend_title = legend_title)))
-        }
+        do.call(CompareES, c(es_list, list(legend_labels = labels, ylim = all_collab_ylim, legend_title = legend_title)))
         dev.off()
       }
     }
@@ -637,6 +642,10 @@ for (df_name in c('df_panel_nyt')) {
       partner = "prs_opened_dept_comm_avg_below",
       name = "Communication intensity"
     ),
+    prs_opened_dept_comm_2avg_above = list(
+      partner = "prs_opened_dept_comm_2avg_below",
+      name = "Communication intensity"
+    ),
     avg_prs_opened_dept_comm_avg_above = list(
       partner = "avg_prs_opened_dept_comm_avg_below",
       name = "Communication intensity"
@@ -647,6 +656,10 @@ for (df_name in c('df_panel_nyt')) {
     ),
     prs_opened_dept_never_comm_predep = list(
       partner = "prs_opened_dept_comm",
+      name = "Communicated w/ Departed"
+    ),
+    n_avg_prs_opened_dept_never_comm_predep = list(
+      partner = "n_avg_prs_opened_dept_comm",
       name = "Communicated w/ Departed"
     ),
     avg_prs_opened_dept_never_comm_predep = list(
@@ -668,10 +681,6 @@ for (df_name in c('df_panel_nyt')) {
     avg_prs_opened_dept_comm_per_problem_min_avg_above = list(
       partner = "avg_prs_opened_dept_comm_per_problem_min_avg_below",
       name = "Per-problem communication intensity"
-    ),
-    n_avg_prs_opened_dept_never_comm_predep = list(
-      partner = "n_avg_prs_opened_dept_comm",
-      name = "Communicated w/ Departed"
     ),
     n_avg_prs_opened_dept_comm_avg_above = list(
       partner = "n_avg_prs_opened_dept_comm_avg_below",
@@ -738,7 +747,7 @@ for (df_name in c('df_panel_nyt')) {
               label_list[[length(label_list) + 1]] <- g$legend_labels[[row_idx]]
             }
             if (!is.null(res) && ShouldStoreOutcome(outcome)) {
-              if (grepl("_predep$", oc) || grepl("_comm$", oc) || grepl("_above$",oc) || grepl("_below$", oc)) {
+              if (grepl("_predep$", outcome) || grepl("_comm$", outcome) || grepl("_above$",outcome) || grepl("_below$", outcome)) {
                 coef_predep_rows <- AppendEstimateRow(coef_predep_rows, res, df_name, met, norm, outcome, g$legend_labels[[row_idx]], g, vals_row)
               } else {
                 coef_nondep_rows <- AppendEstimateRow(coef_nondep_rows, res, df_name, met, norm, outcome, g$legend_labels[[row_idx]], g, vals_row)
@@ -758,6 +767,9 @@ for (df_name in c('df_panel_nyt')) {
             ylim_arg <- switch(outcome,
                                prs_opened_dept_never_comm = comm_nondep_ylim,
                                prs_opened_dept_never_comm_predep = comm_predep_ylim,
+                               n_avg_prs_opened_dept_never_comm_predep = comm_predep_ylim,
+                               prs_opened_dept_comm_avg_above = comm_predep_ylim,
+                               n_avg_prs_opened_dept_comm_avg_above = comm_predep_ylim,
                                NULL)
             SaveCompare(out_path, es_list[idx], label_list[idx], this_title, ylim = ylim_arg, title = "")
           }
@@ -836,11 +848,9 @@ for (df_name in c('df_panel_nyt')) {
             }
           }
           
-          if (outcome %in% c("prs_opened_dept_never_comm", "avg_prs_opened_dept_never_comm",
-                             "prs_opened_dept_never_comm_predep","avg_prs_opened_dept_never_comm_predep",
-                             "prs_opened_dept_comm_avg_above",
-                             "prs_opened_dept_comm_per_problem_avg_above","prs_opened_dept_comm_per_problem_min_avg_above",
-                             "avg_prs_opened_dept_comm_per_problem_avg_above","avg_prs_opened_dept_comm_per_problem_min_avg_above")) {
+          if (outcome %in% names(paired_outcomes)) {
+            info <- paired_outcomes[[outcome]]
+            this_title <- paste(g$legend_title, "+", info$name)
             for (k in seq_along(g$legend_labels)) {
               legend_label <- g$legend_labels[[k]]
               label_mask <- vapply(label_list, function(lbl) grepl(legend_label, lbl, fixed = TRUE), logical(1))
@@ -850,12 +860,104 @@ for (df_name in c('df_panel_nyt')) {
               
               if (length(es_split) > 0) {
                 out_path_split <- file.path(output_root, paste0("collab_imp/inv", i, "_", met, norm_str, "_", outcome, "_", gsub("\\s+", "", legend_label), ".png"))
-                SaveCompare(out_path_split, es_split, label_split, g$legend_title, ylim = NULL, title = "")
+                if (outcome == "n_avg_prs_opened_dept_never_comm_predep") {
+                  SaveCompare(out_path_split, es_split, label_split,this_title, ylim = spec_ylim , title = "")
+                } else {
+                  SaveCompare(out_path_split, es_split, label_split, this_title, ylim = pre_nondep_ylim, title = "")
+                }
               }
             }
           } else {
             out_path <- file.path(output_root, paste0("collab_imp/inv", i, "_", met, norm_str, "_", outcome, ".png"))
-            SaveCompare(out_path, es_list, label_list, g$legend_title, ylim = NULL, title = "")
+            SaveCompare(out_path, es_list, label_list, g$legend_title, ylim = pre_nondep_ylim, title = "")
+          }
+        }
+      } 
+    } 
+  }
+  
+  
+  for (norm in c(TRUE)) { 
+    norm_str <- ifelse(norm, "_norm", "") 
+    for (met in metrics) { 
+      for (i in c(0, 1)) { 
+        outcome_vec <- c("prs_opened", "total_contributor_count", "prs_opened_nondep", "prs_opened_predep")
+        if (df_name == 'df_panel_nyt') {
+          outcome_vec <- c(outcome_vec, "avg_prs_opened_nondep", "avg_prs_opened_predep",
+                           "n_avg_prs_opened_nondep", "n_avg_prs_opened_predep", 
+                           "n_avg_prs_opened_dept_comm", "n_avg_prs_opened_dept_never_comm_predep",
+                           names(paired_outcomes))
+        }
+        
+        for (outcome in outcome_vec) {
+          combo_grid <- expand.grid(lapply(g$filters, `[[`, "vals"), 
+                                    KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
+          es_list <- list()
+          label_list <- list()
+          
+          for (row_idx in seq_len(nrow(combo_grid))) {
+            vals_row <- combo_grid[row_idx, ]
+            df_sub <- panel %>% dplyr::filter(departed_authored_2bin == i)
+            for (j in seq_along(vals_row)) {
+              col_name <- g$filters[[j]]$col
+              df_sub <- df_sub %>% dplyr::filter(.data[[col_name]] == vals_row[[j]])
+            }
+            
+            if (outcome %in% names(paired_outcomes)) {
+              paired <- c(outcome, paired_outcomes[[outcome]]$partner)
+              for (oc in paired) {
+                res <- tryCatch(EventStudy(df_sub, oc, method = met, title = "", normalize = norm), error = function(e) NULL)
+                if (!is.null(res) && "plot" %in% names(res)) {
+                  es_list[[length(es_list) + 1]] <- res
+                  pretty_name <- ifelse(oc %in% names(comm_label_map), comm_label_map[[oc]], oc)
+                  label_list[[length(label_list) + 1]] <- paste0(g$legend_labels[[row_idx]], " + ", pretty_name)
+                }
+                if (!is.null(res) && ShouldStoreOutcome(oc)) {
+                  if (grepl("_predep$", oc) || grepl("_comm$", oc)) {
+                    #coef_predep_rows <- AppendEstimateRow(coef_predep_rows, res, df_name, met, norm, outcome, g$legend_labels[[row_idx]], g, vals_row)
+                  } else {
+                    #coef_nondep_rows <- AppendEstimateRow(coef_nondep_rows, res, df_name, met, norm, outcome, g$legend_labels[[row_idx]], g, vals_row)
+                  }
+                }
+              }
+            } else {
+              res <- tryCatch(EventStudy(df_sub, outcome, method = met, title = "", normalize = norm), error = function(e) NULL)
+              if (!is.null(res) && "plot" %in% names(res)) {
+                es_list[[length(es_list) + 1]] <- res
+                label_list[[length(label_list) + 1]] <- g$legend_labels[[row_idx]]
+              }
+              if (!is.null(res) && ShouldStoreOutcome(outcome)) {
+                if (grepl("_predep$", outcome) || grepl("_comm$", outcome)) {
+                  #coef_predep_rows <- AppendEstimateRow(coef_predep_rows, res, df_name, met, norm, outcome, g$legend_labels[[row_idx]], g, vals_row)
+                } else {
+                  #coef_nondep_rows <- AppendEstimateRow(coef_nondep_rows, res, df_name, met, norm, outcome, g$legend_labels[[row_idx]], g, vals_row)
+                }
+              }
+            }
+          }
+          
+          if (outcome %in% names(paired_outcomes)) {
+            info <- paired_outcomes[[outcome]]
+            this_title <- paste(g$legend_title, "+", info$name)
+            for (k in seq_along(g$legend_labels)) {
+              legend_label <- g$legend_labels[[k]]
+              label_mask <- vapply(label_list, function(lbl) grepl(legend_label, lbl, fixed = TRUE), logical(1))
+              
+              es_split <- es_list[label_mask]
+              label_split <- label_list[label_mask]
+              
+              if (length(es_split) > 0) {
+                out_path_split <- file.path(output_root, paste0("collab_imp/pr_inv", i, "_", met, norm_str, "_", outcome, "_", gsub("\\s+", "", legend_label), ".png"))
+                if (outcome == "n_avg_prs_opened_dept_never_comm_predep") {
+                  SaveCompare(out_path_split, es_split, label_split,this_title, ylim = spec_ylim , title = "")
+                } else {
+                  SaveCompare(out_path_split, es_split, label_split, this_title, ylim = pre_nondep_ylim, title = "")
+                }
+              }
+            }
+          } else {
+            out_path <- file.path(output_root, paste0("collab_imp/pr_inv", i, "_", met, norm_str, "_", outcome, ".png"))
+            SaveCompare(out_path, es_list, label_list, g$legend_title, ylim = pre_nondep_ylim, title = "")
           }
         }
       } 
@@ -938,7 +1040,239 @@ BuildTicksCompressed <- function(y_limits, specs, step = 0.5) {
   tick_df <- tick_df[!duplicated(round(tick_df$breaks, 10)), ]
   list(breaks = tick_df$breaks, labels = tick_df$labels)
 }
- 
+BuildDualRatioPlotFromCoefs <- function(coef_df,
+                                        metric,
+                                        normalize = TRUE,
+                                        outcome_num_a,
+                                        outcome_den_a,
+                                        outcome_num_b,
+                                        outcome_den_b,
+                                        label = c("High"),
+                                        type_labels = c("DeptComm","NeverCommPredep"),
+                                        legend_title = "Ratio comparison",
+                                        y_limits = c(-6, 16),
+                                        break_specs,
+                                        step = 1,
+                                        axis_size = 1.0,
+                                        jag_amp_x = 0.12,
+                                        bar_alpha = 0.6,
+                                        contrast = c("ratio","difference"),
+                                        y_label = NULL,
+                                        dashed_ref = NULL) {
+  contrast <- match.arg(contrast)
+  specs <- NormalizeBreakSpecs(break_specs, default_disp = 1.5)
+  
+  BuildContrastDf <- function(outcome_num, outcome_den, contrast_type) {
+    base <- coef_df %>%
+      dplyr::filter(metric == !!metric,
+                    normalize == !!normalize,
+                    outcome %in% c(outcome_num, outcome_den),
+                    legend_label %in% label) %>%
+      dplyr::mutate(event_time = suppressWarnings(as.numeric(event_time)),
+                    estimate = suppressWarnings(as.numeric(estimate))) %>%
+      dplyr::group_by(event_time, outcome) %>%
+      dplyr::summarise(estimate = mean(estimate, na.rm = TRUE), .groups = "drop") %>%
+      tidyr::pivot_wider(names_from = outcome, values_from = estimate) %>%
+      dplyr::filter(event_time %in% -4:4)
+    
+    numer <- base[[outcome_num]]
+    denom <- base[[outcome_den]]
+    if (contrast == "ratio") {
+      out <- as.numeric(numer) / as.numeric(denom) * sign(denom)
+      out[!is.finite(out)] <- NA_real_
+    } else {
+      out <- as.numeric(numer) - as.numeric(denom)
+    }
+    
+    dplyr::mutate(base, contrast = out, contrast_type = contrast_type)
+  }
+  
+  df_a <- BuildContrastDf(outcome_num_a, outcome_den_a, type_labels[1])
+  df_b <- BuildContrastDf(outcome_num_b, outcome_den_b, type_labels[2])
+  plot_df <- dplyr::bind_rows(df_a, df_b) |> dplyr::filter(is.finite(contrast))
+  print(plot_df)
+  plot_df <- dplyr::mutate(plot_df,
+                           contrast_shifted = vapply(contrast, MapYCompressed, numeric(1),
+                                                     specs = specs))
+  y0 <- MapYCompressed(0, specs)
+  plot_df <- dplyr::mutate(plot_df, y_draw = contrast_shifted - y0)
+  
+  ticks <- BuildTicksCompressed(y_limits, specs, step = step)
+  ticks$breaks <- ticks$breaks - y0
+  y_lim_draw <- c(MapYCompressed(y_limits[1], specs) - y0,
+                  MapYCompressed(y_limits[2], specs) - y0)
+  
+  if (is.null(dashed_ref)) {
+    dashed_ref <- if (contrast == "ratio") 1 else 0
+  }
+  dashed_y_draw <- if (is.finite(dashed_ref)) MapYCompressed(dashed_ref, specs) - y0 else NA_real_
+  dashed_y_draw + MapYCompressed(-dashed_ref, specs) - y0
+  if (is.null(y_label)) {
+    y_label <- if (contrast == "ratio") {
+      "Negative effect of decline in average"
+    } else {
+      "Difference in effect driven by changes in average"
+    }
+  }
+  
+  x_levels <- as.character(-4:4)
+  n_x <- length(x_levels)
+  
+  p <- ggplot2::ggplot(
+    plot_df,
+    ggplot2::aes(x = factor(event_time, levels = x_levels, ordered = TRUE),
+                 y = y_draw, fill = contrast_type)
+  ) +
+    ggplot2::geom_col(position = ggplot2::position_dodge(width = 0.8),
+                      width = 0.72, alpha = bar_alpha, na.rm = TRUE) +
+    ggplot2::geom_hline(yintercept = 0, linewidth = 0.4) +
+    ggplot2::scale_x_discrete(drop = FALSE, limits = x_levels,
+                              expand = ggplot2::expansion(mult = c(0, 0))) +
+    ggplot2::scale_y_continuous(limits = y_lim_draw, breaks = ticks$breaks,
+                                labels = ticks$labels,
+                                expand = ggplot2::expansion(mult = c(0, 0))) +
+    ggplot2::scale_fill_manual(values = setNames(c("black", "red"), type_labels),
+                               breaks = type_labels, drop = FALSE) +
+    ggplot2::guides(fill = ggplot2::guide_legend(nrow = 1, byrow = TRUE,
+                                                 title.position = "top")) +
+    ggplot2::labs(x = "Event time (k)", y = y_label, fill = legend_title) +
+    ggplot2::coord_cartesian(clip = "off") +
+    ggplot2::theme_minimal(base_size = 11) +
+    ggplot2::theme(
+      aspect.ratio = 1,
+      panel.grid.major = ggplot2::element_blank(),
+      panel.grid.minor = ggplot2::element_blank(),
+      panel.background = ggplot2::element_rect(fill = "white", colour = NA),
+      plot.background = ggplot2::element_rect(fill = "white", colour = NA),
+      axis.text.x = ggplot2::element_text(size = 10),
+      axis.text.y = ggplot2::element_text(size = 10),
+      axis.title.x = ggplot2::element_text(size = 11,
+                                           margin = ggplot2::margin(t = 6)),
+      axis.title.y = ggplot2::element_text(size = 11,
+                                           margin = ggplot2::margin(r = 6)),
+      axis.ticks.y = ggplot2::element_line(colour = "black"),
+      axis.ticks.x = ggplot2::element_line(colour = "black"),
+      axis.line.y = ggplot2::element_blank(),
+      legend.position = c(0.5, 0.98),
+      legend.justification = c(0.5, 1.0),
+      legend.direction = "horizontal",
+      legend.background = ggplot2::element_rect(fill = "white", colour = NA),
+      legend.box.background = ggplot2::element_rect(fill = "white",
+                                                    colour = "grey40",
+                                                    linewidth = 0.8),
+      legend.margin = ggplot2::margin(2, 6, 2, 6),
+      legend.box.margin = ggplot2::margin(0, 0, 0, 0),
+      plot.margin = ggplot2::margin(20, 20, 26, 40)
+    )
+  
+  if (is.finite(dashed_y_draw)) {
+    p <- p + ggplot2::geom_hline(yintercept = dashed_y_draw,
+                                 linetype = "dashed", linewidth = 0.5)
+  }
+  
+  p <- DrawAxisWithSevenStrokeJags(p, y_limits, specs, axis_x = 0.5,
+                                   axis_size = axis_size, jag_amp_x = jag_amp_x,
+                                   n_strokes = 7, y_offset = y0)
+  p <- DrawPanelBoxNoLeft(p, y_limits, specs, n_x, box_size = 0.8, y_offset = y0)
+  p
+}
+
+p_high_ratio <- BuildDualRatioPlotFromCoefs(
+  coef_df = coef_predep_df,
+  metric = "cs",
+  normalize = TRUE,
+  outcome_num_b = "n_avg_prs_opened_dept_comm",
+  outcome_den_b = "prs_opened_dept_comm",
+  outcome_num_a = "n_avg_prs_opened_dept_never_comm_predep",
+  outcome_den_a = "prs_opened_dept_never_comm_predep",
+  label = "High",
+  type_labels = c("No","Yes"),
+  legend_title = "Departed collaborativeness + Communicated w/ Departed",
+  y_limits = c(-4, 6),
+  break_specs = NULL,
+  step = 1,
+  axis_size = 1.0,
+  jag_amp_x = 0.12,
+  contrast = "ratio",
+  y_label = "Proportion in effect driven by changes in average",
+  dashed_ref = -1
+)
+p_high_ratio <- p_high_ratio + theme(aspect.ratio = NULL)
+ggsave(file.path(output_root, sprintf("ratio_high_dept_vs_never_comm_predep_%s_norm.png", "cs")),
+       plot = p_high_ratio, width = 960, height = 320, units = "px", dpi = 72)
+
+p_low_ratio <- BuildDualRatioPlotFromCoefs(
+  coef_df = coef_predep_df,
+  metric = "cs",
+  normalize = TRUE,
+  outcome_num_b = "n_avg_prs_opened_dept_comm",
+  outcome_den_b = "prs_opened_dept_comm",
+  outcome_num_a = "n_avg_prs_opened_dept_never_comm_predep",
+  outcome_den_a = "prs_opened_dept_never_comm_predep",
+  label = "Low",
+  type_labels = c("Low + No","Low + Yes"),
+  legend_title = "Departed collaborativeness + Communicated w/ Departed",
+  y_limits = c(-354, 5),
+  break_specs = list(c(-352, -2)),
+  step = 1,
+  axis_size = 1.0,
+  jag_amp_x = 0.12,
+  contrast = "ratio",
+  y_label = "Proportion in effect driven by changes in average",
+  dashed_ref = -1
+)
+p_low_ratio <- p_low_ratio + theme(aspect.ratio = NULL)
+ggsave(file.path(output_root, sprintf("ratio_low_dept_vs_never_comm_predep_%s_norm.png", "cs")),
+       plot = p_low_ratio, width = 960, height = 320, units = "px", dpi = 72)
+
+p_high_ratio_comm_int <- BuildDualRatioPlotFromCoefs(
+  coef_df = coef_predep_df,
+  metric = "cs",
+  normalize = TRUE,
+  outcome_num_a = "n_avg_prs_opened_dept_comm_avg_above",
+  outcome_den_a = "prs_opened_dept_comm_avg_above",
+  outcome_num_b = "n_avg_prs_opened_dept_comm_avg_below",
+  outcome_den_b = "prs_opened_dept_comm_avg_below",
+  label = "High",
+  type_labels = c("High + Above average","High + Below average"),
+  legend_title = "Departed collaborativeness + Communication intensity",
+  y_limits = c(-3, 11),
+  break_specs = list(c(5, 8)),
+  step = 1,
+  axis_size = 1.0,
+  jag_amp_x = 0.12,
+  contrast = "ratio",
+  y_label = "Proportion in effect driven by changes in average",
+  dashed_ref = -1
+)
+p_high_ratio_comm_int <- p_high_ratio_comm_int + theme(aspect.ratio = NULL)
+ggsave(file.path(output_root, sprintf("ratio_high_comm_int_%s_norm.png", "cs")),
+       plot = p_high_ratio_comm_int, width = 960, height = 320, units = "px", dpi = 72)
+
+p_low_ratio_comm_int <- BuildDualRatioPlotFromCoefs(
+  coef_df = coef_predep_df,
+  metric = "cs",
+  normalize = TRUE,
+  outcome_num_a = "n_avg_prs_opened_dept_comm_avg_above",
+  outcome_den_a = "prs_opened_dept_comm_avg_above",
+  outcome_num_b = "n_avg_prs_opened_dept_comm_avg_below",
+  outcome_den_b = "prs_opened_dept_comm_avg_below",
+  label = "Low",
+  type_labels = c("Low + Above average","Low + Below average"),
+  legend_title = "Departed collaborativeness + Communicated intensity",
+  y_limits = c(-10,4),
+  break_specs = list(c(-9,-4)),
+  step = 1,
+  axis_size = 1.0,
+  jag_amp_x = 0.12,
+  contrast = "ratio",
+  y_label = "Proportion in effect driven by changes in average",
+  dashed_ref = -1
+)
+p_low_ratio_comm_int <- p_low_ratio_comm_int + theme(aspect.ratio = NULL)
+ggsave(file.path(output_root, sprintf("ratio_low_comm_int_%s_norm.png", "cs")),
+       plot = p_low_ratio_comm_int, width = 960, height = 320, units = "px", dpi = 72)
+
 BuildRatioPlotFromCoefs <- function(coef_df,
                                     metric,
                                     normalize = TRUE,
@@ -960,11 +1294,12 @@ BuildRatioPlotFromCoefs <- function(coef_df,
     group_by(legend_label, event_time, outcome) %>% summarise(estimate = mean(estimate, na.rm = TRUE), .groups = "drop") %>%
     pivot_wider(names_from = outcome, values_from = estimate) %>%
     filter(event_time %in% -4:4) %>%
-    mutate(ratio = { numer <- .data[[outcome_num]]; denom <- .data[[outcome_den]]; out <- as.numeric(numer) / as.numeric(denom); out[!is.finite(out)] <- NA_real_; out },
+    mutate(ratio = { numer <- .data[[outcome_num]]; denom <- .data[[outcome_den]]; out <- as.numeric(numer) / as.numeric(denom) * sign(denom);  out[!is.finite(out)] <- NA_real_; out },
            ratio_shifted = vapply(ratio, MapYCompressed, numeric(1), specs = specs))
+  
   print(plot_df)
   ticks <- BuildTicksCompressed(y_limits, specs, step = step)
-  dashed_y_shifted <- MapYCompressed(1, specs)
+  dashed_y_shifted <- MapYCompressed(-1, specs)
   
   x_levels <- as.character(-4:4)
   n_x <- length(x_levels)
@@ -1015,198 +1350,35 @@ p_predep <- BuildRatioPlotFromCoefs(
   outcome_num = "n_avg_prs_opened_predep",
   outcome_den = "prs_opened_predep",
   labels = c("High","Low"),
-  y_limits = c(-3.5, 6.5),
+  y_limits = c(-4, 7),
   break_specs = NULL,
-  #break_specs = list(c(3, 5, 1.5)),
-  step = 0.5,
+  step = 1,
   axis_size = 1.0,
   jag_amp_x = 0.12
 )
+
 p_predep <- p_predep + theme(aspect.ratio = NULL)
+
 ggsave(file.path(output_root, sprintf("ratio_predep_%s_norm.png", "cs")),
        plot = p_predep, width = 960, height = 320, units = "px", dpi = 72)
 
-BuildDualRatioPlotFromCoefs <- function(coef_df,
-                                        metric,
-                                        normalize = TRUE,
-                                        outcome_num_a,
-                                        outcome_den_a,
-                                        outcome_num_b,
-                                        outcome_den_b,
-                                        label = "High",
-                                        type_labels = c("DeptComm","NeverCommPredep"),
-                                        legend_title = "Ratio comparison",
-                                        y_limits = c(-6, 16),
-                                        break_specs,
-                                        step = 1,
-                                        axis_size = 1.0,
-                                        jag_amp_x = 0.12,
-                                        bar_alpha = 0.6) {
-  specs <- NormalizeBreakSpecs(break_specs, default_disp = 1.5)
-  
-  BuildRatioDf <- function(outcome_num, outcome_den, ratio_type) {
-    coef_df %>%
-      dplyr::filter(metric == !!metric, normalize == !!normalize, outcome %in% c(outcome_num, outcome_den), legend_label == !!label) %>%
-      dplyr::mutate(event_time = suppressWarnings(as.numeric(event_time)), estimate = suppressWarnings(as.numeric(estimate))) %>%
-      dplyr::group_by(event_time, outcome) %>%
-      dplyr::summarise(estimate = mean(estimate, na.rm = TRUE), .groups = "drop") %>%
-      tidyr::pivot_wider(names_from = outcome, values_from = estimate) %>%
-      dplyr::filter(event_time %in% -4:4) %>%
-      dplyr::mutate(ratio = {
-        numer <- .data[[outcome_num]]
-        denom <- .data[[outcome_den]]
-        out <- as.numeric(numer) / as.numeric(denom)
-        out[!is.finite(out)] <- NA_real_
-        out
-      },
-      ratio_type = ratio_type)
-  }
-  
-  df_a <- BuildRatioDf(outcome_num_a, outcome_den_a, type_labels[1])
-  df_b <- BuildRatioDf(outcome_num_b, outcome_den_b, type_labels[2])
-  plot_df <- dplyr::bind_rows(df_a, df_b) |> dplyr::filter(is.finite(ratio))
-  print(plot_df)
-  # compress to coords, then center at compressed zero so bars start at 0
-  plot_df <- dplyr::mutate(plot_df, ratio_shifted = vapply(ratio, MapYCompressed, numeric(1), specs = specs))
-  y0 <- MapYCompressed(0, specs)
-  plot_df <- dplyr::mutate(plot_df, y_draw = ratio_shifted - y0)
-  
-  # limits/ticks also centered
-  ticks <- BuildTicksCompressed(y_limits, specs, step = step)
-  ticks$breaks <- ticks$breaks - y0
-  y_lim_draw <- c(MapYCompressed(y_limits[1], specs) - y0, MapYCompressed(y_limits[2], specs) - y0)
-  dashed_y_draw <- MapYCompressed(1, specs) - y0
-  
-  x_levels <- as.character(-4:4)
-  n_x <- length(x_levels)
-  
-  p <- ggplot2::ggplot(plot_df, ggplot2::aes(x = factor(event_time, levels = x_levels, ordered = TRUE), y = y_draw, fill = ratio_type)) +
-    ggplot2::geom_col(position = ggplot2::position_dodge(width = 0.8), width = 0.72, alpha = bar_alpha, na.rm = TRUE) +
-    ggplot2::geom_hline(yintercept = 0, linewidth = 0.4) +
-    ggplot2::geom_hline(yintercept = dashed_y_draw, linetype = "dashed", linewidth = 0.5) +
-    ggplot2::scale_x_discrete(drop = FALSE, limits = x_levels, expand = ggplot2::expansion(mult = c(0, 0))) +
-    ggplot2::scale_y_continuous(limits = y_lim_draw, breaks = ticks$breaks, labels = ticks$labels, expand = ggplot2::expansion(mult = c(0, 0))) +
-    ggplot2::scale_fill_manual(values = setNames(c("black", "red"), type_labels), breaks = type_labels, drop = FALSE) +
-    ggplot2::guides(fill = ggplot2::guide_legend(nrow = 1, byrow = TRUE, title.position = "top")) +
-    ggplot2::labs(x = "Event time (k)", y = "Proportion of effect driven by changes in average", fill = legend_title) +
-    ggplot2::coord_cartesian(clip = "off") +
-    ggplot2::theme_minimal(base_size = 11) +
-    ggplot2::theme(
-      aspect.ratio = 1,
-      panel.grid.major = ggplot2::element_blank(),
-      panel.grid.minor = ggplot2::element_blank(),
-      panel.background = ggplot2::element_rect(fill = "white", colour = NA),
-      plot.background = ggplot2::element_rect(fill = "white", colour = NA),
-      axis.text.x = ggplot2::element_text(size = 10),
-      axis.text.y = ggplot2::element_text(size = 10),
-      axis.title.x = ggplot2::element_text(size = 11, margin = ggplot2::margin(t = 6)),
-      axis.title.y = ggplot2::element_text(size = 11, margin = ggplot2::margin(r = 6)),
-      axis.ticks.y = ggplot2::element_line(colour = "black"),
-      axis.ticks.x = ggplot2::element_line(colour = "black"),
-      axis.line.y = ggplot2::element_blank(),
-      legend.position = c(0.5, 0.98),
-      legend.justification = c(0.5, 1.0),
-      legend.direction = "horizontal",
-      legend.background = ggplot2::element_rect(fill = "white", colour = NA),
-      legend.box.background = ggplot2::element_rect(fill = "white", colour = "grey40", linewidth = 0.8),
-      legend.margin = ggplot2::margin(2, 6, 2, 6),
-      legend.box.margin = ggplot2::margin(0, 0, 0, 0),
-      plot.margin = ggplot2::margin(20, 20, 26, 40)
-    )
-  
-  p <- DrawAxisWithSevenStrokeJags(p, y_limits, specs, axis_x = 0.5, axis_size = axis_size, jag_amp_x = jag_amp_x, n_strokes = 7, y_offset = y0)
-  p <- DrawPanelBoxNoLeft(p, y_limits, specs, n_x, box_size = 0.8, y_offset = y0)
-  p
-}
 
-p_high_dual <- BuildDualRatioPlotFromCoefs(
-  coef_df = coef_predep_df,
+p_nondep <- BuildRatioPlotFromCoefs(
+  coef_df = coef_nondep_df,
   metric = "cs",
   normalize = TRUE,
-  outcome_num_b = "n_avg_prs_opened_dept_comm",
-  outcome_den_b = "prs_opened_dept_comm",
-  outcome_num_a = "n_avg_prs_opened_dept_never_comm_predep",
-  outcome_den_a = "prs_opened_dept_never_comm_predep",
-  label = "High",
-  type_labels = c("No","Yes"),  # renamed here
-  legend_title = "Departed collaborativeness + Communicated w/ Departed",  # updated legend title
-  y_limits = c(-7, 50),
-  break_specs = list(c(8, 48)),
+  outcome_num = "n_avg_prs_opened_nondep",
+  outcome_den = "prs_opened_nondep",
+  labels = c("High","Low"),
+  y_limits = c(-3, 14),
+  break_specs = list(c(6, 13)),
   step = 1,
   axis_size = 1.0,
   jag_amp_x = 0.12
 )
-p_high_dual <- p_high_dual + theme(aspect.ratio = NULL)
 
-ggsave(file.path(output_root, sprintf("ratio_high_dept_vs_never_comm_predep_%s_norm.png", "cs")),
-       plot = p_high_dual, width = 960, height = 320, units = "px", dpi = 72)
+p_nondep <- p_nondep + theme(aspect.ratio = NULL)
 
-
-p_low_dual <- BuildDualRatioPlotFromCoefs(
-  coef_df = coef_predep_df,
-  metric = "cs",
-  normalize = TRUE,
-  outcome_num_b = "n_avg_prs_opened_dept_comm",
-  outcome_den_b = "prs_opened_dept_comm",
-  outcome_num_a = "n_avg_prs_opened_dept_never_comm_predep",
-  outcome_den_a = "prs_opened_dept_never_comm_predep",
-  label = "Low",
-  type_labels = c("Low + No","Low + Yes"),  # renamed here
-  legend_title = "Departed collaborativeness + Communicated w/ Departed",  # updated legend title
-  y_limits = c(-4, 18),
-  break_specs = list(c(9, 14)),
-  step = 1,
-  axis_size = 1.0,
-  jag_amp_x = 0.12
-)
-p_low_dual <- p_low_dual + theme(aspect.ratio = NULL)
-
-ggsave(file.path(output_root, sprintf("ratio_low_dept_vs_never_comm_predep_%s_norm.png", "cs")),
-       plot = p_low_dual, width = 960, height = 320, units = "px", dpi = 72)
-
-
-p_high_dual_comm_int <- BuildDualRatioPlotFromCoefs(
-  coef_df = coef_predep_df,
-  metric = "cs",
-  normalize = TRUE,
-  outcome_num_a = "n_avg_prs_opened_dept_comm_avg_above",
-  outcome_den_a = "prs_opened_dept_comm_avg_above",
-  outcome_num_b = "n_avg_prs_opened_dept_comm_avg_below",
-  outcome_den_b = "prs_opened_dept_comm_avg_below",
-  label = "High",
-  type_labels = c("High + Above average","High + Below average"),  # renamed here
-  legend_title = "Departed collaborativeness + Communication intensity",  # updated legend title
-  y_limits = c(-1831, 10),
-  break_specs = list(c(-1830, -22), c(-20, -5)),
-  step = 1,
-  axis_size = 1.0,
-  jag_amp_x = 0.12
-)
-p_high_dual_comm_int <- p_high_dual_comm_int + theme(aspect.ratio = NULL)
-
-ggsave(file.path(output_root, sprintf("ratio_high_comm_int_%s_norm.png", "cs")),
-       plot = p_high_dual_comm_int, width = 960, height = 320, units = "px", dpi = 72)
-
-
-p_low_dual_comm_int <- BuildDualRatioPlotFromCoefs(
-  coef_df = coef_predep_df,
-  metric = "cs",
-  normalize = TRUE,
-  outcome_num_a = "n_avg_prs_opened_dept_comm_avg_above",
-  outcome_den_a = "prs_opened_dept_comm_avg_above",
-  outcome_num_b = "n_avg_prs_opened_dept_comm_avg_below",
-  outcome_den_b = "prs_opened_dept_comm_avg_below",
-  label = "Low",
-  type_labels = c("Low + Above average","Low + Below average"),  # renamed here
-  legend_title = "Departed collaborativeness + Communicated intensity",  # updated legend title
-  y_limits = c(-66, 188),
-  break_specs = list(c(-65, -27), c(-24, -6), c(10, 45), c(49, 179)),
-  step = 1,
-  axis_size = 1.0,
-  jag_amp_x = 0.12,
-)
-p_low_dual_comm_int <- p_low_dual_comm_int + theme(aspect.ratio = NULL)
-
-ggsave(file.path(output_root, sprintf("ratio_low_comm_int_%s_norm.png", "cs")),
-       plot = p_low_dual_comm_int, width = 960, height = 320, units = "px", dpi = 72)
+ggsave(file.path(output_root, sprintf("ratio_nondep_%s_norm.png", "cs")),
+       plot = p_nondep, width = 960, height = 320, units = "px", dpi = 72)
 
