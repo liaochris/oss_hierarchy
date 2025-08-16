@@ -22,7 +22,7 @@ PlotPreperiodDensity <- function(
 ) {
   df_pre <- data %>%
     mutate(relative_time = time_index - treatment_group) %>%
-    filter(relative_time >= -5, relative_time <= -1) %>%
+    filter(relative_time >= -4, relative_time <= -1) %>%
     mutate(
       collab_label = factor(
         ind_key_collab_2bin,
@@ -30,6 +30,7 @@ PlotPreperiodDensity <- function(
         labels = c("High", "Low")
       )
     )
+  print(dim(df_pre))
   
   # FEOLS regression, extract coef & SE
   model    <- feols(as.formula(paste0(outcome_col, " ~ ind_key_collab | time_index")), data = df_pre)
@@ -89,14 +90,14 @@ MakeDensityPanel <- function(main_title = "Pre-Treatment Density Distributions")
   plots <- list(
     # first row: larger top margin, zero bottom margin to compact spacing
     PlotPreperiodDensity(
-      df_panel_nyt,
+      panel,
       "prs_opened",
       "Number of PRs Opened",
       margin_top    = 3,
       margin_bottom = 0
     ),
     PlotPreperiodDensity(
-      df_panel_nyt,
+      panel,
       "avg_prs_opened",
       "PRs Opened / Contributor",
       show_legend   = TRUE,
@@ -105,7 +106,7 @@ MakeDensityPanel <- function(main_title = "Pre-Treatment Density Distributions")
       margin_bottom = 0
     ),
     PlotPreperiodDensity(
-      df_panel_nyt,
+      panel,
       "contr_per_pr",
       "Average # of Contributions per PR",
       margin_top    = 3,
@@ -113,28 +114,28 @@ MakeDensityPanel <- function(main_title = "Pre-Treatment Density Distributions")
     ),
     # second row: no margins
     PlotPreperiodDensity(
-      df_panel_nyt,
+      panel,
       "problem_avg_imp_contr_count",
       "Average Important Contributors per PR",
       margin_top    = 0,
       margin_bottom = 0
     ),
     PlotPreperiodDensity(
-      df_panel_nyt,
+      panel,
       "problem_avg_unimp_contr_count",
       "Average Unimportant Contributors per PR",
       margin_top    = 0,
       margin_bottom = 0
     ),
     PlotPreperiodDensity(
-      df_panel_nyt,
+      panel,
       "review_count",
       "Average # of Reviews",
       margin_top    = 0,
       margin_bottom = 0
     ),
     PlotPreperiodDensity(
-      df_panel_nyt,
+      panel,
       "review_comment_count",
       "Average # of Review Comments",
       margin_top    = 0,
@@ -142,7 +143,7 @@ MakeDensityPanel <- function(main_title = "Pre-Treatment Density Distributions")
     ),
     # third row: no margins, coef annotation top-left, no legend
     PlotPreperiodDensity(
-      df_panel_nyt,
+      panel,
       "important_contributions_share",
       "Average Share by Important Contributors",
       plot_title    = NULL,
@@ -153,7 +154,7 @@ MakeDensityPanel <- function(main_title = "Pre-Treatment Density Distributions")
       margin_bottom = 0
     ),
     PlotPreperiodDensity(
-      df_panel_nyt,
+      panel,
       "close_time",
       "Average Close Time per PR",
       margin_top    = 0,
@@ -178,7 +179,7 @@ MakeDensityPanel <- function(main_title = "Pre-Treatment Density Distributions")
   
   return(final)
 }
-df_panel_nyt <- df_panel_nyt %>%
+panel <- panel %>%
   mutate(avg_cc_prs_opened = prs_opened/cc_prs_opened,
          contr_per_pr = total_contributions/prs_opened,
          problem_avg_imp_contr_count = problem_avg_contr_count-problem_avg_unimp_contr_count)
@@ -198,7 +199,7 @@ reg_model <- feols(
   close_time ~ review_count + contr_per_pr + prop_review_count_na +
     ind_key_collab + problem_avg_imp_contr_count + problem_avg_unimp_contr_count + important_contributions_share |
     time_index,
-  data    = df_panel_nyt %>% mutate(relative_time = time_index - treatment_group) %>% filter(relative_time >= -5, relative_time <= -1),
+  data    = panel %>% mutate(relative_time = time_index - treatment_group) %>% filter(relative_time >= -5, relative_time <= -1),
   cluster = ~repo_name
 )
 
@@ -276,7 +277,7 @@ MakeRegressionFigure(reg_model, cov_rename)
 
 # 
 # df_plot_preperiod_density(
-#   df_panel_nyt %>% mutate(avg_cc_prs_opened = prs_opened/cc_prs_opened),
+#   panel %>% mutate(avg_cc_prs_opened = prs_opened/cc_prs_opened),
 #   "avg_cc_prs_opened",
 #   "PRs Opened/PR Contributor pre-period",
 #   "Number of PRs Opened/PR Contributor"
@@ -284,7 +285,7 @@ MakeRegressionFigure(reg_model, cov_rename)
 # feols(avg_cc_prs_opened ~ ind_key_collab | time_index, df_pre)
 
 # df_plot_preperiod_density(
-#   df_panel_nyt,
+#   panel,
 #   "problem_avg_contr_count",
 #   "Average Contributors per PR",
 #   "Average Contributors per PR"
