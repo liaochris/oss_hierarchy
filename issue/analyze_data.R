@@ -41,9 +41,9 @@ NormalizeOutcome <- function(df, outcome, default_outcome = "prs_opened") {
   df_norm <- df %>%
     group_by(repo_name) %>%
     mutate(mean_outcome = mean(get(outcome)[time_index < treatment_group & 
-                                              time_index >= (treatment_group - 5)], na.rm = TRUE),
+                                              time_index >= (treatment_group - 4)], na.rm = TRUE),
            sd_outcome = sd(get(sd_outcome_var)[time_index < treatment_group & 
-                                                 time_index >= (treatment_group - 5)], na.rm = TRUE)) %>%
+                                                 time_index >= (treatment_group - 4)], na.rm = TRUE)) %>%
     ungroup()
   df_norm[[outcome_norm]] <- (df_norm[[outcome]] - df_norm$mean_outcome)/df_norm$sd_outcome
   print(weighted.mean(df_norm$sd_outcome/df_norm$mean_outcome, df_norm$mean_outcome))
@@ -167,7 +167,6 @@ CompareES <- function(...,
                       ylim = NULL) {
   old_par <- par(no.readonly = TRUE)
   on.exit(par(old_par), add = TRUE)
-  
   par(bg = "white")
   
   es_list <- list(...)
@@ -207,13 +206,13 @@ CompareES <- function(...,
     par(xpd = FALSE)
   }
   
-  if (add_p && length(results) > 1) {
+  if (add_p) {
     # Wald p-value
     if (length(results) == 2) {
       wp <- CompareEventCoefsWald(results, terms = 0:4)
       wp_str <- sprintf("%.3f", wp)
       wald_lbl <- paste0("Wald test p-value: ", wp_str)
-    } else {
+    } else if (length(results)>2) {
       combos <- combn(length(results), 2)
       wald_lbl <- paste(
         apply(combos, 2, function(idx) {
@@ -228,11 +227,18 @@ CompareES <- function(...,
     
     # Pretrend p-values
     pre_p <- vapply(results, TestPretrends, numeric(1))
-    pre_strs <- sprintf("%.3f", pre_p)
+    pre_strs <- ifelse(pre_p < 0.001,
+                       sprintf("p-value < %.3f", 0.001),
+                       sprintf("p-value: %.3f", pre_p))
+    
     pre_lbl <- paste(
-      paste0("Pretrend (", legend_labels, ") p-value: ", pre_strs),
+      paste0("Pretrend (", legend_labels, ") ", pre_strs),
       collapse = "\n"
     )
+    if (length(results) == 1) {     pre_lbl <- paste(
+      paste0("Pretrend p-value: ", pre_strs),
+      collapse = "\n"
+    ) ; wald_lbl <- "" }
     
     # position
     usr <- par("usr")
@@ -436,6 +442,7 @@ length(unique(df_panel_nyt$repo_name))
 StoreOutcomes <- c("n_avg_prs_opened_nondep",
                    "n_avg_prs_opened_predep",
                    "prs_opened_nondep",
+                   "prs_opened",
                    "prs_opened_predep",
                    "n_avg_prs_opened_dept_comm",
                    "n_avg_prs_opened_dept_never_comm_predep",
@@ -593,9 +600,9 @@ for (df_name in c('df_panel_nyt')) {
   panel <- get(df_name)
   panel <- panel %>% 
     mutate(repo_name_id = as.integer(factor(repo_name, levels = sort(unique(repo_name)))))
-  #panel <- panel %>%
-  #  filter(repo_name %in% CheckPreTreatmentThreshold(df_panel_nyt, 3, "prs_opened", 5))
-  
+  panel <- panel %>%
+   filter(repo_name %in% CheckPreTreatmentThreshold(df_panel_nyt, 3, "prs_opened", 5))
+  print(length(unique(panel$repo_name)))
   for (mode in modes) {
     es_list <- lapply(metrics, function(m) {
       EventStudy(panel, mode$outcome, m, title = "", normalize = mode$normalize)
@@ -967,6 +974,38 @@ for (df_name in c('df_panel_nyt')) {
   coef_predep_df <- dplyr::bind_rows(coef_predep_rows)
   coef_nondep_df <- dplyr::bind_rows(coef_nondep_rows)
 }
+
+
+CalculateEstimateDifference <- function(df, suffix = "") {
+  df %>%
+    filter(event_time > 0 & event_time < 5) %>%
+    select(event_time, ind_key_collab_2bin, estimate) %>%
+    pivot_wider(
+      names_from = ind_key_collab_2bin,
+      values_from = estimate,
+      names_prefix = paste0("estimate_", suffix, "_")
+    ) %>%
+    mutate(!!paste0("estimate_difference_", suffix) :=
+             .[[paste0("estimate_", suffix, "_1")]] -
+             .[[paste0("estimate_", suffix, "_0")]])
+}
+
+collab_diff_df <- CalculateEstimateDifference(coef_nondep_df %>% filter(outcome == "prs_opened"))
+predep_collab_diff_df <- CalculateEstimateDifference(coef_predep_df %>% filter(outcome == "prs_opened_predep"),"predep")
+collab_diff_df_merged <- collab_diff_df %>% 
+  left_join(predep_collab_diff_df) %>%
+  mutate(predep_ratio = estimate_difference_predep/estimate_difference_)
+print(paste("average treatment effect difference predep", mean(collab_diff_df_merged$estimate_difference_predep)))
+print(paste("average treatment effect difference predep ratio", mean(collab_diff_df_merged$predep_ratio)))
+
+nondep_collab_diff_df <- CalculateEstimateDifference(coef_nondep_df %>% filter(outcome == "prs_opened_nondep"),"nondep")
+collab_diff_df_merged <- collab_diff_df_merged %>% 
+  left_join(nondep_collab_diff_df) %>%
+  mutate(nondep_ratio = estimate_difference_nondep/estimate_difference_)
+print(paste("average treatment effect difference nondep", mean(collab_diff_df_merged$estimate_difference_nondep)))
+print(paste("average treatment effect difference nondep ratio", mean(collab_diff_df_merged$nondep_ratio)))
+
+
 library(dplyr)
 library(tidyr)
 library(ggplot2)

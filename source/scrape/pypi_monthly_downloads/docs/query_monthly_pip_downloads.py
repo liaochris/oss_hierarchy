@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import os
+from pathlib import Path
 from google.cloud import bigquery
 from source.lib.JMSLab.SaveData import SaveData
+
 
 def ExecuteQuery(query):
     client = bigquery.Client()
@@ -9,17 +11,26 @@ def ExecuteQuery(query):
     results_df = query_job.to_dataframe()
     return results_df
 
+
 def ExportToCsv(dataframe):
-    dataframe = dataframe[~dataframe['project'].isna()]
-    SaveData(dataframe, ['project','month'],
-             "drive/output/scrape/pypi_monthly_downloads/pypi_monthly_downloads.csv",
-             "output/scrape/pypi_monthly_downloads/pypi_monthly_downloads.log")
+    dataframe = dataframe[~dataframe["project"].isna()]
+
+    output_folder = Path("drive/output/scrape/pypi_monthly_downloads")
+    log_folder = Path("output/scrape/pypi_monthly_downloads")
+
+    SaveData(
+        dataframe,
+        ["project", "month"],
+        str(output_folder / "pypi_monthly_downloads.csv"),
+        str(log_folder / "pypi_monthly_downloads.log"),
+    )
+
 
 def Main():
-    if "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ.keys():
+    if "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ:
         print("Need to set up GOOGLE_APPLICATION_CREDENTIALS environment variable")
         return
-    
+
     query_monthly_downloads = """
     SELECT
       file.project as `project`,
@@ -33,8 +44,9 @@ def Main():
     ORDER BY `month` DESC
     """
     results_monthly_downloads = ExecuteQuery(query_monthly_downloads)
-    
+
     ExportToCsv(results_monthly_downloads)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     Main()

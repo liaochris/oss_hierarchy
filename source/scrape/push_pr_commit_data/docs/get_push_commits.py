@@ -123,11 +123,13 @@ def Main():
                 df_push = ProcessPushData(df_push, fetcher)
                 if fetcher.failed_commits:
                     df_failures = pd.DataFrame(fetcher.failed_commits)
-                    df_push = pd.merge(df_push, df_failures, how="left", on=["repo_name", "push_id"])
+                    df_push = pd.merge(df_push.drop(columns = ['failure_status']), df_failures, how="left", on=["repo_name", "push_id"])
                     fetcher.failed_commits = []
                     df_push['commit_urls_length'] = df_push['commit_urls'].apply(lambda x: len(x))
                     df_push['failure_status'] = df_push.apply(lambda x: x['failure_status'] if not pd.isnull(x['failure_status']) else 
-                                                            'less commits than push size' if x['commit_urls_length'] < x['push_size'] else np.nan, axis=1)
+                                                            'less commits than push size' if x['commit_urls_length'] < x['push_size'] else 
+                                                            'more commits than push size' if x['commit_urls_length'] > x['push_size'] else
+                                                            np.nan, axis=1)
                 logging.info(f"Commits for push_data_{year}_{month}.csv obtained")
                 df_push[["push_id", "commit_urls", "push_size", "commit_urls_length", "failure_status"]].to_csv(output_file)
 
