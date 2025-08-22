@@ -42,14 +42,10 @@ def Main():
 
 def importPullRequestData(pr_indir):
     df_pull_request = pd.DataFrame(columns = ['Unnamed: 0', 'repo_name', 'pr_commits_url', 'commit_list'])
-    for subset_year in np.arange(2011, 2024, 1): 
+    for subset_year in np.arange(2011, 2025, 1): 
         for subset_month in np.arange(1, 13, 1):
-            if (subset_year != 2023) or (subset_year == 2023 and subset_month < 9):
-                try:
-                    df_pull_request_commits = pd.read_csv(pr_indir / f'pull_request_data_{subset_year}_{subset_month}.csv', index_col = 0)
-                    df_pull_request = pd.concat([df_pull_request, df_pull_request_commits])
-                except:
-                    pass
+            df_pull_request_commits = pd.read_csv(pr_indir / f'pull_request_data_{subset_year}_{subset_month}.csv', index_col = 0)
+            df_pull_request = pd.concat([df_pull_request, df_pull_request_commits])
     df_pull_request.drop('Unnamed: 0', axis = 1, inplace = True)
     df_pull_request['pr_number'] = df_pull_request['pr_commits_url'].parallel_apply(lambda x: x.split("/")[-2] if not pd.isnull(x) else x)
     return df_pull_request

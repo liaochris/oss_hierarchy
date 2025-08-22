@@ -214,7 +214,7 @@ def Main():
         for month in range(1, 13)
     ]
 
-    for pr_filename in pr_filenames[95:]:
+    for pr_filename in pr_filenames:
         out_filename = pr_filename.replace("pull_request", "pull_request_data")
         df_pull = LoadPRData(pr_filename, indir_pull)
         df_pull = MergeExistingPRData(df_pull, outdir_pull, out_filename)
