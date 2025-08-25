@@ -9,15 +9,16 @@ then in `pypi_site_info`, run
 - get_library_json.sh
 
 then run python source/derived/collect_github_repos/link_pypi_github.py 
+ - do stuff with source/scrape/pypi_package_downloads (TODO)
 
 then in `extract_github_data`, run
 - source/scrape/extract_github_data/docs/unify_repo_identities.py 
 - source/scrape/extract_github_data/docs/filter_repo_identities.py 
 - query_github_data.py 
 
-then in `push_pr_commit_data` run (in parallel)
-- get_pull_request_commits.py (have to do)
-- get_push_commits.py (finish)
+then in `push_pr_commit_data` run 
+- get_pull_request_commits.py (CONSIDER RERUNNING AT SOME POINT)
+- get_push_commits.py (CONSIDER RERUNNING AT SOME POINT)
 
 then in `collect_commits` run (in parallel)
 - get_commit_data_pr.py

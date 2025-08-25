@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import ast
-from source.lib.helpers import GetLatestRepoName
+from source.lib.helpers import GetLatestRepoName, GetAllRepoNames
 from source.scrape.push_pr_commit_data.docs.get_push_commits import GitHubCommitFetcher
 
 def FetchPageText(scrape_url, headers, retry_delay=120):
@@ -72,27 +72,38 @@ def RetrieveAdditionalCommits(latest_repo, pr_commits_url, commit_shas, primary_
 def GrabCommits(repo_name, pr_commits_url, primary_auth, backup_auth, repo_df):
     latest_repo = GetLatestRepoName(repo_name, repo_df) or repo_name
     pull_info = "/".join(pr_commits_url.strip("/").split("/")[-3:-1]).replace("pulls", "pull")
-    scrape_url = f"https://github.com/{latest_repo}/{pull_info}/commits"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64)",
-        "Origin": "http://example.com",
-        "Referer": "http://example.com/some_page"
-    }
-    commit_shas = ScrapeCommitsPage(scrape_url, headers)
-    if type(commit_shas)    == str and commit_shas.startswith("Error"):
-        return {"commit_list": [], "failure_status": commit_shas}
+
+    def scrape(repo):
+        url = f"https://github.com/{repo}/{pull_info}/commits"
+        headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)",
+                   "Origin": "http://example.com", "Referer": "http://example.com/some_page"}
+        return ScrapeCommitsPage(url, headers)
+
+    commit_shas = scrape(latest_repo)
+
+    if isinstance(commit_shas, str) and commit_shas.startswith("Error"):
+        for alt_repo in GetAllRepoNames(repo_name, repo_df):
+            if alt_repo == latest_repo:
+                continue
+            attempt = scrape(alt_repo)
+            if not (isinstance(attempt, str) and attempt.startswith("Error")):
+                commit_shas, latest_repo = attempt, alt_repo
+                break
+        else:
+            return {"commit_list": [], "failure_status": commit_shas}
+
     if len(commit_shas) == 250:
-        print("250 commits scraped – retrieving additional commits via API.")
+        print(f"250 commits scraped – retrieving additional commits via API ({latest_repo}).")
         api_pr_url = pr_commits_url.replace("/commits", "")
         pr_data = GetPRAPIData(api_pr_url, primary_auth)
-        if type(pr_data) == str and pr_data.startswith("PR API Error"):
+        if isinstance(pr_data, str) and pr_data.startswith("PR API Error"):
             return {"commit_list": commit_shas, "failure_status": pr_data}
         commit_shas, fetcher_fail = RetrieveAdditionalCommits(
             latest_repo, pr_commits_url, commit_shas, primary_auth, backup_auth, repo_df, pr_data
         )
         return {"commit_list": commit_shas, "failure_status": fetcher_fail}
-    return {"commit_list": commit_shas, "failure_status": ""}
 
+    return {"commit_list": commit_shas, "failure_status": ""}
 
 def LoadPRData(pr_filename, indir):
     return pd.read_csv(indir / pr_filename)[["repo_name", "pr_commits_url"]].drop_duplicates()
@@ -151,7 +162,7 @@ def Main():
     pr_filenames = [f"pull_request_{year}_{month}.csv" for year in range(2015, 2025)
                     for month in range(1, 13)]
 
-    for pr_filename in pr_filenames[95:]:
+    for pr_filename in pr_filenames[118:]:
         out_filename = pr_filename.replace("pull_request", "pull_request_data")
         df_pull = LoadPRData(pr_filename, indir_pull)
         df_pull = MergeExistingPRData(df_pull, outdir_pull, out_filename)
