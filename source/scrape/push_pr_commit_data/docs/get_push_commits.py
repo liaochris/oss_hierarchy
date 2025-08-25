@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 import requests
 from ratelimit import limits, sleep_and_retry
-from source.lib.helpers import GetLatestRepoName
+from source.lib.helpers import GetLatestRepoName, GetAllRepoNames
 
 ONE_HOUR = 3600
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -26,42 +26,67 @@ class GitHubCommitFetcher:
     @limits(calls=5000, period=ONE_HOUR)
     def GetCommits(self, repo_name, before, head, original_urls, push_size, push_id, second_try=0):
         latest_repo = GetLatestRepoName(repo_name, self.repo_df) or repo_name
-        api_url = f"https://api.github.com/repos/{latest_repo}/compare/{before}...{head}"
+        repo_candidates = [latest_repo] + [r for r in GetAllRepoNames(repo_name, self.repo_df) if r != latest_repo]
+
+        for candidate_repo in repo_candidates:
+            commit_urls, failure = self._FetchCommitsForRepo(candidate_repo, before, head, original_urls, push_size, push_id, second_try)
+            if commit_urls is not None:  # success
+                return commit_urls
+
+            # only move on to next repo if failure looks like "Not Found" or "No common ancestor"
+            if failure not in ("Not Found",) and not failure.startswith("No common ancestor"):
+                break  # stop looping if it's a different failure
+
+        # all repos failed
+        self.failed_commits.append({
+            "repo_name": repo_name,
+            "push_id": push_id,
+            "failure_status": failure
+        })
+        return original_urls
+
+    def _FetchCommitsForRepo(self, repo, before, head, original_urls, push_size, push_id, second_try):
+        api_url = f"https://api.github.com/repos/{repo}/compare/{before}...{head}"
         logging.info(f"Fetching commits from: {api_url}")
         try:
             response = requests.get(api_url, auth=(self.username, self.token), timeout=10)
             data = response.json()
         except Exception as e:
             logging.error(f"Error parsing API response from {api_url}: {e}")
-            return original_urls
-            
+            return None, str(e)
+
         if "commits" in data:
             commit_urls = [commit["url"] for commit in data["commits"]]
             if not commit_urls:
-                return commit_urls
+                return [], ""
             new_head = commit_urls[0].split("/")[-1]
             if push_size > len(commit_urls) and new_head != before:
-                return self.GetCommits(repo_name, before, new_head, original_urls, push_size - 250, push_id, second_try) + commit_urls
-            return commit_urls
+                return (
+                    self.GetCommits(repo, before, new_head, original_urls, push_size - 250, push_id, second_try) + commit_urls,
+                    ""
+                )
+            return commit_urls, ""
+
         if data.get("message", "").startswith("API rate limit exceeded"):
             if second_try == 1:
-                return self.SwapCredentialsAndRetry(latest_repo, before, head, original_urls, push_size, push_id, second_try)
+                return self.SwapCredentialsAndRetry(repo, before, head, original_urls, push_size, push_id, second_try), ""
             if second_try == 2:
                 time.sleep(120)
-                return self.SwapCredentialsAndRetry(latest_repo, before, head, original_urls, push_size, push_id, second_try)
-        if (data.get("message") == "Not Found" or data.get("message", "").startswith("No common ancestor")) and second_try < 1:
+                return self.SwapCredentialsAndRetry(repo, before, head, original_urls, push_size, push_id, second_try), ""
+            return None, data.get("message")
+
+        if (data.get("message") in ("Not Found",) or data.get("message", "").startswith("No common ancestor")) and second_try < 1:
             if original_urls:
                 new_before = original_urls[second_try].split("/")[-1]
-                return ([f"https://api.github.com/repos/{latest_repo}/commits/{new_before}"] +
-                        self.GetCommits(latest_repo, new_before, head, original_urls, push_size - 1, push_id, second_try=second_try + 1))
-            return original_urls
+                return (
+                    [f"https://api.github.com/repos/{repo}/commits/{new_before}"] +
+                    self.GetCommits(repo, new_before, head, original_urls, push_size - 1, push_id, second_try=second_try + 1),
+                    ""
+                )
+            return original_urls, data.get("message")
+
         logging.error(f"Failed with URL: {api_url}. Message: {data.get('message')}")
-        self.failed_commits.append({
-            "repo_name": repo_name,
-            "push_id": push_id,
-            "failure_status": data.get("message")
-        })
-        return original_urls
+        return None, data.get("message")
 
     def SwapCredentialsAndRetry(self, repo_name, before, head, original_urls, push_size, push_id, second_try):
         return self.GetCommits(repo_name, before, head, original_urls, push_size, push_id, second_try=second_try + 1)
@@ -103,33 +128,35 @@ def Main():
     indir_repo_match = Path("output/scrape/extract_github_data")
     outdir_push = Path("drive/output/scrape/push_pr_commit_data/push_data/")
     repo_df = pd.read_csv(indir_repo_match / "repo_id_history_filtered.csv")
-    username = os.environ["PRIMARY_GITHUB_USERNAME"]
-    token = os.environ["PRIMARY_GITHUB_TOKEN"]
-    backup_username = os.environ["BACKUP_GITHUB_USERNAME"]
-    backup_token = os.environ["BACKUP_GITHUB_TOKEN"]
+    username = os.environ["BACKUP2_GITHUB_USERNAME"]
+    token = os.environ["BACKUP2_GITHUB_TOKEN"]
+    backup_username = os.environ["BACKUP3_GITHUB_USERNAME"]
+    backup_token = os.environ["BACKUP3_GITHUB_TOKEN"]
+
     fetcher = GitHubCommitFetcher(repo_df, username, token, backup_username, backup_token)
     for year in range(2015, 2025):
         for month in range(1, 13):
-            if year >= 2024 and (month >= 4): # start here
-                df_push = pd.read_csv(indir_push /  f"push_{year}_{month}.csv", index_col=0)
-                req_cols = ["push_id", "push_size", "repo_name", "push_before", "push_head", "commit_urls"]
-                df_push = df_push[req_cols].drop_duplicates()
-                output_file = outdir_push / f"push_data_{year}_{month}.csv"
-                if output_file.exists():
-                    df_existing = pd.read_csv(output_file, index_col=0)
-                    on_cols = ["push_id", "push_size"] if "push_size" in df_existing.columns else ["push_id"]
-                    df_push = pd.merge(df_push.rename(columns={"commit_urls":"old_commit_urls"}), df_existing, how="left", on=on_cols)
-                df_push = df_push.reset_index(drop=True)
-                df_push = ProcessPushData(df_push, fetcher)
-                if fetcher.failed_commits:
-                    df_failures = pd.DataFrame(fetcher.failed_commits)
-                    df_push = pd.merge(df_push, df_failures, how="left", on=["repo_name", "push_id"])
-                    fetcher.failed_commits = []
-                    df_push['commit_urls_length'] = df_push['commit_urls'].apply(lambda x: len(x))
-                    df_push['failure_status'] = df_push.apply(lambda x: x['failure_status'] if not pd.isnull(x['failure_status']) else 
-                                                            'less commits than push size' if x['commit_urls_length'] < x['push_size'] else np.nan, axis=1)
-                logging.info(f"Commits for push_data_{year}_{month}.csv obtained")
-                df_push[["push_id", "commit_urls", "push_size", "commit_urls_length", "failure_status"]].to_csv(output_file)
+            df_push = pd.read_csv(indir_push /  f"push_{year}_{month}.csv", index_col=0)
+            req_cols = ["push_id", "push_size", "repo_name", "push_before", "push_head", "commit_urls"]
+            df_push = df_push[req_cols].drop_duplicates()
+            output_file = outdir_push / f"push_data_{year}_{month}.csv"
+            if output_file.exists():
+                df_existing = pd.read_csv(output_file, index_col=0)
+                on_cols = ["push_id", "push_size"] if "push_size" in df_existing.columns else ["push_id"]
+                df_push = pd.merge(df_push.rename(columns={"commit_urls":"old_commit_urls"}), df_existing, how="left", on=on_cols)
+            df_push = df_push.reset_index(drop=True)
+            df_push = ProcessPushData(df_push, fetcher)
+            if fetcher.failed_commits:
+                df_failures = pd.DataFrame(fetcher.failed_commits)
+                df_push = pd.merge(df_push.drop(columns = ['failure_status']), df_failures, how="left", on=["repo_name", "push_id"])
+                fetcher.failed_commits = []
+                df_push['commit_urls_length'] = df_push['commit_urls'].apply(lambda x: len(x))
+                df_push['failure_status'] = df_push.apply(lambda x: x['failure_status'] if not pd.isnull(x['failure_status']) else 
+                                                        'less commits than push size' if x['commit_urls_length'] < x['push_size'] else 
+                                                        'more commits than push size' if x['commit_urls_length'] > x['push_size'] else
+                                                        np.nan, axis=1)
+            logging.info(f"Commits for push_data_{year}_{month}.csv obtained")
+            df_push[["push_id", "commit_urls", "push_size", "commit_urls_length", "failure_status"]].to_csv(output_file)
 
 
 if __name__ == "__main__":
