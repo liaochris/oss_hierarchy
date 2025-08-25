@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from source.lib.JMSLab.SaveData import SaveData
 
+
 def CreateDataset(client, dataset_name):
     dataset_id = f"{client.project}.{dataset_name}"
     dataset = bigquery.Dataset(dataset_id)
@@ -14,12 +15,17 @@ def CreateDataset(client, dataset_name):
 
     print(f"Created dataset {client.project}.{dataset.dataset_id}")
 
+
 def LoadTableToDataset(client, dataset_name, table_name, indir_github_projects):
-    df_github_projects = pd.read_csv(Path(indir_github_projects) / 'repo_id_history_filtered.csv', index_col = False)
-    df_github_projects = df_github_projects[['repo_name']].drop_duplicates()
-    
+    df_github_projects = pd.read_csv(
+        Path(indir_github_projects) / "repo_id_history_filtered.csv", index_col=False
+    )
+    df_github_projects = df_github_projects[["repo_name"]].drop_duplicates()
+
     github_project_ref = client.dataset(dataset_name).table(table_name)
-    load_data_job = client.load_table_from_dataframe(df_github_projects, github_project_ref)
+    load_data_job = client.load_table_from_dataframe(
+        df_github_projects, github_project_ref
+    )
     load_results = load_data_job.result()
 
     if load_results.errors == None:
@@ -27,20 +33,28 @@ def LoadTableToDataset(client, dataset_name, table_name, indir_github_projects):
     else:
         print(f"Error Log: {load_results.errors}")
 
-def GetRawGitHubData(client, github_projects_name, project_name, dataset_name, github_data_name):
-    github_data_config = bigquery.QueryJobConfig(destination=f"{project_name}.{dataset_name}.{github_data_name}")
+
+def GetRawGitHubData(
+    client, github_projects_name, project_name, dataset_name, github_data_name
+):
+    github_data_config = bigquery.QueryJobConfig(
+        destination=f"{project_name}.{dataset_name}.{github_data_name}"
+    )
     github_raw_sql = f"""
     SELECT *
     FROM `githubarchive.month.20*`
     WHERE (_TABLE_SUFFIX BETWEEN '1501' AND '2412') AND repo.name in 
     (SELECT repo_name FROM `{project_name}.{dataset_name}.{github_projects_name}`)
     """
-    github_data_query = client.query(github_raw_sql, job_config=github_data_config) 
+    github_data_query = client.query(github_raw_sql, job_config=github_data_config)
     github_data_query.result()
 
+
 def GetWatchData(client, project_name, dataset_name, github_data_name):
-    watch_data_name = 'watch_data'
-    watch_data_config = bigquery.QueryJobConfig(destination=f"{project_name}.{dataset_name}.{watch_data_name}")
+    watch_data_name = "watch_data"
+    watch_data_config = bigquery.QueryJobConfig(
+        destination=f"{project_name}.{dataset_name}.{watch_data_name}"
+    )
     watch_data_sql = f"""
     SELECT
       `type`,
@@ -56,14 +70,17 @@ def GetWatchData(client, project_name, dataset_name, github_data_name):
     WHERE
         type = "WatchEvent"
     """
-    watch_data_query = client.query(watch_data_sql, job_config=watch_data_config) 
+    watch_data_query = client.query(watch_data_sql, job_config=watch_data_config)
     watch_data_query.result()
-	
-    GetSubsetData(client, project_name, dataset_name, 'watch_data')
+
+    GetSubsetData(client, project_name, dataset_name, "watch_data")
+
 
 def GetReleaseData(client, project_name, dataset_name, github_data_name):
-    release_data_name = 'release_data'
-    release_data_config = bigquery.QueryJobConfig(destination=f"{project_name}.{dataset_name}.{release_data_name}")
+    release_data_name = "release_data"
+    release_data_config = bigquery.QueryJobConfig(
+        destination=f"{project_name}.{dataset_name}.{release_data_name}"
+    )
     release_data_sql = f"""
     SELECT
       `type`,
@@ -83,14 +100,17 @@ def GetReleaseData(client, project_name, dataset_name, github_data_name):
     WHERE
         type = "ReleaseEvent"
     """
-    release_data_query = client.query(release_data_sql, job_config=release_data_config) 
+    release_data_query = client.query(release_data_sql, job_config=release_data_config)
     release_data_query.result()
 
-    GetSubsetData(client, project_name, dataset_name, 'release_data')
+    GetSubsetData(client, project_name, dataset_name, "release_data")
+
 
 def GetPushData(client, project_name, dataset_name, github_data_name):
-    push_data_name = 'push_data'
-    push_data_config = bigquery.QueryJobConfig(destination=f"{project_name}.{dataset_name}.{push_data_name}")
+    push_data_name = "push_data"
+    push_data_config = bigquery.QueryJobConfig(
+        destination=f"{project_name}.{dataset_name}.{push_data_name}"
+    )
     push_data_sql = f"""
     SELECT
       `type`,
@@ -121,14 +141,17 @@ def GetPushData(client, project_name, dataset_name, github_data_name):
       WHERE
         type = "PushEvent" 
     """
-    push_data_query = client.query(push_data_sql, job_config=push_data_config) 
+    push_data_query = client.query(push_data_sql, job_config=push_data_config)
     push_data_query.result()
 
-    GetSubsetData(client, project_name, dataset_name, 'push_data')
+    GetSubsetData(client, project_name, dataset_name, "push_data")
+
 
 def GetPullRequestReviewData(client, project_name, dataset_name, github_data_name):
-    pull_request_review_name = 'pull_request_review_data'
-    pull_request_review_config = bigquery.QueryJobConfig(destination=f"{project_name}.{dataset_name}.{pull_request_review_name}")
+    pull_request_review_name = "pull_request_review_data"
+    pull_request_review_config = bigquery.QueryJobConfig(
+        destination=f"{project_name}.{dataset_name}.{pull_request_review_name}"
+    )
     pull_request_review_sql = f"""
 				SELECT
 						`type`,
@@ -176,14 +199,21 @@ def GetPullRequestReviewData(client, project_name, dataset_name, github_data_nam
 						type = "PullRequestReviewEvent" 
 
     """
-    pull_request_review_query = client.query(pull_request_review_sql, job_config=pull_request_review_config) 
+    pull_request_review_query = client.query(
+        pull_request_review_sql, job_config=pull_request_review_config
+    )
     pull_request_review_query.result()
 
-    GetSubsetData(client, project_name, dataset_name, 'pull_request_review_data')
+    GetSubsetData(client, project_name, dataset_name, "pull_request_review_data")
 
-def GetPullRequestReviewCommentData(client, project_name, dataset_name, github_data_name):
-    pull_request_review_comment_name = 'pull_request_review_comment_data'
-    pull_request_review_comment_config = bigquery.QueryJobConfig(destination=f"{project_name}.{dataset_name}.{pull_request_review_comment_name}")
+
+def GetPullRequestReviewCommentData(
+    client, project_name, dataset_name, github_data_name
+):
+    pull_request_review_comment_name = "pull_request_review_comment_data"
+    pull_request_review_comment_config = bigquery.QueryJobConfig(
+        destination=f"{project_name}.{dataset_name}.{pull_request_review_comment_name}"
+    )
     pull_request_review_comment_sql = f"""
 				SELECT
 						`type`,
@@ -237,14 +267,21 @@ def GetPullRequestReviewCommentData(client, project_name, dataset_name, github_d
 				WHERE
 						type = "PullRequestReviewCommentEvent"
 		    """
-    pull_request_review_comment_query = client.query(pull_request_review_comment_sql, job_config=pull_request_review_comment_config) 
+    pull_request_review_comment_query = client.query(
+        pull_request_review_comment_sql, job_config=pull_request_review_comment_config
+    )
     pull_request_review_comment_query.result()
 
-    GetSubsetData(client, project_name, dataset_name, 'pull_request_review_comment_data')
+    GetSubsetData(
+        client, project_name, dataset_name, "pull_request_review_comment_data"
+    )
+
 
 def GetPullRequestData(client, project_name, dataset_name, github_data_name):
-    pull_request_name = 'pull_request_data'
-    pull_request_config = bigquery.QueryJobConfig(destination=f"{project_name}.{dataset_name}.{pull_request_name}")
+    pull_request_name = "pull_request_data"
+    pull_request_config = bigquery.QueryJobConfig(
+        destination=f"{project_name}.{dataset_name}.{pull_request_name}"
+    )
     pull_request_sql = f"""
 				SELECT
 						`type`,
@@ -293,14 +330,17 @@ def GetPullRequestData(client, project_name, dataset_name, github_data_name):
 				WHERE
 						type = "PullRequestEvent"
 		    """
-    pull_request_query = client.query(pull_request_sql, job_config=pull_request_config) 
+    pull_request_query = client.query(pull_request_sql, job_config=pull_request_config)
     pull_request_query.result()
 
-    GetSubsetData(client, project_name, dataset_name, 'pull_request_data')
+    GetSubsetData(client, project_name, dataset_name, "pull_request_data")
+
 
 def GetIssueData(client, project_name, dataset_name, github_data_name):
-    issue_name = 'issue_data'
-    issue_config = bigquery.QueryJobConfig(destination=f"{project_name}.{dataset_name}.{issue_name}")
+    issue_name = "issue_data"
+    issue_config = bigquery.QueryJobConfig(
+        destination=f"{project_name}.{dataset_name}.{issue_name}"
+    )
     issue_sql = f"""
 				SELECT
 						`type`,
@@ -335,14 +375,17 @@ def GetIssueData(client, project_name, dataset_name, github_data_name):
 				WHERE
 						type = "IssuesEvent"
 		    """
-    issue_query = client.query(issue_sql, job_config=issue_config) 
+    issue_query = client.query(issue_sql, job_config=issue_config)
     issue_query.result()
 
-    GetSubsetData(client, project_name, dataset_name, 'issue_data')
+    GetSubsetData(client, project_name, dataset_name, "issue_data")
+
 
 def GetIssueCommentData(client, project_name, dataset_name, github_data_name):
-    issue_comment_name = 'issue_comment_data'
-    issue_comment_config = bigquery.QueryJobConfig(destination=f"{project_name}.{dataset_name}.{issue_comment_name}")
+    issue_comment_name = "issue_comment_data"
+    issue_comment_config = bigquery.QueryJobConfig(
+        destination=f"{project_name}.{dataset_name}.{issue_comment_name}"
+    )
     issue_comment_sql = f"""
 				SELECT
 						`type`,
@@ -381,14 +424,19 @@ def GetIssueCommentData(client, project_name, dataset_name, github_data_name):
 				WHERE
 						type = "IssueCommentEvent"
 				"""
-    issue_comment_query = client.query(issue_comment_sql, job_config=issue_comment_config) 
+    issue_comment_query = client.query(
+        issue_comment_sql, job_config=issue_comment_config
+    )
     issue_comment_query.result()
-	
-    GetSubsetData(client, project_name, dataset_name, 'issue_comment_data')
+
+    GetSubsetData(client, project_name, dataset_name, "issue_comment_data")
+
 
 def GetForkData(client, project_name, dataset_name, github_data_name):
-    fork_name = 'fork_data'
-    fork_config = bigquery.QueryJobConfig(destination=f"{project_name}.{dataset_name}.{fork_name}")
+    fork_name = "fork_data"
+    fork_config = bigquery.QueryJobConfig(
+        destination=f"{project_name}.{dataset_name}.{fork_name}"
+    )
     fork_sql = f"""
 				SELECT
 						`type`,
@@ -404,14 +452,17 @@ def GetForkData(client, project_name, dataset_name, github_data_name):
 				WHERE
 						type = "ForkEvent"
 				"""
-    fork_query = client.query(fork_sql, job_config=fork_config) 
+    fork_query = client.query(fork_sql, job_config=fork_config)
     fork_query.result()
 
-    GetSubsetData(client, project_name, dataset_name, 'fork_data')
+    GetSubsetData(client, project_name, dataset_name, "fork_data")
+
 
 def GetDeleteData(client, project_name, dataset_name, github_data_name):
-    delete_name = 'delete_data'
-    delete_config = bigquery.QueryJobConfig(destination=f"{project_name}.{dataset_name}.{delete_name}")
+    delete_name = "delete_data"
+    delete_config = bigquery.QueryJobConfig(
+        destination=f"{project_name}.{dataset_name}.{delete_name}"
+    )
     delete_sql = f"""
 				SELECT
 						`type`,
@@ -430,14 +481,17 @@ def GetDeleteData(client, project_name, dataset_name, github_data_name):
 				WHERE
 						type = "DeleteEvent"
 				"""
-    delete_query = client.query(delete_sql, job_config=delete_config) 
+    delete_query = client.query(delete_sql, job_config=delete_config)
     delete_query.result()
 
-    GetSubsetData(client, project_name, dataset_name, 'delete_data')
+    GetSubsetData(client, project_name, dataset_name, "delete_data")
+
 
 def GetCreateData(client, project_name, dataset_name, github_data_name):
-    create_name = 'create_data'
-    create_config = bigquery.QueryJobConfig(destination=f"{project_name}.{dataset_name}.{create_name}")
+    create_name = "create_data"
+    create_config = bigquery.QueryJobConfig(
+        destination=f"{project_name}.{dataset_name}.{create_name}"
+    )
     create_sql = f"""
 				SELECT
 						`type`,
@@ -457,10 +511,11 @@ def GetCreateData(client, project_name, dataset_name, github_data_name):
 				WHERE
 						type = "CreateEvent"
 				"""
-    create_query = client.query(create_sql, job_config=create_config) 
+    create_query = client.query(create_sql, job_config=create_config)
     create_query.result()
 
-    GetSubsetData(client, project_name, dataset_name, 'create_data')
+    GetSubsetData(client, project_name, dataset_name, "create_data")
+
 
 def GetSubsetData(client, project_name, dataset_name, subset_data_name):
     outdir = f"drive/output/scrape/extract_github_data/{subset_data_name}"
@@ -469,7 +524,7 @@ def GetSubsetData(client, project_name, dataset_name, subset_data_name):
         os.mkdir(outdir)
     if not os.path.exists(outdir_log):
         os.mkdir(outdir_log)
-        
+
     file_counter = 0
     for subset_year in np.arange(2015, 2025, 1):
         for subset_month in np.arange(1, 13, 1):
@@ -480,37 +535,45 @@ def GetSubsetData(client, project_name, dataset_name, subset_data_name):
 			WHERE
 				EXTRACT(MONTH FROM created_at) = {subset_month} AND EXTRACT(YEAR FROM created_at) = {subset_year}
 			"""
-			
+
             subset_date_query = client.query(subset_date_sql)
             df_subset = subset_date_query.to_dataframe()
-            
-            SaveData(df_subset.reset_index(), ['index'],
-            	f"{outdir}/{subset_data_name.replace('_data','')}_{subset_year}_{subset_month}.csv",
-            	f"{outdir_log}/{subset_data_name}.log",
-                append=file_counter != 0)
+
+            SaveData(
+                df_subset.reset_index(),
+                ["index"],
+                f"{outdir}/{subset_data_name.replace('_data','')}_{subset_year}_{subset_month}.csv",
+                f"{outdir_log}/{subset_data_name}.log",
+                append=file_counter != 0,
+            )
             file_counter += 1
-            
+
+
 def Main():
     if "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ.keys():
         print("Need to set up GOOGLE_APPLICATION_CREDENTIALS environment variable")
         return
 
-    indir_github_projects = 'output/scrape/extract_github_data'
-    project_name = 'winged-quanta-456615-b4'  # changes whenever I use a new BQ email
-    dataset_name = 'source'
-    github_projects_name = 'github_repositories'
-    github_data_name = 'github_data'
+    indir_github_projects = "output/scrape/extract_github_data"
+    project_name = "winged-quanta-456615-b4"  # changes whenever I use a new BQ email
+    dataset_name = "source"
+    github_projects_name = "github_repositories"
+    github_data_name = "github_data"
 
     client = bigquery.Client(project=project_name)
     CreateDataset(client, dataset_name)
-    LoadTableToDataset(client, 'source', github_projects_name, indir_github_projects)
-    GetRawGitHubData(client, github_projects_name, project_name, dataset_name, github_data_name)
-    
+    LoadTableToDataset(client, "source", github_projects_name, indir_github_projects)
+    GetRawGitHubData(
+        client, github_projects_name, project_name, dataset_name, github_data_name
+    )
+
     GetWatchData(client, project_name, dataset_name, github_data_name)
     GetReleaseData(client, project_name, dataset_name, github_data_name)
     GetPushData(client, project_name, dataset_name, github_data_name)
     GetPullRequestReviewData(client, project_name, dataset_name, github_data_name)
-    GetPullRequestReviewCommentData(client, project_name, dataset_name, github_data_name)
+    GetPullRequestReviewCommentData(
+        client, project_name, dataset_name, github_data_name
+    )
     GetPullRequestData(client, project_name, dataset_name, github_data_name)
     GetIssueData(client, project_name, dataset_name, github_data_name)
     GetIssueCommentData(client, project_name, dataset_name, github_data_name)
@@ -519,6 +582,5 @@ def Main():
     GetCreateData(client, project_name, dataset_name, github_data_name)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     Main()
-

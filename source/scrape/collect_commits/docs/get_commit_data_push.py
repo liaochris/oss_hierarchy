@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-
 from source.scrape.collect_commits.docs.get_commit_data_helpers import getCommitData
 
 def Main():
