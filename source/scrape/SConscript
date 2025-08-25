@@ -1,20 +1,20 @@
 Import('*')
 
 """
-first in `pypi_monthly_downloads`, run
-- query_monthly_pip_downloads.py
-- get_popular_packages.py 
+First, set up google authentication credentials.
 
-then in `pypi_site_info`, run
-- get_library_json.sh
+Then, get download data from popular python packages by running
+- python source/scrape/pypi_monthly_downloads/docs/query_monthly_pip_downloads.py
+- python source/scrape/pypi_monthly_downloads/docs/get_popular_packages.py
 
-then run python source/derived/collect_github_repos/link_pypi_github.py 
- - do stuff with source/scrape/pypi_package_downloads (TODO)
+To link python packages to github repos, run
+- bash source/scrape/pypi_site_info/docs/get_library_json.sh
+- python source/derived/collect_github_repos/link_pypi_github.py
 
-then in `extract_github_data`, run
-- source/scrape/extract_github_data/docs/unify_repo_identities.py 
-- source/scrape/extract_github_data/docs/filter_repo_identities.py 
-- query_github_data.py 
+To scrape github data, we need to
+- Map projects whose names and id's changed by running python source/scrape/extract_github_data/docs/unify_repo_identities.py 
+- Find the sequence of project identities that makes sense by running python source/scrape/extract_github_data/docs/filter_repo_identities.py
+- Using the project names from the list of project identities, run python source/scrape/extract_github_data/docs/query_github_data.py
 
 then in `push_pr_commit_data` run 
 - get_pull_request_commits.py (CONSIDER RERUNNING AT SOME POINT)

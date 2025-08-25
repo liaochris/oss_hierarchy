@@ -21,6 +21,7 @@ def Main():
     username = os.environ['PRIMARY_GITHUB_USERNAME']
     token = os.environ['PRIMARY_GITHUB_TOKEN']
 
+    ### ALSO ADD PEOPLE IN ISSUES ETC
     for file_type in ['pr', 'push']:
         df_committers_full = pd.concat([ReadInputFiles(file, file_type) for file in glob.glob(f'drive/output/scrape/collect_commits/{file_type}/*.parquet')])
         df_committers_match, indices = PrepareMergeComponents(df_committers_full, ncount)
