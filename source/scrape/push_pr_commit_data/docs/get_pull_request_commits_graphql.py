@@ -7,7 +7,7 @@ from requests.exceptions import ChunkedEncodingError
 import concurrent.futures
 from tqdm import tqdm
 
-WORKERS_PER_TOKEN = 2
+WORKERS_PER_TOKEN = 1
 API_URL = "https://api.github.com/graphql"
 TOKENS = [
     (os.environ["PRIMARY_GITHUB_USERNAME"], os.environ["PRIMARY_GITHUB_TOKEN"]),
