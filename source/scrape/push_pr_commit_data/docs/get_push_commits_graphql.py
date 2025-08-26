@@ -80,22 +80,42 @@ def IncrementQueryCounter(owner, repo):
 # -------------------------------
 # Core Query Runner
 # -------------------------------
-def RunQuery(query, variables):
+def RunQuery(query, variables, retries=3, backoff=10):
     global current_user, current_token
     headers = {"Authorization": f"bearer {current_token}"}
 
-    response = requests.post(
-        API_URL, json={"query": query, "variables": variables},
-        headers=headers, timeout=60
-    )
+    try:
+        response = requests.post(
+            API_URL,
+            json={"query": query, "variables": variables},
+            headers=headers,
+            timeout=90
+        )
+    except (requests.exceptions.ChunkedEncodingError,
+            requests.exceptions.RequestException) as e:
+        if retries > 0:
+            wait = backoff * (4 - retries)
+            print(f"⚠️ [{current_user}] Transport error: {e}, retrying in {wait}s ({retries} left)")
+            time.sleep(wait)
+            return RunQuery(query, variables, retries - 1, backoff)
+        raise
+
+    # Try decoding JSON safely
+    try:
+        data = response.json()
+    except (ValueError,
+            requests.exceptions.ChunkedEncodingError,
+            requests.exceptions.RequestException) as e:
+        if retries > 0:
+            wait = backoff * (4 - retries)
+            print(f"⚠️ [{current_user}] JSON decode error: {e}, retrying in {wait}s ({retries} left)")
+            time.sleep(wait)
+            return RunQuery(query, variables, retries - 1, backoff)
+        raise
+
     # --- Rate limit handler (HTTP + GraphQL error cases) ---
     if response.status_code in (200, 403):
         reset_time = response.headers.get("X-RateLimit-Reset")
-        try:
-            data = response.json()
-        except Exception:
-            data = {}
-
         errors = data.get("errors", [])
         is_rate_limited = (
             response.status_code == 403 and "rate limit" in response.text.lower()
@@ -108,16 +128,14 @@ def RunQuery(query, variables):
             )
             print(f"⏳ [{current_user}] Rate limit hit, sleeping {sleep_for}s...")
             time.sleep(sleep_for)
-            return RunQuery(query, variables)
+            return RunQuery(query, variables, retries, backoff)
 
-    # Don’t retry 502/504 here — just raise so caller can shrink
     if response.status_code in (502, 504):
         raise Exception(f"{response.status_code} Gateway error")
 
     if response.status_code != 200:
         raise Exception(f"Query failed: {response.status_code}, {response.text[:200]}")
 
-    data = response.json()
     if "errors" in data and not any(err.get("type") == "RATE_LIMITED" for err in data["errors"]):
         raise Exception(f"GraphQL Error: {data['errors']}")
 
