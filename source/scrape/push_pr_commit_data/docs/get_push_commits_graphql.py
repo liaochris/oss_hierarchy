@@ -281,19 +281,20 @@ async def Worker(user, token, repos):
 # Coordinator
 # -------------------------------
 async def ProcessReposAsync(all_repos):
-    chunk_size = len(all_repos) // len(TOKENS) + 1
-    repo_chunks = [all_repos[i:i + chunk_size] for i in range(0, len(all_repos), chunk_size)]
+    # spread repos round-robin across tokens
+    repo_chunks = [[] for _ in TOKENS]
+    for i, repo in enumerate(all_repos):
+        repo_chunks[i % len(TOKENS)].append(repo)
 
     tasks = [
-        asyncio.create_task(Worker(user, tok, repo_chunks[i]))
-        for i, (user, tok) in enumerate(TOKENS)
-        if i < len(repo_chunks)
+        asyncio.create_task(Worker(user, tok, repos))
+        for (user, tok), repos in zip(TOKENS, repo_chunks)
+        if repos  # skip empty
     ]
-    results = await tqdm.gather(*tasks, desc="Processing repos")
 
+    results = await tqdm.gather(*tasks, desc="Processing repos")
     flat = [r for sub in results for r in sub]
     return pd.DataFrame(flat)
-
 
 # -------------------------------
 # File Processing
