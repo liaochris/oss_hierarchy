@@ -17,7 +17,6 @@ TOKENS = [
     (os.environ["BACKUP5_GITHUB_USERNAME"], os.environ["BACKUP5_GITHUB_TOKEN"]),
     (os.environ["BACKUP6_GITHUB_USERNAME"], os.environ["BACKUP6_GITHUB_TOKEN"])
 ]
-token_cycle = cycle(TOKENS)
 
 # -------------------------------
 # Queries

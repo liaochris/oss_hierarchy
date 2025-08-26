@@ -305,30 +305,72 @@ def ResolveRepoName(repo_name):
         return repo_name
 
 
+import concurrent.futures
+from tqdm import tqdm
+
+def ProcessOneFile(fname, input_dir, out_dir, token_tuple):
+    in_path = os.path.join(input_dir, fname)
+    out_path = os.path.join(out_dir, fname)
+
+    df = pd.read_parquet(in_path)
+    if "repo_name" not in df.columns:
+        print(f"⚠️ Skipping {fname}, no repo_name column")
+        return None
+
+    repos = list(df["repo_name"].dropna().unique())
+    repos = [ResolveRepoName(r) for r in repos]
+
+    user, token = token_tuple
+    print(f"▶️ [{user}] Processing {fname} with {len(repos)} repos...")
+
+    try:
+        result_df = asyncio.run(ProcessReposAsync(repos, user, token))
+    except Exception as e:
+        print(f"❌ [{user}] {fname} failed: {e}")
+        return None
+
+    if not result_df.empty:
+        result_df.to_parquet(out_path, index=False)
+        print(f"💾 Wrote commit history for {fname} → {out_path}")
+        return fname
+    return None
+
+
 def ProcessRepoFiles(input_dir="drive/output/derived/data_export/pr",
                      out_dir="drive/output/scrape/push_pr_commit_data/push_graphql"):
     os.makedirs(out_dir, exist_ok=True)
     fnames = [f for f in os.listdir(input_dir) if f.endswith(".parquet")]
     random.shuffle(fnames)
     fnames = [f for f in fnames if not os.path.exists(os.path.join(out_dir, f))]
+    if not fnames:
+        print("✅ No new files to process.")
+        return
 
-    for fname in fnames:
-        in_path = os.path.join(input_dir, fname)
-        out_path = os.path.join(out_dir, fname)
-        df = pd.read_parquet(in_path)
+    total_files = len(fnames)
+    with concurrent.futures.ProcessPoolExecutor(max_workers=len(TOKENS)) as executor:
+        futures = {
+            executor.submit(ProcessOneFile, fname, input_dir, out_dir, TOKENS[i % len(TOKENS)]): fname
+            for i, fname in enumerate(fnames)
+        }
 
-        if "repo_name" not in df.columns:
-            continue
-
-        repos = list(df["repo_name"].dropna().unique())
-        repos = [ResolveRepoName(r) for r in repos]
-
-        print(f"▶️ Processing {fname} with {len(repos)} repos...")
-        result_df = asyncio.run(ProcessReposAsync(repos))
-
-        if not result_df.empty:
-            result_df.to_parquet(out_path, index=False)
-            print(f"💾 Wrote commit history for {fname} → {out_path}")
+        with tqdm(total=total_files, desc="Processing files", unit="file") as pbar:
+            completed, exported = 0, 0
+            for f in concurrent.futures.as_completed(futures):
+                try:
+                    result = f.result()
+                    if result:
+                        exported += 1
+                        pbar.update(1)
+                    else:
+                        pbar.total -= 1
+                        pbar.refresh()
+                except Exception as e:
+                    print(f"❌ File worker crashed: {e}")
+                    pbar.total -= 1
+                    pbar.refresh()
+                completed += 1
+                pbar.set_postfix_str(f"Exported {exported}/{pbar.total}")
+    print("✅ Finished processing.")
 
 
 # -------------------------------
