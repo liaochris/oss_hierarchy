@@ -1,4 +1,5 @@
 import os
+import random
 import time
 import asyncio
 import httpx
@@ -307,7 +308,7 @@ def ResolveRepoName(repo_name):
 def ProcessRepoFiles(input_dir="drive/output/derived/data_export/pr",
                      out_dir="drive/output/scrape/push_pr_commit_data/push_graphql"):
     os.makedirs(out_dir, exist_ok=True)
-    fnames = [f for f in os.listdir(input_dir) if f.endswith(".parquet")]
+    fnames = random.shuffle([f for f in os.listdir(input_dir) if f.endswith(".parquet")])
     fnames = [f for f in fnames if not os.path.exists(os.path.join(out_dir, f))]
 
     for fname in fnames:
