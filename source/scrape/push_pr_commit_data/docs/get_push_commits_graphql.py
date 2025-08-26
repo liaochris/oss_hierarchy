@@ -280,15 +280,12 @@ async def Worker(user, token, repos):
 # -------------------------------
 # Coordinator
 # -------------------------------
-async def ProcessReposAsync(all_repos):
-    chunk_size = len(all_repos) // len(TOKENS) + 1
-    repo_chunks = [all_repos[i:i + chunk_size] for i in range(0, len(all_repos), chunk_size)]
+async def ProcessReposAsync(all_repos, user, token):
+    if not all_repos:
+        return pd.DataFrame()
 
-    tasks = [Worker(user, tok, repo_chunks[i]) for i, (user, tok) in enumerate(TOKENS)]
-    results = await tqdm.gather(*tasks, desc="Processing repos")
-
-    flat = [r for sub in results for r in sub]
-    return pd.DataFrame(flat)
+    results = await Worker(user, token, all_repos)
+    return pd.DataFrame(results)
 
 
 # -------------------------------
@@ -324,7 +321,7 @@ def ProcessOneFile(fname, input_dir, out_dir, token_tuple):
     print(f"▶️ [{user}] Processing {fname} with {len(repos)} repos...")
 
     try:
-        result_df = asyncio.run(ProcessReposAsync(repos, user, token))
+        result_df = asyncio.run(ProcessReposAsync(repos, user, token))  # <-- fixed call
     except Exception as e:
         print(f"❌ [{user}] {fname} failed: {e}")
         return None
