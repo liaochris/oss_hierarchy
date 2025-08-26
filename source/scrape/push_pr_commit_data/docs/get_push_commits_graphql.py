@@ -256,8 +256,11 @@ async def Worker(user, token, repo_name):
         try:
             if "/" not in repo_name:
                 return []
+            print(f"▶️ [{user}] Starting {repo_name}")
             owner, repo = repo_name.split("/", 1)
-            return await FetchRepoCommits(client, user, owner, repo)
+            results = await FetchRepoCommits(client, user, owner, repo)
+            print(f"🏁 [{user}] Finished {repo_name}")
+            return results
         except Exception as e:
             print(f"❌ [{user}] Failed {repo_name}: {e}")
             return []
