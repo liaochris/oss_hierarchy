@@ -85,20 +85,23 @@ COMMIT_TESTS_QUERY_BLOCK = """
 # Core Query Runner
 # -------------------------------
 
-def RunQuery(query, variables, retries=3, backoff=5, **kwargs):
+def RunQuery(query, variables, retries=3, backoff=10, **kwargs):
     global current_user, current_token
     headers = {"Authorization": f"bearer {current_token}"}
 
     try:
         response = requests.post(
             API_URL, json={"query": query, "variables": variables},
-            headers=headers, timeout=60
+            headers=headers, timeout=90
         )
-    except (ChunkedEncodingError, requests.exceptions.RequestException) as e:
+        data = response.json()
+    except (requests.exceptions.ChunkedEncodingError,
+            requests.exceptions.RequestException,
+            ValueError) as e:
         if retries > 0:
-            wait_time = backoff * (4 - retries)  # exponential-ish backoff
-            print(f"⚠️ [{current_user}] {e}, retrying in {wait_time}s ({retries} left)")
-            time.sleep(wait_time)
+            wait = backoff * (4 - retries)
+            print(f"⚠️ [{current_user}] {e}, retrying in {wait}s ({retries} left)")
+            time.sleep(wait)
             return RunQuery(query, variables, retries - 1, backoff, **kwargs)
         raise
 
