@@ -85,7 +85,7 @@ COMMIT_TESTS_QUERY_BLOCK = """
 # Core Query Runner
 # -------------------------------
 
-def RunQuery(query, variables, retries=3, **kwargs):
+def RunQuery(query, variables, retries=3, backoff=5, **kwargs):
     global current_user, current_token
     headers = {"Authorization": f"bearer {current_token}"}
 
@@ -94,20 +94,27 @@ def RunQuery(query, variables, retries=3, **kwargs):
             API_URL, json={"query": query, "variables": variables},
             headers=headers, timeout=60
         )
-    except ChunkedEncodingError:
+    except (ChunkedEncodingError, requests.exceptions.RequestException) as e:
         if retries > 0:
-            print(f"⚠️ ChunkedEncodingError, retrying ({retries} left)")
-            return RunQuery(query, variables, retries - 1, **kwargs)
+            wait_time = backoff * (4 - retries)  # exponential-ish backoff
+            print(f"⚠️ [{current_user}] {e}, retrying in {wait_time}s ({retries} left)")
+            time.sleep(wait_time)
+            return RunQuery(query, variables, retries - 1, backoff, **kwargs)
         raise
 
-    # --- Rate limit handler (HTTP + GraphQL error cases) ---
+    # Handle truncated/invalid JSON
+    try:
+        data = response.json()
+    except (ValueError, ChunkedEncodingError, requests.exceptions.RequestException) as e:
+        if retries > 0:
+            wait_time = backoff * (4 - retries)
+            print(f"⚠️ [{current_user}] JSON parse failed ({e}), retrying in {wait_time}s ({retries} left)")
+            time.sleep(wait_time)
+            return RunQuery(query, variables, retries - 1, backoff, **kwargs)
+        raise
+
     if response.status_code in (200, 403):
         reset_time = response.headers.get("X-RateLimit-Reset")
-        try:
-            data = response.json()
-        except Exception:
-            data = {}
-
         errors = data.get("errors", [])
         is_rate_limited = (
             response.status_code == 403 and "rate limit" in response.text.lower()
@@ -120,19 +127,28 @@ def RunQuery(query, variables, retries=3, **kwargs):
             )
             print(f"⏳ [{current_user}] Rate limit hit, sleeping {sleep_for}s...")
             time.sleep(sleep_for)
-            return RunQuery(query, variables, retries, **kwargs)
+            return RunQuery(query, variables, retries, backoff, **kwargs)
 
-    if response.status_code in (502, 504):
+    if response.status_code in (502, 504, 500):
         if retries > 0:
-            print(f"⚠️ {response.status_code}, retrying ({retries} left)")
-            return RunQuery(query, variables, retries - 1, **kwargs)
-        raise Exception(f"❌ {response.status_code}, retries exhausted")
+            pr_batch = kwargs.get("pr_batch")
+            if pr_batch and pr_batch == 100:
+                print(f"⚠️ {response.status_code}, reducing pr_batch permanently to 50")
+                variables["prBatch"] = 50
+                new_kwargs = dict(kwargs, pr_batch=50)
+                return RunQuery(query, variables, retries - 1, backoff, **new_kwargs)
+            elif pr_batch and pr_batch > 1:
+                smaller = max(1, pr_batch // 2)
+                print(f"⚠️ {response.status_code}, retrying once with pr_batch={smaller}")
+                variables["prBatch"] = smaller
+                new_kwargs = dict(kwargs, pr_batch=smaller)
+                return RunQuery(query, variables, retries - 1, backoff, **new_kwargs)
+            return RunQuery(query, variables, retries - 1, backoff, **kwargs)
 
     if response.status_code != 200:
         print("❌ Bad response:", response.status_code, response.text[:200])
         raise Exception(f"Query failed: {response.status_code}")
 
-    data = response.json()
     if "errors" in data and not any(err.get("type") == "RATE_LIMITED" for err in data["errors"]):
         raise Exception(f"GraphQL Error: {data['errors']}")
 
@@ -144,10 +160,10 @@ def RunQuery(query, variables, retries=3, **kwargs):
 
 def FetchRepoPRs(owner, repo):
     all_results = []
-    final_commits = []  # last commit per PR
+    final_commits = []
     pr_cursor = None
-    pr_batch = 50
-    commit_batch = 50
+    pr_batch = 100
+    commit_batch = 100
 
     while True:
         variables = {
@@ -171,7 +187,6 @@ def FetchRepoPRs(owner, repo):
                 "pr_mergedAt": pr["mergedAt"],
             }
 
-            commit_cursor = None
             last_row, last_commit = None, None
             while True:
                 commits = pr["commits"]["nodes"]
@@ -201,8 +216,7 @@ def FetchRepoPRs(owner, repo):
                 page_info = pr["commits"]["pageInfo"]
                 if not page_info["hasNextPage"]:
                     break
-                commit_cursor = page_info["endCursor"]
-                variables.update({"afterCommit": commit_cursor})
+                variables.update({"afterCommit": page_info["endCursor"]})
                 data = RunQuery(PR_COMMITS_QUERY, variables, pr_batch=pr_batch)
                 pr = data["data"]["repository"]["pullRequests"]["nodes"][0]
 
@@ -219,65 +233,101 @@ def FetchRepoPRs(owner, repo):
     return all_results, final_commits
 
 # -------------------------------
-# Batch fetch test results
+# Batch fetch test results (with pagination)
 # -------------------------------
-def FetchCommitTestsSingle(owner, repo, sha, suite_batch=6, run_batch=120, retries=3):
-    """
-    Fetch test results for a single commit SHA, with retry + batch shrinkage.
-    """
-    passed = failed = skipped = 0
-    suite_cursor = None
 
-    while True:
+def FetchCommitTestsBatch(owner, repo, shas, batch_size=100):
+    results = {}
+    i = 0
+    while i < len(shas):
+        current_batch_size = batch_size
+        batch = shas[i:i+current_batch_size]
+
+        blocks = []
+        for j, sha in enumerate(batch):
+            blocks.append(COMMIT_TESTS_QUERY_BLOCK % {"alias": f"c{j}", "sha": sha})
+        query = COMMIT_TESTS_QUERY_TEMPLATE % "\n".join(blocks)
+
         variables = {
             "owner": owner,
             "repo": repo,
-            "suiteBatch": suite_batch,
-            "runBatch": run_batch,
-            "afterSuite": suite_cursor,
+            "suiteBatch": 10,
+            "runBatch": 50,
+            "afterSuite": None,
             "afterRun": None,
         }
-        query = COMMIT_TESTS_QUERY_TEMPLATE % (COMMIT_TESTS_QUERY_BLOCK % {"alias": "c", "sha": sha})
 
         try:
-            data = RunQuery(query, variables, pr_batch=None)
+            data = RunQuery(query, variables)
         except Exception as e:
-            if retries > 0:
-                if suite_batch > 1:
-                    return FetchCommitTestsSingle(owner, repo, sha, max(1, suite_batch // 2), run_batch, retries-1)
-                if run_batch > 10:
-                    return FetchCommitTestsSingle(owner, repo, sha, suite_batch, max(10, run_batch // 2), retries-1)
-            raise
+            if "502" in str(e) or "504" in str(e) or "500" in str(e):
+                if batch_size == 100:
+                    print(f"⚠️ Test batch 100 too big, reducing permanently to 50 for {owner}/{repo}")
+                    batch_size = 50
+                    continue
+                elif batch_size > 1:
+                    smaller = max(1, batch_size // 2)
+                    print(f"⚠️ Test batch {batch_size} failed, retrying once with {smaller}")
+                    current_batch_size = smaller
+                    blocks = []
+                    for j, sha in enumerate(shas[i:i+current_batch_size]):
+                        blocks.append(COMMIT_TESTS_QUERY_BLOCK % {"alias": f"c{j}", "sha": sha})
+                    query = COMMIT_TESTS_QUERY_TEMPLATE % "\n".join(blocks)
+                    data = RunQuery(query, variables)
+                else:
+                    raise
+            else:
+                raise
 
-        node = data["data"]["c"]["obj"]
-        if not node:
-            return (0, 0, 0)
+        for j, sha in enumerate(batch[:current_batch_size]):
+            passed = failed = skipped = 0
 
-        suites = node["checkSuites"]["nodes"]
-        for suite in suites:
-            runs = suite.get("checkRuns", {}).get("nodes", [])
-            for run in runs:
-                if run["conclusion"] == "SUCCESS":
-                    passed += 1
-                elif run["conclusion"] == "FAILURE":
-                    failed += 1
-                elif run["conclusion"] == "SKIPPED":
-                    skipped += 1
+            # suite pagination
+            suite_cursor = None
+            while True:
+                node = data["data"].get(f"c{j}", {}).get("obj")
+                if not node:
+                    results[sha] = (0, 0, 0)
+                    break
 
-        page_info = node["checkSuites"]["pageInfo"]
-        if not page_info.get("hasNextPage"):
-            break
-        suite_cursor = page_info["endCursor"]
+                suites = node["checkSuites"]["nodes"]
+                for suite in suites:
+                    # run pagination
+                    run_cursor = None
+                    while True:
+                        runs = suite.get("checkRuns", {}).get("nodes", [])
+                        for run in runs:
+                            if run["conclusion"] == "SUCCESS":
+                                passed += 1
+                            elif run["conclusion"] == "FAILURE":
+                                failed += 1
+                            elif run["conclusion"] == "SKIPPED":
+                                skipped += 1
 
-    return (passed, failed, skipped)
+                        run_page_info = suite.get("checkRuns", {}).get("pageInfo", {})
+                        if run_page_info.get("hasNextPage"):
+                            variables["afterRun"] = run_page_info["endCursor"]
+                            data = RunQuery(query, variables)
+                            suite = data["data"][f"c{j}"]["obj"]["checkSuites"]["nodes"][0]
+                            continue
+                        break
 
+                results[sha] = (passed, failed, skipped)
 
-def FetchCommitTestsBatch(owner, repo, shas):
-    results = {}
-    for sha in shas:
-        results[sha] = FetchCommitTestsSingle(owner, repo, sha)
+                suite_page_info = node["checkSuites"]["pageInfo"]
+                if suite_page_info.get("hasNextPage"):
+                    variables["afterSuite"] = suite_page_info["endCursor"]
+                    data = RunQuery(query, variables)
+                    continue
+                break
+
+        i += current_batch_size
+
     return results
 
+# -------------------------------
+# Worker
+# -------------------------------
 
 def WorkerProcess(repo_name, token):
     global current_user, current_token
@@ -292,11 +342,7 @@ def WorkerProcess(repo_name, token):
 
     try:
         all_results, final_commits = FetchRepoPRs(owner, repo)
-
-        # Map PR → last commit row + sha
-        pr_to_last_commit = {}
-        for row, sha in final_commits:
-            pr_to_last_commit[row["pr_number"]] = (row, sha)
+        pr_to_last_commit = {row["pr_number"]: (row, sha) for row, sha in final_commits}
 
         if pr_to_last_commit:
             rows, shas = zip(*pr_to_last_commit.values())
@@ -316,6 +362,11 @@ def WorkerProcess(repo_name, token):
 # -------------------------------
 # File Processing
 # -------------------------------
+
+import os
+import pandas as pd
+import requests
+
 def ProcessOneFile(fname, input_dir, out_dir, token):
     in_path = os.path.join(input_dir, fname)
     df = pd.read_parquet(in_path)
@@ -326,17 +377,36 @@ def ProcessOneFile(fname, input_dir, out_dir, token):
 
     repos = list(df["repo_name"].dropna().unique())
     all_dfs = []
+    visited_repos = set()
 
     for repo_name in repos:
-        df_repo = WorkerProcess(repo_name, token)
+        resolved_repo = ResolveRepoName(repo_name)
+        if resolved_repo in visited_repos:
+            print(f"🔁 Skipping {repo_name}, redirects to {resolved_repo} already processed")
+            continue
+
+        df_repo = WorkerProcess(resolved_repo, token)
         if not df_repo.empty:
             all_dfs.append(df_repo)
+            visited_repos.add(resolved_repo)
 
     if all_dfs:
         combined_df = pd.concat(all_dfs, ignore_index=True)
         out_path = os.path.join(out_dir, fname)
         combined_df.to_parquet(out_path, index=False)
         print(f"💾 Wrote commit+test results for {fname} → {out_path}")
+    return fname
+
+
+def ResolveRepoName(repo_name):
+    url = f"https://github.com/{repo_name}"
+    try:
+        response = requests.head(url, allow_redirects=True, timeout=5)
+        final_url = response.url.rstrip("/")
+        return "/".join(final_url.split("/")[-2:])
+    except Exception:
+        return repo_name
+
 
 def ProcessRepoFiles(input_dir="drive/output/derived/data_export/pr",
                      out_dir="drive/output/scrape/push_pr_commit_data/pull_request_graphql"):
@@ -351,19 +421,19 @@ def ProcessRepoFiles(input_dir="drive/output/derived/data_export/pr",
     start_time = time.time()
     total_files = len(fnames)
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=len(TOKENS)) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=len(TOKENS) * WORKERS_PER_TOKEN) as executor:
         futures = {
             executor.submit(ProcessOneFile, fname, input_dir, out_dir, TOKENS[i % len(TOKENS)]): fname
             for i, fname in enumerate(fnames)
         }
+
         with tqdm(total=total_files, desc="Processing files", unit="file") as pbar:
             completed = 0
             for f in concurrent.futures.as_completed(futures):
-                fname = futures[f]
                 try:
                     f.result()
                 except Exception as e:
-                    print(f"❌ File worker crashed on {fname}: {e}")
+                    print(f"❌ File worker crashed: {e}")
                 completed += 1
                 elapsed = time.time() - start_time
                 avg_time = elapsed / completed
