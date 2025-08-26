@@ -75,27 +75,6 @@ query_counter = defaultdict(int)
 class PrematureResponseError(Exception):
     pass
 
-def RunQuery(query, variables, retries=3, backoff=10):
-    global current_user, current_token
-    headers = {"Authorization": f"bearer {current_token}"}
-
-    try:
-        response = requests.post(
-            API_URL,
-            json={"query": query, "variables": variables},
-            headers=headers,
-            timeout=90
-        )
-    except requests.exceptions.ChunkedEncodingError as e:
-        raise PrematureResponseError(str(e))
-    except requests.exceptions.RequestException as e:
-        if retries > 0:
-            wait = backoff * (4 - retries)
-            print(f"⚠️ [{current_user}] Transport error: {e}, retrying in {wait}s ({retries} left)")
-            time.sleep(wait)
-            return RunQuery(query, variables, retries - 1, backoff)
-        raise
-
 def IncrementQueryCounter(owner, repo):
     key = f"{owner}/{repo}"
     query_counter[key] += 1
@@ -207,21 +186,22 @@ def FetchCommitTestsBatchDynamic(owner, repo, shas, retries=3):
 
         try:
             data = RunQuery(query, variables)
-        except Exception as e:
-            if ("504" in str(e) or "502" in str(e)):
+        except (PrematureResponseError, Exception) as e:
+            if ("504" in str(e) or "502" in str(e) or isinstance(e, PrematureResponseError)):
                 if batch_size == 100:
-                    print(f"⚠️ 502/504, reducing alias batch size permanently to 50 for {owner}/{repo}")
+                    print(f"⚠️ Premature/502/504, reducing alias batch size permanently to 50 for {owner}/{repo}")
                     batch_size = 50
                     repo_alias_batch_size[f"{owner}/{repo}"] = 50
                     continue
                 elif batch_size > 1:
                     smaller = max(1, batch_size // 2)
-                    print(f"⚠️ 502/504, retrying once with alias batch size={smaller} for {owner}/{repo}")
+                    print(f"⚠️ Premature/502/504, retrying once with alias batch size={smaller} for {owner}/{repo}")
                     batch_size = smaller
                     retries -= 1
                     if retries >= 0:
                         continue
             raise
+
 
         repo_data = data["data"]["repository"]
         for i, sha in enumerate(sub_shas):
