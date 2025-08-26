@@ -284,7 +284,11 @@ async def ProcessReposAsync(all_repos):
     chunk_size = len(all_repos) // len(TOKENS) + 1
     repo_chunks = [all_repos[i:i + chunk_size] for i in range(0, len(all_repos), chunk_size)]
 
-    tasks = [Worker(user, tok, repo_chunks[i]) for i, (user, tok) in enumerate(TOKENS)]
+    tasks = [
+        asyncio.create_task(Worker(user, tok, repo_chunks[i]))
+        for i, (user, tok) in enumerate(TOKENS)
+        if i < len(repo_chunks)
+    ]
     results = await tqdm.gather(*tasks, desc="Processing repos")
 
     flat = [r for sub in results for r in sub]
