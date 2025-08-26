@@ -251,40 +251,49 @@ async def FetchRepoCommits(client, user, owner, repo):
 # -------------------------------
 # Worker
 # -------------------------------
-async def Worker(user, token, repo_name):
-    async with httpx.AsyncClient(http2=True, headers={"Authorization": f"bearer {token}"}) as client:
-        try:
-            if "/" not in repo_name:
-                return []
-            print(f"▶️ [{user}] Starting {repo_name}")
-            owner, repo = repo_name.split("/", 1)
-            results = await FetchRepoCommits(client, user, owner, repo)
-            print(f"🏁 [{user}] Finished {repo_name}")
-            return results
-        except Exception as e:
-            print(f"❌ [{user}] Failed {repo_name}: {e}")
-            return []
+async def Worker(user, token, repos):
+    headers = {"Authorization": f"bearer {token}"}
+    async with httpx.AsyncClient(http2=True, headers=headers) as client:
+        all_results = []
+        for repo_name in repos:
+            try:
+                print(f"▶️ [{user}] Starting {repo_name}")
+                owner, repo = repo_name.split("/", 1)
+                results = await FetchRepoCommits(client, user, owner, repo)
+                all_results.extend(results)
+                print(f"🏁 [{user}] Finished {repo_name}")
+            except Exception as e:
+                print(f"❌ [{user}] Failed {repo_name}: {e}")
+        return all_results
 
 # -------------------------------
 # Coordinator
 # -------------------------------
 from tqdm import tqdm
-
 async def ProcessReposAsync(all_repos):
-    tasks = []
+    # round robin split
+    repo_chunks = [[] for _ in TOKENS]
     for i, repo in enumerate(all_repos):
-        user, tok = TOKENS[i % len(TOKENS)]
-        tasks.append(asyncio.create_task(Worker(user, tok, repo)))
+        repo_chunks[i % len(TOKENS)].append(repo)
+
+    # one worker per token
+    tasks = [
+        asyncio.create_task(Worker(user, tok, repos))
+        for (user, tok), repos in zip(TOKENS, repo_chunks)
+        if repos
+    ]
 
     results = []
-    total = len(tasks)
+    total = len(all_repos)
+    processed = 0
 
-    for coro in tqdm(asyncio.as_completed(tasks), total=total, desc="Processing repos", unit="repo"):
-        repo_results = await coro
-        results.append(repo_results)
+    for coro in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Processing token workers", unit="token"):
+        worker_results = await coro
+        results.extend(worker_results)
+        processed += len(worker_results)
 
-    flat = [r for sub in results for r in sub]
-    return pd.DataFrame(flat)
+    print(f"🏁 Finished {processed}/{total} repos total")
+    return pd.DataFrame(results)
 
 # -------------------------------
 # File Processing
