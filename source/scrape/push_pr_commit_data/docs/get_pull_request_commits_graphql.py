@@ -135,17 +135,23 @@ def RunQuery(query, variables, retries=3, backoff=10, **kwargs):
     if response.status_code in (502, 504, 500):
         if retries > 0:
             pr_batch = kwargs.get("pr_batch")
+            commit_batch = kwargs.get("commit_batch", variables.get("commitBatch"))
+
             if pr_batch and pr_batch == 100:
                 print(f"⚠️ {response.status_code}, reducing pr_batch permanently to 50")
                 variables["prBatch"] = 50
                 new_kwargs = dict(kwargs, pr_batch=50)
                 return RunQuery(query, variables, retries - 1, backoff, **new_kwargs)
+
             elif pr_batch and pr_batch > 1:
-                smaller = max(1, pr_batch // 2)
-                print(f"⚠️ {response.status_code}, retrying once with pr_batch={smaller}")
-                variables["prBatch"] = smaller
-                new_kwargs = dict(kwargs, pr_batch=smaller)
+                smaller_pr = max(1, pr_batch // 2)
+                smaller_commit = max(1, commit_batch // 2)
+                print(f"⚠️ {response.status_code}, retrying once with pr_batch={smaller_pr}, commitBatch={smaller_commit}")
+                variables["prBatch"] = smaller_pr
+                variables["commitBatch"] = smaller_commit
+                new_kwargs = dict(kwargs, pr_batch=smaller_pr, commit_batch=smaller_commit)
                 return RunQuery(query, variables, retries - 1, backoff, **new_kwargs)
+
             return RunQuery(query, variables, retries - 1, backoff, **kwargs)
 
     if response.status_code != 200:
