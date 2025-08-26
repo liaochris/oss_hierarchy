@@ -1,9 +1,10 @@
+import random
 import os
 import time
-import requests
+import asyncio
+import httpx
 import pandas as pd
 from itertools import cycle
-from requests.exceptions import ChunkedEncodingError
 import concurrent.futures
 from tqdm import tqdm
 
@@ -17,13 +18,11 @@ TOKENS = [
     (os.environ["BACKUP6_GITHUB_USERNAME"], os.environ["BACKUP6_GITHUB_TOKEN"])
 ]
 token_cycle = cycle(TOKENS)
-current_user, current_token = next(token_cycle)
 
 # -------------------------------
 # Queries
 # -------------------------------
-
-PR_COMMITS_QUERY = """
+PR_COMMITS_QUERY_WITH_CHANGEDFILES = """
 query($owner: String!, $repo: String!, $prBatch: Int!, $afterPR: String, $commitBatch: Int!, $afterCommit: String) {
   repository(owner: $owner, name: $repo) {
     pullRequests(first: $prBatch, after: $afterPR, orderBy: {field: CREATED_AT, direction: ASC}) {
@@ -57,6 +56,9 @@ query($owner: String!, $repo: String!, $prBatch: Int!, $afterPR: String, $commit
 }
 """
 
+PR_COMMITS_QUERY_NO_CHANGEDFILES = PR_COMMITS_QUERY_WITH_CHANGEDFILES.replace("changedFiles", "")
+PR_COMMITS_QUERY = PR_COMMITS_QUERY_WITH_CHANGEDFILES
+
 COMMIT_TESTS_QUERY_TEMPLATE = """
 query($owner: String!, $repo: String!, $suiteBatch: Int!, $runBatch: Int!, $afterSuite: String, $afterRun: String) {
 %s
@@ -82,376 +84,322 @@ COMMIT_TESTS_QUERY_BLOCK = """
 """
 
 # -------------------------------
-# Core Query Runner
+# Helpers
 # -------------------------------
+def SafeGet(d, *keys, default=None):
+    for k in keys:
+        if not isinstance(d, dict):
+            return default
+        d = d.get(k)
+    return d if d is not None else default
 
-def RunQuery(query, variables, retries=3, backoff=10, **kwargs):
-    global current_user, current_token
-    headers = {"Authorization": f"bearer {current_token}"}
+class PermanentGraphQLError(Exception):
+    pass
 
-    try:
-        response = requests.post(
-            API_URL, json={"query": query, "variables": variables},
-            headers=headers, timeout=90
-        )
-        data = response.json()
-    except (requests.exceptions.ChunkedEncodingError,
-            requests.exceptions.RequestException,
-            ValueError) as e:
-        if retries > 0:
-            wait = backoff * (4 - retries)
-            print(f"⚠️ [{current_user}] {e}, retrying in {wait}s ({retries} left)")
-            time.sleep(wait)
-            return RunQuery(query, variables, retries - 1, backoff, **kwargs)
-        raise
+# -------------------------------
+# Core Query Runner (async)
+# -------------------------------
+async def RunQueryAsync(query, variables, user, token, client, **kwargs):
+    headers = {"Authorization": f"bearer {token}"}
+    while True:
+        try:
+            response = await client.post(API_URL, json={"query": query, "variables": variables}, headers=headers)
+            text = response.text
+            try:
+                data = response.json()
+            except ValueError:
+                raise Exception("Expecting value")
 
-    # Handle truncated/invalid JSON
-    try:
-        data = response.json()
-    except (ValueError, ChunkedEncodingError, requests.exceptions.RequestException) as e:
-        if retries > 0:
-            wait_time = backoff * (4 - retries)
-            print(f"⚠️ [{current_user}] JSON parse failed ({e}), retrying in {wait_time}s ({retries} left)")
-            time.sleep(wait_time)
-            return RunQuery(query, variables, retries - 1, backoff, **kwargs)
-        raise
+            if response.status_code in (200, 403):
+                errors = data.get("errors", [])
+                is_rate_limited = (
+                    response.status_code == 403 and "rate limit" in text.lower()
+                ) or any(err.get("type") == "RATE_LIMITED" for err in errors)
+                if is_rate_limited:
+                    reset_time = response.headers.get("X-RateLimit-Reset")
+                    sleep_for = max(0, int(reset_time) - int(time.time()) + 5) if reset_time else 60
+                    print(f"⏳ [{user}] Rate limit hit, sleeping {sleep_for}s...")
+                    await asyncio.sleep(sleep_for)
+                    continue
+                if "errors" in data:
+                    messages = [err.get("message", "") for err in data["errors"]]
+                    if any("Could not resolve to a Repository" in msg for msg in messages):
+                        raise PermanentGraphQLError("REPO_NOT_FOUND")
+                    if any("changedFiles count" in msg and "unavailable" in msg for msg in messages):
+                        print(f"⚠️ [{user}] changedFiles unavailable, retrying without it")
+                        response2 = await client.post(
+                            API_URL,
+                            json={"query": PR_COMMITS_QUERY_NO_CHANGEDFILES, "variables": variables},
+                            headers=headers
+                        )
+                        return response2.json()
+                    if not any(err.get("type") == "RATE_LIMITED" for err in data["errors"]):
+                        raise PermanentGraphQLError(f"GraphQL Error: {data['errors']}")
+            if response.status_code in (502, 504, 500):
+                raise Exception(f"{response.status_code} Server Error")
 
-    if response.status_code in (200, 403):
-        reset_time = response.headers.get("X-RateLimit-Reset")
-        errors = data.get("errors", [])
-        is_rate_limited = (
-            response.status_code == 403 and "rate limit" in response.text.lower()
-        ) or any(err.get("type") == "RATE_LIMITED" for err in errors)
+            response.raise_for_status()
+            return data
 
-        if is_rate_limited:
-            sleep_for = (
-                max(0, int(reset_time) - int(time.time())) + 5
-                if reset_time else 60
-            )
-            print(f"⏳ [{current_user}] Rate limit hit, sleeping {sleep_for}s...")
-            time.sleep(sleep_for)
-            return RunQuery(query, variables, retries, backoff, **kwargs)
+        except PermanentGraphQLError:
+            raise
+        except Exception as e:
+            msg = str(e)
+            if any(err in msg for err in ["502", "504", "500", "Expecting value", "StreamReset", "Timeout"]):
+                if "prBatch" in variables and variables["prBatch"] > 1:
+                    old = variables["prBatch"]; new = max(1, old // 2)
+                    variables["prBatch"] = new
+                    print(f"🔽 [{user}] Reduced prBatch {old} → {new}")
+                if "commitBatch" in variables and variables["commitBatch"] > 1:
+                    old = variables["commitBatch"]; new = max(1, old // 2)
+                    variables["commitBatch"] = new
+                    print(f"🔽 [{user}] Reduced commitBatch {old} → {new}")
+                if variables.get("prBatch", 1) == 1 and variables.get("commitBatch", 1) == 1:
+                    print(f"❌ [{user}] Giving up — prBatch and commitBatch already at 1")
+                    raise
+                print(f"⚠️ [{user}] {e}, retrying in 5s...")
+                await asyncio.sleep(5)
+                continue
+            else:
+                raise
 
-    if response.status_code in (502, 504, 500):
-        if retries > 0:
-            pr_batch = kwargs.get("pr_batch")
-            commit_batch = kwargs.get("commit_batch", variables.get("commitBatch"))
-
-            if pr_batch and pr_batch == 100:
-                print(f"⚠️ {response.status_code}, reducing pr_batch permanently to 50")
-                variables["prBatch"] = 50
-                new_kwargs = dict(kwargs, pr_batch=50)
-                return RunQuery(query, variables, retries - 1, backoff, **new_kwargs)
-
-            elif pr_batch and pr_batch > 1:
-                smaller_pr = max(1, pr_batch // 2)
-                smaller_commit = max(1, commit_batch // 2)
-                print(f"⚠️ {response.status_code}, retrying once with pr_batch={smaller_pr}, commitBatch={smaller_commit}")
-                variables["prBatch"] = smaller_pr
-                variables["commitBatch"] = smaller_commit
-                new_kwargs = dict(kwargs, pr_batch=smaller_pr, commit_batch=smaller_commit)
-                return RunQuery(query, variables, retries - 1, backoff, **new_kwargs)
-
-            return RunQuery(query, variables, retries - 1, backoff, **kwargs)
-
-    if response.status_code != 200:
-        print("❌ Bad response:", response.status_code, response.text[:200])
-        raise Exception(f"Query failed: {response.status_code}")
-
-    if "errors" in data and not any(err.get("type") == "RATE_LIMITED" for err in data["errors"]):
-        raise Exception(f"GraphQL Error: {data['errors']}")
-
-    return data
+def make_runquery(user, token, client, loop):
+    def _inner(query, variables, **kwargs):
+        return loop.run_until_complete(RunQueryAsync(query, variables, user, token, client, **kwargs))
+    return _inner
 
 # -------------------------------
 # Fetch PRs + commits
 # -------------------------------
-
-def FetchRepoPRs(owner, repo):
-    all_results = []
-    final_commits = []
-    pr_cursor = None
-    pr_batch = 100
-    commit_batch = 100
+def FetchRepoPRs(owner, repo, user, token, RunQuery):
+    all_results, final_commits, pr_cursor = [], [], None
+    session_pr_batch, session_commit_batch = 100, 100
 
     while True:
-        variables = {
-            "owner": owner,
-            "repo": repo,
-            "afterPR": pr_cursor,
-            "afterCommit": None,
-            "prBatch": pr_batch,
-            "commitBatch": commit_batch,
-        }
-        data = RunQuery(PR_COMMITS_QUERY, variables, pr_batch=pr_batch)
+        variables = {"owner": owner, "repo": repo, "afterPR": pr_cursor,
+                     "afterCommit": None, "prBatch": session_pr_batch, "commitBatch": session_commit_batch}
+        data = RunQuery(PR_COMMITS_QUERY, variables, pr_batch=session_pr_batch, commit_batch=session_commit_batch)
+        session_pr_batch = 50 if variables["prBatch"] <= 50 else variables["prBatch"]
+        session_commit_batch = 50 if variables["commitBatch"] <= 50 else variables["commitBatch"]
 
-        prs = data["data"]["repository"]["pullRequests"]["nodes"]
+        try:
+            repo_data = SafeGet(data, "data", "repository", default={})
+            pull_requests = SafeGet(repo_data, "pullRequests", default={})
+            prs = pull_requests.get("nodes") or []
+        except Exception:
+            print(f"❌ [{user}] Debug: failed parsing PR data for {owner}/{repo}, data={data}")
+            raise
+
         for pr in prs:
-            pr_meta = {
-                "repo_name": f"{owner}/{repo}",
-                "pr_number": pr["number"],
-                "pr_title": pr["title"],
-                "pr_createdAt": pr["createdAt"],
-                "pr_merged": pr["merged"],
-                "pr_mergedAt": pr["mergedAt"],
-            }
-
+            pr_meta = {"repo_name": f"{owner}/{repo}", "pr_number": pr.get("number"),
+                       "pr_title": pr.get("title"), "pr_createdAt": pr.get("createdAt"),
+                       "pr_merged": pr.get("merged"), "pr_mergedAt": pr.get("mergedAt")}
             last_row, last_commit = None, None
+
             while True:
-                commits = pr["commits"]["nodes"]
+                try:
+                    commits = SafeGet(pr, "commits", "nodes", default=[])
+                except Exception:
+                    print(f"❌ [{user}] Debug: failed parsing commit data for {owner}/{repo}, data={data}")
+                    raise
                 for c in commits:
+                    commit_data = c.get("commit") or {}
+                    if not commit_data:
+                        print(f"⚠️ [{user}] Skipping null commit in {owner}/{repo}")
+                        continue
+                    author, committer = commit_data.get("author") or {}, commit_data.get("committer") or {}
+                    author_user, committer_user = author.get("user") or {}, committer.get("user") or {}
                     row = dict(pr_meta)
                     row.update({
-                        "commit_sha": c["commit"]["oid"],
-                        "commit_date": c["commit"]["committedDate"],
-                        "commit_message": c["commit"]["messageHeadline"],
-                        "commit_message_full": c["commit"]["message"],
-                        "files_changed": c["commit"]["changedFiles"],
-                        "additions": c["commit"]["additions"],
-                        "deletions": c["commit"]["deletions"],
-                        "author_name": c["commit"]["author"]["name"] if c["commit"]["author"] else None,
-                        "author_email": c["commit"]["author"]["email"] if c["commit"]["author"] else None,
-                        "author_login": c["commit"]["author"]["user"]["login"] if c["commit"]["author"] and c["commit"]["author"]["user"] else None,
-                        "committer_name": c["commit"]["committer"]["name"] if c["commit"]["committer"] else None,
-                        "committer_email": c["commit"]["committer"]["email"] if c["commit"]["committer"] else None,
-                        "committer_login": c["commit"]["committer"]["user"]["login"] if c["commit"]["committer"] and c["commit"]["committer"]["user"] else None,
-                        "tests_passed": None,
-                        "tests_failed": None,
-                        "tests_skipped": None,
+                        "commit_sha": commit_data.get("oid"),
+                        "commit_date": commit_data.get("committedDate"),
+                        "commit_message": commit_data.get("messageHeadline"),
+                        "commit_message_full": commit_data.get("message"),
+                        "files_changed": commit_data.get("changedFiles"),
+                        "additions": commit_data.get("additions"),
+                        "deletions": commit_data.get("deletions"),
+                        "author_name": author.get("name"), "author_email": author.get("email"),
+                        "author_login": author_user.get("login"),
+                        "committer_name": committer.get("name"), "committer_email": committer.get("email"),
+                        "committer_login": committer_user.get("login"),
+                        "tests_passed": None, "tests_failed": None, "tests_skipped": None,
                     })
                     all_results.append(row)
-                    last_row, last_commit = row, c["commit"]
-
-                page_info = pr["commits"]["pageInfo"]
-                if not page_info["hasNextPage"]:
-                    break
-                variables.update({"afterCommit": page_info["endCursor"]})
-                data = RunQuery(PR_COMMITS_QUERY, variables, pr_batch=pr_batch)
-                pr = data["data"]["repository"]["pullRequests"]["nodes"][0]
-
+                    last_row, last_commit = row, commit_data
+                page_info = SafeGet(pr, "commits", "pageInfo", default={})
+                if not page_info.get("hasNextPage"): break
+                variables.update({"afterCommit": page_info.get("endCursor")})
+                data = RunQuery(PR_COMMITS_QUERY, variables, pr_batch=session_pr_batch, commit_batch=session_commit_batch)
+                repo_data = SafeGet(data, "data", "repository", default={})
+                pull_requests = SafeGet(repo_data, "pullRequests", default={})
+                nodes = pull_requests.get("nodes") or []
+                if not nodes: break
+                pr = nodes[0]
             if last_row and last_commit:
-                final_commits.append((last_row, last_commit["oid"]))
+                final_commits.append((last_row, last_commit.get("oid")))
 
-        page_info = data["data"]["repository"]["pullRequests"]["pageInfo"]
-        pr_cursor = page_info["endCursor"]
-        if not page_info["hasNextPage"]:
-            break
-
-        print(f"Processed PRs up to #{max(pr['number'] for pr in prs)} for {owner}/{repo}")
-
+        page_info = SafeGet(pull_requests, "pageInfo", default={})
+        pr_cursor = page_info.get("endCursor")
+        if not page_info.get("hasNextPage"): break
+        if prs:
+            print(f"Processed PRs up to #{max(pr['number'] for pr in prs if pr.get('number'))} for {owner}/{repo}")
     return all_results, final_commits
 
 # -------------------------------
-# Batch fetch test results (with pagination)
+# Fetch commit test results
 # -------------------------------
+def FetchCommitTestsBatch(owner, repo, shas, user, token, RunQuery, batch_size=100, test_batch=None):
+    results, i = {}, 0
+    if test_batch is not None: batch_size = test_batch
 
-def FetchCommitTestsBatch(owner, repo, shas, batch_size=100):
-    results = {}
-    i = 0
     while i < len(shas):
         current_batch_size = batch_size
         batch = shas[i:i+current_batch_size]
-
-        blocks = []
-        for j, sha in enumerate(batch):
-            blocks.append(COMMIT_TESTS_QUERY_BLOCK % {"alias": f"c{j}", "sha": sha})
+        blocks = [COMMIT_TESTS_QUERY_BLOCK % {"alias": f"c{j}", "sha": sha} for j, sha in enumerate(batch)]
         query = COMMIT_TESTS_QUERY_TEMPLATE % "\n".join(blocks)
-
-        variables = {
-            "owner": owner,
-            "repo": repo,
-            "suiteBatch": 10,
-            "runBatch": 50,
-            "afterSuite": None,
-            "afterRun": None,
-        }
-
+        variables = {"owner": owner, "repo": repo, "suiteBatch": 10, "runBatch": 50,
+                     "afterSuite": None, "afterRun": None}
         try:
             data = RunQuery(query, variables)
         except Exception as e:
-            if "502" in str(e) or "504" in str(e) or "500" in str(e):
-                if batch_size == 100:
-                    print(f"⚠️ Test batch 100 too big, reducing permanently to 50 for {owner}/{repo}")
-                    batch_size = 50
-                    continue
-                elif batch_size > 1:
+            if any(err in str(e) for err in ["502", "504", "500", "Expecting value", "StreamReset", "Timeout"]):
+                if batch_size > 1:
                     smaller = max(1, batch_size // 2)
-                    print(f"⚠️ Test batch {batch_size} failed, retrying once with {smaller}")
-                    current_batch_size = smaller
-                    blocks = []
-                    for j, sha in enumerate(shas[i:i+current_batch_size]):
-                        blocks.append(COMMIT_TESTS_QUERY_BLOCK % {"alias": f"c{j}", "sha": sha})
-                    query = COMMIT_TESTS_QUERY_TEMPLATE % "\n".join(blocks)
-                    data = RunQuery(query, variables)
-                else:
-                    raise
-            else:
-                raise
+                    print(f"🔽 [{user}] Test batch {batch_size} failed ({e}), retrying with {smaller}")
+                    batch_size = smaller
+                    if batch_size <= 50: test_batch = 50
+                    time.sleep(5); continue
+                else: raise
+            else: raise
 
         for j, sha in enumerate(batch[:current_batch_size]):
-            passed = failed = skipped = 0
-
-            # suite pagination
-            suite_cursor = None
-            while True:
-                node = data["data"].get(f"c{j}", {}).get("obj")
-                if not node:
-                    results[sha] = (0, 0, 0)
-                    break
-
-                suites = node["checkSuites"]["nodes"]
-                for suite in suites:
-                    # run pagination
-                    run_cursor = None
-                    while True:
-                        runs = suite.get("checkRuns", {}).get("nodes", [])
-                        for run in runs:
-                            if run["conclusion"] == "SUCCESS":
-                                passed += 1
-                            elif run["conclusion"] == "FAILURE":
-                                failed += 1
-                            elif run["conclusion"] == "SKIPPED":
-                                skipped += 1
-
-                        run_page_info = suite.get("checkRuns", {}).get("pageInfo", {})
-                        if run_page_info.get("hasNextPage"):
-                            variables["afterRun"] = run_page_info["endCursor"]
-                            data = RunQuery(query, variables)
-                            suite = data["data"][f"c{j}"]["obj"]["checkSuites"]["nodes"][0]
-                            continue
-                        break
-
-                results[sha] = (passed, failed, skipped)
-
-                suite_page_info = node["checkSuites"]["pageInfo"]
-                if suite_page_info.get("hasNextPage"):
-                    variables["afterSuite"] = suite_page_info["endCursor"]
-                    data = RunQuery(query, variables)
-                    continue
-                break
-
+            try:
+                passed = failed = skipped = 0
+                c_entry = SafeGet(data, "data", f"c{j}", default={})
+                node = c_entry.get("obj") if isinstance(c_entry, dict) else None
+            except Exception:
+                print(f"❌ [{user}] Debug: failed parsing test data for {owner}/{repo} sha={sha}, data={data}")
+                raise
+            if not node:
+                results[sha] = (0, 0, 0); continue
+            suites = SafeGet(node, "checkSuites", "nodes", default=[])
+            for suite in suites:
+                runs = SafeGet(suite, "checkRuns", "nodes", default=[])
+                for run in runs:
+                    conc = run.get("conclusion")
+                    if conc == "SUCCESS": passed += 1
+                    elif conc == "FAILURE": failed += 1
+                    elif conc == "SKIPPED": skipped += 1
+            results[sha] = (passed, failed, skipped)
         i += current_batch_size
-
-    return results
+    return results, test_batch
 
 # -------------------------------
 # Worker
 # -------------------------------
-
-def WorkerProcess(repo_name, token):
-    global current_user, current_token
-    current_user, current_token = token
+def WorkerProcess(repo_name, token_tuple):
+    user, token = token_tuple
     if "/" not in repo_name:
         print(f"⚠️ Invalid repo_name {repo_name}")
         return pd.DataFrame()
 
     owner, repo = repo_name.split("/", 1)
-    print(f"🔎 [{current_user}] Fetching {owner}/{repo}")
+    print(f"🔎 [{user}] Fetching {owner}/{repo}")
     start = time.time()
 
-    try:
-        all_results, final_commits = FetchRepoPRs(owner, repo)
-        pr_to_last_commit = {row["pr_number"]: (row, sha) for row, sha in final_commits}
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    client = httpx.AsyncClient(http2=True, timeout=90, headers={"User-Agent": "commit-scraper"})
+    RunQuery = make_runquery(user, token, client, loop)
 
+    try:
+        all_results, final_commits = FetchRepoPRs(owner, repo, user, token, RunQuery)
+        pr_to_last_commit = {row["pr_number"]: (row, sha) for row, sha in final_commits}
         if pr_to_last_commit:
             rows, shas = zip(*pr_to_last_commit.values())
-            test_results = FetchCommitTestsBatch(owner, repo, list(shas))
+            test_results, test_batch = FetchCommitTestsBatch(owner, repo, list(shas), user, token, RunQuery)
             for row, sha in zip(rows, shas):
                 p, f, s = test_results.get(sha, (0, 0, 0))
                 row.update({"tests_passed": p, "tests_failed": f, "tests_skipped": s})
-
+    except PermanentGraphQLError as e:
+        if str(e) == "REPO_NOT_FOUND": return pd.DataFrame()
+        else:
+            print(f"❌ [{user}] {e}"); return pd.DataFrame()
     except Exception as e:
-        print(f"❌ [{current_user}] Failed {repo_name}: {e}")
-        return pd.DataFrame()
+        print(f"❌ [{user}] Failed {repo_name}: {e}"); return pd.DataFrame()
+    finally:
+        loop.run_until_complete(client.aclose())
 
     end = time.time()
-    print(f"[{current_user}] Finished {repo_name} in {end - start:.2f}s, commits: {len(all_results)}")
+    print(f"[{user}] Finished {repo_name} in {end - start:.2f}s, commits: {len(all_results)}")
     return pd.DataFrame(all_results)
 
 # -------------------------------
 # File Processing
 # -------------------------------
-
-import os
-import pandas as pd
-import requests
-
-def ProcessOneFile(fname, input_dir, out_dir, token):
+def ProcessOneFile(fname, input_dir, out_dir, token_tuple):
     in_path = os.path.join(input_dir, fname)
     df = pd.read_parquet(in_path)
-
     if "repo_name" not in df.columns:
-        print(f"⚠️ Skipping {fname}, no repo_name column")
-        return None
+        print(f"⚠️ Skipping {fname}, no repo_name column"); return None
 
     repos = list(df["repo_name"].dropna().unique())
-    all_dfs = []
-    visited_repos = set()
-
+    all_dfs, visited_repos = [], set()
     for repo_name in repos:
         resolved_repo = ResolveRepoName(repo_name)
         if resolved_repo in visited_repos:
-            print(f"🔁 Skipping {repo_name}, redirects to {resolved_repo} already processed")
-            continue
-
-        df_repo = WorkerProcess(resolved_repo, token)
+            print(f"🔁 Skipping {repo_name}, redirects to {resolved_repo} already processed"); continue
+        df_repo = WorkerProcess(resolved_repo, token_tuple)
         if not df_repo.empty:
-            all_dfs.append(df_repo)
-            visited_repos.add(resolved_repo)
+            all_dfs.append(df_repo); visited_repos.add(resolved_repo)
 
     if all_dfs:
         combined_df = pd.concat(all_dfs, ignore_index=True)
         out_path = os.path.join(out_dir, fname)
         combined_df.to_parquet(out_path, index=False)
         print(f"💾 Wrote commit+test results for {fname} → {out_path}")
-    return fname
-
+        return fname
+    return None
 
 def ResolveRepoName(repo_name):
     url = f"https://github.com/{repo_name}"
     try:
-        response = requests.head(url, allow_redirects=True, timeout=5)
-        final_url = response.url.rstrip("/")
+        response = httpx.head(url, follow_redirects=True, timeout=5)
+        final_url = str(response.url).rstrip("/")
         return "/".join(final_url.split("/")[-2:])
     except Exception:
         return repo_name
-
 
 def ProcessRepoFiles(input_dir="drive/output/derived/data_export/pr",
                      out_dir="drive/output/scrape/push_pr_commit_data/pull_request_graphql"):
     os.makedirs(out_dir, exist_ok=True)
     fnames = [f for f in os.listdir(input_dir) if f.endswith(".parquet")]
+    random.shuffle(fnames)
     fnames = [f for f in fnames if not os.path.exists(os.path.join(out_dir, f))]
-
     if not fnames:
-        print("✅ No new files to process.")
-        return
+        print("✅ No new files to process."); return
 
-    start_time = time.time()
-    total_files = len(fnames)
-
+    start_time, total_files = time.time(), len(fnames)
     with concurrent.futures.ProcessPoolExecutor(max_workers=len(TOKENS) * WORKERS_PER_TOKEN) as executor:
-        futures = {
-            executor.submit(ProcessOneFile, fname, input_dir, out_dir, TOKENS[i % len(TOKENS)]): fname
-            for i, fname in enumerate(fnames)
-        }
-
+        futures = {executor.submit(ProcessOneFile, fname, input_dir, out_dir, TOKENS[i % len(TOKENS)]): fname
+                   for i, fname in enumerate(fnames)}
+        exported, completed = 0, 0
         with tqdm(total=total_files, desc="Processing files", unit="file") as pbar:
-            completed = 0
             for f in concurrent.futures.as_completed(futures):
                 try:
-                    f.result()
+                    result = f.result()
+                    if result: exported += 1; pbar.update(1)
+                    else: pbar.total -= 1; pbar.refresh()
                 except Exception as e:
-                    print(f"❌ File worker crashed: {e}")
+                    print(f"❌ File worker crashed: {e}"); pbar.total -= 1; pbar.refresh()
                 completed += 1
                 elapsed = time.time() - start_time
                 avg_time = elapsed / completed
-                remaining = total_files - completed
-                eta = avg_time * remaining
-                eta_str = time.strftime("%H:%M:%S", time.gmtime(eta))
-                elapsed_str = time.strftime("%H:%M:%S", time.gmtime(elapsed))
-                pbar.set_postfix_str(f"Elapsed {elapsed_str} | ETA {eta_str}")
-                pbar.update(1)
+                remaining = pbar.total - exported
+                eta = avg_time * remaining if remaining > 0 else 0
+                eta_str, elapsed_str = time.strftime("%H:%M:%S", time.gmtime(eta)), time.strftime("%H:%M:%S", time.gmtime(elapsed))
+                pbar.set_postfix_str(f"Exported {exported}/{pbar.total} | Elapsed {elapsed_str} | ETA {eta_str}")
+    print(f"✅ Finished processing. Exported {exported} out of {pbar.total} files.")
 
 if __name__ == "__main__":
     ProcessRepoFiles()
