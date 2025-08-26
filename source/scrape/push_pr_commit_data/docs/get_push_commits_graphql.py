@@ -261,36 +261,26 @@ async def FetchRepoCommits(client, user, owner, repo):
 # -------------------------------
 # Worker per Token
 # -------------------------------
-async def Worker(user, token, repos):
+async def Worker(user, token, repo_name):
     headers = {"Authorization": f"bearer {token}"}
     async with httpx.AsyncClient(http2=True, headers=headers) as client:
-        all_results = []
-        for repo_name in repos:
+        try:
             if "/" not in repo_name:
-                continue
+                return []
             owner, repo = repo_name.split("/", 1)
-            try:
-                results = await FetchRepoCommits(client, user, owner, repo)
-                all_results.extend(results)
-            except Exception as e:
-                print(f"❌ [{user}] Failed {repo_name}: {e}")
-        return all_results
-
+            return await FetchRepoCommits(client, user, owner, repo)
+        except Exception as e:
+            print(f"❌ [{user}] Failed {repo_name}: {e}")
+            return []
 
 # -------------------------------
 # Coordinator
 # -------------------------------
 async def ProcessReposAsync(all_repos):
-    # spread repos round-robin across tokens
-    repo_chunks = [[] for _ in TOKENS]
+    tasks = []
     for i, repo in enumerate(all_repos):
-        repo_chunks[i % len(TOKENS)].append(repo)
-
-    tasks = [
-        asyncio.create_task(Worker(user, tok, repos))
-        for (user, tok), repos in zip(TOKENS, repo_chunks)
-        if repos  # skip empty
-    ]
+        user, tok = TOKENS[i % len(TOKENS)]
+        tasks.append(asyncio.create_task(Worker(user, tok, repo)))
 
     results = await tqdm.gather(*tasks, desc="Processing repos")
     flat = [r for sub in results for r in sub]
