@@ -8,7 +8,7 @@ import concurrent.futures
 from tqdm import tqdm
 from collections import defaultdict
 
-WORKERS_PER_TOKEN = 2
+WORKERS_PER_TOKEN = 1
 API_URL = "https://api.github.com/graphql"
 
 TOKENS = [
@@ -20,18 +20,19 @@ TOKENS = [
 ]
 token_cycle = cycle(TOKENS)
 current_user, current_token = next(token_cycle)
+repo_batch_size = defaultdict(lambda: 100)       # commit pages
+repo_alias_batch_size = defaultdict(lambda: 100) # commit test aliases
 
 # -------------------------------
 # Queries
 # -------------------------------
-
 COMMITS_QUERY = """
-query($owner: String!, $repo: String!, $after: String) {
+query($owner: String!, $repo: String!, $after: String, $batchSize: Int!) {
   repository(owner: $owner, name: $repo) {
     defaultBranchRef {
       target {
         ... on Commit {
-          history(first: 100, after: $after) {
+          history(first: $batchSize, after: $after) {
             pageInfo { hasNextPage endCursor }
             nodes {
               oid
@@ -64,6 +65,7 @@ query($owner: String!, $repo: String!, $after: String) {
   }
 }
 """
+
 
 # -------------------------------
 # Query Counter
@@ -158,8 +160,8 @@ def BuildCommitTestsQuery(shas):
 # Fetch Commit Tests in Batches
 # -------------------------------
 
-def FetchCommitTestsBatchDynamic(owner, repo, shas, max_batch=200, retries=3):
-    batch_size = max_batch
+def FetchCommitTestsBatchDynamic(owner, repo, shas, retries=3):
+    batch_size = repo_alias_batch_size[f"{owner}/{repo}"]
     results = {}
     start = 0
 
@@ -172,14 +174,20 @@ def FetchCommitTestsBatchDynamic(owner, repo, shas, max_batch=200, retries=3):
         try:
             data = RunQuery(query, variables)
         except Exception as e:
-            if ("504" in str(e) or "502" in str(e)) and batch_size > 1:
-                batch_size = max(1, batch_size // 2)
-                print(f"⚠️ [{owner}/{repo}] Reducing alias batch size → {batch_size}")
-                continue
-            elif retries > 0:
-                return FetchCommitTestsBatchDynamic(owner, repo, shas[start:], batch_size, retries-1)
-            else:
-                raise
+            if ("504" in str(e) or "502" in str(e)):
+                if batch_size == 100:
+                    print(f"⚠️ 502/504, reducing alias batch size permanently to 50 for {owner}/{repo}")
+                    batch_size = 50
+                    repo_alias_batch_size[f"{owner}/{repo}"] = 50
+                    continue
+                elif batch_size > 1:
+                    smaller = max(1, batch_size // 2)
+                    print(f"⚠️ 502/504, retrying once with alias batch size={smaller} for {owner}/{repo}")
+                    batch_size = smaller
+                    retries -= 1
+                    if retries >= 0:
+                        continue
+            raise
 
         repo_data = data["data"]["repository"]
         for i, sha in enumerate(sub_shas):
@@ -206,15 +214,33 @@ def FetchCommitTestsBatchDynamic(owner, repo, shas, max_batch=200, retries=3):
 # Fetch Repo Commits
 # -------------------------------
 
-def FetchRepoCommits(owner, repo):
+def FetchRepoCommits(owner, repo, retries=3):
     all_results = []
     cursor = None
     commit_counter = 0
+    batch_size = repo_batch_size[f"{owner}/{repo}"]
 
     while True:
-        variables = {"owner": owner, "repo": repo, "after": cursor}
+        variables = {"owner": owner, "repo": repo, "after": cursor, "batchSize": batch_size}
         IncrementQueryCounter(owner, repo)
-        data = RunQuery(COMMITS_QUERY, variables)
+
+        try:
+            data = RunQuery(COMMITS_QUERY, variables)
+        except Exception as e:
+            if ("504" in str(e) or "502" in str(e)):
+                if batch_size == 100:
+                    print(f"⚠️ 502/504, reducing commit page size permanently to 50 for {owner}/{repo}")
+                    batch_size = 50
+                    repo_batch_size[f"{owner}/{repo}"] = 50
+                    continue
+                elif batch_size > 1:
+                    smaller = max(1, batch_size // 2)
+                    print(f"⚠️ 502/504, retrying once with commit page size={smaller} for {owner}/{repo}")
+                    batch_size = smaller
+                    retries -= 1
+                    if retries >= 0:
+                        continue
+            raise   # no retries left, bubble up
 
         repo_data = data["data"]["repository"]
         if not repo_data or not repo_data["defaultBranchRef"]:
@@ -224,8 +250,7 @@ def FetchRepoCommits(owner, repo):
         commits = history["nodes"]
         shas = [c["oid"] for c in commits]
 
-        # Fetch tests for up to 100 commits at once
-        test_results = FetchCommitTestsBatchDynamic(owner, repo, shas, max_batch=200)
+        test_results = FetchCommitTestsBatchDynamic(owner, repo, shas)
 
         for c in commits:
             commit_counter += 1
@@ -322,6 +347,7 @@ def ProcessRepoFiles(input_dir="drive/output/derived/data_export/pr",
                      out_dir="drive/output/scrape/push_pr_commit_data/push_graphql"):
     os.makedirs(out_dir, exist_ok=True)
     fnames = [f for f in os.listdir(input_dir) if f.endswith(".parquet")]
+    fnames = [f for f in fnames if not os.path.exists(os.path.join(out_dir, f))]
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=len(TOKENS) * WORKERS_PER_TOKEN) as executor:
         futures = {
