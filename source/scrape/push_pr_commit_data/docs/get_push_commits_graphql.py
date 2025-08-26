@@ -5,23 +5,25 @@ import asyncio
 import httpx
 import pandas as pd
 from collections import defaultdict
-from tqdm import asyncio as tqdm_asyncio
+from tqdm.asyncio import tqdm
 
 # -------------------------------
 # Config
 # -------------------------------
 API_URL = "https://api.github.com/graphql"
+
 TOKENS = [
     (os.environ["BACKUP2_GITHUB_USERNAME"], os.environ["BACKUP2_GITHUB_TOKEN"]),
     (os.environ["BACKUP3_GITHUB_USERNAME"], os.environ["BACKUP3_GITHUB_TOKEN"]),
     (os.environ["BACKUP7_GITHUB_USERNAME"], os.environ["BACKUP7_GITHUB_TOKEN"]),
     (os.environ["BACKUP8_GITHUB_USERNAME"], os.environ["BACKUP8_GITHUB_TOKEN"]),
-    (os.environ["BACKUP9_GITHUB_USERNAME"], os.environ["BACKUP9_GITHUB_TOKEN"]),
+    (os.environ["BACKUP9_GITHUB_USERNAME"], os.environ["BACKUP9_GITHUB_TOKEN"])
 ]
 
-repo_batch_size = defaultdict(lambda: 100)   # start at 100, will shrink to 50/25/… if needed
+repo_batch_size = defaultdict(lambda: 100)
 repo_alias_batch_size = defaultdict(lambda: 100)
 query_counter = defaultdict(int)
+
 
 # -------------------------------
 # Queries
@@ -42,10 +44,20 @@ query($owner: String!, $repo: String!, $after: String, $batchSize: Int!) {
               changedFiles
               additions
               deletions
-              author { name email user { login } }
-              committer { name email user { login } }
+              author {
+                name email user { login }
+              }
+              committer {
+                name email user { login }
+              }
               associatedPullRequests(first: 1) {
-                nodes { number title createdAt merged mergedAt }
+                nodes {
+                  number
+                  title
+                  createdAt
+                  merged
+                  mergedAt
+                }
               }
             }
           }
@@ -56,71 +68,45 @@ query($owner: String!, $repo: String!, $after: String, $batchSize: Int!) {
 }
 """
 
-# -------------------------------
-# Exceptions
-# -------------------------------
-class PermanentGraphQLError(Exception):
-    pass
 
 # -------------------------------
 # Async Query Runner
 # -------------------------------
-async def RunQuery(client, user, query, variables):
-    headers = {"Authorization": f"bearer {client.headers.get('Authorization', '').replace('bearer ', '')}"}
-
-    while True:
+async def RunQuery(client, user, query, variables, retries=3, backoff=10):
+    for attempt in range(retries):
         try:
-            resp = await client.post(API_URL, json={"query": query, "variables": variables}, headers=headers)
-            text = resp.text
-            try:
-                data = resp.json()
-            except ValueError:
-                raise Exception("Expecting value")
+            resp = await client.post(API_URL, json={"query": query, "variables": variables}, timeout=90)
+            data = resp.json()
 
-            # --- Handle OK / Rate limit ---
-            if resp.status_code in (200, 403):
-                errors = data.get("errors", [])
-                is_rate_limited = (
-                    resp.status_code == 403 and "rate limit" in text.lower()
-                ) or any(err.get("type") == "RATE_LIMITED" for err in errors)
-                if is_rate_limited:
-                    reset_time = resp.headers.get("X-RateLimit-Reset")
-                    sleep_for = max(0, int(reset_time) - int(time.time()) + 5) if reset_time else 60
-                    print(f"⏳ [{user}] Rate limit hit, sleeping {sleep_for}s...")
-                    await asyncio.sleep(sleep_for)
-                    continue
+            if resp.status_code == 403 and "rate limit" in resp.text.lower():
+                reset = int(resp.headers.get("X-RateLimit-Reset", time.time() + 60))
+                sleep_for = max(0, reset - int(time.time())) + 5
+                print(f"⏳ [{user}] Rate limit hit, sleeping {sleep_for}s...")
+                await asyncio.sleep(sleep_for)
+                continue
 
-                if "errors" in data:
-                    messages = [err.get("message", "") for err in data["errors"]]
-                    if any("Could not resolve to a Repository" in msg for msg in messages):
-                        raise PermanentGraphQLError("REPO_NOT_FOUND")
-                    if not any(err.get("type") == "RATE_LIMITED" for err in data["errors"]):
-                        raise PermanentGraphQLError(f"GraphQL Error: {data['errors']}")
+            if resp.status_code in (502, 504):
+                print(f"⚠️ [{user}] {resp.status_code} Gateway error, retry {attempt+1}")
+                await asyncio.sleep(backoff * (attempt + 1))
+                continue
 
-            # --- Transient server errors ---
-            if resp.status_code in (502, 504, 500):
-                raise Exception(f"{resp.status_code} Server Error")
+            if resp.status_code != 200:
+                raise Exception(f"HTTP {resp.status_code}: {resp.text[:200]}")
 
-            resp.raise_for_status()
+            if "errors" in data and not any(err.get("type") == "RATE_LIMITED" for err in data["errors"]):
+                raise Exception(f"GraphQL Error: {data['errors']}")
+
             return data
 
-        except PermanentGraphQLError:
-            raise
-        except Exception as e:
-            msg = str(e)
-            if any(err in msg for err in ["502", "504", "500", "Expecting value", "StreamReset", "Timeout"]):
-                if "batchSize" in variables and variables["batchSize"] > 1:
-                    old = variables["batchSize"]; new = max(1, old // 2)
-                    variables["batchSize"] = new
-                    print(f"🔽 [{user}] Reduced batchSize {old} → {new}")
-                    continue
-                print(f"❌ [{user}] Giving up — batchSize already at 1")
-                raise
-            else:
-                raise
+        except httpx.RequestError as e:
+            print(f"⚠️ [{user}] Transport error {e}, retry {attempt+1}")
+            await asyncio.sleep(backoff * (attempt + 1))
+
+    raise Exception(f"[{user}] RunQuery failed after {retries} retries")
+
 
 # -------------------------------
-# Fetch Commit Tests
+# Commit Tests Query
 # -------------------------------
 def BuildCommitTestsQuery(shas):
     parts = []
@@ -131,7 +117,9 @@ def BuildCommitTestsQuery(shas):
             ... on Commit {{
               checkSuites(first: 6) {{
                 nodes {{
-                  checkRuns(first: 100) {{ nodes {{ conclusion }} }}
+                  checkRuns(first: 100) {{
+                    nodes {{ conclusion }}
+                  }}
                 }}
               }}
             }}
@@ -145,7 +133,11 @@ def BuildCommitTestsQuery(shas):
     }}
     """
 
-async def FetchCommitTestsBatchDynamic(client, user, owner, repo, shas):
+
+# -------------------------------
+# Fetch Commit Tests
+# -------------------------------
+async def FetchCommitTestsBatchDynamic(client, user, owner, repo, shas, retries=3):
     batch_size = repo_alias_batch_size[f"{owner}/{repo}"]
     results, start = {}, 0
 
@@ -167,7 +159,9 @@ async def FetchCommitTestsBatchDynamic(client, user, owner, repo, shas):
                     smaller = max(1, batch_size // 2)
                     print(f"⚠️ [{user}] Retry with alias batch size={smaller} for {owner}/{repo}")
                     batch_size = smaller
-                    continue
+                    retries -= 1
+                    if retries >= 0:
+                        continue
             raise
 
         repo_data = data["data"]["repository"]
@@ -178,13 +172,17 @@ async def FetchCommitTestsBatchDynamic(client, user, owner, repo, shas):
             if node:
                 for suite in node["checkSuites"]["nodes"]:
                     for run in suite["checkRuns"]["nodes"]:
-                        if run["conclusion"] == "SUCCESS": passed += 1
-                        elif run["conclusion"] == "FAILURE": failed += 1
-                        elif run["conclusion"] == "SKIPPED": skipped += 1
+                        if run["conclusion"] == "SUCCESS":
+                            passed += 1
+                        elif run["conclusion"] == "FAILURE":
+                            failed += 1
+                        elif run["conclusion"] == "SKIPPED":
+                            skipped += 1
             results[sha] = (passed, failed, skipped)
 
         start += batch_size
     return results
+
 
 # -------------------------------
 # Fetch Repo Commits
@@ -200,8 +198,17 @@ async def FetchRepoCommits(client, user, owner, repo):
         try:
             data = await RunQuery(client, user, COMMITS_QUERY, variables)
         except Exception as e:
-            print(f"❌ [{user}] Failed fetching commits for {owner}/{repo}: {e}")
-            break
+            if any(x in str(e) for x in ("504", "502", "Premature")):
+                if batch_size == 100:
+                    print(f"⚠️ [{user}] Reducing commit page size to 50 for {owner}/{repo}")
+                    batch_size = repo_batch_size[f"{owner}/{repo}"] = 50
+                    continue
+                elif batch_size > 1:
+                    smaller = max(1, batch_size // 2)
+                    print(f"⚠️ [{user}] Retry with commit page size={smaller} for {owner}/{repo}")
+                    batch_size = smaller
+                    continue
+            raise
 
         repo_data = data["data"]["repository"]
         if not repo_data or not repo_data["defaultBranchRef"]:
@@ -237,7 +244,9 @@ async def FetchRepoCommits(client, user, owner, repo):
                 "pr_created_at": pr[0]["createdAt"] if pr else None,
                 "pr_merged": pr[0]["merged"] if pr else None,
                 "pr_merged_at": pr[0]["mergedAt"] if pr else None,
-                "tests_passed": passed, "tests_failed": failed, "tests_skipped": skipped,
+                "tests_passed": passed,
+                "tests_failed": failed,
+                "tests_skipped": skipped,
             })
 
         if not history["pageInfo"]["hasNextPage"]:
@@ -248,52 +257,39 @@ async def FetchRepoCommits(client, user, owner, repo):
     print(f"🏁 [{user}] {owner}/{repo}: {commit_counter} commits → {qcount} queries")
     return all_results
 
+
 # -------------------------------
-# Worker
+# Worker per Token
 # -------------------------------
 async def Worker(user, token, repos):
     headers = {"Authorization": f"bearer {token}"}
     async with httpx.AsyncClient(http2=True, headers=headers) as client:
         all_results = []
         for repo_name in repos:
+            if "/" not in repo_name:
+                continue
+            owner, repo = repo_name.split("/", 1)
             try:
-                print(f"▶️ [{user}] Starting {repo_name}")
-                owner, repo = repo_name.split("/", 1)
                 results = await FetchRepoCommits(client, user, owner, repo)
                 all_results.extend(results)
-                print(f"🏁 [{user}] Finished {repo_name}")
             except Exception as e:
                 print(f"❌ [{user}] Failed {repo_name}: {e}")
         return all_results
 
+
 # -------------------------------
 # Coordinator
 # -------------------------------
-from tqdm import tqdm
 async def ProcessReposAsync(all_repos):
-    # round robin split
-    repo_chunks = [[] for _ in TOKENS]
-    for i, repo in enumerate(all_repos):
-        repo_chunks[i % len(TOKENS)].append(repo)
+    chunk_size = len(all_repos) // len(TOKENS) + 1
+    repo_chunks = [all_repos[i:i + chunk_size] for i in range(0, len(all_repos), chunk_size)]
 
-    # one worker per token
-    tasks = [
-        asyncio.create_task(Worker(user, tok, repos))
-        for (user, tok), repos in zip(TOKENS, repo_chunks)
-        if repos
-    ]
+    tasks = [Worker(user, tok, repo_chunks[i]) for i, (user, tok) in enumerate(TOKENS)]
+    results = await tqdm.gather(*tasks, desc="Processing repos")
 
-    results = []
-    total = len(all_repos)
-    processed = 0
+    flat = [r for sub in results for r in sub]
+    return pd.DataFrame(flat)
 
-    for coro in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Processing token workers", unit="token"):
-        worker_results = await coro
-        results.extend(worker_results)
-        processed += len(worker_results)
-
-    print(f"🏁 Finished {processed}/{total} repos total")
-    return pd.DataFrame(results)
 
 # -------------------------------
 # File Processing
@@ -308,28 +304,31 @@ def ResolveRepoName(repo_name):
     except Exception:
         return repo_name
 
+
 def ProcessRepoFiles(input_dir="drive/output/derived/data_export/pr",
                      out_dir="drive/output/scrape/push_pr_commit_data/push_graphql"):
     os.makedirs(out_dir, exist_ok=True)
-    fnames = [f for f in os.listdir(input_dir) if f.endswith(".parquet")]
-    random.shuffle(fnames)
+    fnames = random.shuffle([f for f in os.listdir(input_dir) if f.endswith(".parquet")])
     fnames = [f for f in fnames if not os.path.exists(os.path.join(out_dir, f))]
-    if not fnames:
-        print("✅ No new files to process."); return
 
     for fname in fnames:
-        in_path, out_path = os.path.join(input_dir, fname), os.path.join(out_dir, fname)
+        in_path = os.path.join(input_dir, fname)
+        out_path = os.path.join(out_dir, fname)
         df = pd.read_parquet(in_path)
+
         if "repo_name" not in df.columns:
             continue
 
-        repos = [ResolveRepoName(r) for r in df["repo_name"].dropna().unique()]
+        repos = list(df["repo_name"].dropna().unique())
+        repos = [ResolveRepoName(r) for r in repos]
+
         print(f"▶️ Processing {fname} with {len(repos)} repos...")
         result_df = asyncio.run(ProcessReposAsync(repos))
 
         if not result_df.empty:
             result_df.to_parquet(out_path, index=False)
             print(f"💾 Wrote commit history for {fname} → {out_path}")
+
 
 # -------------------------------
 # Entrypoint
