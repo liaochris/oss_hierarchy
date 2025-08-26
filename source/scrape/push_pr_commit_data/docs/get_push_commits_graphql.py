@@ -114,8 +114,9 @@ def RunQuery(query, variables, retries=3, backoff=10):
             headers=headers,
             timeout=90
         )
-    except (requests.exceptions.ChunkedEncodingError,
-            requests.exceptions.RequestException) as e:
+    except requests.exceptions.ChunkedEncodingError as e:
+        raise PrematureResponseError(f"Response ended prematurely: {e}")
+    except requests.exceptions.RequestException as e:
         if retries > 0:
             wait = backoff * (4 - retries)
             print(f"⚠️ [{current_user}] Transport error: {e}, retrying in {wait}s ({retries} left)")
@@ -123,18 +124,10 @@ def RunQuery(query, variables, retries=3, backoff=10):
             return RunQuery(query, variables, retries - 1, backoff)
         raise
 
-    # Try decoding JSON safely
     try:
         data = response.json()
-    except (ValueError,
-            requests.exceptions.ChunkedEncodingError,
-            requests.exceptions.RequestException) as e:
-        if retries > 0:
-            wait = backoff * (4 - retries)
-            print(f"⚠️ [{current_user}] JSON decode error: {e}, retrying in {wait}s ({retries} left)")
-            time.sleep(wait)
-            return RunQuery(query, variables, retries - 1, backoff)
-        raise
+    except ValueError as e:
+        raise PrematureResponseError(f"JSON decode error: {e}")
 
     # --- Rate limit handler (HTTP + GraphQL error cases) ---
     if response.status_code in (200, 403):
