@@ -318,6 +318,10 @@ def WorkerProcess(repo_name, token):
 # File Processing
 # -------------------------------
 
+import os
+import pandas as pd
+import requests
+
 def ProcessOneFile(fname, input_dir, out_dir, token):
     in_path = os.path.join(input_dir, fname)
     out_path = os.path.join(out_dir, fname)
@@ -332,16 +336,34 @@ def ProcessOneFile(fname, input_dir, out_dir, token):
 
     repos = list(df["repo_name"].dropna().unique())
     all_dfs = []
+    visited_repos = set()
 
     for repo_name in repos:
-        df_repo = WorkerProcess(repo_name, token)
+        resolved_repo = ResolveRepoName(repo_name)
+        if resolved_repo in visited_repos:
+            print(f"🔁 Skipping {repo_name}, redirects to {resolved_repo} already processed")
+            continue
+
+        df_repo = WorkerProcess(resolved_repo, token)
         if not df_repo.empty:
             all_dfs.append(df_repo)
+            visited_repos.add(resolved_repo)
 
     if all_dfs:
         combined_df = pd.concat(all_dfs, ignore_index=True)
         combined_df.to_parquet(out_path, index=False)
         print(f"💾 Wrote commit history for {fname} → {out_path}")
+
+
+def ResolveRepoName(repo_name):
+    url = f"https://github.com/{repo_name}"
+    try:
+        response = requests.head(url, allow_redirects=True, timeout=5)
+        final_url = response.url.rstrip("/")
+        # final_url looks like https://github.com/owner/repo
+        return "/".join(final_url.split("/")[-2:])
+    except Exception:
+        return repo_name
 
 def ProcessRepoFiles(input_dir="drive/output/derived/data_export/pr",
                      out_dir="drive/output/scrape/push_pr_commit_data/push_graphql"):
