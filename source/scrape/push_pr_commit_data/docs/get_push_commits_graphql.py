@@ -268,6 +268,8 @@ async def Worker(user, token, repo_name):
 # -------------------------------
 # Coordinator
 # -------------------------------
+from tqdm import tqdm
+
 async def ProcessReposAsync(all_repos):
     tasks = []
     for i, repo in enumerate(all_repos):
@@ -275,15 +277,12 @@ async def ProcessReposAsync(all_repos):
         tasks.append(asyncio.create_task(Worker(user, tok, repo)))
 
     results = []
-    processed = 0
-    for result in tqdm_asyncio.as_completed(tasks, total=len(tasks), desc="Processing repos", unit="repo"):
-        repo_results = await result
-        results.append(repo_results)
-        processed += 1
-        if processed % 50 == 0:
-            print(f"✔ {processed}/{len(tasks)} repos processed")
+    total = len(tasks)
 
-    print(f"🏁 Finished {processed}/{len(tasks)} repos total")
+    for coro in tqdm(asyncio.as_completed(tasks), total=total, desc="Processing repos", unit="repo"):
+        repo_results = await coro
+        results.append(repo_results)
+
     flat = [r for sub in results for r in sub]
     return pd.DataFrame(flat)
 
