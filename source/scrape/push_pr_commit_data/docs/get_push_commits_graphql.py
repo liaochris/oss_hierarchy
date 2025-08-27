@@ -72,9 +72,6 @@ query($owner: String!, $repo: String!, $after: String, $batchSize: Int!) {
 # -------------------------------
 # Async Query Runner
 # -------------------------------
-# -------------------------------
-# Async Query Runner (catch empty JSON too)
-# -------------------------------
 async def RunQuery(client, user, query, variables):
     try:
         resp = await client.post(API_URL, json={"query": query, "variables": variables}, timeout=90)
@@ -99,7 +96,6 @@ async def RunQuery(client, user, query, variables):
         if "errors" in data and not any(err.get("type") == "RATE_LIMITED" for err in data["errors"]):
             raise Exception(f"GraphQL Error: {data['errors']}")
 
-        # 👇 Treat missing "data" the same as 502/504
         if "data" not in data or data["data"] is None:
             raise Exception("Missing data block in GraphQL response")
 
@@ -107,7 +103,6 @@ async def RunQuery(client, user, query, variables):
 
     except httpx.RequestError as e:
         raise Exception(f"Transport error {e}")
-
 
 # -------------------------------
 # Commit Tests Query
@@ -154,7 +149,12 @@ async def FetchCommitTestsBatchDynamic(client, user, owner, repo, shas, retries=
         try:
             data = await RunQuery(client, user, query, variables)
         except Exception as e:
-            error_triggers = ("504", "502", "Premature", "Transport", "Empty JSON", "Expecting value")
+            error_triggers = (
+                "504", "502", "Premature", "Transport",
+                "Empty JSON", "Expecting value",
+                "Missing data", "GraphQL Error"
+            )
+
             if any(x in str(e) for x in error_triggers):
                 if batch_size == 100:
                     print(f"⚠️ [{user}] Reducing alias batch size to 50 for {owner}/{repo}")
