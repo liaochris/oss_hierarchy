@@ -74,7 +74,7 @@ def Main():
     warnings.filterwarnings("ignore")
 
     pr_dir = Path('drive/output/derived/data_export/pr')
-    linked_outdir = Path('/home/chrisliao/drive/output/scrape/link_pull_request_to_issue')
+    linked_outdir = Path('drive/output/scrape/link_pull_request_to_issue')
     linked_outdir.mkdir(parents=True, exist_ok=True)
 
     parquet_files = glob.glob(str(pr_dir / '*.parquet'))
