@@ -11,7 +11,7 @@ import os
 import warnings
 
 def ReadPRParquet(path):
-    cols = ['repo_name', 'pr_number', 'repo_name_latest']
+    cols = ['repo_name', 'pr_number']
     try:
         df = pd.read_parquet(path, engine="pyarrow", columns=cols)
         return df.drop_duplicates().dropna(subset=cols)
@@ -73,9 +73,11 @@ def Main():
     pandarallel.initialize(progress_bar=True)
     warnings.filterwarnings("ignore")
 
+    indir_repo_match = Path("output/scrape/extract_github_data")
     pr_dir = Path('drive/output/derived/data_export/pr')
     linked_outdir = Path('drive/output/scrape/link_pull_request_to_issue')
     linked_outdir.mkdir(parents=True, exist_ok=True)
+    repo_df = pd.read_csv(indir_repo_match / "repo_id_history_filtered.csv")
 
     parquet_files = glob.glob(str(pr_dir / '*.parquet'))
     np.random.shuffle(parquet_files)
@@ -85,6 +87,11 @@ def Main():
         df_pr = ReadPRParquet(parquet_file)
         if df_pr.empty:
             continue
+        
+        repo_names = df_pr['repo_name'].dropna().unique().tolist()
+        repo_name_dict = {repo_name: GetLatestRepoName(repo_name, repo_df) for repo_name in repo_names}
+        df_pr['repo_name_latest'] = df_pr['repo_name'].map(repo_name_dict)
+        
 
         unique_latest = df_pr['repo_name_latest'].dropna().unique()
         if len(unique_latest) == 0:

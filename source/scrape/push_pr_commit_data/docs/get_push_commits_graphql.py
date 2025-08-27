@@ -80,8 +80,7 @@ async def RunQuery(client, user, query, variables):
         resp = await client.post(API_URL, json={"query": query, "variables": variables}, timeout=90)
         try:
             data = resp.json()
-        except ValueError as e:
-            # This is the "Expecting value: line 1 column 1 (char 0)" case
+        except ValueError:
             raise Exception("Empty JSON response")
 
         if resp.status_code == 403 and "rate limit" in resp.text.lower():
@@ -99,6 +98,10 @@ async def RunQuery(client, user, query, variables):
 
         if "errors" in data and not any(err.get("type") == "RATE_LIMITED" for err in data["errors"]):
             raise Exception(f"GraphQL Error: {data['errors']}")
+
+        # 👇 Treat missing "data" the same as 502/504
+        if "data" not in data or data["data"] is None:
+            raise Exception("Missing data block in GraphQL response")
 
         return data
 

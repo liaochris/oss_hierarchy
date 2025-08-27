@@ -13,39 +13,29 @@ from source.lib.helpers import GetLatestRepoName, GetAllRepoNames
 from source.scrape.push_pr_commit_data.docs.get_push_commits import GitHubCommitFetcher
 
 
-def FetchPageText(scrape_url, headers, retry_delay=120, max_retries=5):
-    for attempt in range(max_retries):
-        try:
-            req = Request(scrape_url, headers=headers)
-            response = urlopen(req)
-            page_text = response.read().decode("utf-8", errors="replace")
-
-            if (
-                "Please wait a few minutes" in page_text
-                or "Looks like something went wrong!" in page_text
-                or response.getcode() == 429
-            ):
-                print(f"Rate limit hit on {scrape_url}; sleeping {retry_delay}s (attempt {attempt+1}/{max_retries})")
-                time.sleep(retry_delay)
-                continue
-
-            if not page_text.strip().endswith("</html>"):
-                print(f"⚠️ Incomplete HTML from {scrape_url}, retrying (attempt {attempt+1}/{max_retries})")
-                time.sleep(5 + random.random() * 3)
-                continue
-
-            return page_text
-
-        except Exception as e:
-            msg = str(e)
-            if "Response ended prematurely" in msg:
-                print(f"⚠️ Premature response for {scrape_url}, retrying (attempt {attempt+1}/{max_retries})")
-                time.sleep(5 + random.random() * 3)
-                continue
-            print(f"Error fetching page text for {scrape_url} (attempt {attempt+1}/{max_retries}): {e}")
-            time.sleep(5)
-
-    return f"Error: Failed after {max_retries} attempts"
+def FetchPageText(scrape_url, headers, retry_delay=120):
+    try:
+        req = Request(scrape_url, headers=headers)
+        response = urlopen(req)
+        page_text = response.read().decode("utf-8", errors="replace")
+        if (
+            "Please wait a few minutes" in page_text
+            or "Looks like something went wrong!" in page_text
+            or response.getcode() == 429
+        ):
+            print(
+                "Rate limit hit on",
+                scrape_url,
+                "; sleeping for",
+                retry_delay,
+                "seconds.",
+            )
+            time.sleep(retry_delay)
+            return FetchPageText(scrape_url, headers, retry_delay)
+        return page_text
+    except Exception as e:
+        print("Error fetching page text for", scrape_url, ":", e)
+        return f"Error: {e}"
 
 
 def ScrapeCommitsPage(scrape_url, headers, retry_delay=120):
@@ -206,12 +196,12 @@ def UpdatePRCommitList(df_pull, primary_auth, backup_auth, repo_df):
 
 def Main():
     primary_auth = (
-        os.environ["BIG1_GITHUB_USERNAME"],
-        os.environ["BIG1_GITHUB_TOKEN"],
+        os.environ["PRIMARY_GITHUB_USERNAME"],
+        os.environ["PRIMARY_GITHUB_TOKEN"],
     )
     backup_auth = (
-        os.environ["BIG2_GITHUB_USERNAME"],
-        os.environ["BIG2_GITHUB_TOKEN"],
+        os.environ["BACKUP_GITHUB_USERNAME"],
+        os.environ["BACKUP_GITHUB_TOKEN"],
     )
     indir_pull = Path("drive/output/scrape/extract_github_data/pull_request_data/")
     indir_repo = Path("output/scrape/extract_github_data")
@@ -224,8 +214,7 @@ def Main():
         for month in range(1, 13)
     ]
 
-    for pr_filename in pr_filenames[118:]:
-        print(pr_filename)
+    for pr_filename in pr_filenames:
         out_filename = pr_filename.replace("pull_request", "pull_request_data")
         df_pull = LoadPRData(pr_filename, indir_pull)
         df_pull = MergeExistingPRData(df_pull, outdir_pull, out_filename)

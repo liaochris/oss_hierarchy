@@ -8,11 +8,12 @@ from pathlib import Path
 import warnings
 import re
 from source.lib.JMSLab.SaveData import SaveData
+from source.lib.helpers import GetLatestRepoName
 import numpy as np
 import os
 
 def ReadIssueParquet(path):
-    cols = ['repo_name', 'issue_number', 'repo_name_latest']
+    cols = ['repo_name', 'issue_number']
     try:
         df = pd.read_parquet(path, engine="pyarrow", columns=cols)
         return df.drop_duplicates().dropna(subset=cols)
@@ -67,21 +68,27 @@ def Main():
     pandarallel.initialize(progress_bar=True)
     warnings.filterwarnings("ignore")
 
+    indir_repo_match = Path("output/scrape/extract_github_data")
     issue_dir = Path('drive/output/derived/data_export/issue')
     pr_dir = Path('drive/output/derived/data_export/pr')
-    # rename to link_issue_to_pull_request
     linked_outdir = Path('/home/chrisliao/drive/output/scrape/link_issue_to_pull_request')
     linked_outdir.mkdir(parents=True, exist_ok=True)
 
+    repo_df = pd.read_csv(indir_repo_match / "repo_id_history_filtered.csv")
+
     parquet_files = glob.glob(str(issue_dir / '*.parquet'))
     np.random.shuffle(parquet_files)
+    len(parquet_files)
 
     for parquet_file in parquet_files:
-        print(parquet_file)
         df_library = ReadIssueParquet(parquet_file)
         if df_library.empty:
             continue
 
+        repo_names = df_library['repo_name'].dropna().unique().tolist()
+        repo_name_dict = {repo_name: GetLatestRepoName(repo_name, repo_df) for repo_name in repo_names}
+        df_library['repo_name_latest'] = df_library['repo_name'].map(repo_name_dict)
+        
         unique_latest = df_library['repo_name_latest'].dropna().unique()
         if len(unique_latest) == 0:
             continue
@@ -97,17 +104,23 @@ def Main():
         if not pr_candidates:
             warnings.warn(f"No PR parquet found for {latest_repo}, skipping.")
             continue
+        print(parquet_file)
 
         # read PR parquet
         try:
             df_pr = pd.read_parquet(
                 pr_candidates[0],
                 engine="pyarrow",
-                columns=['repo_name', 'repo_name_latest', 'pr_number']
+                columns=['repo_name', 'pr_number']
             )
+            repo_names = df_pr['repo_name'].dropna().unique().tolist()
+            repo_name_dict = {repo_name: GetLatestRepoName(repo_name, repo_df) for repo_name in repo_names}
+            df_pr['repo_name_latest'] = df_pr['repo_name'].map(repo_name_dict)
+        
         except Exception as e:
             warnings.warn(f"Failed to read PR parquet for {latest_repo}: {e}")
             continue
+
 
         pr_index = (
             df_pr.drop_duplicates()
