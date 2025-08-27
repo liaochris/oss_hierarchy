@@ -24,7 +24,6 @@ repo_batch_size = defaultdict(lambda: 100)
 repo_alias_batch_size = defaultdict(lambda: 100)
 query_counter = defaultdict(int)
 
-
 # -------------------------------
 # Queries
 # -------------------------------
@@ -68,7 +67,6 @@ query($owner: String!, $repo: String!, $after: String, $batchSize: Int!) {
 }
 """
 
-
 # -------------------------------
 # Async Query Runner
 # -------------------------------
@@ -78,7 +76,7 @@ async def RunQuery(client, user, query, variables):
         try:
             data = resp.json()
         except ValueError:
-            raise Exception("Empty JSON response")
+            raise Exception("TransientError: Empty JSON response")
 
         if resp.status_code == 403 and "rate limit" in resp.text.lower():
             reset = int(resp.headers.get("X-RateLimit-Reset", time.time() + 60))
@@ -88,21 +86,21 @@ async def RunQuery(client, user, query, variables):
             return await RunQuery(client, user, query, variables)
 
         if resp.status_code in (502, 504):
-            raise Exception(f"{resp.status_code} Gateway error")
+            raise Exception(f"TransientError: {resp.status_code} Gateway error")
 
         if resp.status_code != 200:
             raise Exception(f"HTTP {resp.status_code}: {resp.text[:200]}")
 
         if "errors" in data and not any(err.get("type") == "RATE_LIMITED" for err in data["errors"]):
-            raise Exception(f"GraphQL Error: {data['errors']}")
+            raise Exception(f"TransientError: GraphQL Error: {data['errors']}")
 
         if "data" not in data or data["data"] is None:
-            raise Exception("Missing data block in GraphQL response")
+            raise Exception("TransientError: Missing data block in GraphQL response")
 
         return data
 
     except httpx.RequestError as e:
-        raise Exception(f"Transport error {e}")
+        raise Exception(f"TransientError: Transport error {e}")
 
 # -------------------------------
 # Commit Tests Query
@@ -132,7 +130,6 @@ def BuildCommitTestsQuery(shas):
     }}
     """
 
-
 # -------------------------------
 # Fetch Commit Tests
 # -------------------------------
@@ -149,13 +146,7 @@ async def FetchCommitTestsBatchDynamic(client, user, owner, repo, shas, retries=
         try:
             data = await RunQuery(client, user, query, variables)
         except Exception as e:
-            error_triggers = (
-                "504", "502", "Premature", "Transport",
-                "Empty JSON", "Expecting value",
-                "Missing data", "GraphQL Error"
-            )
-
-            if any(x in str(e) for x in error_triggers):
+            if "TransientError" in str(e):
                 if batch_size == 100:
                     print(f"⚠️ [{user}] Reducing alias batch size to 50 for {owner}/{repo}")
                     batch_size = repo_alias_batch_size[f"{owner}/{repo}"] = 50
@@ -188,7 +179,6 @@ async def FetchCommitTestsBatchDynamic(client, user, owner, repo, shas, retries=
         start += batch_size
     return results
 
-
 # -------------------------------
 # Fetch Repo Commits
 # -------------------------------
@@ -203,8 +193,7 @@ async def FetchRepoCommits(client, user, owner, repo):
         try:
             data = await RunQuery(client, user, COMMITS_QUERY, variables)
         except Exception as e:
-            error_triggers = ("504", "502", "Premature", "Transport", "Empty JSON", "Expecting value")
-            if any(x in str(e) for x in error_triggers):
+            if "TransientError" in str(e):
                 if batch_size == 100:
                     print(f"⚠️ [{user}] Reducing commit page size to 50 for {owner}/{repo}")
                     batch_size = repo_batch_size[f"{owner}/{repo}"] = 50
@@ -263,7 +252,6 @@ async def FetchRepoCommits(client, user, owner, repo):
     print(f"🏁 [{user}] {owner}/{repo}: {commit_counter} commits → {qcount} queries")
     return all_results
 
-
 # -------------------------------
 # Worker per Token
 # -------------------------------
@@ -282,7 +270,6 @@ async def Worker(user, token, repos):
                 print(f"❌ [{user}] Failed {repo_name}: {e}")
         return all_results
 
-
 # -------------------------------
 # Coordinator
 # -------------------------------
@@ -292,7 +279,6 @@ async def ProcessReposAsync(all_repos, user, token):
 
     results = await Worker(user, token, all_repos)
     return pd.DataFrame(results)
-
 
 # -------------------------------
 # File Processing
@@ -306,7 +292,6 @@ def ResolveRepoName(repo_name):
         return "/".join(final_url.split("/")[-2:])
     except Exception:
         return repo_name
-
 
 import concurrent.futures
 from tqdm import tqdm
@@ -327,7 +312,7 @@ def ProcessOneFile(fname, input_dir, out_dir, token_tuple):
     print(f"▶️ [{user}] Processing {fname} with {len(repos)} repos...")
 
     try:
-        result_df = asyncio.run(ProcessReposAsync(repos, user, token))  # <-- fixed call
+        result_df = asyncio.run(ProcessReposAsync(repos, user, token))
     except Exception as e:
         print(f"❌ [{user}] {fname} failed: {e}")
         return None
@@ -337,7 +322,6 @@ def ProcessOneFile(fname, input_dir, out_dir, token_tuple):
         print(f"💾 Wrote commit history for {fname} → {out_path}")
         return fname
     return None
-
 
 def ProcessRepoFiles(input_dir="drive/output/derived/data_export/pr",
                      out_dir="drive/output/scrape/push_pr_commit_data/push_graphql"):
@@ -374,7 +358,6 @@ def ProcessRepoFiles(input_dir="drive/output/derived/data_export/pr",
                 completed += 1
                 pbar.set_postfix_str(f"Exported {exported}/{pbar.total}")
     print("✅ Finished processing.")
-
 
 # -------------------------------
 # Entrypoint
