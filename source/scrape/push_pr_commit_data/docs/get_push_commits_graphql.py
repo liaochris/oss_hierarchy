@@ -72,37 +72,38 @@ query($owner: String!, $repo: String!, $after: String, $batchSize: Int!) {
 # -------------------------------
 # Async Query Runner
 # -------------------------------
-async def RunQuery(client, user, query, variables, retries=3, backoff=10):
-    for attempt in range(retries):
+# -------------------------------
+# Async Query Runner (catch empty JSON too)
+# -------------------------------
+async def RunQuery(client, user, query, variables):
+    try:
+        resp = await client.post(API_URL, json={"query": query, "variables": variables}, timeout=90)
         try:
-            resp = await client.post(API_URL, json={"query": query, "variables": variables}, timeout=90)
             data = resp.json()
+        except ValueError as e:
+            # This is the "Expecting value: line 1 column 1 (char 0)" case
+            raise Exception("Empty JSON response")
 
-            if resp.status_code == 403 and "rate limit" in resp.text.lower():
-                reset = int(resp.headers.get("X-RateLimit-Reset", time.time() + 60))
-                sleep_for = max(0, reset - int(time.time())) + 5
-                print(f"⏳ [{user}] Rate limit hit, sleeping {sleep_for}s...")
-                await asyncio.sleep(sleep_for)
-                continue
+        if resp.status_code == 403 and "rate limit" in resp.text.lower():
+            reset = int(resp.headers.get("X-RateLimit-Reset", time.time() + 60))
+            sleep_for = max(0, reset - int(time.time())) + 5
+            print(f"⏳ [{user}] Rate limit hit, sleeping {sleep_for}s...")
+            await asyncio.sleep(sleep_for)
+            return await RunQuery(client, user, query, variables)
 
-            if resp.status_code in (502, 504):
-                print(f"⚠️ [{user}] {resp.status_code} Gateway error, retry {attempt+1}")
-                await asyncio.sleep(backoff * (attempt + 1))
-                continue
+        if resp.status_code in (502, 504):
+            raise Exception(f"{resp.status_code} Gateway error")
 
-            if resp.status_code != 200:
-                raise Exception(f"HTTP {resp.status_code}: {resp.text[:200]}")
+        if resp.status_code != 200:
+            raise Exception(f"HTTP {resp.status_code}: {resp.text[:200]}")
 
-            if "errors" in data and not any(err.get("type") == "RATE_LIMITED" for err in data["errors"]):
-                raise Exception(f"GraphQL Error: {data['errors']}")
+        if "errors" in data and not any(err.get("type") == "RATE_LIMITED" for err in data["errors"]):
+            raise Exception(f"GraphQL Error: {data['errors']}")
 
-            return data
+        return data
 
-        except httpx.RequestError as e:
-            print(f"⚠️ [{user}] Transport error {e}, retry {attempt+1}")
-            await asyncio.sleep(backoff * (attempt + 1))
-
-    raise Exception(f"[{user}] RunQuery failed after {retries} retries")
+    except httpx.RequestError as e:
+        raise Exception(f"Transport error {e}")
 
 
 # -------------------------------
@@ -150,7 +151,8 @@ async def FetchCommitTestsBatchDynamic(client, user, owner, repo, shas, retries=
         try:
             data = await RunQuery(client, user, query, variables)
         except Exception as e:
-            if any(x in str(e) for x in ("504", "502", "Premature")):
+            error_triggers = ("504", "502", "Premature", "Transport", "Empty JSON", "Expecting value")
+            if any(x in str(e) for x in error_triggers):
                 if batch_size == 100:
                     print(f"⚠️ [{user}] Reducing alias batch size to 50 for {owner}/{repo}")
                     batch_size = repo_alias_batch_size[f"{owner}/{repo}"] = 50
@@ -198,7 +200,8 @@ async def FetchRepoCommits(client, user, owner, repo):
         try:
             data = await RunQuery(client, user, COMMITS_QUERY, variables)
         except Exception as e:
-            if any(x in str(e) for x in ("504", "502", "Premature")):
+            error_triggers = ("504", "502", "Premature", "Transport", "Empty JSON", "Expecting value")
+            if any(x in str(e) for x in error_triggers):
                 if batch_size == 100:
                     print(f"⚠️ [{user}] Reducing commit page size to 50 for {owner}/{repo}")
                     batch_size = repo_batch_size[f"{owner}/{repo}"] = 50
