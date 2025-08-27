@@ -183,7 +183,7 @@ def FetchRepoPRs(owner, repo, user, token, RunQuery):
 
         try:
             repo_data = SafeGet(data, "data", "repository", default={})
-            pull_requests = SafeGet(repo_data, "pullRequests", default={})
+            pull_requests = SafeGet(repo_data, "pullRequests", default={}) or {}
             prs = pull_requests.get("nodes") or []
         except Exception:
             print(f"❌ [{user}] Debug: failed parsing PR data for {owner}/{repo}, data={data}")

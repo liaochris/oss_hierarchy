@@ -86,9 +86,8 @@ def Main():
             },
             "ts_col": "created_at",
             "dedup": None,
-            "text_cols": ("pr_body", "pr_title"),
+            "text_cols": ("pr_body", "pr_title", "pr_review_body", "pr_review_comment_body"),
             "batch_size": 10,
-            "combined_name": "df_pr.parquet",
         },
         {
             "name": "issue",
@@ -108,9 +107,8 @@ def Main():
             },
             "ts_col": "created_at",
             "dedup": None,
-            "text_cols": ("issue_body", "issue_title"),
+            "text_cols": ("issue_body", "issue_title", "issue_comment_body"),
             "batch_size": 10,
-            "combined_name": "df_issue.parquet",
         },
         {
             "name": "pr_commit",
@@ -131,7 +129,6 @@ def Main():
             "dedup": ["commit sha"],
             "text_cols": ("commit file changes",),
             "batch_size": 30,
-            "combined_name": "df_pr_commits.parquet",
         },
         {
             "name": "push_commit",
@@ -152,12 +149,11 @@ def Main():
             "dedup": ["commit sha"],
             "text_cols": ("commit file changes",),
             "batch_size": 30,
-            "combined_name": "df_push_commits.parquet",
         },
     ]
 
     for cfg in categories:
-        if cfg['name'] != "pr":
+        if cfg['name'] not in ["pr", "issue"]:
             continue
         out_dir = outdir_root / cfg["name"]
         BuildByRepo(
@@ -221,8 +217,19 @@ def BuildByRepo(globs_list,
             lf = make_reader()
             names = set(lf.collect_schema().names())
             have = [c for c in keep_cols if c in names]
-            missing = [pl.lit(None).alias(c) for c in keep_cols if c not in names]
+
+            missing = []
+            for c in keep_cols:
+                if c not in names:
+                    if c in schema_overrides:  # force text cols to Utf8
+                        missing.append(pl.lit(None, dtype=pl.Utf8).alias(c))
+                    elif c in casts:  # if we know a numeric cast is expected
+                        missing.append(pl.lit(None, dtype=casts[c].to_arrow()).alias(c))
+                    else:  # fallback to Utf8
+                        missing.append(pl.lit(None, dtype=pl.Utf8).alias(c))
+
             lf = lf.select([pl.col(c) for c in have] + missing)
+            
             lf = EnsureTypes(lf, casts, keep_cols)
             if ts_col in keep_cols:
                 lf = AddDate(lf, ts_col)
@@ -273,7 +280,7 @@ def BuildByRepo(globs_list,
                 table_cols.append("sanitized")
             table = gdf.select(table_cols).to_arrow()
             print(f"[{category_name}] Starting {repo}")
-            WritePerRepoBatch(repo, table, out_dir, writers, schemata)
+            WritePerRepoBatch(repo, table, out_dir, writers, schemata, keep_cols)
             print(f"[{category_name}] Exported {repo}")
 
     CloseWriters(writers)
@@ -310,16 +317,30 @@ def NormalizeRepo(lf, repo_lookup_lf, repo_col):
     return lf.with_columns(pl.coalesce([pl.col("repo_name_latest"), pl.col(repo_col)]).alias("repo_name_latest"))
 
 
-def WritePerRepoBatch(repo, table, out_dir, writers, schemata):
+def WritePerRepoBatch(repo, table, out_dir, writers, schemata, keep_cols: list[str]):
     path = RepoPath(out_dir, repo)
     if repo not in writers:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        writers[repo] = pq.ParquetWriter(str(path), table.schema)
-        schemata[repo] = table.schema
-    elif not table.schema.equals(schemata[repo]):
-        table = AlignToSchema(table, schemata[repo])
-    writers[repo].write_table(table)
+        # Build schema from keep_cols. Use table types if present, else fallback to Utf8
+        fields = []
+        for c in keep_cols:
+            if c in table.schema.names:
+                fields.append(table.schema.field(c))
+            else:
+                fields.append(pa.field(c, pa.string()))
+        full_schema = pa.schema(fields)
 
+        path.parent.mkdir(parents=True, exist_ok=True)
+        writers[repo] = pq.ParquetWriter(str(path), full_schema)
+        schemata[repo] = full_schema
+
+        # align first table to full schema
+        table = AlignToSchema(table, full_schema)
+
+    elif not table.schema.equals(schemata[repo]):
+        # Align later tables to the locked schema
+        table = AlignToSchema(table, schemata[repo])
+
+    writers[repo].write_table(table)
 
 def CloseWriters(writers):
     for w in writers.values():
