@@ -128,10 +128,10 @@ def Main():
     indir_repo_match = Path("output/scrape/extract_github_data")
     outdir_push = Path("drive/output/scrape/push_pr_commit_data/push_data/")
     repo_df = pd.read_csv(indir_repo_match / "repo_id_history_filtered.csv")
-    username = os.environ["BACKUP2_GITHUB_USERNAME"]
-    token = os.environ["BACKUP2_GITHUB_TOKEN"]
-    backup_username = os.environ["BACKUP3_GITHUB_USERNAME"]
-    backup_token = os.environ["BACKUP3_GITHUB_TOKEN"]
+    username = os.environ["PRIMARY_GITHUB_USERNAME"]
+    token = os.environ["PRIMARY_GITHUB_TOKEN"]
+    backup_username = os.environ["BACKUP_GITHUB_USERNAME"]
+    backup_token = os.environ["BACKUP_GITHUB_TOKEN"]
 
     fetcher = GitHubCommitFetcher(repo_df, username, token, backup_username, backup_token)
     for year in range(2015, 2025):

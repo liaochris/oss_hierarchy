@@ -1,9 +1,0 @@
-Import('env')
-
-target = []
-for issue_data in ['stats', 'closing_stats', 'comment_stats']:
-	target.append(f'#output/analysis/descriptives/issue_{issue_data}.lyx')
-	
-source = ['#source/analysis/descriptives/data_descriptives.py']
-
-env.Python(target, source)
