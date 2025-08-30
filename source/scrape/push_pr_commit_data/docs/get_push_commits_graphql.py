@@ -77,52 +77,87 @@ async def RunQuery(client, user, query, variables, retries=3, delay_seconds=5):
             except ValueError:
                 raise Exception("TransientError: Empty JSON response")
 
+            # --- Rate limiting ---
             if (resp.status_code == 403 and "rate limit" in resp.text.lower()) or \
-                ("errors" in data and any(err.get("type") == "RATE_LIMITED" for err in data["errors"])):
+               ("errors" in data and any(err.get("type") == "RATE_LIMITED" for err in data["errors"])):
                 reset = int(resp.headers.get("X-RateLimit-Reset", time.time() + 60))
                 sleep_for = max(0, reset - int(time.time())) + 5
                 print(f"⏳ [{user}] Rate limit hit, sleeping {sleep_for}s...")
                 await asyncio.sleep(sleep_for)
-                # don’t increment attempt, just retry
-                continue
+                continue  # do not count against retries
 
+            # --- Gateway errors ---
             if resp.status_code in (502, 504):
-                raise Exception(f"TransientError: {resp.status_code} Gateway error")
+                raise Exception(f"GatewayError: {resp.status_code} Gateway error")
 
+            # --- Other HTTP errors ---
             if resp.status_code != 200:
-                raise Exception(f"HTTP {resp.status_code}: {resp.text[:200]}")
+                raise Exception(f"TransientError: HTTP {resp.status_code}: {resp.text[:200]}")
 
-            if "errors" in data and not any(err.get("type") == "RATE_LIMITED" for err in data["errors"]):
+            # --- GraphQL errors ---
+            if "errors" in data:
+                if any(err.get("type") == "NOT_FOUND" for err in data["errors"]):
+                    raise Exception(f"FatalError: GraphQL Error: {data['errors']}")
                 raise Exception(f"TransientError: GraphQL Error: {data['errors']}")
 
+            # --- Missing data block ---
             if "data" not in data or data["data"] is None:
-                raise Exception(f"TransientError: Missing data block in GraphQL response {data}")
+                raise Exception("TransientError: Missing data block in GraphQL response")
 
             return data
 
         except Exception as error:
+            msg = str(error)
+            # Fatal errors → stop immediately
+            if "FatalError" in msg or "NOT_FOUND" in msg:
+                print(f"❌ [{user}] Fatal error, not retrying: {msg}")
+                raise
+
             attempt += 1
             if attempt < retries:
-                print(f"⚠️ [{user}] {error}, retrying in {delay_seconds}s... (attempt {attempt}/{retries})")
+                print(f"⚠️ [{user}] {msg}, retrying in {delay_seconds}s... (attempt {attempt}/{retries})")
                 await asyncio.sleep(delay_seconds)
             else:
-                print(f"❌ [{user}] Failed after {retries} attempts: {error}")
+                print(f"❌ [{user}] Failed after {retries} attempts: {msg}")
                 raise
 
 
-async def SafeRunQuery(client, user, query, variables, batch_size, retries=3):
+async def SafeRunQuery(client, user, query, variables, batch_size, retries=3, owner_repo=None, is_alias=False):
     for attempt in range(retries):
         try:
             return await RunQuery(client, user, query, variables)
         except Exception as e:
-            if batch_size == 1 and "Missing data block" in str(e) and attempt < retries - 1:
+            msg = str(e)
+
+            # --- Gateway error → shrink batch size and retry immediately ---
+            if "GatewayError" in msg and batch_size > 1 and owner_repo:
+                new_batch = max(1, batch_size // 2)
+                if is_alias:
+                    repo_alias_batch_size[owner_repo] = new_batch
+                else:
+                    repo_batch_size[owner_repo] = new_batch
+                print(f"⚠️ [{user}] {owner_repo}: Shrinking batch size {batch_size} → {new_batch} after gateway error")
+                return await SafeRunQuery(client, user, query, variables, new_batch, retries, owner_repo, is_alias)
+
+            # --- Missing data block with batch_size=1 → incremental sleep ---
+            if batch_size == 1 and "Missing data block" in msg and attempt < retries - 1:
                 sleep_for = 2 * (attempt + 1)
                 print(f"⚠️ [{user}] Missing data block, retry {attempt+1}/{retries}, sleeping {sleep_for}s...")
                 await asyncio.sleep(sleep_for)
                 continue
-            raise
-    return None  # after retries
 
+            # Fatal errors should bubble up immediately
+            if "FatalError" in msg or "NOT_FOUND" in msg:
+                raise
+
+            # other transient → normal retry
+            if attempt < retries - 1:
+                sleep_for = 3
+                print(f"⚠️ [{user}] {msg}, retrying in {sleep_for}s... (attempt {attempt+1}/{retries})")
+                await asyncio.sleep(sleep_for)
+                continue
+            raise
+    return None
 
 # -------------------------------
 # Commit Tests Query
