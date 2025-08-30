@@ -122,7 +122,6 @@ async def RunQuery(client, user, query, variables, retries=3, delay_seconds=5, o
                 print(f"❌ [{user}] {owner_repo or ''}: Failed after {retries} attempts "
                       f"(batch={batch_size}): {msg}")
                 raise
-
 async def SafeRunQuery(client, user, query, variables, batch_size, retries=3, owner_repo=None, is_alias=False):
     gateway_retries = 2  # fewer retries at batch_size=1
 
@@ -132,6 +131,11 @@ async def SafeRunQuery(client, user, query, variables, batch_size, retries=3, ow
                                   owner_repo=owner_repo, batch_size=batch_size)
         except Exception as e:
             msg = str(e)
+
+            # --- Fatal errors bubble out immediately ---
+            if "FatalError" in msg or "NOT_FOUND" in msg:
+                print(f"❌ [{user}] {owner_repo}: Fatal error, not retrying: {msg}")
+                raise
 
             # --- Gateway errors ---
             if "GatewayError" in msg:
@@ -153,6 +157,24 @@ async def SafeRunQuery(client, user, query, variables, batch_size, retries=3, ow
                     print(f"❌ [{user}] {owner_repo}: Skipped page after repeated gateway errors at batch=1")
                     return None
 
+            # --- Missing data block at batch=1 ---
+            if batch_size == 1 and "Missing data block" in msg and attempt < retries - 1:
+                sleep_for = 2 * (attempt + 1)
+                print(f"⚠️ [{user}] {owner_repo}: Missing data block at batch=1, retry {attempt+1}/{retries}, sleeping {sleep_for}s...")
+                await asyncio.sleep(sleep_for)
+                continue
+
+            # --- Other transient errors ---
+            if attempt < retries - 1:
+                sleep_for = 3
+                print(f"⚠️ [{user}] {owner_repo}: {msg}, retrying in {sleep_for}s... (attempt {attempt+1}/{retries}, batch={batch_size})")
+                await asyncio.sleep(sleep_for)
+                continue
+
+            print(f"❌ [{user}] {owner_repo}: Failed after {retries} attempts (batch={batch_size}): {msg}")
+            return None
+
+    return None
 
 
 # -------------------------------
@@ -197,9 +219,13 @@ async def FetchCommitTestsBatchDynamic(client, user, owner, repo, shas, retries=
         variables = {"owner": owner, "repo": repo}
         query_counter[f"{owner}/{repo}"] += 1
 
-        data = await SafeRunQuery(client, user, query, variables, batch_size)
+        data = await SafeRunQuery(
+            client, user, query, variables, batch_size,
+            retries=retries, owner_repo=f"{owner}/{repo}", is_alias=True
+        )
+
         if data is None:
-            print(f"❌ [{user}] Skipped tests page for {owner}/{repo} after 3 retries (batch size=1)")
+            print(f"❌ [{user}] {owner}/{repo}: Skipped tests page after retries (batch={batch_size})")
             start += batch_size
             continue
 
@@ -222,7 +248,6 @@ async def FetchCommitTestsBatchDynamic(client, user, owner, repo, shas, retries=
         start += batch_size
     return results
 
-
 # -------------------------------
 # Fetch Repo Commits
 # -------------------------------
@@ -234,14 +259,18 @@ async def FetchRepoCommits(client, user, owner, repo):
         variables = {"owner": owner, "repo": repo, "after": cursor, "batchSize": batch_size}
         query_counter[f"{owner}/{repo}"] += 1
 
-        data = await SafeRunQuery(client, user, COMMITS_QUERY, variables, batch_size)
+        data = await SafeRunQuery(
+            client, user, COMMITS_QUERY, variables, batch_size,
+            retries=3, owner_repo=f"{owner}/{repo}", is_alias=False
+        )
+
         if data is None:
-            print(f"❌ [{user}] Skipped commits page for {owner}/{repo} after 3 retries (batch size=1)")
+            print(f"❌ [{user}] {owner}/{repo}: Skipped commits page after retries (batch={batch_size})")
             cursor = None if not cursor else cursor  # try moving to next page
             continue
 
         repo_data = data["data"]["repository"]
-        if not repo_data or not repo_data["defaultBranchRef"]:
+        if not repo_data or not repo_data.get("defaultBranchRef"):
             break
 
         history = repo_data["defaultBranchRef"]["target"]["history"]
