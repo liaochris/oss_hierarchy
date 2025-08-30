@@ -67,40 +67,43 @@ query($owner: String!, $repo: String!, $after: String, $batchSize: Int!) {
 }
 """
 
-# -------------------------------
-# Async Query Runner
-# -------------------------------
-async def RunQuery(client, user, query, variables):
-    try:
-        resp = await client.post(API_URL, json={"query": query, "variables": variables}, timeout=90)
+async def RunQuery(client, user, query, variables, retries=3, delay_seconds=3):
+    for attempt in range(retries):
         try:
-            data = resp.json()
-        except ValueError:
-            raise Exception("TransientError: Empty JSON response")
+            resp = await client.post(API_URL, json={"query": query, "variables": variables}, timeout=90)
+            try:
+                data = resp.json()
+            except ValueError:
+                raise Exception("TransientError: Empty JSON response")
 
-        if resp.status_code == 403 and "rate limit" in resp.text.lower():
-            reset = int(resp.headers.get("X-RateLimit-Reset", time.time() + 60))
-            sleep_for = max(0, reset - int(time.time())) + 5
-            print(f"⏳ [{user}] Rate limit hit, sleeping {sleep_for}s...")
-            await asyncio.sleep(sleep_for)
-            return await RunQuery(client, user, query, variables)
+            if resp.status_code == 403 and "rate limit" in resp.text.lower():
+                reset = int(resp.headers.get("X-RateLimit-Reset", time.time() + 60))
+                sleep_for = max(0, reset - int(time.time())) + 5
+                print(f"⏳ [{user}] Rate limit hit, sleeping {sleep_for}s...")
+                await asyncio.sleep(sleep_for)
+                return await RunQuery(client, user, query, variables, retries, delay_seconds)
 
-        if resp.status_code in (502, 504):
-            raise Exception(f"TransientError: {resp.status_code} Gateway error")
+            if resp.status_code in (502, 504):
+                raise Exception(f"TransientError: {resp.status_code} Gateway error")
 
-        if resp.status_code != 200:
-            raise Exception(f"HTTP {resp.status_code}: {resp.text[:200]}")
+            if resp.status_code != 200:
+                raise Exception(f"HTTP {resp.status_code}: {resp.text[:200]}")
 
-        if "errors" in data and not any(err.get("type") == "RATE_LIMITED" for err in data["errors"]):
-            raise Exception(f"TransientError: GraphQL Error: {data['errors']}")
+            if "errors" in data and not any(err.get("type") == "RATE_LIMITED" for err in data["errors"]):
+                raise Exception(f"TransientError: GraphQL Error: {data['errors']}")
 
-        if "data" not in data or data["data"] is None:
-            raise Exception("TransientError: Missing data block in GraphQL response")
+            if "data" not in data or data["data"] is None:
+                raise Exception("TransientError: Missing data block in GraphQL response")
 
-        return data
+            return data
 
-    except httpx.RequestError as e:
-        raise Exception(f"TransientError: Transport error {e}")
+        except Exception as error:
+            if attempt < retries - 1:
+                print(f"⚠️ [{user}] {error}, retrying in {delay_seconds}s... (attempt {attempt+1}/{retries})")
+                await asyncio.sleep(delay_seconds)
+            else:
+                print(f"❌ [{user}] Failed after {retries} attempts: {error}")
+                raise
 
 
 async def SafeRunQuery(client, user, query, variables, batch_size, retries=3):
@@ -307,7 +310,7 @@ def ProcessOneFile(fname, input_dir, out_dir, token_tuple):
         return None
 
     repos = list(df["repo_name"].dropna().unique())
-    repos = [ResolveRepoName(r) for r in repos]
+    repos = list(set([ResolveRepoName(r) for r in repos]))
 
     user, token = token_tuple
     print(f"▶️ [{user}] Processing {fname} with {len(repos)} repos...")
