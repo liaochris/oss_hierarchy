@@ -68,7 +68,8 @@ query($owner: String!, $repo: String!, $after: String, $batchSize: Int!) {
 """
 
 async def RunQuery(client, user, query, variables, retries=3, delay_seconds=3):
-    for attempt in range(retries):
+    attempt = 0
+    while attempt < retries:
         try:
             resp = await client.post(API_URL, json={"query": query, "variables": variables}, timeout=90)
             try:
@@ -81,7 +82,8 @@ async def RunQuery(client, user, query, variables, retries=3, delay_seconds=3):
                 sleep_for = max(0, reset - int(time.time())) + 5
                 print(f"⏳ [{user}] Rate limit hit, sleeping {sleep_for}s...")
                 await asyncio.sleep(sleep_for)
-                return await RunQuery(client, user, query, variables, retries, delay_seconds)
+                # don’t increment attempt, just retry
+                continue
 
             if resp.status_code in (502, 504):
                 raise Exception(f"TransientError: {resp.status_code} Gateway error")
@@ -93,14 +95,14 @@ async def RunQuery(client, user, query, variables, retries=3, delay_seconds=3):
                 raise Exception(f"TransientError: GraphQL Error: {data['errors']}")
 
             if "data" not in data or data["data"] is None:
-                print(data)
                 raise Exception("TransientError: Missing data block in GraphQL response")
 
             return data
 
         except Exception as error:
-            if attempt < retries - 1:
-                print(f"⚠️ [{user}] {error}, retrying in {delay_seconds}s... (attempt {attempt+1}/{retries})")
+            attempt += 1
+            if attempt < retries:
+                print(f"⚠️ [{user}] {error}, retrying in {delay_seconds}s... (attempt {attempt}/{retries})")
                 await asyncio.sleep(delay_seconds)
             else:
                 print(f"❌ [{user}] Failed after {retries} attempts: {error}")
