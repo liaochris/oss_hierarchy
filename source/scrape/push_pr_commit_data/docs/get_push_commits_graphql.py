@@ -102,6 +102,21 @@ async def RunQuery(client, user, query, variables):
     except httpx.RequestError as e:
         raise Exception(f"TransientError: Transport error {e}")
 
+
+async def SafeRunQuery(client, user, query, variables, batch_size, retries=3):
+    for attempt in range(retries):
+        try:
+            return await RunQuery(client, user, query, variables)
+        except Exception as e:
+            if batch_size == 1 and "Missing data block" in str(e) and attempt < retries - 1:
+                sleep_for = 2 * (attempt + 1)
+                print(f"⚠️ [{user}] Missing data block, retry {attempt+1}/{retries}, sleeping {sleep_for}s...")
+                await asyncio.sleep(sleep_for)
+                continue
+            raise
+    return None  # after retries
+
+
 # -------------------------------
 # Commit Tests Query
 # -------------------------------
@@ -130,6 +145,7 @@ def BuildCommitTestsQuery(shas):
     }}
     """
 
+
 # -------------------------------
 # Fetch Commit Tests
 # -------------------------------
@@ -143,22 +159,11 @@ async def FetchCommitTestsBatchDynamic(client, user, owner, repo, shas, retries=
         variables = {"owner": owner, "repo": repo}
         query_counter[f"{owner}/{repo}"] += 1
 
-        try:
-            data = await RunQuery(client, user, query, variables)
-        except Exception as e:
-            if "TransientError" in str(e):
-                if batch_size == 100:
-                    print(f"⚠️ [{user}] Reducing alias batch size to 50 for {owner}/{repo}")
-                    batch_size = repo_alias_batch_size[f"{owner}/{repo}"] = 50
-                    continue
-                elif batch_size > 1:
-                    smaller = max(1, batch_size // 2)
-                    print(f"⚠️ [{user}] Retry with alias batch size={smaller} for {owner}/{repo}")
-                    batch_size = smaller
-                    retries -= 1
-                    if retries >= 0:
-                        continue
-            raise
+        data = await SafeRunQuery(client, user, query, variables, batch_size)
+        if data is None:
+            print(f"❌ [{user}] Skipped tests page for {owner}/{repo} after 3 retries (batch size=1)")
+            start += batch_size
+            continue
 
         repo_data = data["data"]["repository"]
         for i, sha in enumerate(sub_shas):
@@ -179,6 +184,7 @@ async def FetchCommitTestsBatchDynamic(client, user, owner, repo, shas, retries=
         start += batch_size
     return results
 
+
 # -------------------------------
 # Fetch Repo Commits
 # -------------------------------
@@ -190,20 +196,11 @@ async def FetchRepoCommits(client, user, owner, repo):
         variables = {"owner": owner, "repo": repo, "after": cursor, "batchSize": batch_size}
         query_counter[f"{owner}/{repo}"] += 1
 
-        try:
-            data = await RunQuery(client, user, COMMITS_QUERY, variables)
-        except Exception as e:
-            if "TransientError" in str(e):
-                if batch_size == 100:
-                    print(f"⚠️ [{user}] Reducing commit page size to 50 for {owner}/{repo}")
-                    batch_size = repo_batch_size[f"{owner}/{repo}"] = 50
-                    continue
-                elif batch_size > 1:
-                    smaller = max(1, batch_size // 2)
-                    print(f"⚠️ [{user}] Retry with commit page size={smaller} for {owner}/{repo}")
-                    batch_size = smaller
-                    continue
-            raise
+        data = await SafeRunQuery(client, user, COMMITS_QUERY, variables, batch_size)
+        if data is None:
+            print(f"❌ [{user}] Skipped commits page for {owner}/{repo} after 3 retries (batch size=1)")
+            cursor = None if not cursor else cursor  # try moving to next page
+            continue
 
         repo_data = data["data"]["repository"]
         if not repo_data or not repo_data["defaultBranchRef"]:
@@ -252,6 +249,7 @@ async def FetchRepoCommits(client, user, owner, repo):
     print(f"🏁 [{user}] {owner}/{repo}: {commit_counter} commits → {qcount} queries")
     return all_results
 
+
 # -------------------------------
 # Worker per Token
 # -------------------------------
@@ -270,6 +268,7 @@ async def Worker(user, token, repos):
                 print(f"❌ [{user}] Failed {repo_name}: {e}")
         return all_results
 
+
 # -------------------------------
 # Coordinator
 # -------------------------------
@@ -279,6 +278,7 @@ async def ProcessReposAsync(all_repos, user, token):
 
     results = await Worker(user, token, all_repos)
     return pd.DataFrame(results)
+
 
 # -------------------------------
 # File Processing
@@ -292,6 +292,7 @@ def ResolveRepoName(repo_name):
         return "/".join(final_url.split("/")[-2:])
     except Exception:
         return repo_name
+
 
 import concurrent.futures
 from tqdm import tqdm
@@ -322,6 +323,7 @@ def ProcessOneFile(fname, input_dir, out_dir, token_tuple):
         print(f"💾 Wrote commit history for {fname} → {out_path}")
         return fname
     return None
+
 
 def ProcessRepoFiles(input_dir="drive/output/derived/data_export/pr",
                      out_dir="drive/output/scrape/push_pr_commit_data/push_graphql"):
@@ -358,6 +360,7 @@ def ProcessRepoFiles(input_dir="drive/output/derived/data_export/pr",
                 completed += 1
                 pbar.set_postfix_str(f"Exported {exported}/{pbar.total}")
     print("✅ Finished processing.")
+
 
 # -------------------------------
 # Entrypoint
