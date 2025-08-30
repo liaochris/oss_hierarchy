@@ -93,6 +93,7 @@ async def RunQuery(client, user, query, variables, retries=3, delay_seconds=3):
                 raise Exception(f"TransientError: GraphQL Error: {data['errors']}")
 
             if "data" not in data or data["data"] is None:
+                print(data)
                 raise Exception("TransientError: Missing data block in GraphQL response")
 
             return data
