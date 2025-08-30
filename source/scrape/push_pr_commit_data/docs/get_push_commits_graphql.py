@@ -77,7 +77,7 @@ async def RunQuery(client, user, query, variables, retries=3, delay_seconds=3):
             except ValueError:
                 raise Exception("TransientError: Empty JSON response")
 
-            if resp.status_code == 403 and "rate limit" in resp.text.lower():
+            if (resp.status_code == 403 and "rate limit" in resp.text.lower()) or ("errors" in data and not any(err.get("type") == "RATE_LIMITED" for err in data["errors"])):
                 reset = int(resp.headers.get("X-RateLimit-Reset", time.time() + 60))
                 sleep_for = max(0, reset - int(time.time())) + 5
                 print(f"⏳ [{user}] Rate limit hit, sleeping {sleep_for}s...")
@@ -90,9 +90,6 @@ async def RunQuery(client, user, query, variables, retries=3, delay_seconds=3):
 
             if resp.status_code != 200:
                 raise Exception(f"HTTP {resp.status_code}: {resp.text[:200]}")
-
-            if "errors" in data and not any(err.get("type") == "RATE_LIMITED" for err in data["errors"]):
-                raise Exception(f"TransientError: GraphQL Error: {data['errors']}")
 
             if "data" not in data or data["data"] is None:
                 raise Exception(f"TransientError: Missing data block in GraphQL response {data}")
