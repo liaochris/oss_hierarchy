@@ -67,7 +67,7 @@ query($owner: String!, $repo: String!, $after: String, $batchSize: Int!) {
 }
 """
 
-async def RunQuery(client, user, query, variables, retries=3, delay_seconds=3):
+async def RunQuery(client, user, query, variables, retries=3, delay_seconds=5):
     attempt = 0
     while attempt < retries:
         try:
