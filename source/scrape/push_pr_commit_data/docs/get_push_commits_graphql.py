@@ -92,6 +92,9 @@ async def RunQuery(client, user, query, variables, retries=3, delay_seconds=3):
             if resp.status_code != 200:
                 raise Exception(f"HTTP {resp.status_code}: {resp.text[:200]}")
 
+            if "errors" in data and not any(err.get("type") == "RATE_LIMITED" for err in data["errors"]):
+                raise Exception(f"TransientError: GraphQL Error: {data['errors']}")
+
             if "data" not in data or data["data"] is None:
                 raise Exception(f"TransientError: Missing data block in GraphQL response {data}")
 
