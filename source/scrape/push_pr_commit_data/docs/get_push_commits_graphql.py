@@ -67,7 +67,7 @@ query($owner: String!, $repo: String!, $after: String, $batchSize: Int!) {
 }
 """
 
-async def RunQuery(client, user, query, variables, retries=3, delay_seconds=5):
+async def RunQuery(client, user, query, variables, retries=3, delay_seconds=5, owner_repo=None, batch_size=None):
     attempt = 0
     while attempt < retries:
         try:
@@ -82,11 +82,11 @@ async def RunQuery(client, user, query, variables, retries=3, delay_seconds=5):
                ("errors" in data and any(err.get("type") == "RATE_LIMITED" for err in data["errors"])):
                 reset = int(resp.headers.get("X-RateLimit-Reset", time.time() + 60))
                 sleep_for = max(0, reset - int(time.time())) + 5
-                print(f"⏳ [{user}] Rate limit hit, sleeping {sleep_for}s...")
+                print(f"⏳ [{user}] {owner_repo or ''}: Rate limit hit, sleeping {sleep_for}s...")
                 await asyncio.sleep(sleep_for)
-                continue  # do not count against retries
+                continue
 
-            # --- Gateway errors (bubble up, SafeRunQuery will handle) ---
+            # --- Gateway errors (bubble up, SafeRunQuery handles retries) ---
             if resp.status_code in (502, 504):
                 raise Exception(f"GatewayError: {resp.status_code} Gateway error")
 
@@ -109,23 +109,25 @@ async def RunQuery(client, user, query, variables, retries=3, delay_seconds=5):
         except Exception as error:
             msg = str(error)
             if "FatalError" in msg or "NOT_FOUND" in msg:
-                print(f"❌ [{user}] Fatal error, not retrying: {msg}")
+                print(f"❌ [{user}] {owner_repo or ''}: Fatal error, not retrying: {msg}")
                 raise
 
             attempt += 1
             if attempt < retries:
-                print(f"⚠️ [{user}] {msg}, retrying in {delay_seconds}s... (attempt {attempt}/{retries})")
+                print(f"⚠️ [{user}] {owner_repo or ''}: {msg}, retrying in {delay_seconds}s... "
+                      f"(attempt {attempt}/{retries}, batch={batch_size})")
                 await asyncio.sleep(delay_seconds)
             else:
-                print(f"❌ [{user}] Failed after {retries} attempts: {msg}")
+                print(f"❌ [{user}] {owner_repo or ''}: Failed after {retries} attempts "
+                      f"(batch={batch_size}): {msg}")
                 raise
-
 async def SafeRunQuery(client, user, query, variables, batch_size, retries=3, owner_repo=None, is_alias=False):
     gateway_retries = 2  # fewer retries at batch_size=1
 
     for attempt in range(retries):
         try:
-            return await RunQuery(client, user, query, variables)
+            return await RunQuery(client, user, query, variables,
+                                  owner_repo=owner_repo, batch_size=batch_size)
         except Exception as e:
             msg = str(e)
 
@@ -152,7 +154,7 @@ async def SafeRunQuery(client, user, query, variables, batch_size, retries=3, ow
             # --- Missing data block with batch_size=1 → incremental sleep ---
             if batch_size == 1 and "Missing data block" in msg and attempt < retries - 1:
                 sleep_for = 2 * (attempt + 1)
-                print(f"⚠️ [{user}] {owner_repo}: Missing data block, retry {attempt+1}/{retries}, sleeping {sleep_for}s...")
+                print(f"⚠️ [{user}] {owner_repo}: Missing data block at batch=1, retry {attempt+1}/{retries}, sleeping {sleep_for}s...")
                 await asyncio.sleep(sleep_for)
                 continue
 
@@ -160,17 +162,19 @@ async def SafeRunQuery(client, user, query, variables, batch_size, retries=3, ow
             if "FatalError" in msg or "NOT_FOUND" in msg:
                 raise
 
-            # --- Other transient errors → normal retry cycle ---
+            # --- Other transient errors ---
             if attempt < retries - 1:
                 sleep_for = 3
-                print(f"⚠️ [{user}] {owner_repo}: {msg}, retrying in {sleep_for}s... (attempt {attempt+1}/{retries})")
+                print(f"⚠️ [{user}] {owner_repo}: {msg}, retrying in {sleep_for}s... "
+                      f"(attempt {attempt+1}/{retries}, batch={batch_size})")
                 await asyncio.sleep(sleep_for)
                 continue
 
-            print(f"❌ [{user}] {owner_repo}: Failed after {retries} attempts: {msg}")
+            print(f"❌ [{user}] {owner_repo}: Failed after {retries} attempts (batch={batch_size}): {msg}")
             return None
 
     return None
+
 
 # -------------------------------
 # Commit Tests Query
