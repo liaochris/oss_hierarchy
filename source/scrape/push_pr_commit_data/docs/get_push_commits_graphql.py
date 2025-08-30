@@ -122,6 +122,8 @@ async def RunQuery(client, user, query, variables, retries=3, delay_seconds=5, o
                 print(f"❌ [{user}] {owner_repo or ''}: Failed after {retries} attempts "
                       f"(batch={batch_size}): {msg}")
                 raise
+
+
 async def SafeRunQuery(client, user, query, variables, batch_size, retries=3, owner_repo=None, is_alias=False):
     gateway_retries = 2  # fewer retries at batch_size=1
 
@@ -139,12 +141,8 @@ async def SafeRunQuery(client, user, query, variables, batch_size, retries=3, ow
 
             # --- Gateway errors ---
             if "GatewayError" in msg:
-                if batch_size > 1 and owner_repo:
+                if batch_size > 1:
                     new_batch = max(1, batch_size // 2)
-                    if is_alias:
-                        repo_alias_batch_size[owner_repo] = new_batch
-                    else:
-                        repo_batch_size[owner_repo] = new_batch
                     print(f"⚠️ [{user}] {owner_repo}: Gateway error at batch={batch_size}, shrinking → {new_batch}")
                     return await SafeRunQuery(client, user, query, variables, new_batch, retries, owner_repo, is_alias)
 
@@ -175,6 +173,7 @@ async def SafeRunQuery(client, user, query, variables, batch_size, retries=3, ow
             return None
 
     return None
+
 
 
 # -------------------------------
