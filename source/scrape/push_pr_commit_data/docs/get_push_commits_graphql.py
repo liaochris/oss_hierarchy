@@ -77,7 +77,8 @@ async def RunQuery(client, user, query, variables, retries=3, delay_seconds=3):
             except ValueError:
                 raise Exception("TransientError: Empty JSON response")
 
-            if (resp.status_code == 403 and "rate limit" in resp.text.lower()) or ("errors" in data and not any(err.get("type") == "RATE_LIMITED" for err in data["errors"])):
+            if (resp.status_code == 403 and "rate limit" in resp.text.lower()) or 
+                ("errors" in data and any(err.get("type") == "RATE_LIMITED" for err in data["errors"])):
                 reset = int(resp.headers.get("X-RateLimit-Reset", time.time() + 60))
                 sleep_for = max(0, reset - int(time.time())) + 5
                 print(f"⏳ [{user}] Rate limit hit, sleeping {sleep_for}s...")
