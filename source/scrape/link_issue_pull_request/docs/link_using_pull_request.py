@@ -75,7 +75,7 @@ def Main():
 
     indir_repo_match = Path("output/scrape/extract_github_data")
     pr_dir = Path('drive/output/derived/data_export/pr')
-    linked_outdir = Path('drive/output/scrape/link_pull_request_to_issue')
+    linked_outdir = Path('drive/output/scrape/link_issue_pull_request/linked_pull_request_to_issue')
     linked_outdir.mkdir(parents=True, exist_ok=True)
     repo_df = pd.read_csv(indir_repo_match / "repo_id_history_filtered.csv")
 

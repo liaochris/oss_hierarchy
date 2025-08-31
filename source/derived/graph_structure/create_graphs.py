@@ -1,3 +1,4 @@
+import random
 from filelock import FileLock
 import pandas as pd
 import os
@@ -7,7 +8,6 @@ import numpy as np
 import itertools
 import concurrent.futures
 from datetime import datetime
-from source.derived.contributor_stats.calculate_contributions import *
 from source.lib.helpers import *
 
 #####################################
@@ -15,7 +15,6 @@ from source.lib.helpers import *
 #####################################
 
 def SafeReadParquet(path):
-    """Read parquet if exists, else return empty DataFrame."""
     if not path.exists():
         return pd.DataFrame()
     return pd.read_parquet(path).dropna(subset=['created_at'])
@@ -31,7 +30,7 @@ def ProcessOtherComments(df_pr, df_issue):
         if not df_pr.empty else pd.DataFrame()
     )
     issue_comments = (
-        df_issue[df_issue['issue_action'] != "closed"].rename(columns={'issue_number': 'id_number'})
+        df_issue.rename(columns={'issue_number': 'id_number'})
         if not df_issue.empty else pd.DataFrame()
     )
     return pr_comments, issue_comments
@@ -59,8 +58,11 @@ def ConcatenateAndFilterDiscussions(pr_comments, issue_comments, review_comments
         all_discussions['issue_action'] = np.nan
     return all_discussions[sel_cols]
 
-def BuildInteractionGraph(df, repo_name):
-    """Build graph and interaction DataFrame including sender/receiver/text."""
+### AMEND SUCH THAT IF IT"S PR REVIEW, DIRECTED TOWARDS PR OPENER
+### IF IT"S PR, DIRECTED TOWARDS PR OPENER IF IT"S THE FIRST COMMENT IN THE ID BY CREATED_AT
+### 
+
+def BuildInteractionGraph(df, repo_name, time_periods):
     df = df.reset_index(drop=True)
     df = df.sort_values(['id_number', 'created_at']).copy()
 
@@ -71,151 +73,191 @@ def BuildInteractionGraph(df, repo_name):
         return candidate
 
     df['prev_diff'] = df.groupby('id_number')['actor_id'].transform(compute_prev_diff)
+
+    opener_map = df.groupby('id_number')['opener_id'].first().to_dict()
+
+    def assign_first_responder(row):
+        if pd.isna(row['prev_diff']):
+            return opener_map.get(row['id_number'])
+        return row['prev_diff']
+
+    df['prev_diff'] = df.apply(assign_first_responder, axis=1)
+
+    responded_threads = (
+        df.groupby('id_number')['actor_id']
+        .nunique()
+        .loc[lambda x: x > 1]
+        .index
+    )
+
     df_edges = df[
-        (df['issue_action'] != 'opened') &
         (df['issue_action'] != 'reopened') &
-        (df['prev_diff'].notnull())
+        (df['prev_diff'].notnull()) &
+        (df['actor_id'] != df['prev_diff'])
     ].copy()
 
-    # Interaction DataFrame
+    opener_rows = (
+        df.loc[df.groupby('id_number').head(1).index]
+        .loc[lambda x: x['id_number'].isin(responded_threads)]
+        .copy()
+    )
+    opener_rows['prev_diff'] = None  
+
+    df_edges = pd.concat([df_edges, opener_rows], ignore_index=True)
+
     interaction_df = df_edges.assign(
         repo_name=repo_name,
         sender=df_edges['actor_id'],
         receiver=df_edges['prev_diff']
-    )[["repo_name", "id_number", "created_at", "origin", "sender", "receiver", "text"]]
-    interaction_df["id_number"] = interaction_df["id_number"].apply(lambda x: str(int(x)) if isinstance(x, float) and x.is_integer() else str(x))
+    )[["repo_name", "id_number", "created_at", "origin", "sender", "receiver", "text", "opener_id", "time_period"]]
 
-    # Graph
-    G = nx.Graph()
-    edge_dict, node_origins = {}, {}
-    for _, row in df_edges.iterrows():
-        u, v, origin = row['actor_id'], row['prev_diff'], row['origin']
-        node_origins.setdefault(u, set()).add(origin)
-        node_origins.setdefault(v, set()).add(origin)
-        edge_key = tuple(sorted([u, v]))
-        if edge_key not in edge_dict:
-            edge_dict[edge_key] = {'weight': 0, 'origin_counts': {}}
-        edge_dict[edge_key]['weight'] += 1
-        edge_dict[edge_key]['origin_counts'][origin] = edge_dict[edge_key]['origin_counts'].get(origin, 0) + 1
+    interaction_df["id_number"] = interaction_df["id_number"].apply(
+        lambda x: str(int(x)) if isinstance(x, float) and x.is_integer() else str(x)
+    )
 
-    for (u, v), attr in edge_dict.items():
-        G.add_edge(u, v, weight=attr['weight'], origin_counts=attr['origin_counts'])
-    for node, origins in node_origins.items():
-        G.add_node(node, origins=" | ".join(list(origins)))
+    # --- Build per-time_period graphs ---
+    graphs = {}
+    for period in time_periods:
+        sub_edges = df_edges[df_edges['time_period'] == period]
+        Gp = nx.Graph()
+        edge_dict, node_origins = {}, {}
+        for _, row in sub_edges.iterrows():
+            u, v, origin = row['actor_id'], row['prev_diff'], row['origin']
+            if v is None:
+                continue
+            node_origins.setdefault(u, set()).add(origin)
+            node_origins.setdefault(v, set()).add(origin)
+            edge_key = tuple(sorted([u, v]))
+            if edge_key not in edge_dict:
+                edge_dict[edge_key] = {'weight': 0, 'origin_counts': {}}
+            edge_dict[edge_key]['weight'] += 1
+            edge_dict[edge_key]['origin_counts'][origin] = (
+                edge_dict[edge_key]['origin_counts'].get(origin, 0) + 1
+            )
 
-    return {"full": G}, interaction_df
+        for (u, v), attr in edge_dict.items():
+            Gp.add_edge(u, v, weight=attr['weight'], origin_counts=attr['origin_counts'])
+        for node, origins in node_origins.items():
+            Gp.add_node(node, origins=" | ".join(list(origins)))
+
+        graphs[period] = Gp
+
+    return graphs, interaction_df
 
 
-def ExportData(repo, time_period_date, graphs, interaction_df, outdir):
-    yearmonth = f"{time_period_date.year}{str(time_period_date.month).zfill(2)}"
-    output_dir = outdir / f"graphs/{yearmonth}"
-    os.makedirs(output_dir, exist_ok=True)
-    output_base = output_dir / repo.replace('/', '_')
+def ExportData(repo, graphs, interaction_df, outdir):
+    log_entry = {"repo": repo, "per_period_exported": {}}
 
-    log_entry = {"time_period_date": str(time_period_date), "repo": repo, "full_exported": None}
-    if graphs["full"].number_of_nodes() != 0:
-        nx.write_gexf(graphs["full"], f"{output_base}.gexf")
-        log_entry["full_exported"] = str(output_base) + ".gexf"
+    # Export per-period graphs
+    for period, G in graphs.items():
+        if G.number_of_nodes() == 0:
+            continue
 
+        yearmonth = f"{period.year}{str(period.month).zfill(2)}"
+        output_dir = outdir / "graphs" / yearmonth
+        os.makedirs(output_dir, exist_ok=True)
+        output_base = output_dir / repo.replace('/', '_')
+
+        nx.write_gexf(G, f"{output_base}.gexf")
+        log_entry["per_period_exported"][period] = str(output_base) + ".gexf"
+
+    # Export interaction_df (still one parquet per repo)
     os.makedirs(outdir / "interactions", exist_ok=True)
     parquet_path = outdir / "interactions" / f"{repo.replace('/', '_')}.parquet"
-    lock_path = str(parquet_path) + ".lock"
-
-    with FileLock(lock_path):  # ensures only one process touches the parquet at a time
-        if parquet_path.exists():
-            existing_df = pd.read_parquet(parquet_path)
-            combined_df = pd.concat([existing_df, interaction_df], ignore_index=True)
-            combined_df = combined_df.drop_duplicates(subset = ["repo_name","id_number","created_at","sender","receiver"])
-        else:
-            combined_df = interaction_df
-
-        combined_df.to_parquet(parquet_path, index=False)
+    if interaction_df.shape[0]>0:
+        interaction_df.to_parquet(parquet_path, index=False)
 
     return log_entry
-
 
 #####################################
 # ----------- MAIN FLOW ------------
 #####################################
+def CreateGraph(repo, time_periods, time_period, exported_graphs_log, outdir, indir_data):
+    parquet_path = outdir / "interactions" / f"{repo.replace('/', '_')}.parquet"
 
-def CreateGraph(repo, time_period_date, time_period, exported_graphs_log, outdir, indir_data):
-    df_issue = SafeReadParquet(indir_data / 'issue' / f"{repo.replace("/", "_")}.parquet")
-    df_pr = SafeReadParquet(indir_data / 'pr' / f"{repo.replace("/", "_")}.parquet")
-
-    if df_issue.empty and df_pr.empty:
+    # Skip if interaction_df already exists
+    if parquet_path.exists():
+        print(f"Skipping {repo} (interactions already exist)")
         return exported_graphs_log
 
-    df_issue, df_pr = ImputeTimeEmptyRobust(df_issue, time_period), ImputeTimeEmptyRobust(df_pr, time_period)
+    try:
+        df_issue = SafeReadParquet(indir_data / 'issue' / f"{repo.replace('/', '_')}.parquet")
+        df_pr = SafeReadParquet(indir_data / 'pr' / f"{repo.replace('/', '_')}.parquet")
 
-    pr_index = df_pr[['repo_name', 'pr_number']].drop_duplicates().set_index(['repo_name','pr_number']).index
-    df_pr = pd.concat([df_issue.loc[df_issue.set_index(['repo_name','issue_number']).index.isin(pr_index)], df_pr])
-    df_issue = df_issue.loc[~df_issue.set_index(['repo_name','issue_number']).index.isin(pr_index)]
+        if df_issue.empty and df_pr.empty:
+            print(f"Skipping {repo} (no data)")
+            return exported_graphs_log
 
-    if not df_issue.empty:
-        df_issue = df_issue[df_issue['time_period'] == time_period_date]
-    if not df_pr.empty:
-        df_pr = df_pr[df_pr['time_period'] == time_period_date]
+        # Impute for all periods in time_periods
+        df_issue, df_pr = ImputeTimeEmptyRobust(df_issue, time_period), ImputeTimeEmptyRobust(df_pr, time_period)
 
-    # --- Coalesce text column based on type ---
-    mapping = {
-        "PullRequestReviewCommentEvent": "pr_review_comment_body",
-        "PullRequestReviewEvent": "pr_review_body",
-        "PullRequestEvent": "pr_body",
-        "IssueEvent": "issue_body",
-        "IssueCommentEvent": "issue_comment_body"
-    }
+        if not df_pr.empty and not df_issue.empty:
+            pr_index = df_pr[['repo_name', 'pr_number']].drop_duplicates().set_index(['repo_name','pr_number']).index
+            df_pr = pd.concat([df_issue.loc[df_issue.set_index(['repo_name','issue_number']).index.isin(pr_index)], df_pr])
+            df_issue = df_issue.loc[~df_issue.set_index(['repo_name','issue_number']).index.isin(pr_index)]
 
-    def coalesce_text(df):
-        if df.empty:
+        mapping = {
+            "PullRequestReviewCommentEvent": "pr_review_comment_body",
+            "PullRequestReviewEvent": "pr_review_body",
+            "PullRequestEvent": "pr_body",
+            "IssueEvent": "issue_body",
+            "IssueCommentEvent": "issue_comment_body"
+        }
+
+        def coalesce_text(df):
+            if df.empty:
+                return df
+            df = df.copy()
+            for event_type, col in mapping.items():
+                if col in df.columns:
+                    mask = df["type"] == event_type
+                    df.loc[mask, "text"] = df.loc[mask, col]
             return df
-        df = df.copy()
-        for event_type, col in mapping.items():
-            if col in df.columns:
-                mask = df["type"] == event_type
-                df.loc[mask, "text"] = df.loc[mask, col]
-        return df
 
-    # fill in missing PR text
-    df_pr['pr_body'] = df_pr['pr_body'].replace("", np.nan)
-    df_pr['pr_body'] = df_pr.groupby('pr_number')['pr_body'].transform(lambda x: x.ffill().bfill())
-    indir_linked = Path('drive/output/scrape/link_issue_pull_request/link_pull_request_to_issue')
-    df_pr_link_to_issue = pd.read_parquet(indir_linked / f"{repo.replace("/", "_")}.parquet")
-    df_pr = df_pr.merge(
-        df_pr_link_to_issue[['pr_number', 'pull_request_text']], 
-        on='pr_number', how='left'
-    )
-    df_pr['pr_body'] = df_pr['pr_body'].fillna(df_pr['pull_request_text'])
+        if not df_pr.empty:
+            df_pr['pr_body'] = df_pr['pr_body'].replace("", np.nan)
+            df_pr['pr_body'] = df_pr.groupby('pr_number')['pr_body'].transform(lambda x: x.ffill().bfill())
+            indir_linked = Path('drive/output/scrape/link_issue_pull_request/linked_pull_request_to_issue')
+            df_pr_link_to_issue = pd.read_parquet(indir_linked / f"{repo.replace('/', '_')}.parquet")
+            df_pr = df_pr.merge(df_pr_link_to_issue[['pr_number', 'pull_request_text']], on='pr_number', how='left')
+            df_pr['pr_body'] = df_pr['pr_body'].fillna(df_pr['pull_request_text'])
 
-    df_issue = coalesce_text(df_issue)
-    df_pr = coalesce_text(df_pr)
-    
-    # -----------------------------
-    sel_cols = ['created_at','actor_id','id_number','type','issue_action','time_period','origin','text']
-    pr_comments, issue_comments = ProcessOtherComments(df_pr, df_issue)
-    review_comments = ProcessReviewComments(df_pr)
+        df_issue = coalesce_text(df_issue).rename(columns={'issue_user_id': 'opener_id'})
+        df_pr = coalesce_text(df_pr)
+        df_pr_author = df_pr.query('type == "PullRequestEvent" & pr_action == "opened"')[['pr_number','actor_id']] \
+            .rename(columns={'actor_id': 'opener_id'})
+        df_pr['pr_number'] = df_pr['pr_number'].fillna(df_pr['issue_number'])
+        df_pr = pd.merge(df_pr, df_pr_author, on=['pr_number'])
 
-    if pr_comments.empty and issue_comments.empty and review_comments.empty:
-        exported_graphs_log.append({"time_period_date": str(time_period_date), "repo": repo, "full_exported": None})
+        sel_cols = ['created_at','actor_id','id_number','type','issue_action','time_period','origin','text','opener_id']
+        pr_comments, issue_comments = ProcessOtherComments(df_pr, df_issue)
+        review_comments = ProcessReviewComments(df_pr)
+
+        if pr_comments.empty and issue_comments.empty and review_comments.empty:
+            exported_graphs_log.append({"repo": repo, "per_period_exported": None})
+            print(f"Completed {repo} (no comments)")
+            return exported_graphs_log
+
+        discussions = ConcatenateAndFilterDiscussions(
+            pr_comments.assign(origin='pr'),
+            issue_comments.assign(origin='issue'),
+            review_comments.assign(origin='pr review'),
+            sel_cols,
+        )
+
+        graphs, interaction_df = BuildInteractionGraph(discussions, repo, time_periods)
+        log_entry = ExportData(repo, graphs, interaction_df, outdir)
+        exported_graphs_log.append(log_entry)
+
+        print(f"Succeeded {repo}")
         return exported_graphs_log
 
-    discussions = ConcatenateAndFilterDiscussions(
-        pr_comments.assign(origin='pr'), 
-        issue_comments.assign(origin='issue'), 
-        review_comments.assign(origin='pr review'), 
-        sel_cols, 
-    )
+    except Exception as e:
+        print(f"Failed {repo}: {e}")
+        return exported_graphs_log
 
-    graph, interaction_df = BuildInteractionGraph(discussions, repo)
-    log_entry = ExportData(repo, time_period_date, graph, interaction_df, outdir)
-    exported_graphs_log.append(log_entry)
-
-    return exported_graphs_log
-
-
-def worker(args, time_period, outdir, indir_data):
-    time_period_date, repo = args
-    return CreateGraph(repo, time_period_date, time_period, [], outdir, indir_data)
-
+def worker(repo, time_periods, time_period, outdir, indir_data):
+    return CreateGraph(repo, time_periods, time_period, [], outdir, indir_data)
 
 def Main():
     indir_data = Path('drive/output/derived/data_export')
@@ -232,19 +274,16 @@ def Main():
         if f.is_file() and "_" in f.stem
     })
     time_periods = pd.date_range("2015-01-01", "2024-12-31", freq="6MS").to_list()
-    tasks = list(itertools.product(time_periods, repo_list))
 
+    random.shuffle(repo_list) 
     all_logs = []
     with concurrent.futures.ProcessPoolExecutor(max_workers=12) as executor:
-        futures = [executor.submit(worker, task, time_period, outdir, indir_data) for task in tasks]
+        futures = [executor.submit(worker, repo, time_periods, time_period,  outdir, indir_data) for repo in repo_list]
         for future in concurrent.futures.as_completed(futures):
             logs = future.result()
             all_logs.extend(logs)
 
-    # Export logs
     pd.DataFrame(all_logs).to_csv(logdir / "exported_graphs_log.csv", index=False)
 
 if __name__ == '__main__':
     Main()
-
-
