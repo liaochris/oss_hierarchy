@@ -76,7 +76,8 @@ def Main():
                 "pr_review_comment_body", "pr_review_comment_position",
                 "pr_review_comment_original_position",
                 "pr_review_comment_original_commit_id", "pr_review_comment_commit_id",
-                "pr_review_comment_path",
+                "pr_review_comment_path", 'pr_assignee', 'pr_assignees',
+                'pr_requested_reviewers'
             ],
             "casts": {
                 "repo_id": pl.Int64,
@@ -99,6 +100,7 @@ def Main():
                 "type", "created_at", "repo_id", "repo_name", "actor_id", "actor_login",
                 "issue_number", "issue_body", "issue_title", "issue_action", "issue_state",
                 "issue_comment_id", "issue_user_id", "issue_comment_body",
+                'latest_issue_assignees',
                 "latest_issue_assignee", "latest_issue_labels", "actor_type",
             ],
             "casts": {
@@ -153,7 +155,7 @@ def Main():
     ]
 
     for cfg in categories:
-        if cfg['name'] not in ["pr", "issue"]:
+        if cfg['name'] not in ["issue","pr"]:
             continue
         out_dir = outdir_root / cfg["name"]
         BuildByRepo(
