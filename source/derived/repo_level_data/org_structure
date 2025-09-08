@@ -1,0 +1,428 @@
+from source.lib.helpers import ImputeTimePeriod
+from pathlib import Path
+import numpy as np
+import pandas as pd
+time_period = 6
+
+INDIR = Path('drive/output/derived/repo_level_data/repo_actions')
+#INDIR_PR_DETAILS = Path('drive/output/scrape/push_pr_commit_data/pull_request_graphql')
+#INDIR_SPECIAL_FILES = Path('drive/output/scrape/push_pr_commit_data/special_files_graphql')
+INDIR_GRAPH = Path('drive/output/derived/graph_structure/interactions')
+
+df_all = pd.read_parquet(INDIR / 'dotnet_roslyn.parquet')
+#df_pr_commits = pd.read_parquet(INDIR_PR_DETAILS / 'dotnet_roslyn.parquet')
+#df_special_files = pd.read_parquet(INDIR_SPECIAL_FILES / 'dotnet_roslyn.parquet')
+df_interactions = pd.read_parquet(INDIR_GRAPH / 'dotnet_roslyn.parquet')
+
+def CreateRecipientResponseDict(df_interactions, df_all):
+    df_interactions['text'] = df_interactions['text'].apply(
+        lambda x: str(x).strip() if not pd.isnull(x) else x)
+    for shift_val, colname, actor_col in [
+        (-1, "response_data", "sender"),
+        (1, "recipient_data", "receiver")
+    ]:
+        if actor_col == "sender":
+            shifted = df_interactions.groupby("discussion_id")[["text", "sender", "created_at"]].shift(shift_val)
+        else:
+            shifted = df_interactions.groupby("discussion_id")[["text", "created_at"]].shift(shift_val)
+            shifted["receiver"] = df_interactions["receiver"]
+
+        df_interactions[colname] = shifted.to_dict(orient="records")
+        mask = shifted.isna().all(axis=1)
+        df_interactions.loc[mask, colname] = pd.NA
+        df_interactions[colname] = df_interactions[colname].apply(
+            lambda d: {k: v for k, v in d.items() if pd.notna(v)} if isinstance(d, dict) else d
+        )
+    df_interactions = df_interactions.rename(columns={"sender": "actor_id"}).drop(columns=["receiver","origin","time_period","opener_id","text"])
+    df_interactions['actor_id'] = pd.to_numeric(df_interactions['actor_id'], errors = 'coerce')
+    df_all['actor_id'] = pd.to_numeric(df_all['actor_id'], errors = 'coerce')
+    df_all = pd.merge(df_all, df_interactions[['actor_id','action_id','response_data','recipient_data']], how = 'left')
+    return df_all
+
+### IS a drop in 2024 there for everyone??
+def IndividualActivityShares(df, actor_col='actor_id', time_col='time_period', type_col='type_broad'):
+    actor_counts = df.groupby([time_col, actor_col, type_col]).size().rename('count')
+    type_totals = df.groupby([time_col, type_col]).size().rename('total_count')
+    return (
+        actor_counts
+        .reset_index()
+        .merge(type_totals.reset_index(), on=[time_col, type_col])
+        .assign(share=lambda d: d['count'] / d['total_count'])
+    )
+
+def CalculateProjectHHI(df_all):
+    df_all_not_reopened = df_all[~df_all['type_broad'].str.endswith('reopened')]
+    df_indiv_activity_share = IndividualActivityShares(df_all_not_reopened)
+
+    df_all_comments = df_all[df_all['type_broad'].str.endswith('comment')].assign()
+    df_all_comments['type_comments'] = 'discussion comment'
+    df_indiv_activity_share = pd.concat([
+        df_indiv_activity_share,
+        IndividualActivityShares(df_all_comments, type_col = 'type_comments').rename(
+            columns={'type_comments':'type_broad'}
+        )
+    ])
+    df_indiv_activity_share['share_sq'] = df_indiv_activity_share['share']**2
+    df_project_hhi = df_indiv_activity_share.groupby(['time_period','type_broad'])['share_sq'].sum()
+    return (
+        df_project_hhi.reset_index(name = 'hhi_project')
+        .pivot(index="time_period", columns="type_broad", values="hhi_project")
+        .rename(columns=lambda c: f"proj_hhi_{c.replace(' ','_')}")
+        .reset_index()
+    )
+
+
+def IndividualProblemActivityShares(df, actor_col='actor_id', problem_col='thread_number', project_col='repo_name', type_col='type_broad', time_col = 'time_period'):
+    actor_counts = df.groupby([project_col, problem_col, time_col, actor_col, type_col]).size().rename('count')
+    type_totals = df.groupby([project_col, problem_col, time_col, type_col]).size().rename('total_count')
+    return (
+        actor_counts
+        .reset_index()
+        .merge(type_totals.reset_index(), on=[project_col, problem_col, type_col, time_col])
+        .assign(share=lambda d: d['count'] / d['total_count'])
+    )
+
+def CalculateProjectProblemHHI(df_all):
+    df_all_disc = df_all[(df_all['type_broad'].str.endswith('comment')) |
+        (df_all['type_broad'].str.endswith('review'))]
+    df_indiv_prob_activity_share = IndividualProblemActivityShares(df_all_disc)
+    df_all_comments = df_all[df_all['type_broad'].str.endswith('comment')].assign()
+    df_all_comments['type_comments'] = 'discussion comment'
+
+    df_indiv_prob_activity_share = pd.concat([
+        df_indiv_prob_activity_share,
+        IndividualProblemActivityShares(df_all_comments, type_col='type_comments')
+    ])
+    df_project_problem_hhi = (
+        df_indiv_prob_activity_share
+        .assign(share_sq=lambda d: d['share']**2)
+        .groupby(['repo_name','time_period','thread_number','type_broad'], as_index = False)
+        .agg(problem_hhi=('share_sq','sum'), total_count=('total_count','first'))
+        .groupby(['repo_name','time_period','type_broad'])
+        .apply(lambda g: np.average(g['problem_hhi'], weights=g['total_count']))
+        .reset_index(name='hhi_project_problem')
+    )
+    return (
+        df_project_problem_hhi
+        .pivot(index="time_period", columns="type_broad", values="hhi_project_problem")
+        .rename(columns=lambda c: f"proj_prob_hhi_{c.replace(' ','_')}")
+        .reset_index()
+    )
+
+
+def ActorTypeMix(df):
+    actor_types = (
+        df.groupby(['repo_name', 'time_period', 'actor_id'])['type_issue_pr']
+        .unique()
+        .apply(lambda x: 'issue_only' if set(x) == {'issue'}
+               else 'pr_only' if set(x) == {'pull request'}
+               else 'both')
+    )
+
+    shares = (
+        actor_types.reset_index(name='category')
+        .groupby(['repo_name', 'time_period', 'category'])
+        .size()
+        .groupby(level=[0,1])
+        .apply(lambda g: g / g.sum())
+    )
+
+    return (
+        shares.droplevel([0,1])
+        .reset_index(name='share')
+        .pivot(index="time_period", columns="category", values="share")
+        .rename(columns=lambda c: f"share_{c}")
+        .reset_index()
+    )
+
+def AverageTypeCount(df_all):
+    return (
+        df_all.groupby(['repo_name', 'time_period', 'actor_id'])['type_broad']
+        .nunique()  
+        .groupby(['repo_name', 'time_period'])
+        .mean()   
+        .reset_index(name='avg_unique_types')
+    )
+
+
+def PercentPullsMergedReviewed(df_all):
+    merged = df_all[df_all['type'] == "pull request merged"][
+        ['repo_name','thread_number','time_period']].drop_duplicates()
+    indicators = (
+        df_all[df_all['type'].eq("pull request review approved") | df_all['type_broad'].eq("pull request review")]
+        .assign(has_approved=lambda d: d['type'].eq("pull request review approved"),
+                has_review=lambda d: d['type_broad'].eq("pull request review"))
+        .groupby(['repo_name','thread_number','time_period'])[['has_approved','has_review']]
+        .max()
+        .reset_index()
+    )
+
+    percents = (
+        merged.merge(indicators, on=['repo_name','thread_number','time_period'], how='left')
+        .fillna(False)
+        .groupby('time_period')
+        .agg(n_merged=('thread_number','nunique'),
+            n_with_approved=('has_approved','sum'),
+            n_with_review=('has_review','sum'))
+        .assign(pct_with_approved=lambda d: d['n_with_approved'] / d['n_merged'],
+                pct_with_review=lambda d: d['n_with_review'] / d['n_merged'])
+        .reset_index()
+        .drop(columns=['n_merged','n_with_approved','n_with_review'])
+    )
+    return percents
+
+
+def CalculateAvgPRDiscCounts(df_all):
+    avg_pr_counts = (
+        df_all[df_all['type_broad'].isin(['pull request comment','pull request review comment','pull request review'])]
+        .groupby(['thread_number','time_period','type_broad'])
+        .size()
+        .unstack(fill_value=0)
+        .assign(all_disc=lambda d: d.sum(axis=1))
+        .groupby('time_period')
+        .mean()
+        .reset_index()
+        .rename(columns={
+            'pull request comment': 'avg_pull_request_comment_count',
+            'pull request review comment': 'avg_pull_request_review_comment_count',
+            'pull request review': 'avg_pull_request_review_count',
+            'all_disc': 'avg_all_disc_count'
+        })
+    )
+    return avg_pr_counts
+
+def CalculateMemberStatsPerProblem(df_all):
+    df_problem = df_all.groupby(['thread_number', 'time_period'], as_index=False).agg(
+        avg_members_per_problem=('actor_id', 'nunique')
+    )
+    df_problem['pct_members_multiple'] = (df_problem['avg_members_per_problem']>1).astype(int)
+    return df_problem.groupby(['time_period'], as_index = False).agg({
+        'avg_members_per_problem': 'mean',
+        'pct_members_multiple': 'mean'
+    })
+
+df_all = ImputeTimePeriod(df_all, time_period)
+df_all['type_broad'] = df_all['type'].apply(
+    lambda x: 'pull request review' if x.startswith('pull request review') and 
+    x != 'pull request review comment' else x)
+df_all['type_issue_pr'] = df_all['type'].apply(lambda x: 'issue' if x.startswith('issue')
+    else 'pull request')
+
+df_all = CreateRecipientResponseDict(df_interactions, df_all)
+
+df_problem_member_stats = CalculateMemberStatsPerProblem(df_all)
+
+df_project_hhi = CalculateProjectHHI(df_all)
+df_project_problem_hhi = CalculateProjectProblemHHI(df_all)
+df_issue_pr_split = ActorTypeMix(df_all)
+df_avg_type = AverageTypeCount(df_all)
+df_pr_merge_stats = PercentPullsMergedReviewed(df_all)
+avg_pr_counts = CalculateAvgPRDiscCounts(df_all)
+
+import re
+import time
+import numpy as np
+from bertopic import BERTopic
+from sentence_transformers import SentenceTransformer
+from tqdm import tqdm
+
+def CleanTextColumn(df, text_column="text"):
+    df = df.copy()
+    df[text_column] = df[text_column].fillna("").astype(str)
+
+    def remove_code_urls_newlines_quotes(text):
+        text = re.sub(r"```.*?```", " ", text, flags=re.DOTALL)  # remove code blocks
+        text = re.sub(r"http\S+", " ", text)  # remove URLs
+        text = "\n".join([line for line in text.splitlines() if not line.strip().startswith(">")])
+        text = text.replace("\n", " ").replace("\r", " ")
+        return text.strip()
+
+    df["cleaned_text"] = df[text_column].apply(remove_code_urls_newlines_quotes)
+    return df
+
+
+def ChunkAndEmbed(text, model, chunk_size=512, batch_size=32):
+    """Split long text into chunks and embed them, pooling by token count."""
+    words = text.split()
+    if not words:
+        return None, 0
+
+    chunks = [" ".join(words[i:i+chunk_size]) for i in range(0, len(words), chunk_size)]
+    embeddings = model.encode(
+        chunks,
+        batch_size=batch_size,
+        convert_to_numpy=True,
+        show_progress_bar=False  # handled outside with tqdm
+    )
+    weights = np.array([len(chunk.split()) for chunk in chunks])
+    weights = weights / weights.sum()
+    pooled_embedding = np.average(embeddings, axis=0, weights=weights)
+    return pooled_embedding, len(words)
+
+
+def PoolByThread(df, model, chunk_size=512, batch_size=32):
+    """Embed each text, pool at doc-level, then aggregate at thread-level."""
+    thread_embeddings = {}
+    for thread_id, group in tqdm(df.groupby("thread_number"), desc="Processing threads"):
+        doc_embeddings = []
+        doc_weights = []
+        for text in group["cleaned_text"]:
+            emb, length = ChunkAndEmbed(text, model, chunk_size, batch_size)
+            if emb is not None:
+                doc_embeddings.append(emb)
+                doc_weights.append(length)
+        if doc_embeddings:
+            doc_embeddings = np.vstack(doc_embeddings)
+            doc_weights = np.array(doc_weights) / np.sum(doc_weights)
+            thread_embedding = np.average(doc_embeddings, axis=0, weights=doc_weights)
+            thread_embeddings[thread_id] = thread_embedding
+    return thread_embeddings
+
+
+# --- Clean ---
+start = time.time()
+df_text = df_all.sort_values(['thread_number','actor_id'])[['thread_number','actor_id','text']].dropna()
+df_text_cleaned = CleanTextColumn(df_text, text_column="text")
+end = time.time()
+print("Cleaning time:", end - start)
+"""
+# --- Embeddings ---
+embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+start = time.time()
+thread_embeddings = PoolByThread(df_text_cleaned, embedding_model, chunk_size=512, batch_size=64)
+end = time.time()
+print("Embedding time:", end - start)
+
+# --- BERTopic ---
+thread_ids = list(thread_embeddings.keys())
+X = np.vstack([thread_embeddings[tid] for tid in thread_ids])
+
+topic_model = BERTopic(verbose=True)
+topics, probs = topic_model.fit_transform([str(tid) for tid in thread_ids], X)
+
+df_thread_topics = (
+    df_text_cleaned[["thread_number"]]
+    .drop_duplicates()
+    .assign(topic=[topics[thread_ids.index(tid)] for tid in df_text_cleaned["thread_number"].drop_duplicates()])
+)
+
+print(df_thread_topics.head())
+print("\nTopic overview:")
+print(topic_model.get_topic_info())
+"""
+
+
+
+import numpy as np
+import tensorflow_hub as hub
+from tqdm import tqdm
+
+# Load USE once
+use_model = hub.load("https://tfhub.dev/google/universal-sentence-encoder/4")
+
+def embed_with_use(texts, batch_size=128, show_progress=True):
+    """Embed texts with USE, showing a progress bar if requested."""
+    embeddings = []
+    iterator = range(0, len(texts), batch_size)
+    if show_progress:
+        iterator = tqdm(iterator, total=(len(texts) + batch_size - 1) // batch_size, desc="Encoding with USE")
+    
+    for i in iterator:
+        batch = texts[i:i+batch_size]
+        batch_embeddings = use_model(batch).numpy()
+        embeddings.append(batch_embeddings)
+    return np.vstack(embeddings)
+
+# Example usage
+texts = df_text_cleaned["cleaned_text"].tolist()[:1000]
+start = time.time()
+embeddings = embed_with_use(texts, batch_size=128, show_progress=True)
+end = time.time()
+print("USE embedding time:", end - start)
+
+# --- Run BERTopic ---
+topic_model = BERTopic(verbose=True)
+topics, probs = topic_model.fit_transform(docs, embeddings)
+
+df_text_cleaned["topic"] = topics
+print(df_text_cleaned[["thread_number", "actor_id", "cleaned_text", "topic"]].head())
+
+print("\nTopic overview:")
+print(topic_model.get_topic_info())
+
+
+import pandas as pd
+from collections import Counter
+#from sklearn.feature_extraction.text import TfidfVectorizer
+import re
+
+# Use scikit-learn's built-in English stopwords
+stop_words = TfidfVectorizer(stop_words='english').get_stop_words()
+
+def getTopWordsByLabel(df, label_col, text_col='cleaned_text', top_n=10):
+    results = []
+    for label, group in df.groupby(label_col):
+        words = " ".join(group[text_col].astype(str)).split()
+        # clean words: lowercase, strip punctuation/numbers, remove stopwords
+        words = [re.sub(r'[^a-z]', '', w.lower()) for w in words]
+        words = [w for w in words if w and w not in stop_words]
+        counter = Counter(words)
+        for word, count in counter.most_common(top_n):
+            results.append((label, word, count))
+    return pd.DataFrame(results, columns=[label_col, 'word', 'count'])
+
+# Example usage
+# Assuming DataFrame `t` has columns 'category' and 'cleaned_text'
+result_df = getTopWordsByLabel(t, label_col='label', text_col='cleaned_text')
+
+print(result_df)
+
+
+topic_model = BERTopic(embedding_model="all-MiniLM-L6-v2")
+
+
+# remove standard stop words
+# VARIATION (keep only common words)
+
+
+# 5. Does the text use a template
+# 6. Does the text contain a checklist
+
+# 7. aggregate into problem-level dataste
+# 8. aggregate into repo-time period level dataset
+
+# BELOW I AHVE SOME NOTES ABOUT ADDING COMMIT DATA but I THINK I WILL LEAVE AS IS
+# 3. Add commits to actions, (action_id is commit_sha, commit_date is created_at, 'commit_message_full' is text, type is 'pull request commit'  (see more detalis bwlow)
+## MIGHT NEED T OGENERATE AN ID FOR PR REVIEW THREADS
+## EXCLUDE COMMITS from REBASING (committer_name != committer_login, or some NA stuff)
+# MAYBE PUT SUPPLEMENTARY DATA IN A JSON (changes, etc)
+
+# problem-level dataset
+# type
+# last comment of the issue/PR
+# number of members
+# if PR merged, with approval/with review
+# details about PR ('files_changed', 'additions', 'deletions',)
+
+# aggregated dataset (per time period)
+# aggregate issues opened, PRs opened, 
+# downstream outcomes
+# centrality measures
+# % of commits merged into main that are from PRs vs. direct pushes 
+# if a commit, whether it was about a special file (codeowners, issue/pr template, contributing.md)
+
+
+
+
+# 1. ADD TO DO LIST DOWN THE ROAD (COLLECT WHO MERGED DATA) for df_pr_commits = pd.read_parquet(INDIR_PR_DETAILS / 'dotnet_roslyn.parquet'), and then rerun this scraper. 
+
+df_pr_final_status = (
+    df_pr_commits
+    .sort_values(["pr_number", "pr_createdAt", "tests_passed"], ascending=[True, False, False])
+    .groupby("pr_number", as_index=False)
+    .first()
+)
+df_pr_final_status = df_pr_final_status[['pr_number','repo_name','commit_sha','commit_date',\
+    'commit_message_full','author_login','committer_login','tests_passed','tests_failed','tests_skipped']]
+
+df_special_files[['category','commit_date']].sort_values('commit_date').groupby('category')['commit_date'].first()
