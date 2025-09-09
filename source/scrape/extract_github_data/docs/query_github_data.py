@@ -18,8 +18,8 @@ def CreateDataset(client, dataset_name):
 
 def LoadTableToDataset(client, dataset_name, table_name, indir_github_projects):
     df_github_projects = pd.read_csv(
-        Path(indir_github_projects) / "repo_id_history_filtered.csv", index_col=False
-    )
+        Path(indir_github_projects) / "repo_id_history_latest.csv", index_col=False
+    ).query('repo_name_latest != "ERROR"')
     df_github_projects = df_github_projects[["repo_name"]].drop_duplicates()
 
     github_project_ref = client.dataset(dataset_name).table(table_name)
@@ -185,9 +185,10 @@ def GetPullRequestReviewData(client, project_name, dataset_name, github_data_nam
 						JSON_VALUE(`payload`, '$.pull_request.changed_files') AS `pr_changed_files`,
 						JSON_VALUE(`payload`, '$.pull_request.author_association') AS `pr_author_association`,
 						JSON_VALUE(`payload`, '$.pull_request.assignee') AS `pr_assignee`,
-						JSON_VALUE(`payload`, '$.pull_request.assignees') AS `pr_assignees`,
-						JSON_VALUE(`payload`, '$.pull_request.requested_reviewers') AS `pr_requested_reviewers`,
-						JSON_VALUE(`payload`, '$.pull_request.requested_teams') AS `pr_requested_teams`,
+						JSON_QUERY(`payload`, '$.pull_request.assignees') AS `pr_assignees`,
+						JSON_QUERY(`payload`, '$.pull_request.requested_reviewers') AS `pr_requested_reviewers`,
+						JSON_QUERY(`payload`, '$.pull_request.requested_teams') AS `pr_requested_teams`,
+						JSON_QUERY(`payload`, '$.pull_request.labels') AS `pr_labels`,
 						JSON_VALUE(`payload`, '$.pull_request.ref') AS `pr_ref`,
 						JSON_VALUE(`payload`, '$.pull_request.user.id') AS `pr_user_id`,
 						JSON_VALUE(`payload`, '$.pull_request.user.login') AS `pr_user_login`,
@@ -254,9 +255,10 @@ def GetPullRequestReviewCommentData(
 						JSON_VALUE(`payload`, '$.pull_request.changed_files') AS `pr_changed_files`,
 						JSON_VALUE(`payload`, '$.pull_request.author_association') AS `pr_author_association`,
 						JSON_VALUE(`payload`, '$.pull_request.assignee') AS `pr_assignee`,
-						JSON_VALUE(`payload`, '$.pull_request.assignees') AS `pr_assignees`,
-						JSON_VALUE(`payload`, '$.pull_request.requested_reviewers') AS `pr_requested_reviewers`,
-						JSON_VALUE(`payload`, '$.pull_request.requested_teams') AS `pr_requested_teams`,
+						JSON_QUERY(`payload`, '$.pull_request.assignees') AS `pr_assignees`,
+						JSON_QUERY(`payload`, '$.pull_request.requested_reviewers') AS `pr_requested_reviewers`,
+						JSON_QUERY(`payload`, '$.pull_request.requested_teams') AS `pr_requested_teams`,
+						JSON_QUERY(`payload`, '$.pull_request.labels') AS `pr_labels`,
 						JSON_VALUE(`payload`, '$.pull_request.ref') AS `pr_ref`,
 						JSON_VALUE(`payload`, '$.pull_request.user.id') AS `pr_user_id`,
 						JSON_VALUE(`payload`, '$.pull_request.user.login') AS `pr_user_login`,
@@ -309,20 +311,17 @@ def GetPullRequestData(client, project_name, dataset_name, github_data_name):
 						JSON_VALUE(`payload`, '$.changed_files') AS `pr_changed_files`,
 						JSON_VALUE(`payload`, '$.author_association') AS `pr_author_association`,
 						JSON_VALUE(`payload`, '$.assignee') AS `pr_assignee`,
-						JSON_VALUE(`payload`, '$.assignees') AS `pr_assignees`,
-						JSON_VALUE(`payload`, '$.requested_reviewers') AS `pr_requested_reviewers`,
-						JSON_VALUE(`payload`, '$.requested_teams') AS `pr_requested_teams`,
+						JSON_QUERY(`payload`, '$.pull_request.assignees') AS `pr_assignees`,
+						JSON_QUERY(`payload`, '$.pull_request.requested_reviewers') AS `pr_requested_reviewers`,
+						JSON_QUERY(`payload`, '$.pull_request.requested_teams') AS `pr_requested_teams`,
+						JSON_QUERY(`payload`, '$.pull_request.labels') AS `pr_labels`,
 						JSON_VALUE(`payload`, '$.ref') AS `pr_ref`,
 						JSON_VALUE(`payload`, '$.action') AS `pr_action`,
 						JSON_VALUE(`payload`, '$.pull_request.merged_by.login') AS `pr_merged_by_login`,
 						JSON_VALUE(`payload`, '$.pull_request.merged_by.id') AS `pr_merged_by_id`,
 						JSON_VALUE(`payload`, '$.pull_request.merged_by.type') AS `pr_merged_by_type`,
 						JSON_VALUE(`payload`, '$.pull_request.merged_by.site_admin') AS `pr_merged_by_site_admin`,
-						ARRAY(
-						SELECT
-								JSON_VALUE(ele, '$.name')
-						FROM
-								UNNEST(JSON_QUERY_ARRAY(`payload`, '$.pull_request.labels')) AS `ele`) AS `pr_label`,
+						
 						JSON_VALUE(`payload`, '$.pull_request.patch_url') AS `pr_patch_url`,
 						JSON_VALUE(`payload`, '$.pull_request.commits_url') AS `pr_commits_url`,
 				FROM
@@ -353,9 +352,9 @@ def GetIssueData(client, project_name, dataset_name, github_data_name):
 						org.login AS `org_login`,
 						JSON_VALUE(`payload`, '$.action') AS `issue_action`,
 						JSON_VALUE(`payload`, '$.issue.title') AS `issue_title`,
-						JSON_VALUE(`payload`, '$.issue.labels') AS `issue_labels`,
+						JSON_QUERY(`payload`, '$.issue.labels') AS `issue_labels`,
 						JSON_VALUE(`payload`, '$.issue.assignee') AS `issue_assignee`,
-						JSON_VALUE(`payload`, '$.issue.assignees') AS `issue_assignees`,
+						JSON_QUERY(`payload`, '$.issue.assignees') AS `issue_assignees`,
 						JSON_VALUE(`payload`, '$.issue.comments') AS `issue_comment_count`,
 						JSON_VALUE(`payload`, '$.issue.body') AS `issue_body`,
 						JSON_VALUE(`payload`, '$.issue.reactions') AS `issue_reactions`,
@@ -413,11 +412,11 @@ def GetIssueCommentData(client, project_name, dataset_name, github_data_name):
 						JSON_VALUE(`payload`, '$.comment.user.type') AS `actor_type`,
 						JSON_VALUE(`payload`, '$.comment.user.site_admin') AS `actor_site_admin_status`,
 						JSON_VALUE(`payload`, '$.issue.pull_request') AS `issue_pull_request`,
-						JSON_VALUE(`payload`, '$.issue.labels') AS `latest_issue_labels`,
+						JSON_QUERY(`payload`, '$.issue.labels') AS `latest_issue_labels`,
 						JSON_VALUE(`payload`, '$.issue.locked') AS `latest_issue_locked`,
 						JSON_VALUE(`payload`, '$.issue.state') AS `latest_issue_state`,
 						JSON_VALUE(`payload`, '$.issue.assignee') AS `latest_issue_assignee`,
-						JSON_VALUE(`payload`, '$.issue.assignees') AS `latest_issue_assignees`,
+						JSON_QUERY(`payload`, '$.issue.assignees') AS `latest_issue_assignees`,
 						JSON_VALUE(`payload`, '$.issue.comments') AS `latest_issue_comments`,
 				FROM
 				  `{project_name}.{dataset_name}.{github_data_name}`
@@ -538,7 +537,6 @@ def GetSubsetData(client, project_name, dataset_name, subset_data_name):
 
             subset_date_query = client.query(subset_date_sql)
             df_subset = subset_date_query.to_dataframe()
-
             SaveData(
                 df_subset.reset_index(),
                 ["index"],
@@ -555,7 +553,7 @@ def Main():
         return
 
     indir_github_projects = "output/scrape/extract_github_data"
-    project_name = "winged-quanta-456615-b4"  # changes whenever I use a new BQ email
+    project_name = "serene-bazaar-470016-h8"  # changes whenever I use a new BQ email
     dataset_name = "source"
     github_projects_name = "github_repositories"
     github_data_name = "github_data"

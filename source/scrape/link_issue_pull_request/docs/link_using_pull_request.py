@@ -27,7 +27,7 @@ def _FetchPullPage(session, repo, pr_number):
     is_rate_limited = ("Please wait a few minutes before you try again" in text) or ("You Are Not Connected" in text)
     return url, resp, text, is_not_found, is_rate_limited
 
-def GrabPullRequestData(repo_name, pr_number, repo_name_latest=None):
+def GrabPullRequestData(repo_name, pr_number):
     try:
         product_links = SoupStrainer('a')
         product_title = SoupStrainer('bdi')
@@ -38,12 +38,6 @@ def GrabPullRequestData(repo_name, pr_number, repo_name_latest=None):
         if is_rate_limited:
             time.sleep(120)
             url, resp, page_text, is_not_found, is_rate_limited = _FetchPullPage(sesh, repo_name, pr_number)
-
-        if is_not_found and repo_name_latest and repo_name_latest != repo_name:
-            url, resp, page_text, is_not_found, is_rate_limited = _FetchPullPage(sesh, repo_name_latest, pr_number)
-            if is_rate_limited:
-                time.sleep(120)
-                url, resp, page_text, is_not_found, is_rate_limited = _FetchPullPage(sesh, repo_name_latest, pr_number)
 
         soup_all = BeautifulSoup(resp.content, features="html.parser")
         p = soup_all.find("p", string=lambda t: t and "Successfully merging this pull request may close these issues." in t)
@@ -74,7 +68,7 @@ def Main():
     warnings.filterwarnings("ignore")
 
     indir_repo_match = Path("output/scrape/extract_github_data")
-    pr_dir = Path('drive/output/derived/data_export/pr')
+    pr_dir = Path('drive/output/derived/repo_level_data/pr')
     linked_outdir = Path('drive/output/scrape/link_issue_pull_request/linked_pull_request_to_issue')
     linked_outdir.mkdir(parents=True, exist_ok=True)
     repo_df = pd.read_csv(indir_repo_match / "repo_id_history_filtered.csv")
@@ -88,38 +82,28 @@ def Main():
         if df_pr.empty:
             continue
         
-        repo_names = df_pr['repo_name'].dropna().unique().tolist()
-        repo_name_dict = {repo_name: GetLatestRepoName(repo_name, repo_df) for repo_name in repo_names}
-        df_pr['repo_name_latest'] = df_pr['repo_name'].map(repo_name_dict)
-        
-
-        unique_latest = df_pr['repo_name_latest'].dropna().unique()
-        if len(unique_latest) == 0:
-            continue
-        latest_repo = unique_latest[0]
-        safe_repo = latest_repo.replace('/', '_')
+        repo_name = df_pr['repo_name'].dropna().unique().tolist()[0]
+        safe_repo = repo_name.replace('/', '_')
 
         repo_file = linked_outdir / f"{safe_repo}.parquet"
         if repo_file.exists():
             continue
 
-        df_library = df_pr[df_pr['repo_name_latest'] == latest_repo].copy()
+        df_library = df_pr[df_pr['repo_name'] == repo_name].copy()
         if df_library.empty:
             continue
 
         df_library['linked_issue'] = df_library.parallel_apply(
             lambda x: GrabPullRequestData(
                 x['repo_name'],
-                int(x['pr_number']),
-                x['repo_name_latest']
+                int(x['pr_number'])
             ),
             axis=1
         )
         df_library['linked_issue'] = df_library.parallel_apply(
             lambda x: GrabPullRequestData(
                 x['repo_name'],
-                int(x['pr_number']),
-                x['repo_name_latest']
+                int(x['pr_number'])
             ) if isinstance(x['linked_issue'], str) else x['linked_issue'],
             axis=1
         )

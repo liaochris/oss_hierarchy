@@ -69,8 +69,8 @@ def Main():
     warnings.filterwarnings("ignore")
 
     indir_repo_match = Path("output/scrape/extract_github_data")
-    issue_dir = Path('drive/output/derived/data_export/issue')
-    pr_dir = Path('drive/output/derived/data_export/pr')
+    issue_dir = Path('drive/output/derived/repo_level_data/issue')
+    pr_dir = Path('drive/output/derived/repo_level_data/pr')
     linked_outdir = Path('drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request')
     linked_outdir.mkdir(parents=True, exist_ok=True)
 
@@ -85,67 +85,26 @@ def Main():
         if df_library.empty:
             continue
 
-        repo_names = df_library['repo_name'].dropna().unique().tolist()
-        repo_name_dict = {repo_name: GetLatestRepoName(repo_name, repo_df) for repo_name in repo_names}
-        df_library['repo_name_latest'] = df_library['repo_name'].map(repo_name_dict)
-        
-        unique_latest = df_library['repo_name_latest'].dropna().unique()
-        if len(unique_latest) == 0:
-            continue
-        latest_repo = unique_latest[0]
-        safe_repo = latest_repo.replace('/', '_')
+        repo_name = df_library['repo_name'].dropna().unique().tolist()[0]
+        safe_repo = repo_name.replace('/', '_')
 
         repo_file = linked_outdir / f"{safe_repo}.parquet"
         if repo_file.exists():
             continue
-
-        # look for pr parquet
-        pr_candidates = glob.glob(str(pr_dir / f"{safe_repo}*.parquet"))
-        if not pr_candidates:
-            warnings.warn(f"No PR parquet found for {latest_repo}, skipping.")
-            continue
-        print(parquet_file)
-
-        # read PR parquet
-        try:
-            df_pr = pd.read_parquet(
-                pr_candidates[0],
-                engine="pyarrow",
-                columns=['repo_name', 'pr_number']
-            )
-            repo_names = df_pr['repo_name'].dropna().unique().tolist()
-            repo_name_dict = {repo_name: GetLatestRepoName(repo_name, repo_df) for repo_name in repo_names}
-            df_pr['repo_name_latest'] = df_pr['repo_name'].map(repo_name_dict)
         
-        except Exception as e:
-            warnings.warn(f"Failed to read PR parquet for {latest_repo}: {e}")
-            continue
-
-
-        pr_index = (
-            df_pr.drop_duplicates()
-                .set_index(['repo_name', 'repo_name_latest', 'pr_number'])
-                .index
-        )
-        keep_mask = ~df_library.set_index(['repo_name', 'repo_name_latest', 'issue_number']).index.isin(pr_index)
-        df_library = df_library.loc[keep_mask]
-        if df_library.empty:
-            continue
-
+        print(parquet_file)
         # scrape links
         df_library['linked_pull_request'] = df_library.parallel_apply(
             lambda x: GrabIssueData(
                 x['repo_name'],
-                int(x['issue_number']),
-                x['repo_name_latest']
+                int(float(x['issue_number']))
             ),
             axis=1
         )
         df_library['linked_pull_request'] = df_library.parallel_apply(
             lambda x: GrabIssueData(
                 x['repo_name'],
-                int(x['issue_number']),
-                x['repo_name_latest']
+                int(float(x['issue_number']))
             ) if isinstance(x['linked_pull_request'], str) else x['linked_pull_request'],
             axis=1
         )

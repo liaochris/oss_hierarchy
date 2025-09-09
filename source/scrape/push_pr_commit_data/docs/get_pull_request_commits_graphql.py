@@ -11,12 +11,13 @@ from tqdm import tqdm
 WORKERS_PER_TOKEN = 1
 API_URL = "https://api.github.com/graphql"
 TOKENS = [
-    (os.environ["PRIMARY_GITHUB_USERNAME"], os.environ["PRIMARY_GITHUB_TOKEN"]),
-    (os.environ["BACKUP_GITHUB_USERNAME"], os.environ["BACKUP_GITHUB_TOKEN"]),
-    (os.environ["BACKUP4_GITHUB_USERNAME"], os.environ["BACKUP4_GITHUB_TOKEN"]),
-    (os.environ["BACKUP5_GITHUB_USERNAME"], os.environ["BACKUP5_GITHUB_TOKEN"]),
-    (os.environ["BACKUP6_GITHUB_USERNAME"], os.environ["BACKUP6_GITHUB_TOKEN"])
+    (os.environ["BACKUP2_GITHUB_USERNAME"], os.environ["BACKUP2_GITHUB_TOKEN"]),
+    (os.environ["BACKUP3_GITHUB_USERNAME"], os.environ["BACKUP3_GITHUB_TOKEN"]),
+    (os.environ["BACKUP7_GITHUB_USERNAME"], os.environ["BACKUP7_GITHUB_TOKEN"]),
+    (os.environ["BACKUP8_GITHUB_USERNAME"], os.environ["BACKUP8_GITHUB_TOKEN"]),
+    (os.environ["BACKUP9_GITHUB_USERNAME"], os.environ["BACKUP9_GITHUB_TOKEN"])
 ]
+
 
 # -------------------------------
 # Queries
@@ -119,9 +120,14 @@ async def RunQueryAsync(query, variables, user, token, client, **kwargs):
 
             if not isinstance(data, dict):
                 raise Exception("Non-dict JSON")
+            errors = data.get("errors") or []
+
+            if any((err or {}).get("type") == "INTERNAL" for err in errors) or \
+               any("Something went wrong" in (err or {}).get("message", "") for err in errors):
+                raise Exception("GraphQL_INTERNAL")
+
 
             if response.status_code in (200, 403):
-                errors = data.get("errors") or []
                 is_rate_limited = (
                     response.status_code == 403 and "rate limit" in text.lower()
                 ) or any((err or {}).get("type") == "RATE_LIMITED" for err in errors)
@@ -170,21 +176,23 @@ async def RunQueryAsync(query, variables, user, token, client, **kwargs):
         except PermanentGraphQLError:
             raise
         except Exception as e:
-            # Phase 1: Shrink until at 1/1
+            # Phase 1: Shrink batch if possible
             if variables.get("prBatch", 1) > 1 or variables.get("commitBatch", 1) > 1:
                 old_pr, old_commit = variables.get("prBatch", 1), variables.get("commitBatch", 1)
                 variables["prBatch"] = max(1, old_pr // 2)
                 variables["commitBatch"] = max(1, old_commit // 2)
-                print(f"🔽 [{user}] Reduced prBatch {old_pr} → {variables['prBatch']}, commitBatch {old_commit} → {variables['commitBatch']}")
+                print(f"🔽 [{user}] Reduced prBatch {old_pr} → {variables['prBatch']}, "
+                      f"commitBatch {old_commit} → {variables['commitBatch']}")
                 await asyncio.sleep(5)
                 continue
 
-            # Phase 2: Retries at 1/1
+            # Phase 2: Already at 1/1 → skip PR
             retries_at_one += 1
-            if retries_at_one >= max_retries_at_one:
-                print(f"❌ [{user}] {e} at prBatch=1, commitBatch=1 after {retries_at_one} retries → returning empty result (skip one PR)")
+            if "GraphQL_INTERNAL" in str(e) or retries_at_one >= max_retries_at_one:
+                print(f"❌ [{user}] INTERNAL error at prBatch=1, commitBatch=1 "
+                      f"after {retries_at_one} retries → skipping PR")
                 return {}
-            print(f"⚠️ [{user}] {e}, retrying at prBatch=1, commitBatch=1 in 5s (attempt {retries_at_one}/{max_retries_at_one})…")
+            print(f"⚠️ [{user}] {e}, retrying in 5s (attempt {retries_at_one}/{max_retries_at_one})…")
             await asyncio.sleep(5)
 
 def make_runquery(user, token, client, loop):
@@ -520,10 +528,11 @@ def ResolveRepoName(repo_name):
     except Exception:
         return repo_name
 
-def ProcessRepoFiles(input_dir="drive/output/derived/data_export/pr",
+def ProcessRepoFiles(input_dirs,
                      out_dir="drive/output/scrape/push_pr_commit_data/pull_request_graphql"):
     os.makedirs(out_dir, exist_ok=True)
-    fnames = [f for f in os.listdir(input_dir) if f.endswith(".parquet")]
+    fnames = [[f for f in os.listdir(input_dir) if f.endswith(".parquet")] for input_dir in input_dirs]
+    fnames = [item for sublist in fnames for item in sublist]
     random.shuffle(fnames)
     fnames = [f for f in fnames if not os.path.exists(os.path.join(out_dir, f))]
     if not fnames:
@@ -552,4 +561,4 @@ def ProcessRepoFiles(input_dir="drive/output/derived/data_export/pr",
     print(f"✅ Finished processing. Exported {exported} out of {pbar.total} files.")
 
 if __name__ == "__main__":
-    ProcessRepoFiles()
+    ProcessRepoFiles(input_dirs=["drive/output/derived/repo_level_data/repo_actions"])
