@@ -8,14 +8,12 @@ import pandas as pd
 import numpy as np
 import requests
 from ratelimit import limits, sleep_and_retry
-from source.lib.helpers import GetLatestRepoName, GetAllRepoNames
 
 ONE_HOUR = 3600
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 class GitHubCommitFetcher:
-    def __init__(self, repo_df, username, token, backup_username, backup_token):
-        self.repo_df = repo_df
+    def __init__(self, username, token, backup_username, backup_token):
         self.username = username
         self.token = token
         self.backup_username = backup_username
@@ -25,17 +23,10 @@ class GitHubCommitFetcher:
     @sleep_and_retry
     @limits(calls=5000, period=ONE_HOUR)
     def GetCommits(self, repo_name, before, head, original_urls, push_size, push_id, second_try=0):
-        latest_repo = GetLatestRepoName(repo_name, self.repo_df) or repo_name
-        repo_candidates = [latest_repo] + [r for r in GetAllRepoNames(repo_name, self.repo_df) if r != latest_repo]
 
-        for candidate_repo in repo_candidates:
-            commit_urls, failure = self._FetchCommitsForRepo(candidate_repo, before, head, original_urls, push_size, push_id, second_try)
-            if commit_urls is not None:  # success
-                return commit_urls
-
-            # only move on to next repo if failure looks like "Not Found" or "No common ancestor"
-            if failure not in ("Not Found",) and not failure.startswith("No common ancestor"):
-                break  # stop looping if it's a different failure
+        commit_urls, failure = self._FetchCommitsForRepo(repo_name, before, head, original_urls, push_size, push_id, second_try)
+        if commit_urls is not None:  # success
+            return commit_urls
 
         # all repos failed
         self.failed_commits.append({
@@ -127,13 +118,12 @@ def Main():
     indir_push = Path("drive/output/scrape/extract_github_data/push_data/")
     indir_repo_match = Path("output/scrape/extract_github_data")
     outdir_push = Path("drive/output/scrape/push_pr_commit_data/push_data/")
-    repo_df = pd.read_csv(indir_repo_match / "repo_id_history_filtered.csv")
     username = os.environ["PRIMARY_GITHUB_USERNAME"]
     token = os.environ["PRIMARY_GITHUB_TOKEN"]
     backup_username = os.environ["BACKUP_GITHUB_USERNAME"]
     backup_token = os.environ["BACKUP_GITHUB_TOKEN"]
 
-    fetcher = GitHubCommitFetcher(repo_df, username, token, backup_username, backup_token)
+    fetcher = GitHubCommitFetcher(username, token, backup_username, backup_token)
     for year in range(2015, 2025):
         for month in range(1, 13):
             df_push = pd.read_csv(indir_push /  f"push_{year}_{month}.csv", index_col=0)
@@ -148,7 +138,9 @@ def Main():
             df_push = ProcessPushData(df_push, fetcher)
             if fetcher.failed_commits:
                 df_failures = pd.DataFrame(fetcher.failed_commits)
-                df_push = pd.merge(df_push.drop(columns = ['failure_status']), df_failures, how="left", on=["repo_name", "push_id"])
+                if 'failure_status' in df_push.columns:
+                    df_push = df_push.drop(columns = ['failure_status'])
+                df_push = pd.merge(df_push, df_failures, how="left", on=["repo_name", "push_id"])
                 fetcher.failed_commits = []
                 df_push['commit_urls_length'] = df_push['commit_urls'].apply(lambda x: len(x))
                 df_push['failure_status'] = df_push.apply(lambda x: x['failure_status'] if not pd.isnull(x['failure_status']) else 

@@ -11,10 +11,10 @@ def ReadParquetSubset(filepath):
 
 def main():
     input_dirs = [
-        Path('drive/output/derived/data_export/issue'),
-        Path('drive/output/derived/data_export/pr')
+        Path('drive/output/derived/repo_level_data/issue'),
+        Path('drive/output/derived/repo_level_data/pr')
     ]
-    outdir = Path('drive/output/derived/create_bot_list')
+    outdir = Path('output/derived/create_bot_list')
     outdir.mkdir(parents=True, exist_ok=True)
     outfile = outdir / 'bot_list.parquet'
 

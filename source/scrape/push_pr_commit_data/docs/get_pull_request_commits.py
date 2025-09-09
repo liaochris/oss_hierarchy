@@ -9,7 +9,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import ast
-from source.lib.helpers import GetLatestRepoName, GetAllRepoNames
 from source.scrape.push_pr_commit_data.docs.get_push_commits import GitHubCommitFetcher
 
 
@@ -59,12 +58,11 @@ def GetPRAPIData(api_pr_url, auth):
 
 
 def RetrieveAdditionalCommits(
-    latest_repo,
+    repo_name,
     pr_commits_url,
     commit_shas,
     primary_auth,
     backup_auth,
-    repo_df,
     pr_data,
 ):
     base_sha = pr_data.get("base", {}).get("sha")
@@ -73,10 +71,10 @@ def RetrieveAdditionalCommits(
     pr_size = pr_total_commits - 250 if pr_total_commits else 0
     if pr_size > 0:
         commit_fetcher = GitHubCommitFetcher(
-            repo_df, primary_auth[0], primary_auth[1], backup_auth[0], backup_auth[1]
+            primary_auth[0], primary_auth[1], backup_auth[0], backup_auth[1]
         )
         additional_commits = commit_fetcher.GetCommits(
-            latest_repo,
+            repo_name,
             base_sha,
             head_sha,
             [],
@@ -98,12 +96,11 @@ def RetrieveAdditionalCommits(
     return commit_shas, np.nan
 
 
-def GrabCommits(repo_name, pr_commits_url, primary_auth, backup_auth, repo_df):
-    latest_repo = GetLatestRepoName(repo_name, repo_df) or repo_name
+def GrabCommits(repo_name, pr_commits_url, primary_auth, backup_auth):
     pull_info = "/".join(pr_commits_url.strip("/").split("/")[-3:-1]).replace(
         "pulls", "pull"
     )
-    scrape_url = f"https://github.com/{latest_repo}/{pull_info}/commits"
+    scrape_url = f"https://github.com/{repo_name}/{pull_info}/commits"
     headers = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64)",
         "Origin": "http://example.com",
@@ -113,18 +110,17 @@ def GrabCommits(repo_name, pr_commits_url, primary_auth, backup_auth, repo_df):
     if type(commit_shas) == str and commit_shas.startswith("Error"):
         return {"commit_list": [], "failure_status": commit_shas}
     if len(commit_shas) == 250:
-        print(f"250 commits scraped – retrieving additional commits via API ({latest_repo}).")
+        print(f"250 commits scraped – retrieving additional commits via API ({repo_name}).")
         api_pr_url = pr_commits_url.replace("/commits", "")
         pr_data = GetPRAPIData(api_pr_url, primary_auth)
         if isinstance(pr_data, str) and pr_data.startswith("PR API Error"):
             return {"commit_list": commit_shas, "failure_status": pr_data}
         commit_shas, fetcher_fail = RetrieveAdditionalCommits(
-            latest_repo,
+            repo_name,
             pr_commits_url,
             commit_shas,
             primary_auth,
             backup_auth,
-            repo_df,
             pr_data,
         )
         return {"commit_list": commit_shas, "failure_status": fetcher_fail}
@@ -173,7 +169,7 @@ def MergeExistingPRData(df_new, outdir, out_filename):
     return df_new
 
 
-def UpdatePRCommitList(df_pull, primary_auth, backup_auth, repo_df):
+def UpdatePRCommitList(df_pull, primary_auth, backup_auth):
     for idx in df_pull.index:
         if idx % 1000 == 0:
             print(f"{idx} PRs processed")
@@ -186,7 +182,6 @@ def UpdatePRCommitList(df_pull, primary_auth, backup_auth, repo_df):
                 df_pull.at[idx, "pr_commits_url"],
                 primary_auth,
                 backup_auth,
-                repo_df,
             )
             df_pull["commit_list"] = df_pull["commit_list"].astype("object")
             df_pull.at[idx, "commit_list"] = result["commit_list"]
@@ -206,7 +201,6 @@ def Main():
     indir_pull = Path("drive/output/scrape/extract_github_data/pull_request_data/")
     indir_repo = Path("output/scrape/extract_github_data")
     outdir_pull = Path("drive/output/scrape/push_pr_commit_data/pull_request_data/")
-    repo_df = pd.read_csv(indir_repo / "repo_id_history_filtered.csv")
 
     pr_filenames = [
         f"pull_request_{year}_{month}.csv"
@@ -219,7 +213,7 @@ def Main():
         df_pull = LoadPRData(pr_filename, indir_pull)
         df_pull = MergeExistingPRData(df_pull, outdir_pull, out_filename)
         df_pull.reset_index(drop=True, inplace=True)
-        df_pull = UpdatePRCommitList(df_pull, primary_auth, backup_auth, repo_df)
+        df_pull = UpdatePRCommitList(df_pull, primary_auth, backup_auth)
         print("Commits for", pr_filename, "obtained")
         # USE SAVE DATA
         df_pull.to_csv(outdir_pull / out_filename, index=False)

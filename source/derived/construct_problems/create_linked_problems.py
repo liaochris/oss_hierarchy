@@ -22,7 +22,7 @@ plain_ref_pattern = re.compile(r' #\d+\b')
 # ---------------------------
 def Main():
     indir = Path("drive/output/scrape/link_issue_pull_request")
-    indir_derived = Path("drive/output/derived/data_export")
+    indir_derived = Path("drive/output/derived/repo_level_data")
     outdir = Path("drive/output/derived/construct_problems/strict_links")
     outdir.mkdir(parents=True, exist_ok=True)
 
@@ -97,9 +97,8 @@ def ProcessRepo(repo: str, indir: Path, indir_derived: Path, outdir: Path):
         )
 
         if df_pr.empty and df_issue_raw.empty:
-            # Nothing to process
-            output_file.parent.mkdir(parents=True, exist_ok=True)
-            pd.DataFrame().to_parquet(output_file, index=False)
+            print(f"⚠️  No issue or PR data for {repo}, skipping.")
+            return True
         else:
             repo_names = df_pr['repo_name'].dropna().unique().tolist() + df_issue_raw['repo_name'].dropna().unique().tolist()
             repo_name_dict = {repo_name: GetLatestRepoName(repo_name, repo_df) for repo_name in repo_names}
@@ -176,6 +175,9 @@ def ProcessRepo(repo: str, indir: Path, indir_derived: Path, outdir: Path):
             df_strict_links = BuildStrictLinks(df_issue_full_links, df_pr_full_links) if not df_issue_full_links.empty or not df_pr_full_links.empty else pd.DataFrame()
 
             output_file.parent.mkdir(parents=True, exist_ok=True)
+            df_strict_links['other_repo'] = df_strict_links['other_repo'].apply(
+                lambda x: [ele.strip() for ele in x if not ele.strip().startswith("http")]
+            )
             df_strict_links.to_parquet(output_file, index=False)
 
         print(f"✅ Finished {repo} in {time.time()-start:.2f}s")
