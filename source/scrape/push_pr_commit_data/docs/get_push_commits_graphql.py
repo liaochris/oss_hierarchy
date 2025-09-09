@@ -4,8 +4,9 @@ import time
 import asyncio
 import httpx
 import pandas as pd
+import concurrent.futures
 from collections import defaultdict
-from tqdm.asyncio import tqdm
+from tqdm import tqdm
 
 # -------------------------------
 # Config
@@ -13,11 +14,11 @@ from tqdm.asyncio import tqdm
 API_URL = "https://api.github.com/graphql"
 
 TOKENS = [
-    (os.environ["BACKUP2_GITHUB_USERNAME"], os.environ["BACKUP2_GITHUB_TOKEN"]),
-    (os.environ["BACKUP3_GITHUB_USERNAME"], os.environ["BACKUP3_GITHUB_TOKEN"]),
-    (os.environ["BACKUP7_GITHUB_USERNAME"], os.environ["BACKUP7_GITHUB_TOKEN"]),
-    (os.environ["BACKUP8_GITHUB_USERNAME"], os.environ["BACKUP8_GITHUB_TOKEN"]),
-    (os.environ["BACKUP9_GITHUB_USERNAME"], os.environ["BACKUP9_GITHUB_TOKEN"])
+    (os.environ["BIG1_GITHUB_USERNAME"], os.environ["BIG1_GITHUB_TOKEN"]),
+    (os.environ["BIG2_GITHUB_USERNAME"], os.environ["BIG2_GITHUB_TOKEN"]),
+    (os.environ["BACKUP4_GITHUB_USERNAME"], os.environ["BACKUP4_GITHUB_TOKEN"]),
+    (os.environ["BACKUP5_GITHUB_USERNAME"], os.environ["BACKUP5_GITHUB_TOKEN"]),
+    (os.environ["BACKUP6_GITHUB_USERNAME"], os.environ["BACKUP6_GITHUB_TOKEN"])
 ]
 
 repo_batch_size = defaultdict(lambda: 100)
@@ -43,12 +44,8 @@ query($owner: String!, $repo: String!, $after: String, $batchSize: Int!) {
               changedFiles
               additions
               deletions
-              author {
-                name email user { login }
-              }
-              committer {
-                name email user { login }
-              }
+              author { name email user { login } }
+              committer { name email user { login } }
               associatedPullRequests(first: 1) {
                 nodes {
                   number
@@ -66,122 +63,7 @@ query($owner: String!, $repo: String!, $after: String, $batchSize: Int!) {
   }
 }
 """
-async def RunQuery(client, user, query, variables, retries=3, delay_seconds=5, owner_repo=None, batch_size=None):
-    attempt = 0
-    while attempt < retries:
-        try:
-            resp = await client.post(API_URL, json={"query": query, "variables": variables}, timeout=90)
-            try:
-                data = resp.json()
-            except ValueError:
-                raise Exception("TransientError: Empty JSON response")
 
-            # --- Rate limiting ---
-            if (resp.status_code == 403 and "rate limit" in resp.text.lower()) or \
-               ("errors" in data and any(err.get("type") == "RATE_LIMITED" for err in data["errors"])):
-                reset = int(resp.headers.get("X-RateLimit-Reset", time.time() + 60))
-                sleep_for = max(0, reset - int(time.time())) + 5
-                print(f"⏳ [{user}] {owner_repo or ''}: Rate limit hit, sleeping {sleep_for}s...")
-                await asyncio.sleep(sleep_for)
-                continue
-
-            # --- Gateway errors: raise immediately, let SafeRunQuery handle ---
-            if resp.status_code in (502, 504):
-                raise Exception(f"GatewayError: {resp.status_code} Gateway error")
-
-            # --- Other HTTP errors ---
-            if resp.status_code != 200:
-                raise Exception(f"TransientError: HTTP {resp.status_code}: {resp.text[:200]}")
-
-            # --- GraphQL errors ---
-            if "errors" in data:
-                if any(err.get("type") == "NOT_FOUND" for err in data["errors"]):
-                    raise Exception(f"FatalError: GraphQL Error: {data['errors']}")
-                raise Exception(f"TransientError: GraphQL Error: {data['errors']}")
-
-            # --- Missing data block ---
-            if "data" not in data or data["data"] is None:
-                raise Exception("TransientError: Missing data block in GraphQL response")
-
-            return data
-
-        except Exception as error:
-            msg = str(error)
-            if "GatewayError" in msg:  # don’t retry, bubble up immediately
-                raise
-            if "FatalError" in msg or "NOT_FOUND" in msg:
-                print(f"❌ [{user}] {owner_repo or ''}: Fatal error, not retrying: {msg}")
-                raise
-
-            attempt += 1
-            if attempt < retries:
-                print(f"⚠️ [{user}] {owner_repo or ''}: {msg}, retrying in {delay_seconds}s... "
-                      f"(attempt {attempt}/{retries}, batch={batch_size})")
-                await asyncio.sleep(delay_seconds)
-            else:
-                print(f"❌ [{user}] {owner_repo or ''}: Failed after {retries} attempts "
-                      f"(batch={batch_size}): {msg}")
-                raise
-
-
-async def SafeRunQuery(client, user, query, variables, batch_size, retries=3, owner_repo=None, is_alias=False):
-    gateway_retries = 2  # limit retries at batch_size=1
-
-    for attempt in range(retries):
-        try:
-            return await RunQuery(client, user, query, variables,
-                                  owner_repo=owner_repo, batch_size=batch_size)
-        except Exception as e:
-            msg = str(e)
-
-            # --- Fatal errors bubble out immediately ---
-            if "FatalError" in msg or "NOT_FOUND" in msg:
-                print(f"❌ [{user}] {owner_repo}: Fatal error, not retrying: {msg}")
-                raise
-
-            # --- Shrink batch size for Gateway or Transient errors ---
-            if ("GatewayError" in msg or "TransientError" in msg) and batch_size > 1:
-                new_batch = max(1, batch_size // 2)
-                print(f"⚠️ [{user}] {owner_repo}: {msg} at batch={batch_size}, shrinking → {new_batch}")
-                return await SafeRunQuery(client, user, query, variables, new_batch, retries, owner_repo, is_alias)
-
-            # --- Gateway errors at batch=1 ---
-            if "GatewayError" in msg and batch_size == 1:
-                if attempt < gateway_retries:
-                    sleep_for = 2 * (attempt + 1)
-                    print(f"⚠️ [{user}] {owner_repo}: Gateway error at batch=1, retry {attempt+1}/{gateway_retries}, sleeping {sleep_for}s...")
-                    await asyncio.sleep(sleep_for)
-                    continue
-                print(f"❌ [{user}] {owner_repo}: Skipped page after repeated gateway errors at batch=1")
-                return None
-
-            # --- Transient errors (e.g. Empty JSON) at batch=1 ---
-            if "TransientError" in msg and batch_size == 1:
-                if attempt < retries - 1:
-                    sleep_for = 2 * (attempt + 1)
-                    print(f"⚠️ [{user}] {owner_repo}: Transient error at batch=1, retry {attempt+1}/{retries}, sleeping {sleep_for}s...")
-                    await asyncio.sleep(sleep_for)
-                    continue
-                print(f"❌ [{user}] {owner_repo}: Skipped page after repeated transient errors at batch=1")
-                return None
-
-            # --- Other errors: fallback retry ---
-            if attempt < retries - 1:
-                sleep_for = 3
-                print(f"⚠️ [{user}] {owner_repo}: {msg}, retrying in {sleep_for}s... "
-                      f"(attempt {attempt+1}/{retries}, batch={batch_size})")
-                await asyncio.sleep(sleep_for)
-                continue
-
-            print(f"❌ [{user}] {owner_repo}: Failed after {retries} attempts (batch={batch_size}): {msg}")
-            return None
-
-    return None
-
-
-# -------------------------------
-# Commit Tests Query
-# -------------------------------
 def BuildCommitTestsQuery(shas):
     parts = []
     for i, sha in enumerate(shas):
@@ -207,6 +89,128 @@ def BuildCommitTestsQuery(shas):
     }}
     """
 
+# -------------------------------
+# Core Query Runners
+# -------------------------------
+async def RunQuery(client, user, query, variables,
+                   retries=3, delay_seconds=5, owner_repo=None, batch_size=None):
+    attempt = 0
+    while attempt < retries:
+        try:
+            resp = await client.post(API_URL, json={"query": query, "variables": variables}, timeout=90)
+            try:
+                data = resp.json()
+            except ValueError:
+                raise Exception("TransientError: Empty JSON response")
+
+            # --- Rate limiting ---
+            if (resp.status_code == 403 and "rate limit" in resp.text.lower()) or \
+               ("errors" in data and any(err.get("type") == "RATE_LIMITED" for err in data["errors"])):
+                reset = int(resp.headers.get("X-RateLimit-Reset", time.time() + 60))
+                sleep_for = max(0, reset - int(time.time())) + 5
+                print(f"⏳ [{user}] {owner_repo or ''}: Rate limit hit, sleeping {sleep_for}s...")
+                await asyncio.sleep(sleep_for)
+                continue
+
+            # --- Gateway errors ---
+            if resp.status_code in (502, 504):
+                raise Exception(f"GatewayError: {resp.status_code} Gateway error")
+
+            # --- Other HTTP errors ---
+            if resp.status_code != 200:
+                raise Exception(f"TransientError: HTTP {resp.status_code}: {resp.text[:200]}")
+
+            # --- GraphQL errors ---
+            if "errors" in data:
+                if any(err.get("type") == "NOT_FOUND" for err in data["errors"]):
+                    raise Exception(f"FatalError: GraphQL Error: {data['errors']}")
+                raise Exception(f"TransientError: GraphQL Error: {data['errors']}")
+
+            if "data" not in data or data["data"] is None:
+                raise Exception("TransientError: Missing data block in GraphQL response")
+
+            return data
+
+        except Exception as error:
+            msg = str(error)
+            if "GatewayError" in msg:
+                raise
+            if "FatalError" in msg or "NOT_FOUND" in msg:
+                print(f"❌ [{user}] {owner_repo or ''}: Fatal error, not retrying: {msg}")
+                raise
+
+            attempt += 1
+            if attempt < retries:
+                # Exponential backoff with jitter
+                sleep_for = delay_seconds * (2 ** attempt) + random.uniform(0, 3)
+                print(f"⚠️ [{user}] {owner_repo or ''}: {msg}, retrying in {sleep_for:.1f}s... "
+                      f"(attempt {attempt}/{retries}, batch={batch_size})")
+                await asyncio.sleep(sleep_for)
+            else:
+                print(f"❌ [{user}] {owner_repo or ''}: Failed after {retries} attempts "
+                      f"(batch={batch_size}): {msg}")
+                raise
+
+
+async def SafeRunQuery(client, user, query, variables, batch_size,
+                       retries=3, owner_repo=None, is_alias=False):
+    gateway_retries = 2
+    for attempt in range(retries):
+        try:
+            return await RunQuery(client, user, query, variables,
+                                  owner_repo=owner_repo, batch_size=batch_size)
+        except Exception as e:
+            msg = str(e)
+
+            if "FatalError" in msg or "NOT_FOUND" in msg:
+                raise
+
+            # Shrink batch size on heavy errors
+            if ("GatewayError" in msg or "TransientError" in msg) and batch_size > 50:
+                # Permanently lock repo to 50
+                print(f"⚠️ [{user}] {owner_repo}: {msg} at batch={batch_size}, locking → 50 for remainder of repo")
+                if is_alias:
+                    repo_alias_batch_size[owner_repo] = 50
+                else:
+                    repo_batch_size[owner_repo] = 50
+                return await SafeRunQuery(client, user, query, variables, 50, retries, owner_repo, is_alias)
+
+            if ("GatewayError" in msg or "TransientError" in msg) and batch_size > 1:
+                # Temporary shrink below 50
+                new_batch = max(1, batch_size // 2)
+                print(f"⚠️ [{user}] {owner_repo}: {msg} at batch={batch_size}, temporarily shrinking → {new_batch}")
+                return await SafeRunQuery(client, user, query, variables, new_batch, retries, owner_repo, is_alias)
+
+            # Gateway errors at batch=1
+            if "GatewayError" in msg and batch_size == 1:
+                if attempt < gateway_retries:
+                    sleep_for = 2 * (2 ** attempt) + random.uniform(0, 2)
+                    print(f"⚠️ [{user}] {owner_repo}: Gateway error at batch=1, retry {attempt+1}/{gateway_retries}, sleeping {sleep_for:.1f}s...")
+                    await asyncio.sleep(sleep_for)
+                    continue
+                print(f"❌ [{user}] {owner_repo}: Skipped page after repeated gateway errors at batch=1")
+                return None
+
+            # Transient errors at batch=1
+            if "TransientError" in msg and batch_size == 1:
+                if attempt < retries - 1:
+                    sleep_for = 5 * (2 ** attempt) + random.uniform(0, 3)
+                    print(f"⚠️ [{user}] {owner_repo}: Transient error at batch=1, retry {attempt+1}/{retries}, sleeping {sleep_for:.1f}s...")
+                    await asyncio.sleep(sleep_for)
+                    continue
+                print(f"❌ [{user}] {owner_repo}: Skipped page after repeated transient errors at batch=1")
+                return None
+
+            # Generic retry
+            if attempt < retries - 1:
+                sleep_for = 3 + random.uniform(0, 2)
+                print(f"⚠️ [{user}] {owner_repo}: {msg}, retrying in {sleep_for:.1f}s... "
+                      f"(attempt {attempt+1}/{retries}, batch={batch_size})")
+                await asyncio.sleep(sleep_for)
+                continue
+
+            return None
+    return None
 
 # -------------------------------
 # Fetch Commit Tests
@@ -214,20 +218,15 @@ def BuildCommitTestsQuery(shas):
 async def FetchCommitTestsBatchDynamic(client, user, owner, repo, shas, retries=3):
     batch_size = repo_alias_batch_size[f"{owner}/{repo}"]
     results, start = {}, 0
-
     while start < len(shas):
         sub_shas = shas[start:start + batch_size]
         query = BuildCommitTestsQuery(sub_shas)
         variables = {"owner": owner, "repo": repo}
         query_counter[f"{owner}/{repo}"] += 1
 
-        data = await SafeRunQuery(
-            client, user, query, variables, batch_size,
-            retries=retries, owner_repo=f"{owner}/{repo}", is_alias=True
-        )
-
+        data = await SafeRunQuery(client, user, query, variables, batch_size,
+                                  retries=retries, owner_repo=f"{owner}/{repo}", is_alias=True)
         if data is None:
-            print(f"❌ [{user}] {owner}/{repo}: Skipped tests page after retries (batch={batch_size})")
             start += batch_size
             continue
 
@@ -246,7 +245,6 @@ async def FetchCommitTestsBatchDynamic(client, user, owner, repo, shas, retries=
                         elif run["conclusion"] == "SKIPPED":
                             skipped += 1
             results[sha] = (passed, failed, skipped)
-
         start += batch_size
     return results
 
@@ -260,16 +258,11 @@ async def FetchRepoCommits(client, user, owner, repo):
     while True:
         variables = {"owner": owner, "repo": repo, "after": cursor, "batchSize": batch_size}
         query_counter[f"{owner}/{repo}"] += 1
-
-        data = await SafeRunQuery(
-            client, user, COMMITS_QUERY, variables, batch_size,
-            retries=3, owner_repo=f"{owner}/{repo}", is_alias=False
-        )
+        data = await SafeRunQuery(client, user, COMMITS_QUERY, variables, batch_size,
+                                  retries=3, owner_repo=f"{owner}/{repo}")
 
         if data is None:
-            print(f"❌ [{user}] {owner}/{repo}: Skipped commits page after retries (batch={batch_size})")
-            cursor = None if not cursor else cursor  # try moving to next page
-            continue
+            break
 
         repo_data = data["data"]["repository"]
         if not repo_data or not repo_data.get("defaultBranchRef"):
@@ -314,13 +307,11 @@ async def FetchRepoCommits(client, user, owner, repo):
             break
         cursor = history["pageInfo"]["endCursor"]
 
-    qcount = query_counter[f"{owner}/{repo}"]
-    print(f"🏁 [{user}] {owner}/{repo}: {commit_counter} commits → {qcount} queries")
+    print(f"🏁 [{user}] {owner}/{repo}: {commit_counter} commits, queries={query_counter[f'{owner}/{repo}']}")
     return all_results
 
-
 # -------------------------------
-# Worker per Token
+# Worker
 # -------------------------------
 async def Worker(user, token, repos):
     headers = {"Authorization": f"bearer {token}"}
@@ -337,20 +328,17 @@ async def Worker(user, token, repos):
                 print(f"❌ [{user}] Failed {repo_name}: {e}")
         return all_results
 
-
 # -------------------------------
 # Coordinator
 # -------------------------------
 async def ProcessReposAsync(all_repos, user, token):
     if not all_repos:
         return pd.DataFrame()
-
     results = await Worker(user, token, all_repos)
     return pd.DataFrame(results)
 
-
 # -------------------------------
-# File Processing
+# Repo Resolver
 # -------------------------------
 def ResolveRepoName(repo_name):
     import requests
@@ -362,10 +350,9 @@ def ResolveRepoName(repo_name):
     except Exception:
         return repo_name
 
-
-import concurrent.futures
-from tqdm import tqdm
-
+# -------------------------------
+# File Processing
+# -------------------------------
 def ProcessOneFile(fname, input_dir, out_dir, token_tuple):
     in_path = os.path.join(input_dir, fname)
     out_path = os.path.join(out_dir, fname)
@@ -391,13 +378,14 @@ def ProcessOneFile(fname, input_dir, out_dir, token_tuple):
         result_df.to_parquet(out_path, index=False)
         print(f"💾 Wrote commit history for {fname} → {out_path}")
         return fname
+    print(f"⚠️ {fname} produced empty DataFrame, skipping export")
     return None
 
-
-def ProcessRepoFiles(input_dir="drive/output/derived/data_export/pr",
+def ProcessRepoFiles(input_dirs,
                      out_dir="drive/output/scrape/push_pr_commit_data/push_graphql"):
     os.makedirs(out_dir, exist_ok=True)
-    fnames = [f for f in os.listdir(input_dir) if f.endswith(".parquet")]
+    fnames = [[f for f in os.listdir(input_dir) if f.endswith(".parquet")] for input_dir in input_dirs]
+    fnames = [item for sublist in fnames for item in sublist]
     random.shuffle(fnames)
     fnames = [f for f in fnames if not os.path.exists(os.path.join(out_dir, f))]
     if not fnames:
@@ -430,9 +418,8 @@ def ProcessRepoFiles(input_dir="drive/output/derived/data_export/pr",
                 pbar.set_postfix_str(f"Exported {exported}/{pbar.total}")
     print("✅ Finished processing.")
 
-
 # -------------------------------
 # Entrypoint
 # -------------------------------
 if __name__ == "__main__":
-    ProcessRepoFiles()
+    ProcessRepoFiles(input_dirs=["drive/output/derived/repo_level_data/pr","drive/output/derived/repo_level_data/issue"])
