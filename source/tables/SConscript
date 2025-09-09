@@ -1,8 +1,0 @@
-Import('env')
-
-for issue_data in ['stats', 'closing_stats', 'comment_stats']:
-	target = [f'#output/tables/issue_{issue_data}.lyx']
-	source = [f'#source/tables/issue_{issue_data}.lyx',
-        	  f'#output/analysis/descriptives/issue_{issue_data}.txt']
-	env.Tablefill(target, source)
-

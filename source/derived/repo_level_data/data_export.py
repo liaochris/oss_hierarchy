@@ -213,13 +213,6 @@ def Main():
                 "pr_body", "pr_title", "pr_review_body", "pr_review_comment_body",
                 "pr_review_state", "pr_review_action", "pr_review_comment_path",
             ),
-            "batch_size": 10,
-        },
-        {
-            "name": "issue",
-            "globs": [
-                "drive/output/scrape/extract_github_data/issue_data/*.csv",
-                "drive/output/scrape/extract_github_data/issue_comment_data/*.csv",
             ],
             "keep": [
                 "type", "created_at", "repo_id", "repo_name", "actor_id", "actor_login",
