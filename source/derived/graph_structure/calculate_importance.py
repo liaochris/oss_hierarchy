@@ -255,7 +255,7 @@ def Main(part: int, nparts: int):
         old_df = pd.read_csv(summary_path)
         summary_df = pd.concat([old_df, summary_df], ignore_index=True).drop_duplicates()
 
-    summary_df.to_csv(summary_path, index=False)
+    summary_df.drop(columns=['tmpfile']).to_csv(summary_path, index=False)
     print(f"✅ Part {part}/{nparts} done. Saved {len(summary_df)} rows to {summary_path}")
 
     # merge tmp files into one parquet per repo
@@ -273,7 +273,6 @@ def Main(part: int, nparts: int):
         merged.to_parquet(outpath, index=False)
         for f in tmpfiles:
             Path(f).unlink(missing_ok=True)
-
 
 if __name__ == "__main__":
     import argparse
