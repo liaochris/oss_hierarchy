@@ -107,7 +107,7 @@ def Main():
 
     project_id =  "serene-bazaar-470016-h8"  # changes whenever I use a new BQ email
     client = bigquery.Client(project=project_id)
-    outdir = Path("drive/output/scrape/pypi_package_downloads")
+    outdir = Path("drive/output/scrape/pypi_downloads/pypi_package_downloads")
     indir_github_projects = Path("output/derived/collect_github_repos")
 
     python_projects = GetProjectList(indir_github_projects)
