@@ -15,7 +15,6 @@ OUTDIR_TEXT_MPNET = Path("drive/output/derived/problem_level_data/text_variance/
 def Main():
     ProcessAllReposTextDispersion(n_jobs=2)
 
-
 def ProcessAllReposTextDispersion(n_jobs):
     repo_files = [f.stem for f in INDIR_TEXT.glob("*.parquet")]
     Parallel(n_jobs=n_jobs)(delayed(ProcessRepoTextDispersion)(repo_name) for repo_name in repo_files)
@@ -44,16 +43,12 @@ def ProcessRepoTextDispersion(repo_name):
     df_docs = CreateDocs(df_text)
 
     tokenizer, model = LoadEmbeddingModel(MODEL_ID)
-    df_text_dispersion_results = ComputeAuthorSimilarityByTimePeriod(df_docs, tokenizer, model, n_samples=1000)
+    df_text_dispersion_results = ComputeAuthorSimilarityByTimePeriod(df_docs, tokenizer, model, n_samples=100)
 
     if {'same_author_pairs', 'diff_author_pairs'}.issubset(df_text_dispersion_results.columns):
         df_text_dispersion_results.to_parquet(outfile_text)
-        df_text_dispersion_results = df_text_dispersion_results.drop(columns=['same_author_pairs', 'diff_author_pairs'])
     else:
-        df_text_dispersion_results = pd.DataFrame()
-
-    return df_text_dispersion_results
-
+        print(f"⚠️ Empty text dispersion calculations for {repo_name}...")
 
 def CreateDocs(df_text):
     df_docs = (
