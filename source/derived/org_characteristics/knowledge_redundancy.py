@@ -302,8 +302,8 @@ def GeneratePairsAndWeights(
     subset,
     weights,
     allow_self_pairs=False,
-    max_same_pairs=1_000_000_000_000,
-    max_diff_pairs=1_000_000_000_000,
+    max_same_pairs=1_000_000,
+    max_diff_pairs=1_000_000,
     rng=None
 ):
     """
