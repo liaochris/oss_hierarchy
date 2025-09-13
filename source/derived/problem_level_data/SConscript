@@ -1,14 +1,4 @@
 Import('*')
-import os
-import glob
-
-target = ['#drive/output/derived/problem_level_data/df_pr.parquet',
-          '#drive/output/derived/problem_level_data/df_issue.parquet',
-          '#drive/output/derived/problem_level_data/df_pr_commits.parquet',
-          '#drive/output/derived/problem_level_data/df_push_commits.parquet']
-source = ['#source/derived/problem_level_data/problem_level_data.py'] 
-env.Precious(env.Python(target, source))
-
 
 # sequential run order
 # source/derived/problem_level_data/data_export.py
