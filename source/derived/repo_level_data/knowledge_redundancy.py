@@ -14,11 +14,11 @@ TIME_PERIOD = 6
 
 INDIR = Path("drive/output/derived/repo_level_data/repo_actions")
 INDIR_GRAPH = Path("drive/output/derived/graph_structure/interactions")
-INDIR_TEXT = Path("drive/output/derived/repo_level_data/cleaned_text")
-OUTDIR_AGG_MINILM = Path("drive/output/derived/repo_level_data/repo_knowledge_redundancy/minilm")
-OUTDIR_AGG_MPNET = Path("drive/output/derived/repo_level_data/repo_knowledge_redundancy/mpnet")
-OUTDIR_TEXT_MINILM  = Path("drive/output/derived/repo_level_data/text_variance/minilm")
-OUTDIR_TEXT_MPNET = Path("drive/output/derived/repo_level_data/text_variance/mpnet")
+INDIR_TEXT = Path("drive/output/derived/org_characteristics/cleaned_text")
+OUTDIR_AGG_MINILM = Path("drive/output/derived/org_characteristics/repo_knowledge_redundancy/minilm")
+OUTDIR_AGG_MPNET = Path("drive/output/derived/org_characteristics/repo_knowledge_redundancy/mpnet")
+OUTDIR_TEXT_MINILM  = Path("drive/output/derived/org_characteristics/text_variance/minilm")
+OUTDIR_TEXT_MPNET = Path("drive/output/derived/org_characteristics/text_variance/mpnet")
 
 def ProcessRepo(
     repo_name,
@@ -34,8 +34,8 @@ def ProcessRepo(
     infile_graph = INDIR_GRAPH / f"{repo_name}.parquet"
     infile_cleaned_text = INDIR_TEXT / f"{repo_name}.parquet"
 
-    MODEL_ID = "sentence-transformers/all-MiniLM-L12-v2"
-    #MODEL_ID = "sentence-transformers/all-mpnet-base-v2"
+    #MODEL_ID = "sentence-transformers/all-MiniLM-L12-v2"
+    MODEL_ID = "sentence-transformers/all-mpnet-base-v2"
     OUTDIR_TEXT = OUTDIR_TEXT_MINILM if MODEL_ID == "sentence-transformers/all-MiniLM-L12-v2" else OUTDIR_TEXT_MPNET
     OUTDIR_AGG =  OUTDIR_AGG_MINILM if MODEL_ID == "sentence-transformers/all-MiniLM-L12-v2" else OUTDIR_AGG_MPNET
 
@@ -91,7 +91,7 @@ def ProcessRepo(
         df_docs,
         tokenizer,
         model,
-        n_samples=100
+        n_samples=1000
     )
     if 'same_author_pairs' in df_text_dispersion_results.columns and 'diff_author_pairs' in df_text_dispersion_results.columns:
         df_text_dispersion_results.to_parquet(OUTDIR_TEXT / f"{repo_name}.parquet")
@@ -112,7 +112,7 @@ def ProcessRepo(
     df_combined_knowledge_redundancy.to_parquet(outfile_agg)
 
 def ProcessAllRepos(n_jobs=4):
-    repo_files = [f.stem for f in INDIR.glob("*.parquet") if f.stem != "source-foundry_ufolint"]
+    repo_files = [f.stem for f in INDIR.glob("*.parquet")]
     random.shuffle(repo_files)
     Parallel(n_jobs=n_jobs)(
         delayed(ProcessRepo)(repo_name) for repo_name in repo_files
@@ -302,8 +302,8 @@ def GeneratePairsAndWeights(
     subset,
     weights,
     allow_self_pairs=False,
-    max_same_pairs=1_000_000,
-    max_diff_pairs=1_000_000,
+    max_same_pairs=1_000_000_000_000,
+    max_diff_pairs=1_000_000_000_000,
     rng=None
 ):
     """
