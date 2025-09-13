@@ -232,7 +232,7 @@ def ProcessFile(task):
 
 def Main(part: int, nparts: int):
     files = glob.glob("drive/output/derived/graph_structure/graph_degrees/*.parquet")
-    outdir = Path("output/derived/graph_structure")
+    outdir = Path("drive/output/derived/graph_structure")
 
     z_thresholds, top_ks, consecutive_reqs = [1.5, 2, 2.5], [1, 3, 5], [2, 3, 4]
     centrality_cols = ["degree_centrality_z", "betweenness_centrality_z", "weighted_degree_centrality_z"]

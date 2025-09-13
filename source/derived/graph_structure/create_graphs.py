@@ -19,9 +19,17 @@ def ConcatenateAndFilterDiscussions(pr_comments, issue_comments, review_comments
     all_discussions = all_discussions.sort_values(['action_id', 'created_at'])
     return all_discussions[sel_cols]
 
-### AMEND SUCH THAT IF IT"S PR REVIEW, DIRECTED TOWARDS PR OPENER
-### IF IT"S PR, DIRECTED TOWARDS PR OPENER IF IT"S THE FIRST COMMENT IN THE ID BY CREATED_AT
-### 
+
+def StandardizeId(x, col):
+    if pd.isna(x):
+        return None
+    try:
+        f = float(x)
+        val = int(f) if f.is_integer() else f
+        return str(val)
+    except (ValueError, TypeError):
+        raise ValueError(f"Invalid value in {col}: {x}")
+
 
 def BuildInteractionGraph(df, repo_name, time_periods):
     df = df.reset_index(drop=True)
@@ -68,8 +76,8 @@ def BuildInteractionGraph(df, repo_name, time_periods):
         except (ValueError, TypeError):
             raise ValueError(f"Invalid string value in {col}: {x}")
 
-    df['actor_id'] = df['actor_id'].apply(lambda x: to_numeric_or_error(x, 'actor_id'))
-    df['prev_diff'] = df['prev_diff'].apply(lambda x: to_numeric_or_error(x, 'prev_diff'))
+    df['actor_id'] = df['actor_id'].apply(lambda x: StandardizeId(x, 'actor_id'))
+    df['prev_diff'] = df['prev_diff'].apply(lambda x: StandardizeId(x, 'prev_diff'))
 
     interaction_df = df.assign(
         repo_name=repo_name,
@@ -82,18 +90,14 @@ def BuildInteractionGraph(df, repo_name, time_periods):
     for period in time_periods:
         sub_edges = df[df['time_period'] == period]
         Gp = nx.Graph()
-        edge_dict = {}
         for _, row in sub_edges.iterrows():
             u, v = row['actor_id'], row['prev_diff']
             if v is None:
                 continue
-            edge_key = tuple(sorted([u, v]))
-            if edge_key not in edge_dict:
-                edge_dict[edge_key] = {'weight': 0}
-            edge_dict[edge_key]['weight'] += 1
-            
-        for (u, v), attr in edge_dict.items():
-            Gp.add_edge(u, v, weight=attr['weight'])
+            if Gp.has_edge(u, v):
+                Gp[u][v]["weight"] += 1
+            else:
+                Gp.add_edge(u, v, weight=1)
         graphs[period] = Gp
 
     return graphs, interaction_df
