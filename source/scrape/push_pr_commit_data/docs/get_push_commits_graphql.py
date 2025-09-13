@@ -422,4 +422,4 @@ def ProcessRepoFiles(input_dirs,
 # Entrypoint
 # -------------------------------
 if __name__ == "__main__":
-    ProcessRepoFiles(input_dirs=["drive/output/derived/repo_level_data/pr","drive/output/derived/repo_level_data/issue"])
+    ProcessRepoFiles(input_dirs=["drive/output/derived/problem_level_data/pr","drive/output/derived/problem_level_data/issue"])

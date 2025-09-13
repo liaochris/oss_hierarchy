@@ -313,6 +313,6 @@ def ProcessRepoFiles(input_dirs, out_dir):
 
 if __name__ == "__main__":
     ProcessRepoFiles(
-        input_dirs=["drive/output/derived/repo_level_data/pr","drive/output/derived/repo_level_data/issue"],
+        input_dirs=["drive/output/derived/problem_level_data/pr","drive/output/derived/problem_level_data/issue"],
         out_dir="drive/output/scrape/push_pr_commit_data/special_files_graphql"
     )

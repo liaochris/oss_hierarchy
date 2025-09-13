@@ -69,8 +69,8 @@ def Main():
     warnings.filterwarnings("ignore")
 
     indir_repo_match = Path("output/scrape/extract_github_data")
-    issue_dir = Path('drive/output/derived/repo_level_data/issue')
-    pr_dir = Path('drive/output/derived/repo_level_data/pr')
+    issue_dir = Path('drive/output/derived/problem_level_data/issue')
+    pr_dir = Path('drive/output/derived/problem_level_data/pr')
     linked_outdir = Path('drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request')
     linked_outdir.mkdir(parents=True, exist_ok=True)
 

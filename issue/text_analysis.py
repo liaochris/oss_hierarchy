@@ -129,7 +129,7 @@ def BenchmarkUnsupervised(df_text_cleaned, embedding_model, group_col):
 # ----------------------------
 # GLOBAL PARAMETERS + MAIN CONFIG
 # ----------------------------
-INPUT_INDIR = Path("drive/output/derived/repo_level_data/repo_actions")
+INPUT_INDIR = Path("drive/output/derived/problem_level_data/repo_actions")
 ANALYSIS_INDIR  = Path("output/derived/graph_structure")
 
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
@@ -152,7 +152,7 @@ N_COMPONENTS = 25
 RANDOM_STATE = 42
 
 # Output paths
-OUTPUT_DIR = Path("drive/output/derived/repo_level_data/topic_classification")
+OUTPUT_DIR = Path("drive/output/derived/problem_level_data/topic_classification")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def Main():

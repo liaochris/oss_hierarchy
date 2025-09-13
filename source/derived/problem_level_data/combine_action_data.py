@@ -6,10 +6,10 @@ import numpy as np
 import random
 import fcntl
 
-INDIR_ISSUE = Path('drive/output/derived/repo_level_data')
+INDIR_ISSUE = Path('drive/output/derived/problem_level_data')
 INDIR_LINK = Path('drive/output/scrape/link_issue_pull_request')
-OUTDIR = Path('drive/output/derived/repo_level_data/repo_actions')
-STATS_PATH = Path("output/derived/repo_level_data/dropped_stats.csv")
+OUTDIR = Path('drive/output/derived/problem_level_data/repo_actions')
+STATS_PATH = Path("output/derived/problem_level_data/dropped_stats.csv")
 
 def ProcessRepo(repo_name: str):
     issue_path = INDIR_ISSUE / "issue" / f"{repo_name}.parquet"

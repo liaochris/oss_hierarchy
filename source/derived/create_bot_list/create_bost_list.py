@@ -11,8 +11,8 @@ def ReadParquetSubset(filepath):
 
 def main():
     input_dirs = [
-        Path('drive/output/derived/repo_level_data/issue'),
-        Path('drive/output/derived/repo_level_data/pr')
+        Path('drive/output/derived/problem_level_data/issue'),
+        Path('drive/output/derived/problem_level_data/pr')
     ]
     outdir = Path('output/derived/create_bot_list')
     outdir.mkdir(parents=True, exist_ok=True)

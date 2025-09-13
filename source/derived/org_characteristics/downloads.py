@@ -149,7 +149,7 @@ def Main():
     repo = "pandas-dev/pandas"  # change to whichever repo you want
     time_period = 6
 
-    indir = Path("drive/output/derived/repo_level_data/repo_actions")
+    indir = Path("drive/output/derived/problem_level_data/repo_actions")
     indir_monthly_downloads = Path("drive/output/scrape/pypi_monthly_downloads")
     indir_pypi_github = Path("output/derived/collect_github_repos")
     indir_github_map = Path("output/scrape/extract_github_data/")

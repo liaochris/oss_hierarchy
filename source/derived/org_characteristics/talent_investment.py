@@ -6,131 +6,112 @@ from source.lib.helpers import ImputeTimePeriod
 import networkx as nx
 
 TIME_PERIOD = 6
-INDIR = Path("drive/output/derived/repo_level_data/repo_actions")
+INDIR = Path("drive/output/derived/problem_level_data/repo_actions")
 INDIR_GRAPH = Path("drive/output/derived/graph_structure/graphs")
 INDIR_GRAPH_INTERACTIONS = Path("drive/output/derived/graph_structure/interactions")
 INDIR_TEXT = Path("drive/output/derived/org_characteristics/cleaned_text")
 OUTDIR_INVESTMENT = Path("drive/output/derived/org_characteristics/repo_talent_investment")
 
 def Main():
-    ProcessAllRepos(n_jobs=8)
-
-
-def ProcessAllRepos(n_jobs=4):
     repo_files = [f.stem for f in INDIR.glob("*.parquet")]
-    Parallel(n_jobs=n_jobs)(
-        delayed(ProcessRepo)(repo_name) for repo_name in repo_files
-    )
+    Parallel(n_jobs=8)(delayed(ProcessRepo)(repo_name) for repo_name in repo_files)
 
 
 def ProcessRepo(repo_name):
-    infile = INDIR / f"{repo_name}.parquet"
-    infile_graph = INDIR_GRAPH_INTERACTIONS / f"{repo_name}.parquet"
-    infile_cleaned_text = INDIR_TEXT / f"{repo_name}.parquet"
-    outfile_investment = OUTDIR_INVESTMENT / f"{repo_name}.parquet"
-
+    infile, infile_graph, infile_cleaned_text, outfile_investment = GetRepoPaths(repo_name)
     OUTDIR_INVESTMENT.mkdir(parents=True, exist_ok=True)
 
     if outfile_investment.exists():
         print(f"Skipping {repo_name}, outputs already exist.")
         return
-
-    if not infile.exists() or not infile_graph.exists() or not infile_cleaned_text.exists():
+    if not (infile.exists() and infile_graph.exists() and infile_cleaned_text.exists()):
         print(f"⚠️ Skipping {repo_name}, missing input(s).")
         return
 
     print(f"Processing {repo_name}...")
-
-    df_all = pd.read_parquet(infile)
-    df_interactions = pd.read_parquet(infile_graph)
-    df_text = pd.read_parquet(infile_cleaned_text)
-
-    df_all = ImputeTimePeriod(df_all, TIME_PERIOD)
-    df_interactions = ImputeTimePeriod(df_interactions, TIME_PERIOD)
-    df_text = ImputeTimePeriod(df_text, TIME_PERIOD)
+    df_all, df_interactions, df_text = LoadAndImpute(infile, infile_graph, infile_cleaned_text)
 
     df_interactions = pd.merge(
-        df_interactions,
-        df_text[['action_id', 'cleaned_text']],
-        how='left',
-        on = ['action_id']
+        df_interactions, df_text[['action_id', 'cleaned_text']], on='action_id', how='left'
     )
 
-    df_text_response = CreateRecipientResponseDict(df_interactions, df_text)
+    df_text_response = BuildResponseDict(df_interactions, df_text)
     df_text_response = pd.merge(
-        df_text_response,
-        df_all[['action_id','type']],
-        how='left',
-        on = ['action_id']
+        df_text_response, df_all[['action_id', 'type']], on='action_id', how='left'
     )
 
     df_text_can_receive, df_response_rate = CalculateResponseRate(df_text_response)
     df_days_to_respond = CalculateResponseSummary(df_text_can_receive)
     df_text_sentiment = CalculateTextSentiment(df_text)
 
-    bot_list = pd.to_numeric(pd.read_parquet(bot_list_path)['actor_id']).dropna().astype(int).tolist()
+    bot_list = LoadBotList()
     df_growth_opportunities = CalculateNewcomerAdoption(df_all, bot_list)
-
     df_closeness_centrality = CalculateClosenessCentrality(repo_name, INDIR_GRAPH)
 
-def CreateRecipientResponseDict(df_interactions, df_text):
-    df_interactions['message'] = [
-        {"cleaned_text": clean_text, "created_at": ts, "text": text}
-        for clean_text, ts, text in zip(
-            df_interactions['cleaned_text'],
-            df_interactions['created_at'],
-            df_interactions['text']
-        )
-    ]
 
+def GetRepoPaths(repo_name):
+    infile = INDIR / f"{repo_name}.parquet"
+    infile_graph = INDIR_GRAPH_INTERACTIONS / f"{repo_name}.parquet"
+    infile_cleaned_text = INDIR_TEXT / f"{repo_name}.parquet"
+    outfile_investment = OUTDIR_INVESTMENT / f"{repo_name}.parquet"
+    return infile, infile_graph, infile_cleaned_text, outfile_investment
+
+
+def LoadAndImpute(infile, infile_graph, infile_cleaned_text):
+    df_all = pd.read_parquet(infile)
+    df_interactions = pd.read_parquet(infile_graph)
+    df_text = pd.read_parquet(infile_cleaned_text)
+    return (
+        ImputeTimePeriod(df_all, TIME_PERIOD),
+        ImputeTimePeriod(df_interactions, TIME_PERIOD),
+        ImputeTimePeriod(df_text, TIME_PERIOD),
+    )
+
+
+def LoadBotList():
+    return (
+        pd.to_numeric(pd.read_parquet(bot_list_path)['actor_id'])
+        .dropna()
+        .astype(int)
+        .tolist()
+    )
+
+
+def BuildResponseDict(df_interactions, df_text):
+    df_interactions['message'] = [
+        {"cleaned_text": c, "created_at": t, "text": x}
+        for c, t, x in zip(df_interactions['cleaned_text'], df_interactions['created_at'], df_interactions['text'])
+    ]
     df_interactions['sender_block'] = (
         (df_interactions['sender'] != df_interactions.groupby('discussion_id')['sender'].shift())
-        .astype(int)
-        .groupby(df_interactions['discussion_id'])
-        .cumsum()
+        .astype(int).groupby(df_interactions['discussion_id']).cumsum()
     )
-
     grouped = (
-        df_interactions
-        .groupby(['discussion_id', 'sender_block', 'sender'], as_index=False)
-        .agg({
-            'message': list,
-            'time_period': 'first',
-            'created_at': 'first',
-            'action_id': 'first'
-        })
+        df_interactions.groupby(['discussion_id', 'sender_block', 'sender'], as_index=False)
+        .agg({'message': list, 'time_period': 'first', 'created_at': 'first', 'action_id': 'first'})
         .rename(columns={'sender': 'actor_id', 'message': 'self_data'})
     )
+    grouped['recipient_block'] = grouped['sender_block'] - 1
+    grouped['response_block'] = grouped['sender_block'] + 1
 
-    grouped['prev_block'] = grouped['sender_block'] - 1
-    grouped['next_block'] = grouped['sender_block'] + 1
-
-    grouped = (
-        grouped
+    return (
+        grouped.merge(
+            grouped[['discussion_id', 'sender_block', 'self_data']],
+            left_on=['discussion_id', 'recipient_block'], right_on=['discussion_id', 'sender_block'],
+            how='left', suffixes=('', '_recipient')
+        ).rename(columns={'self_data_recipient': 'recipient_data'})
         .merge(
             grouped[['discussion_id', 'sender_block', 'self_data']],
-            left_on=['discussion_id', 'prev_block'],
-            right_on=['discussion_id', 'sender_block'],
-            how='left',
-            suffixes=('', '_recipient')
-        )
-        .rename(columns={'self_data_recipient': 'recipient_data'})
-        .merge(
-            grouped[['discussion_id', 'sender_block', 'self_data']],
-            left_on=['discussion_id', 'next_block'],
-            right_on=['discussion_id', 'sender_block'],
-            how='left',
-            suffixes=('', '_response')
-        )
-        .rename(columns={'self_data_response': 'response_data'})
+            left_on=['discussion_id', 'response_block'], right_on=['discussion_id', 'sender_block'],
+            how='left', suffixes=('', '_response')
+        ).rename(columns={'self_data_response': 'response_data'})
         .drop(columns=['sender_block_response', 'sender_block_recipient'])
+        .assign(
+            recipient_block=lambda d: d['recipient_block'].where(d['recipient_data'].notna()),
+            response_block=lambda d: d['response_block'].where(d['response_data'].notna()),
+            actor_id=lambda d: pd.to_numeric(d['actor_id'], errors='coerce')
+        )
     )
-
-    grouped.loc[grouped['recipient_data'].isna(), 'prev_block'] = pd.NA
-    grouped.loc[grouped['response_data'].isna(), 'next_block'] = pd.NA
-    grouped['actor_id'] = pd.to_numeric(grouped['actor_id'], errors='coerce')
-    return grouped
-
 
 def CalculateResponseRate(df_text_response):
     def IsEligibleForResponse(row_type):

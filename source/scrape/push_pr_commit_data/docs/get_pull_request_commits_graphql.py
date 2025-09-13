@@ -561,4 +561,4 @@ def ProcessRepoFiles(input_dirs,
     print(f"✅ Finished processing. Exported {exported} out of {pbar.total} files.")
 
 if __name__ == "__main__":
-    ProcessRepoFiles(input_dirs=["drive/output/derived/repo_level_data/repo_actions"])
+    ProcessRepoFiles(input_dirs=["drive/output/derived/problem_level_data/repo_actions"])

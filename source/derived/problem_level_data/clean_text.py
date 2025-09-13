@@ -130,8 +130,8 @@ def AddVaderSentiment(df_text, text_col='cleaned_text', parallel_threshold=10000
 
 def Main():
 
-    INPUT_INDIR = Path("drive/output/derived/repo_level_data/repo_actions")
-    OUTPUT_DIR = Path("drive/output/derived/org_characteristics/cleaned_text")
+    INPUT_INDIR = Path("drive/output/derived/problem_level_data/repo_actions")
+    OUTPUT_DIR = Path("drive/output/derived/problem_level_data/cleaned_text")
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     projects = [f for f in os.listdir(INPUT_INDIR) if f.endswith(".parquet")]

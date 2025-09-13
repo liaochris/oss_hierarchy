@@ -175,7 +175,7 @@ def worker(repo, time_periods, time_period, outdir, indir_data):
     return CreateGraph(repo, time_periods, time_period, [], outdir, indir_data)
 
 def Main():
-    indir_data = Path('drive/output/derived/repo_level_data/repo_actions')
+    indir_data = Path('drive/output/derived/problem_level_data/repo_actions')
     logdir = Path('output/derived/graph_structure')
     outdir = Path('drive/output/derived/graph_structure')
     os.makedirs(logdir, exist_ok=True)

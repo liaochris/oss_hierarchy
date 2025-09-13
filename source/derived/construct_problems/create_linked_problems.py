@@ -22,7 +22,7 @@ plain_ref_pattern = re.compile(r' #\d+\b')
 # ---------------------------
 def Main():
     indir = Path("drive/output/scrape/link_issue_pull_request")
-    indir_derived = Path("drive/output/derived/repo_level_data")
+    indir_derived = Path("drive/output/derived/problem_level_data")
     outdir = Path("drive/output/derived/construct_problems/strict_links")
     outdir.mkdir(parents=True, exist_ok=True)
 
