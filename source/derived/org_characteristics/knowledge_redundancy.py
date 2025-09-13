@@ -34,8 +34,8 @@ def ProcessRepo(
     infile_graph = INDIR_GRAPH / f"{repo_name}.parquet"
     infile_cleaned_text = INDIR_TEXT / f"{repo_name}.parquet"
 
-    #MODEL_ID = "sentence-transformers/all-MiniLM-L12-v2"
-    MODEL_ID = "sentence-transformers/all-mpnet-base-v2"
+    MODEL_ID = "sentence-transformers/all-MiniLM-L12-v2"
+    #MODEL_ID = "sentence-transformers/all-mpnet-base-v2"
     OUTDIR_TEXT = OUTDIR_TEXT_MINILM if MODEL_ID == "sentence-transformers/all-MiniLM-L12-v2" else OUTDIR_TEXT_MPNET
     OUTDIR_AGG =  OUTDIR_AGG_MINILM if MODEL_ID == "sentence-transformers/all-MiniLM-L12-v2" else OUTDIR_AGG_MPNET
 
@@ -440,7 +440,6 @@ def ComputeAuthorSimilarityByTimePeriod(
             subset, embed_cache, tokenizer, model,
             label="same", time_period=time_period, batch_size=batch_size
         )
-
         avg_diff, diff_records = AvgSimilarity(
             diff_pairs, diff_weights, rng, n_samples, with_replacement,
             subset, embed_cache, tokenizer, model,
