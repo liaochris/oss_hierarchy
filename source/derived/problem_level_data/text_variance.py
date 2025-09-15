@@ -158,7 +158,10 @@ def ComputeAuthorSimilarityByTimePeriod(df_docs, tokenizer, model, n_samples=100
             "same_author_pairs": same_records,
             "diff_author_pairs": diff_records
         })
-    return pd.DataFrame(results).sort_values("time_period").reset_index(drop=True)
+    df_final = pd.DataFrame(results)
+    if 'time_period' in df_final.columns:
+        return df_final.sort_values("time_period").reset_index(drop=True)
+    return pd.DataFrame()
 
 
 if __name__ == "__main__":
