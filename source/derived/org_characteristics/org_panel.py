@@ -86,6 +86,7 @@ def ProcessRepoFrame(df_all, time_period, last_period, columns_dict):
     df_all = AssignTreatmentDate(df_all)
     df_all = CreateTimeIndex(df_all)
     df_all["repo_id"] = pd.factorize(df_all["repo_name"])[0] + 1
+    df_all['treatment'] = (df_all['treatment_group']>=df_all['time_index']).astype(int)
     return df_all
 
 
@@ -153,6 +154,8 @@ def AssignTreatmentDate(df):
 def CreateTimeIndex(df):
     mapping = {d: i+1 for i, d in enumerate(sorted(df["time_period"].unique()))}
     df["time_index"] = df["time_period"].map(mapping)
+    df["treatment_group"] = df["treatment_date"].map(mapping)
+    df['treatment_group'] = df['treatment_group'].fillna(0)
     return df
 
 
