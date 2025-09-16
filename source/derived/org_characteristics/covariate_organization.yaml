@@ -1,0 +1,186 @@
+knowledge_redundancy:
+  collaboration:
+    member_count:
+      main:
+        - avg_members_per_problem
+        - pct_members_multiple
+      other: []
+    hhi:
+      main:
+        - proj_hhi_pull_request_review_comment
+        - proj_hhi_discussion_comment
+      other:
+        - proj_hhi_issue_closed
+        - proj_hhi_issue_comment
+        - proj_hhi_issue_opened
+        - proj_hhi_pull_request_closed
+        - proj_hhi_pull_request_comment
+        - proj_hhi_pull_request_merged
+        - proj_hhi_pull_request_opened
+        - proj_hhi_pull_request_review
+    problem_hhi:
+      main:
+        - proj_prob_hhi_issue_comment
+        - proj_prob_hhi_pull_request_comment
+        - proj_prob_hhi_pull_request_review
+        - proj_prob_hhi_pull_request_review_comment
+      other: []
+  broad_expertise:
+    issue_pr_share:
+      main:
+        - share_issue_only
+        - share_pr_only
+        - share_issue_and_pr
+      other: []
+    activity_diversity_count:
+      main:
+        - avg_unique_types
+      other: []
+  supervision:
+    merged_with_review:
+      main:
+        - pct_merged_with_approved
+        - pct_merged_with_review
+      other: []
+    discussion_quantity:
+      main:
+        - avg_all_disc_count
+      other:
+        - avg_pull_request_comment_count
+        - avg_pull_request_review_comment_count
+        - avg_pull_request_review_count
+talent_investment:
+  feedback:
+    response_rate:
+      main:
+        - response_rate
+      other:
+        - response_rate_issue_comment
+        - response_rate_issue_opened
+        - response_rate_pull_request_comment
+        - response_rate_pull_request_opened
+        - response_rate_pull_request_review_comment
+    response_time:
+      main:
+        - mean_days_to_respond
+      other:
+        - mean_days_to_respond_issue_comment
+        - mean_days_to_respond_issue_opened
+        - mean_days_to_respond_pull_request_comment
+        - mean_days_to_respond_pull_request_opened
+        - mean_days_to_respond_pull_request_review_comment
+        - mean_days_to_respond_to_last_comment
+    response_sentiment:
+      main:
+        - pos_sentiment_avg
+        - neg_sentiment_avg
+        - ov_sentiment_avg
+      other:
+        - issue_comment_pos_sentiment_avg
+        - issue_opened_pos_sentiment_avg
+        - pull_request_comment_pos_sentiment_avg
+        - pull_request_opened_pos_sentiment_avg
+        - pull_request_review_approved_pos_sentiment_avg
+        - pull_request_review_changes_requested_pos_sentiment_avg
+        - pull_request_review_comment_pos_sentiment_avg
+        - pull_request_review_commented_pos_sentiment_avg
+        - pull_request_review_dismissed_pos_sentiment_avg
+        - issue_comment_neg_sentiment_avg
+        - issue_opened_neg_sentiment_avg
+        - pull_request_comment_neg_sentiment_avg
+        - pull_request_opened_neg_sentiment_avg
+        - pull_request_review_approved_neg_sentiment_avg
+        - pull_request_review_changes_requested_neg_sentiment_avg
+        - pull_request_review_comment_neg_sentiment_avg
+        - pull_request_review_commented_neg_sentiment_avg
+        - pull_request_review_dismissed_neg_sentiment_avg
+        - issue_comment_ov_sentiment_avg
+        - issue_opened_ov_sentiment_avg
+        - pull_request_comment_ov_sentiment_avg
+        - pull_request_opened_ov_sentiment_avg
+        - pull_request_review_approved_ov_sentiment_avg
+        - pull_request_review_changes_requested_ov_sentiment_avg
+        - pull_request_review_comment_ov_sentiment_avg
+        - pull_request_review_commented_ov_sentiment_avg
+        - pull_request_review_dismissed_ov_sentiment_avg
+    feedback_quantity:
+      main:
+        - avg_all_disc_exclude_opener_count
+      other:
+        - avg_pull_request_comment_exclude_opener_count
+        - avg_pull_request_review_comment_exclude_opener_count
+        - avg_pull_request_review_exclude_opener_count
+  growth_opportunity:
+    merge_review_pr:
+      main:
+        - pull_request_merged_rate
+        - pull_request_review_rate
+        - any_activity_rate
+      other:
+        - pull_request_merged_eligible
+        - pull_request_merged_adopters
+        - pull_request_review_eligible
+        - pull_request_review_adopters
+        - any_activity_eligible
+        - any_activity_adopters
+  organizational_closeness:
+    network_clustering_coefficient:
+      main:
+        - clustering_coefficient
+      other: []
+organizational_routines:
+  organized_assignment:
+    pr_reviewers:
+      main: 
+        - mean_has_reviewer
+      other: 
+        - []
+    discussion_labels:
+      main: 
+        - mean_has_tag
+      other:
+        - []
+    discussion_assignees:
+      main: 
+        - mean_has_assignee
+      other: 
+        - []
+    codeowners_file:
+      main:
+       - has_codeowners
+      other: 
+       - []
+  organized_inquiries:
+    issue_template:
+      main:
+        - has_issue_template
+      other: 
+        - issue_template_count
+    pr_template:
+      main:
+        - has_pr_template
+      other:
+        - []
+  newcomer_guidelines:
+    good_first_issue:
+      main:
+        - has_good_first_issue
+      other:
+        - 'pct_good_first_issue
+    contributing_guide:
+      main:
+        - has_contributing_guide
+      other: 
+        - []
+    code_of_conduct:
+      main: 
+        - has_code_of_conduct
+      other:
+        - []
+  pull_standards:
+    merge_commit_tests:
+      main:
+        - prop_tests_passed
+      other:
+        - has_more_suites
+        - has_more_runs

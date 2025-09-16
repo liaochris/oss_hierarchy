@@ -16,6 +16,11 @@ To scrape github data, we need to
 - Find the sequence of project identities that makes sense by running python source/scrape/extract_github_data/docs/filter_repo_identities.py
 - Using the project names from the list of project identities, run python source/scrape/extract_github_data/docs/query_github_data.py
 
+
+DOWNLOAD STUFF
+- add this to the above source/scrape/pypi_downloads/docs/pypi_package_downloads.py
+
+
 then in `push_pr_commit_data` run 
 - get_pull_request_commits.py (CONSIDER RERUNNING AT SOME POINT)
 - get_push_commits.py (CONSIDER RERUNNING AT SOME POINT)
@@ -23,7 +28,8 @@ then in `push_pr_commit_data` run
 - get_push_commits_graphql.py (CONSIDER RERUNNING AT SOME POINT)
 
 
-
+- source/scrape/pull_request_test_data/get_test_data.py
+- source/scrape/github_file_data/collect_file_data.py
 
 
 

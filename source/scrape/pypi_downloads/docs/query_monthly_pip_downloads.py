@@ -21,7 +21,7 @@ def ExportToCsv(dataframe):
     SaveData(
         dataframe,
         ["project", "month"],
-        str(output_folder / "pypi_monthly_downloads.csv"),
+        str(output_folder / "pypi_monthly_downloads.parquet"),
         str(log_folder / "pypi_monthly_downloads.log"),
     )
 

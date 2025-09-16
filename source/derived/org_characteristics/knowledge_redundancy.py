@@ -2,91 +2,107 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-import time
 import random
-import torch
-from transformers import AutoTokenizer, AutoModel
-from source.lib.helpers import ImputeTimePeriod
+from source.lib.helpers import ImputeTimePeriod, ConcatStatsByTimePeriod, LoadFilteredImportantMembers, FilterOnImportant
+import yaml
 
-device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 TIME_PERIOD = 6
 
+INDIR_LIB = Path("source/lib")
 INDIR = Path("drive/output/derived/problem_level_data/repo_actions")
+INDIR_BOT = Path("output/derived/create_bot_list")
 INDIR_GRAPH = Path("drive/output/derived/graph_structure/interactions")
+INDIR_IMPORTANT = Path('drive/output/derived/graph_structure/important_members')
 INDIR_TEXT = Path("drive/output/derived/problem_level_data/cleaned_text")
-
-# text dispersion outputs (produced by the other script)
-INDIR_TEXT_MINILM = Path("drive/output/derived/org_characteristics/text_variance/minilm")
-INDIR_TEXT_MPNET = Path("drive/output/derived/org_characteristics/text_variance/mpnet")
-
+INDIR_TEXT_MINILM = Path("drive/output/derived/problem_level_data/text_variance/minilm")
+INDIR_TEXT_MPNET = Path("drive/output/derived/problem_level_data/text_variance/mpnet")
 OUTDIR_AGG_MINILM = Path("drive/output/derived/org_characteristics/repo_knowledge_redundancy/minilm")
 OUTDIR_AGG_MPNET = Path("drive/output/derived/org_characteristics/repo_knowledge_redundancy/mpnet")
 
 
 def Main():
-    ProcessAllRepos(n_jobs=2)
-
-def ProcessAllRepos(n_jobs):
     repo_files = [f.stem for f in INDIR.glob("*.parquet")]
     random.shuffle(repo_files)
-    Parallel(n_jobs=n_jobs)(delayed(ProcessRepo)(repo_name) for repo_name in repo_files)
+    Parallel(n_jobs=2)(delayed(ProcessRepo)(repo_name) for repo_name in repo_files)
 
 
-def ProcessRepo(
-    repo_name,
-    INDIR=INDIR,
-    INDIR_GRAPH=INDIR_GRAPH,
-    INDIR_TEXT_MINILM=INDIR_TEXT_MINILM,
-    INDIR_TEXT_MPNET=INDIR_TEXT_MPNET,
-    OUTDIR_AGG_MINILM=OUTDIR_AGG_MINILM,
-    OUTDIR_AGG_MPNET=OUTDIR_AGG_MPNET
-):
-    # choose model
-    MODEL_ID = "sentence-transformers/all-MiniLM-L12-v2"
-    # MODEL_ID = "sentence-transformers/all-mpnet-base-v2"
-
-    INDIR_TEXT_VAR = INDIR_TEXT_MINILM if MODEL_ID == "sentence-transformers/all-MiniLM-L12-v2" else INDIR_TEXT_MPNET
-    OUTDIR_AGG = OUTDIR_AGG_MINILM if MODEL_ID == "sentence-transformers/all-MiniLM-L12-v2" else OUTDIR_AGG_MPNET
-    OUTDIR_AGG.mkdir(parents=True, exist_ok=True)
-
+def ProcessRepo(repo_name):
     infile = INDIR / f"{repo_name}.parquet"
     infile_graph = INDIR_GRAPH / f"{repo_name}.parquet"
-    infile_text_dispersion = INDIR_TEXT_VAR / f"{repo_name}.parquet"
-    outfile_agg = OUTDIR_AGG / f"{repo_name}.parquet"
+    infile_text_dispersion = INDIR_TEXT_MINILM / f"{repo_name}.parquet" 
 
-    if outfile_agg.exists():
-        print(f"Skipping {repo_name}, outputs already exist.")
-        return
     if not infile.exists() or not infile_graph.exists() or not infile_text_dispersion.exists():
         print(f"⚠️ Skipping {repo_name}, missing inputs for {repo_name}")
         return
 
-    print(f"Processing {repo_name}...")
+    bot_list = pd.to_numeric(pd.read_parquet(INDIR_BOT / "bot_list.parquet")["actor_id"]).unique().tolist()
 
-    df_all = pd.read_parquet(infile)
-    df_all = ImputeTimePeriod(df_all, TIME_PERIOD)
-    df_all["type_broad"] = df_all["type"].apply(
-        lambda x: "pull request review"
-        if x.startswith("pull request review") and x != "pull request review comment"
-        else x
+    # choose model
+    MODEL_ID = "sentence-transformers/all-MiniLM-L12-v2"
+    # MODEL_ID = "sentence-transformers/all-mpnet-base-v2"
+
+    OUTDIR_AGG = OUTDIR_AGG_MINILM if MODEL_ID == "sentence-transformers/all-MiniLM-L12-v2" else OUTDIR_AGG_MPNET
+    OUTDIR_AGG.mkdir(parents=True, exist_ok=True)
+
+
+    for contributor_subset in ["all", "important"]:
+        df_all = pd.read_parquet(infile)
+        df_all["actor_id"] = pd.to_numeric(df_all["actor_id"])
+        df_all = ImputeTimePeriod(df_all, TIME_PERIOD)
+
+        outfile_agg = OUTDIR_AGG / contributor_subset / f"{repo_name}.parquet"
+        (OUTDIR_AGG / contributor_subset).mkdir(parents=True, exist_ok=True)
+        if outfile_agg.exists():
+            print(f"Skipping {repo_name}, outputs already exist.")
+            continue
+        print(f"Processing {repo_name}...")
+        if contributor_subset == "important":
+            if not (INDIR_IMPORTANT / f"{repo_name}.parquet").exists():
+                continue
+            df_filtered_important = LoadFilteredImportantMembers(repo_name, INDIR_IMPORTANT, INDIR_LIB)
+            df_filtered_important_members = df_filtered_important[["time_period", "important_actors"]]
+
+            df_all = FilterOnImportant(df_all, df_filtered_important_members)
+            if df_all.empty:
+                continue
+
+        df_all["type_broad"] = df_all["type"].apply(
+            lambda x: "pull request review"
+            if x.startswith("pull request review") and x != "pull request review comment"
+            else x
+        )
+        df_all["type_issue_pr"] = df_all["type"].apply(lambda x: "issue" if x.startswith("issue") else "pull request")
+
+        df_text_dispersion_results = pd.read_parquet(infile_text_dispersion).drop(
+            columns=["same_author_pairs", "diff_author_pairs"]
+        )
+
+        stats = [
+            CalculateMemberStatsPerProblem(df_all, bot_list),
+            CalculateProjectHHI(df_all),
+            CalculateProjectProblemHHI(df_all),
+            ActorIssuePRMix(df_all, bot_list),
+            AverageTypeCount(df_all, bot_list),
+            df_text_dispersion_results,
+            PercentPullsMergedReviewed(df_all),
+            CalculateAvgPRDiscCounts(df_all),
+            CalculateAvgPRDiscCounts(df_all, include_opener = False),
+        ]
+
+        df_combined = ConcatStatsByTimePeriod(*stats)
+        if not df_combined.empty:
+            df_combined.to_parquet(outfile_agg)
+
+
+def CalculateMemberStatsPerProblem(df_all, bot_list):
+    df_problem = df_all[~df_all['actor_id'].isin(bot_list)].groupby(['thread_number', 'time_period'], as_index=False).agg(
+        avg_members_per_problem=('actor_id', 'nunique')
     )
-    df_all["type_issue_pr"] = df_all["type"].apply(lambda x: "issue" if x.startswith("issue") else "pull request")
-    
-    df_text_dispersion_results = pd.read_parquet(infile_text_dispersion).drop(columns=['same_author_pairs', 'diff_author_pairs'])
-
-    stats = [
-        CalculateMemberStatsPerProblem(df_all),
-        CalculateProjectHHI(df_all),
-        CalculateProjectProblemHHI(df_all),
-        ActorTypeMix(df_all),
-        AverageTypeCount(df_all),
-        PercentPullsMergedReviewed(df_all),
-        CalculateAvgPRDiscCounts(df_all),
-        df_text_dispersion_results
-    ]
-
-    df_combined = ConcatStatsByTimePeriod(*stats)
-    df_combined.to_parquet(outfile_agg)
+    df_problem['pct_members_multiple'] = (df_problem['avg_members_per_problem'] > 1).astype(int)
+    return df_problem.groupby(['time_period'], as_index=False).agg({
+        'avg_members_per_problem': 'mean',
+        'pct_members_multiple': 'mean'
+    })
 
 
 def IndividualActivityShares(df, actor_col='actor_id', time_col='time_period', type_col='type_broad'):
@@ -143,9 +159,13 @@ def CalculateProjectProblemHHI(df_all):
     ).rename(columns=lambda c: f"proj_prob_hhi_{c.replace(' ', '_')}").reset_index()
 
 
-def ActorTypeMix(df):
-    actor_types = df.groupby(['repo_name', 'time_period', 'actor_id'])['type_issue_pr'].unique().apply(
-        lambda x: 'issue_only' if set(x) == {'issue'} else 'pr_only' if set(x) == {'pull request'} else 'both'
+def ActorIssuePRMix(df, bot_list):
+    actor_df = df[~df['actor_id'].isin(bot_list)]
+    if actor_df.empty:
+        return pd.DataFrame()
+    
+    actor_types = actor_df.groupby(['repo_name', 'time_period', 'actor_id'])['type_issue_pr'].unique().apply(
+        lambda x: 'issue_only' if set(x) == {'issue'} else 'pr_only' if set(x) == {'pull request'} else 'issue_and_pr'
     )
     shares = actor_types.reset_index(name='category').groupby(['repo_name', 'time_period', 'category']).size().groupby(level=[0, 1]).apply(lambda g: g / g.sum())
     return shares.droplevel([0, 1]).reset_index(name='share').pivot(
@@ -153,8 +173,8 @@ def ActorTypeMix(df):
     ).rename(columns=lambda c: f"share_{c}").reset_index()
 
 
-def AverageTypeCount(df_all):
-    return df_all.groupby(['repo_name', 'time_period', 'actor_id'])['type_broad'].nunique().groupby(
+def AverageTypeCount(df_all, bot_list):
+    return df_all[(~df_all['type_broad'].str.endswith('reopened')) & ~(df_all['actor_id'].isin(bot_list))].groupby(['repo_name', 'time_period', 'actor_id'])['type_broad'].nunique().groupby(
         ['repo_name', 'time_period']
     ).mean().reset_index(name='avg_unique_types')
 
@@ -178,8 +198,8 @@ def PercentPullsMergedReviewed(df_all):
             n_with_review=('has_review', 'sum')
         )
         .assign(
-            pct_with_approved=lambda d: d['n_with_approved'] / d['n_merged'],
-            pct_with_review=lambda d: d['n_with_review'] / d['n_merged']
+            pct_merged_with_approved=lambda d: d['n_with_approved'] / d['n_merged'],
+            pct_merged_with_review=lambda d: d['n_with_review'] / d['n_merged']
         )
         .reset_index()
         .drop(columns=['n_merged', 'n_with_approved', 'n_with_review'])
@@ -187,35 +207,41 @@ def PercentPullsMergedReviewed(df_all):
     return percents
 
 
-def CalculateAvgPRDiscCounts(df_all):
+def CalculateAvgPRDiscCounts(df_all, include_opener = True):
+    df_all = df_all.copy()
+    exclude_opener_text = ""
+    if not include_opener:
+        df_all['opener_id'] = pd.to_numeric(df_all['opener_id'])
+        df_all = df_all[df_all['actor_id'] != df_all['opener_id']]
+        exclude_opener_text = "exclude_opener_"
+
     avg_pr_counts = (
         df_all[df_all['type_broad'].isin(['pull request comment', 'pull request review comment', 'pull request review'])]
         .groupby(['thread_number', 'time_period', 'type_broad']).size().unstack(fill_value=0)
         .assign(all_disc=lambda d: d.sum(axis=1)).groupby('time_period').mean().reset_index()
         .rename(columns={
-            'pull request comment': 'avg_pull_request_comment_count',
-            'pull request review comment': 'avg_pull_request_review_comment_count',
-            'pull request review': 'avg_pull_request_review_count',
-            'all_disc': 'avg_all_disc_count'
+            'pull request comment': f'avg_pull_request_comment_{exclude_opener_text}count',
+            'pull request review comment': f'avg_pull_request_review_comment_{exclude_opener_text}count',
+            'pull request review': f'avg_pull_request_review_{exclude_opener_text}count',
+            'all_disc': f'avg_all_disc_{exclude_opener_text}count'
         })
     )
     return avg_pr_counts
 
+def ExportYaml(categories, outpath):
+    # build dictionary directly from mapping
+    yaml_dict = {
+        category: {
+            "main_covariates": main_covariates,
+            "other_covariates": []  # left empty since schema is the same across repos
+        }
+        for category, main_covariates in categories.items()
+    }
 
-def CalculateMemberStatsPerProblem(df_all):
-    df_problem = df_all.groupby(['thread_number', 'time_period'], as_index=False).agg(
-        avg_members_per_problem=('actor_id', 'nunique')
-    )
-    df_problem['pct_members_multiple'] = (df_problem['avg_members_per_problem'] > 1).astype(int)
-    return df_problem.groupby(['time_period'], as_index=False).agg({
-        'avg_members_per_problem': 'mean',
-        'pct_members_multiple': 'mean'
-    })
-
-
-def ConcatStatsByTimePeriod(*dfs):
-    dfs_with_index = [df.set_index("time_period") for df in dfs if not df.empty]
-    return pd.concat(dfs_with_index, axis=1)
+    outpath.parent.mkdir(parents=True, exist_ok=True)
+    with open(outpath, "w") as f:
+        yaml.safe_dump(yaml_dict, f, sort_keys=False)
+    print(f"📝 Exported YAML → {outpath}")
 
 
 if __name__ == "__main__":

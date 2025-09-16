@@ -1,9 +1,9 @@
+from collections.abc import Iterable
 import polars as pl
 import numpy as np
 import pandas as pd
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-import datetime
-from pathlib import Path
+import json
+from concurrent.futures import ThreadPoolExecutor
 
 def AddToTableList(table_list, add_list, length):
     table_list = table_list.copy()
@@ -101,3 +101,36 @@ def WeightedMean(values, weights, zero_weight_return = np.nan):
     if weights.sum() == 0:
         return zero_weight_return
     return (values * weights).sum() / weights.sum()
+
+
+def ConcatStatsByTimePeriod(*dfs):
+    dfs_with_index = [df.set_index("time_period") for df in dfs if not df.empty]
+    if len(dfs_with_index)==0:
+        return pd.DataFrame
+    return pd.concat(dfs_with_index, axis=1)
+
+def LoadFilteredImportantMembers(repo_name, INDIR_IMPORTANT, INDIR_LIB):
+    importance_parameters = json.load(open(INDIR_LIB / "importance.json"))
+    df_important_members = pd.read_parquet(INDIR_IMPORTANT / f"{repo_name}.parquet")
+
+    df_filtered_important = df_important_members.copy()
+    for col, value in importance_parameters.items():
+        if col in df_filtered_important.columns:
+            df_filtered_important = df_filtered_important[df_filtered_important[col] == value]
+
+    df_filtered_important["time_period"] = pd.to_datetime(
+        df_filtered_important["time_period"], format="%Y-%m"
+    ).dt.to_period("M").dt.to_timestamp()
+    df_filtered_important['important_actors'] = df_filtered_important['important_actors'].apply(lambda x: [int(ele) for ele in x])
+    return df_filtered_important
+
+def FilterOnImportant(df, df_filtered_important):
+    df = df.copy()
+    df = pd.merge(df, df_filtered_important, how = 'left')
+    df = df[
+        df.apply(
+            lambda x: isinstance(x["important_actors"], Iterable) and x["actor_id"] in x["important_actors"],
+            axis=1,
+        )
+    ]
+    return df
