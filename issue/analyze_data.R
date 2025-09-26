@@ -22,33 +22,15 @@ library(aod)
 NormalizeOutcome <- function(df, outcome, default_outcome = "prs_opened") {
   outcome_norm <- paste(outcome, "norm", sep = "_")
   sd_outcome_var <- ifelse(grepl("count", outcome), default_outcome, outcome)
-  if (grepl("_predep", outcome)) {
-    sd_outcome_var <- sub("_predep", "", outcome)
-  } else if (grepl("_nondep", outcome)) {
-    sd_outcome_var <- sub("_nondep", "", outcome)
-  }
-  if (grepl("n_avg_", outcome) & startsWith(outcome, "n_avg_")) {
-    sd_outcome_var <- sub("n_avg_", "", sd_outcome_var)
-  } else if (grepl("avg_", outcome) & startsWith(outcome, "avg_")) {
-    sd_outcome_var <- sub("avg_", "", sd_outcome_var)
-  }
-  if (grepl("_dept_", outcome)) {
-    sd_outcome_var <- gsub("_dept.*", "", sd_outcome_var)
-  } else {
-    sd_outcome_var <- sd_outcome_var
-  }
-  
+
   df_norm <- df %>%
     group_by(repo_name) %>%
     mutate(mean_outcome = mean(get(outcome)[time_index < treatment_group & 
-                                              time_index >= (treatment_group - 4)], na.rm = TRUE),
+                                              time_index >= (treatment_group - 5)], na.rm = TRUE),
            sd_outcome = sd(get(sd_outcome_var)[time_index < treatment_group & 
-                                                 time_index >= (treatment_group - 4)], na.rm = TRUE)) %>%
+                                                 time_index >= (treatment_group - 5)], na.rm = TRUE)) %>%
     ungroup()
   df_norm[[outcome_norm]] <- (df_norm[[outcome]] - df_norm$mean_outcome)/df_norm$sd_outcome
-  print(weighted.mean(df_norm$sd_outcome/df_norm$mean_outcome, df_norm$mean_outcome))
-  print(mean(df_norm$sd_outcome/df_norm$mean_outcome))
-  df_norm %>% filter(is.finite(get(outcome_norm)))
 }
 
 EventStudy <- function(df, outcome, method = c("cs", "2s", "bjs", "es"), normalize = FALSE, title = NULL) {
@@ -60,7 +42,7 @@ EventStudy <- function(df, outcome, method = c("cs", "2s", "bjs", "es"), normali
   res_mat <- switch(method,
                     bjs = {
                       est <- did_imputation(df_est, yname = yvar, gname = "treatment_group", 
-                                            tname = "time_index", idname = "repo_name", horizon = T, pretrends = -4:-1) %>% 
+                                            tname = "time_index", idname = "repo_name", horizon = T, pretrends = -5:-1) %>% 
                         rename(sd = std.error, ci_low = conf.low, ci_high = conf.high) %>%
                         select(term, estimate, sd, ci_low, ci_high) %>%
                         drop_na() %>%
@@ -95,7 +77,7 @@ EventStudy <- function(df, outcome, method = c("cs", "2s", "bjs", "es"), normali
                     es = {
                       est <- eventstudyr::EventStudy(estimator="OLS",data=df_est,outcomevar=yvar,
                                                      policyvar="treatment",idvar="repo_name",
-                                                     timevar="time_index",post=4,pre=0)$output %>%
+                                                     timevar="time_index",post=5,pre=0)$output %>%
                         tidy() %>%
                         rename(sd=std.error, ci_low=conf.low, ci_high=conf.high) %>%
                         select(term, estimate, sd, ci_low, ci_high) %>%
