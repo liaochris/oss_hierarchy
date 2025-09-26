@@ -23,8 +23,8 @@ def ProcessAllReposTextDispersion(n_jobs):
 def ProcessRepoTextDispersion(repo_name):
     infile_cleaned_text = INDIR_TEXT / f"{repo_name}.parquet"
 
-    MODEL_ID = "sentence-transformers/all-MiniLM-L12-v2"
-    # MODEL_ID = "sentence-transformers/all-mpnet-base-v2"
+    #MODEL_ID = "sentence-transformers/all-MiniLM-L12-v2"
+    MODEL_ID = "sentence-transformers/all-mpnet-base-v2"
     OUTDIR_TEXT = OUTDIR_TEXT_MINILM if MODEL_ID == "sentence-transformers/all-MiniLM-L12-v2" else OUTDIR_TEXT_MPNET
     OUTDIR_TEXT.mkdir(parents=True, exist_ok=True)
 
@@ -69,7 +69,7 @@ def LoadEmbeddingModel(model_id):
     return tokenizer, model
 
 
-def GeneratePairsAndWeights(subset, weights, allow_self_pairs=False, max_same_pairs=1_000_000, max_diff_pairs=1_000_000, rng=None):
+def GeneratePairsAndWeights(subset, weights, allow_self_pairs=False, max_same_pairs=1_000_000_000_000, max_diff_pairs=1_000_000_000_000, rng=None):
     n = len(subset)
     if rng is None:
         rng = np.random.default_rng()
