@@ -28,16 +28,6 @@ source("source/lib/helpers.R")
 #######################################
 norm_options <- c(TRUE)
 
-BuildCommonSample <- function(df, outcomes) {
-  valid_repos <- lapply(outcomes, function(outcome) {
-    df_norm <- NormalizeOutcome(df, outcome)
-    unique(df_norm$repo_name)
-  })
-  keep_repos <- Reduce(intersect, valid_repos)
-  df %>% filter(repo_name %in% keep_repos)
-}
-
-
 #######################################
 # 3. Estimation functions
 #######################################
@@ -343,10 +333,7 @@ main <- function() {
   
   outcome_cfg      <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
   org_practice_cfg <- yaml.load_file(file.path(INDIR_YAML, "covariate_organization.yaml"))
-  
-  metrics    <- c("cs", "sa")
-  metrics_fn <- c("Callaway and Sant'anna 2020", "Sun and Abraham 2020")
-  
+
   plan(multisession, workers = availableCores() - 1)
   
   for (dataset in DATASETS) {
@@ -374,6 +361,9 @@ main <- function() {
     # PDF to collect all plots
     #######################################
     pdf(file.path(outdir_dataset, "all_results.pdf"))
+    
+    metrics    <- c("cs", "sa")
+    metrics_fn <- c("Callaway and Sant'anna 2020", "Sun and Abraham 2020")
     
     #######################################
     # Outcomes
@@ -413,6 +403,8 @@ main <- function() {
     # Org practice splits
     #######################################
     df_bin_change <- data.frame()
+    metrics    <- c("cs" )
+    metrics_fn <- c("Callaway and Sant'anna 2020")
     
     for (practice_mode in org_practice_modes) {
       covar <- practice_mode$continuous_covariate

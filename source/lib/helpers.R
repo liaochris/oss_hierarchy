@@ -1,27 +1,23 @@
 
 NormalizeOutcome <- function(df, outcome) {
-  outcome_norm <- paste(outcome, "norm", sep = "_")
-  sd_outcome_var <- outcome
+  outcome_sym <- rlang::sym(outcome)
+  outcome_norm <- paste0(outcome, "_norm")
   
   df_norm <- df %>%
     group_by(repo_name) %>%
     mutate(
-      mean_outcome = if_else(
-        quasi_treatment_group == 0,
-        mean(get(outcome), na.rm = TRUE),
-        mean(get(outcome)[time_index < quasi_treatment_group & time_index >= (quasi_treatment_group - 5)], na.rm = TRUE)
-      ),
-      sd_outcome = if_else(
-        quasi_treatment_group == 0,
-        sd(get(sd_outcome_var), na.rm = TRUE),
-        sd(get(sd_outcome_var)[time_index < quasi_treatment_group & time_index >= (quasi_treatment_group - 5)], na.rm = TRUE)
-      )
+      mean_outcome = mean((!!outcome_sym)[time_index < quasi_treatment_group & 
+                                            time_index >= (quasi_treatment_group - 5)], na.rm = TRUE),
+      sd_outcome   = sd((!!outcome_sym)[time_index < quasi_treatment_group & 
+                                          time_index >= (quasi_treatment_group - 5)], na.rm = TRUE)
     ) %>%
     ungroup()
   
   df_norm[[outcome_norm]] <- (df_norm[[outcome]] - df_norm$mean_outcome) / df_norm$sd_outcome
   df_norm[is.finite(df_norm[[outcome_norm]]), ]
 }
+
+
 
 BuildOrgPracticeModes <- function(org_practice_cfg, control_group, outdir_dataset) {
   modes <- list()
@@ -51,3 +47,12 @@ BuildOrgPracticeModes <- function(org_practice_cfg, control_group, outdir_datase
   modes
 }
 
+
+BuildCommonSample <- function(df, outcomes) {
+  valid_repos <- lapply(outcomes, function(outcome) {
+    df_norm <- NormalizeOutcome(df, outcome)
+    unique(df_norm$repo_name)
+  })
+  keep_repos <- Reduce(intersect, valid_repos)
+  df %>% filter(repo_name %in% keep_repos)
+}
