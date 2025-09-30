@@ -121,16 +121,9 @@ talent_investment:
   growth_opportunity:
     merge_review_pr:
       main:
-        - pull_request_merged_rate
-        - pull_request_review_rate
-        - any_activity_rate
-      other:
-        - pull_request_merged_eligible
-        - pull_request_merged_adopters
-        - pull_request_review_eligible
-        - pull_request_review_adopters
-        - any_activity_eligible
-        - any_activity_adopters
+        - pull_request_merged_rate_weighted
+        - pull_request_review_rate_weighted
+        - any_activity_rate_weighted
 
   organizational_closeness:
     network_clustering_coefficient:
