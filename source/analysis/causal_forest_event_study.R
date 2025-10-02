@@ -1,283 +1,415 @@
 #######################################
-# 1. Libraries
+# 1. Libraries & Sources
 #######################################
+library(policytree)
+library(gridExtra)
 library(tidyverse)
 library(grf)
 library(arrow)
 library(yaml)
 library(fs)
 library(ggrepel)
+library(binsreg)
+library(RColorBrewer)
 
 source("source/lib/helpers.R")
+source("source/analysis/causal_forest_helpers.R")
 
 #######################################
-# 2. Global settings
+# 2. Global Settings
 #######################################
 SEED <- 420
 set.seed(SEED)
 
-INDIR  <- "drive/output/derived/org_characteristics/org_panel"
+INDIR       <- "drive/output/derived/org_characteristics/org_panel"
+OUTDIR      <- "output/analysis/causal_forest_event_study"
+INDIR_YAML  <- "source/derived/org_characteristics"
 
-OUTDIR <- "output/derived/analysis/causal_forest_event_study"
-dir_create(file.path(OUTDIR))
-
-#######################################
-# 3. Helper functions
-#######################################
-
-ResidualizeOutcome <- function(df, outcome) {
-  df_norm <- NormalizeOutcome(df, outcome)
-  norm_outcome_col <- paste(outcome, "norm", sep = "_")
-  
-  df_norm <- df_norm %>%
-    group_by(repo_name) %>%
-    mutate(baseline = ifelse(quasi_event_time == -1, !!sym(norm_outcome_col), NA)) %>%
-    fill(baseline, .direction = "downup") %>%
-    mutate(fd_outcome = !!sym(norm_outcome_col) - baseline) %>%
-    ungroup() %>%
-    filter(quasi_event_time != -1 & !is.na(fd_outcome))
-  
-  avg_adj <- df_norm %>%
-    filter(treatment_group == 0) %>%
-    group_by(quasi_treatment_group, quasi_event_time) %>%
-    summarise(avg_fd = mean(fd_outcome, na.rm = TRUE), .groups = "drop")
-  
-  df_norm <- df_norm %>%
-    left_join(avg_adj, by = c("quasi_treatment_group", "quasi_event_time")) %>%
-    mutate(resid_outcome = fd_outcome - avg_fd) %>%
-    select(-baseline, -avg_fd, -fd_outcome)
-  
-  df_norm
-}
-
-ComputeCovariateMeans <- function(df, covars) {
-  means <- df %>%
-    filter(quasi_event_time >= -5 & quasi_event_time < -1) %>%
-    group_by(repo_name) %>%
-    summarise(across(all_of(covars), ~ mean(.x, na.rm = TRUE),
-                     .names = "{.col}_mean"),
-              .groups = "drop")
-  
-  df %>%
-    filter(quasi_event_time >= -5 & quasi_event_time <= 5) %>%
-    left_join(means, by = "repo_name")
-}
-
-AggregateEventStudyObs <- function(tau_hat, df, max_time) {
-  arm_info <- data.frame(
-    arm    = colnames(tau_hat),
-    cohort = as.integer(sub("cohort(\\d+).*", "\\1", colnames(tau_hat))),
-    e      = ifelse(grepl("event_time[-\\.]", colnames(tau_hat)),
-                    -as.integer(sub(".*event_time[-\\.](\\d+)", "\\1", colnames(tau_hat))),
-                    as.integer(sub(".*event_time(\\d+)", "\\1", colnames(tau_hat))))
-  )
-  
-  cohort_probs <- df %>%
-    filter(quasi_treatment_group > 0) %>%
-    count(quasi_treatment_group, name = "n") %>%
-    mutate(p_g = n / sum(n))
-  
-  est_list <- lapply(sort(unique(arm_info$e)), function(ev) {
-    valid <- subset(arm_info, e == ev & cohort + ev <= max_time)
-    if (!nrow(valid)) return(NULL)
-    probs <- filter(cohort_probs, quasi_treatment_group %in% valid$cohort) %>%
-      mutate(p_cond = p_g / sum(p_g))
-    tau_mat <- vapply(valid$cohort, function(g) {
-      w_g <- probs$p_cond[probs$quasi_treatment_group == g]
-      tau_hat[, valid$arm[valid$cohort == g]] * w_g
-    }, FUN.VALUE = numeric(nrow(tau_hat)))
-    if (is.null(dim(tau_mat))) tau_mat <- matrix(tau_mat, ncol = 1)
-    rowSums(tau_mat)
-  })
-  
-  out <- as.data.frame(do.call(cbind, est_list))
-  colnames(out) <- paste0("event_time", sort(unique(arm_info$e)))
-  cbind(obs_id = seq_len(nrow(out)), out)
-}
+dir_create(OUTDIR)
 
 #######################################
-# 4. Main function for one outcome
+# 3. Helper Functions
 #######################################
-RunForestEventStudy <- function(outcome, df_panel_common, org_practice_modes, outdir,
-                                outdir_ds, method = c("lm_forest", "multi_arm"),
-                                use_existing = FALSE) {
-  method <- match.arg(method)
-  message("Running forest event study for outcome: ", outcome, " using method: ", method)
-  
-  # Residualize outcome
-  df_panel_outcome <- ResidualizeOutcome(df_panel_common, outcome)
-  
-  # Build covariate sets
-  covars <- paste0(unlist(lapply(org_practice_modes, \(x) x$continuous_covariate)))
-  covars_imp <- paste0(
-    unlist(lapply(org_practice_modes, function(x) {
-      if (!str_detect(x$legend_title, "organizational_routines")) x$continuous_covariate else NULL
-    })), "_imp"
-  )
-  
-  df_data <- ComputeCovariateMeans(df_panel_outcome, c(covars, covars_imp)) %>%
-    mutate(treatment_arm = factor(ifelse(treatment_group == 0, 
-                                         "never-treated", 
-                                         paste0("cohort", treatment_group, "event_time", quasi_event_time)))) %>%
-    mutate(treatment_arm = relevel(treatment_arm, ref = "never-treated"))
-  
-  covars_mean <- paste0(covars, "_mean")
-  covars_mean_imp <- paste0(covars_imp, "_mean")
-  
-  # Build Y, X
-  Y <- df_data %>% pull(resid_outcome)
-  X <- df_data %>% select(all_of(c(covars_mean, covars_mean_imp))) %>% as.matrix()
-  
-  # Variable selection via regression forest
-  Y.forest <- regression_forest(X, Y)
-  varimp.Y <- variable_importance(Y.forest)
-  ranked_vars <- colnames(X)[order(varimp.Y, decreasing = TRUE)]
-  strip_imp <- \(v) sub("_imp_mean$", "_mean", v)
-  keep <- ranked_vars[!duplicated(strip_imp(ranked_vars))][1:15]
-  X_keep <- X[, keep]
-  
-  # 🔹 Define output file
-  outfile <- file.path(outdir_ds, paste0(method, "_", outcome, ".rds"))
-  
-  # 🔹 Load or fit model
-  if (file.exists(outfile) && use_existing) {
-    message("Loading existing model: ", outfile)
-    model <- readRDS(outfile)
+CalculatePropensityScores <- function(model, df_data, method, X_keep, Y) {
+  if (method == "lm_forest") {
+    W <- model.matrix(~ treatment_arm - 1, data = df_data)
+    W <- W[, setdiff(colnames(W), colnames(W)[grepl("never-treated", colnames(W))])]
+  } else if (method == "multi_arm") {
+    W <- df_data$treatment_arm
+  } else if (method == "lm_forest_nonlinear") {
+    W_treat <- model.matrix(~ treatment_arm - 1, data = df_data)
+    W_treat <- W_treat[, setdiff(colnames(W_treat), colnames(W_treat)[grepl("never-treated", colnames(W_treat))])]
+    W_time <- model.matrix(~ factor(time_index) - 1, data = df_data)
+    W <- cbind(W_treat, W_time)
   } else {
-    message("Fitting new model: ", outfile)
-    system.time({
-      if (method == "lm_forest") {
-        W <- model.matrix(~ treatment_arm - 1, data = df_data)
-        colnames(W) <- sub("^treatment_arm", "", colnames(W))
-        W <- W[, setdiff(colnames(W), "never-treated")]
-        
-        model <- lm_forest(
-          X = X_keep, Y = Y, W = W,
-          clusters = df_data %>% pull(repo_id)
-        )
-        
-      } else if (method == "multi_arm") {
-        W <- df_data$treatment_arm
-        
-        model <- multi_arm_causal_forest(
-          X = X_keep, Y = Y, W = W,
-          clusters = df_data %>% pull(repo_id)
-        )
-      }
-    })
-    
-    dir_create(outdir_ds)
-    saveRDS(model, file = outfile)
+    stop("Unknown method: ", method)
   }
-  # Predict treatment effects
-  mc.pred <- predict(model, drop = TRUE)
-  tau_hat <- mc.pred$predictions
+  
+  mc_pred <- predict(model, drop = TRUE)
+  tau_hat <- mc_pred$predictions
   if (method == "multi_arm") {
     colnames(tau_hat) <- gsub(" - never-treated", "", colnames(tau_hat))
   }
   
-  # Aggregate event study observations
-  df_es_coefs <- cbind(
-    df_data %>%
-      select(repo_name, time_period, treatment_group, quasi_treatment_group, time_index),
-    AggregateEventStudyObs(tau_hat, df_data, max_time = max(df_data$time_index, na.rm = TRUE))
-  )
+  n <- nrow(tau_hat)
+  k <- ncol(tau_hat)
   
-  keep_idx <- df_es_coefs$treatment_group > 0
-  df_long <- cbind(df_es_coefs[keep_idx, ], X_keep[keep_idx, , drop = FALSE]) %>%
-    select(all_of(c(colnames(X_keep), "repo_name", "treatment_group")), starts_with("event_time")) %>%
-    pivot_longer(cols = starts_with("event_time"),
-                 names_to = "event_time", values_to = "coef") %>%
-    mutate(event_time = as.integer(sub("event_time", "", event_time)))
+  treatment_residual <- W - model$W.hat
+  outcome_residual   <- matrix(Y - model$Y.hat, nrow = n, ncol = k, byrow = FALSE)
+  scaling_factor     <- model$W.hat * (1 - model$W.hat)
   
-  df_long_treated <- df_long %>% filter(treatment_group != 0)
-  
-  # Variable importance (forest level)
-  varimp <- variable_importance(model)
-  ranked.vars <- order(varimp, decreasing = TRUE)
-  vars <- colnames(X_keep)[ranked.vars][1:10]
-  
-  # Save plots
-  for (v in vars) {
-    line_ends <- df_long_treated %>%
-      filter(!is.na(.data[[v]])) %>%
-      group_by(event_time) %>%
-      group_modify(~{
-        df <- .x %>% transmute(
-          x = scale(.data[[v]], center = TRUE, scale = TRUE)[, 1],
-          y = coef
-        )
-        m <- lm(y ~ x, data = df)
-        max_x <- max(df$x, na.rm = TRUE)
-        tibble(
-          event_time = unique(.x$event_time),
-          max_x      = max_x,
-          fit_y      = predict(m, newdata = data.frame(x = max_x)),
-          coef       = coef(summary(m))[2, 1],
-          se         = coef(summary(m))[2, 2]
-        )
-      }) %>% ungroup()
-    
-    lbls <- line_ends %>%
-      mutate(lbl = paste0(event_time,
-                          " (β=", sprintf("%.2f", coef),
-                          ", se=", sprintf("%.2f", se), ")")) %>%
-      select(event_time, lbl) %>%
-      deframe()
-    
-    p <- ggplot(df_long_treated, aes(x = scale(.data[[v]])[, 1], y = coef, color = factor(event_time))) +
-      geom_point(alpha = 0.2) +
-      geom_smooth(method = "lm", formula = y ~ x, se = TRUE) +
-      geom_text_repel(data = line_ends,
-                      aes(x = max_x, y = fit_y, label = event_time, color = factor(event_time)),
-                      show.legend = FALSE, nudge_x = 0.2, size = 3) +
-      scale_color_discrete(name = "event_time", labels = lbls) +
-      labs(title = paste("Event-study coefficients vs", v, "\noutcome:", outcome),
-           x = paste0(v, " (standardized)"),
-           y = "Coefficient (raw units)") +
-      theme_minimal()
-    
-    dir_create(outdir)
-    ggsave(filename = file.path(outdir, paste0("plot_", v,"_",method, ".png")), 
-           plot = p, width = 7, height = 5)
-  }
+  prop_score <- tau_hat + (treatment_residual / scaling_factor) * outcome_residual
+  prop_score_low_bound <- quantile(prop_score, .01, na.rm = T)
+  prop_score_high_bound <- quantile(prop_score, .99, na.rm = T)
+  prop_score[prop_score>prop_score_high_bound | prop_score < prop_score_low_bound] <- NA
+  prop_score
 }
 
+# ---- Plotting ----
+PlotBinsregEventStudy <- function(df, x_var, y_var, event_var,
+                                  outcome = NULL, category = NULL,
+                                  var_rank = NULL, var_imp = NULL,
+                                  fill_alpha = .3, point_shape = 16,
+                                  out_file = NULL) {
+  df <- df %>%
+    mutate(z_x = scale(.data[[x_var]])[, 1],
+           "{event_var}" := factor(.data[[event_var]], levels = -5:5)) %>%
+    filter(z_x >= -5 & z_x <= 5) %>%
+    filter(event_time != -1)
+  
+  event_colors <- c("-5" = "lavenderblush3", "-4" = "darkorange", "-3" = "forestgreen",
+                    "-2" = "maroon", "0"  = "khaki", "1"  = "sienna", "2"  = "steelblue",
+                    "3"  = "brown", "4"  = "gold", "5"  = "navy")
+  
+  b <- binsreg(
+    y = df[[y_var]], x = df$z_x,
+    cb = TRUE, ci = TRUE,
+    nsims = 4000, simsgrid = 100, randcut = 1,
+    by = df[[event_var]], vce = "HC1",
+    bycolors = unname(event_colors),
+    bysymbols = point_shape, legendTitle = "event time",
+  )
+  
+  # Check if *all* groups are missing CI
+  all_missing_ci <- all(
+    vapply(b$data.plot, function(g) is.null(g$data.ci), logical(1))
+  )
+  
+  if (all_missing_ci) {
+    message("All groups missing CI, refitting with nbins=1.")
+    b <- binsreg(
+      y = df[[y_var]], x = df$z_x,
+      cb = TRUE, ci = TRUE,
+      nbins = 1,
+      nsims = 4000, simsgrid = 100, randcut = 1,
+      by = df[[event_var]], vce = "HC1",
+      bycolors = unname(event_colors),
+      bysymbols = point_shape, legendTitle = "event time"
+    )
+  }
+  
+  
+  # Summaries (event-level regression)
+  reg_summaries <- df %>%
+    group_by(.data[[event_var]]) %>%
+    group_modify(~ {
+      fit <- tryCatch(
+        lm(reformulate("z_x", response = y_var), data = .x),
+        error = function(e) NULL
+      )
+      if (!is.null(fit)) {
+        coef_summary <- summary(fit)$coefficients
+        if ("z_x" %in% rownames(coef_summary)) {
+          tibble(coef = coef_summary["z_x", 1],
+                 se   = coef_summary["z_x", 2])
+        } else tibble(coef = NA_real_, se = NA_real_)
+      } else tibble(coef = NA_real_, se = NA_real_)
+    }) %>%
+    ungroup() %>%
+    mutate(
+      level = as.character(.data[[event_var]]),
+      legend_label = ifelse(
+        !is.na(coef),
+        sprintf("%s\nβ=%.3f, se=%.3f", level, coef, se),
+        level
+      )
+    )
+  
+  legend_labels <- setNames(reg_summaries$legend_label, reg_summaries$level)
+  
+  # Build pathway-style title
+  title_text <- paste0(
+    "Binscatter of Event-study Coefficients\n",
+    "Outcome: ", outcome, "\n",
+    category,    "\n",
+    if (!is.null(var_rank) | !is.null(var_imp)) {
+      paste0(
+        if (!is.null(var_rank)) paste0("Rank: ", var_rank) else "",
+        if (!is.null(var_rank) & !is.null(var_imp)) ", " else "",
+        if (!is.null(var_imp)) paste0("Importance: ", signif(var_imp, 3)) else ""
+      )
+    } else ""
+  )
+  
+  p <- b$bins_plot +
+    scale_color_manual(values = event_colors,
+                       breaks = names(legend_labels),
+                       labels = legend_labels,
+                       name = "event time") +
+    scale_fill_manual(values = scales::alpha(event_colors, fill_alpha),
+                      breaks = names(legend_labels),
+                      labels = legend_labels,
+                      name = "event time") +
+    labs(title = title_text,
+         x = paste0(x_var, " (standardized, |z| ≤ 5)"),
+         y = y_var) +
+    theme_minimal(base_size = 12) +
+    theme(
+      legend.position = "right",
+      legend.text = element_text(size = 8),     # smaller font
+      legend.title = element_text(size = 9)     # slightly smaller title too
+    )
+  
+  if (!is.null(out_file)) ggsave(filename = out_file, plot = p, width = 7, height = 5)
+  p
+}
 
 #######################################
-# 5. Example: Run for 4 outcomes
+# 4. Core Analysis
 #######################################
+RunForestEventStudy <- function(outcome, df_panel_common, org_practice_modes,
+                                outdir, outdir_ds, method,
+                                rolling_period,
+                                top = "all",
+                                use_existing = FALSE) {
+  mode_suffix <- if (top == "all") "all" else paste0("top", top)
+  message("Running forest event study: ", outcome, 
+          " (", method, ", rolling", rolling_period, ", ", mode_suffix, ")")
+  
+  if (method == "lm_forest") {
+    df_panel_outcome <- ResidualizeOutcome(df_panel_common, outcome)
+  } else if (method == "lm_forest_nonlinear") {
+    df_panel_outcome <- NormalizeOutcome(df_panel_common, outcome)
+    norm_outcome_col <- paste(outcome, "norm", sep = "_")
+    df_panel_outcome <- FirstDifferenceOutcome(df_panel_outcome, norm_outcome_col)
+    df_panel_outcome$resid_outcome <- df_panel_outcome$fd_outcome
+  } 
+  
+  covars     <- unlist(lapply(org_practice_modes, \(x) x$continuous_covariate))
+  covars_imp <- unlist(lapply(org_practice_modes, function(x) {
+    if (!str_detect(x$legend_title, "organizational_routines")) paste0(x$continuous_covariate, "_imp")
+  }))
+  
+  df_data <- ComputeCovariateMeans(df_panel_outcome, c(covars, covars_imp), rolling_period)  %>%
+    filter(quasi_event_time != -1) %>%
+    mutate(treatment_arm = factor(ifelse(treatment_group == 0, "never-treated",
+                                         paste0("cohort", treatment_group, "event_time", quasi_event_time))),
+           treatment_arm = relevel(treatment_arm, ref = "never-treated"))
+  
+  Y <- df_data$resid_outcome
+  X <- as.matrix(df_data %>% select(all_of(paste0(covars, "_mean"))))
+  
+  set.seed(SEED)
+  Y_reg_forest <- df_data %>% filter(quasi_event_time >= 0) %>% pull(resid_outcome)
+  X_reg_forest <- as.matrix(df_data %>% filter(quasi_event_time >= 0) %>% 
+                              select(all_of(paste0(covars, "_mean"))))
+  
+  if (top == "all") {
+    X_keep <- X[, paste0(covars, "_mean"), drop = FALSE]
+  } else {
+    varimp.Y <- variable_importance(regression_forest(X_reg_forest, Y_reg_forest))
+    ranked_vars <- colnames(X)[order(varimp.Y, decreasing = TRUE)]
+    keep <- ranked_vars[!duplicated(sub("_imp_mean$", "_mean", ranked_vars))][1:top]
+    X_keep <- X[, keep, drop = FALSE]
+  }
+  
+  outfile <- file.path(outdir_ds, paste0(method, "_", outcome, "_rolling", rolling_period, "_", mode_suffix, ".rds"))
+  model <- FitForestModel(df_data, X_keep, Y, method, outfile, use_existing)
+  
+  tau_hat <- predict(model, drop = TRUE)$predictions
+  if (method == "multi_arm") {
+    colnames(tau_hat) <- gsub(" - never-treated", "", colnames(tau_hat))
+  }
+  
+  prop_scores <- CalculatePropensityScores(model, df_data, method, X_keep, Y)
+  df_es_coef  <- AggregateEventStudy(tau_hat, df_data, max(df_data$time_index, na.rm = TRUE),
+                                     "event_time")
+  df_es_coefs <- cbind(df_data %>% select(repo_name, time_period, treatment_group,
+                                          quasi_treatment_group, time_index),
+                       df_es_coef)
+  
+  keep_idx <- df_es_coefs$treatment_group > 0
+  df_long_treated <- df_es_coefs[keep_idx, ] %>%
+    cbind(X_keep[keep_idx, , drop = FALSE]) %>%
+    pivot_longer(
+      cols = starts_with("event_time"),
+      names_to = "event_time",
+      names_prefix = "event_time",
+      values_to = "coef"
+    ) %>%
+    mutate(event_time = as.integer(event_time)) %>%
+    distinct(repo_name, treatment_group, event_time, .keep_all = TRUE)
+  
+  df_es_prop_att  <- AggregateEventStudy(
+    prop_scores, df_data, max(df_data$time_index, na.rm = TRUE), "att") %>%
+    rename(prop_scores_att = att)
+  df_es_att <- cbind(df_data %>% select(repo_name, time_period, treatment_group,
+                                        quasi_treatment_group, time_index),
+                     df_es_prop_att)
 
-INDIR_YAML <- "source/derived/org_characteristics"
-OUTDIR <- "output/analysis/causal_forest_event_study"
-OUTDIR_DS <- "drive/output/analysis/causal_forest_event_study"
+  keep_idx <- df_es_att$treatment_group > 0
+  df_long_att <- df_es_att[keep_idx, ] %>%
+    cbind(X_keep[keep_idx, , drop = FALSE])
+  dr.rewards <- cbind(
+    control = df_long_att %>% pull(prop_scores_att) * -1,
+    treat   = df_long_att %>% pull(prop_scores_att) - mean(df_long_att$prop_scores_att)
+  )
+  policy_tree_covars <- df_long_att %>% select(colnames(X_keep))
+  subset <- complete.cases(policy_tree_covars)
+  tree <- policy_tree(policy_tree_covars[subset,], dr.rewards[subset,], min.node.size = 200)
+
+  # Save policy tree object
+  outfile_tree <- file.path(outdir_ds, paste0(method, "_", outcome, "_policytree_rolling", rolling, ".rds"))
+  saveRDS(tree, outfile_tree)
+
+  # Save policy tree plot
+  dir_create(file.path(outdir, method))
+  outfile_tree_plot <- file.path(outdir, method, paste0("policytree_", outcome, "_", method, "_", mode_suffix, ".png"))
+  png(outfile_tree_plot, width = 800, height = 600)
+  plot(tree, leaf.labels = c("dont treat", "treat"))
+  dev.off()
+
+  pi.hat.eval <- predict(tree, policy_tree_covars[subset,]) - 1
+  mean((df_long_att %>% pull(prop_scores_att))[subset][pi.hat.eval==1])
+  mean((df_long_att %>% pull(prop_scores_att))[subset][pi.hat.eval==0])
+
+  # Variable importance
+  varimp <- variable_importance(model)
+  ranked <- order(varimp, decreasing = TRUE)
+  
+  varimp_df <- tibble(
+    variable = colnames(X_keep)[ranked],
+    importance = varimp[ranked],
+    rank = seq_along(ranked),
+    outcome = outcome
+  )
+  
+  plot_list <- list()
+  
+  for (i in seq_along(ranked)) {
+    v <- colnames(X_keep)[ranked[i]]
+    imp <- varimp[ranked[i]]
+    
+    matched_cat <- NULL
+    for (m in org_practice_modes) {
+      if (v %in% paste0(m$continuous_covariate, "_mean")) {
+        matched_cat <- m$legend_title
+        break
+      }
+    }
+    
+    dir_create(file.path(outdir, method))
+    outfile_bins_png <- file.path(outdir, method, paste0("binscatter_", v, "_", method, "_", outcome, ".png"))
+    
+    p <- tryCatch(
+      {
+        PlotBinsregEventStudy(df_long_treated,
+                              x_var     = v,
+                              y_var     = "coef",
+                              event_var = "event_time",
+                              outcome   = paste0(outcome, " (rolling", rolling_period, ", ", mode_suffix, ")"),
+                              category  = matched_cat,
+                              var_rank  = i,
+                              var_imp   = imp,
+                              out_file  = outfile_bins_png)
+      },
+      error = function(e) {
+        message("Plotting failed for ", v, " (", outcome, "): ", e$message)
+        NULL
+      }
+    )
+    
+    plot_list[[paste0(v, "_", outcome)]] <- p
+  }
+  
+  return(list(varimp_df = varimp_df, plots = plot_list))
+}
+
+#######################################
+# 5. Main Entry Point
+#######################################
 outcome_cfg <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
 org_practice_cfg <- yaml.load_file(file.path(INDIR_YAML, "covariate_organization.yaml"))
 
-# Define which outcomes to run
-OUTCOME_LIST <- c("pull_request_opened", "pull_request_merged",
-                  "major_minor_release_count", "overall_new_release_count")
-
-# Loop over both important_topk and important_thresh
 for (variant in c("important_topk")) {
-  outdir_outcome_ds <- file.path(OUTDIR_DS, variant)
-  
-  df_panel <- read_parquet(file.path(INDIR, variant, "panel.parquet"))
-  df_panel_common <- BuildCommonSample(df_panel, OUTCOME_LIST) %>%
-    filter(num_departures <= 1) %>%
-    mutate(quasi_event_time = time_index - quasi_treatment_group)
-  
-  org_practice_modes <- BuildOrgPracticeModes(
-    org_practice_cfg,
-    "nevertreated",
-    file.path(OUTDIR, variant)
-  )
-  
-  for (method in c("lm_forest", "multi_arm")) {
-    for (outcome in OUTCOME_LIST) {
-      outdir_outcome <- file.path(OUTDIR, variant, outcome)
-      RunForestEventStudy(outcome, df_panel_common, org_practice_modes, outdir_outcome, 
-                          outdir_outcome_ds, method = method, use_existing = TRUE)
+  for (rolling_panel in c("rolling1", "rolling5")) {
+    rolling_period <- as.numeric(str_extract(rolling_panel, "\\d+$"))
+    
+    for (top in c("all", 15)) {
+      OUTDIR_DS <- file.path("drive/output/analysis/causal_forest_event_study", variant)
+      
+      df_panel <- read_parquet(file.path(INDIR, variant, paste0("panel_", rolling_panel, ".parquet")))
+      all_outcomes <- unlist(lapply(outcome_cfg, function(x) x$main))
+      df_panel_common <- BuildCommonSample(df_panel, all_outcomes) %>%
+        filter(num_departures <= 1) %>%
+        mutate(quasi_event_time = time_index - quasi_treatment_group)
+      
+      org_practice_modes <- BuildOrgPracticeModes(org_practice_cfg, "nevertreated",
+                                                  file.path(OUTDIR, variant, paste0(rolling_panel, "_", if (top == "all") "all" else paste0("top", top))))
+      outcome_modes <- BuildOutcomeModes(outcome_cfg, "nevertreated",
+                                         file.path(OUTDIR, variant, paste0(rolling_panel, "_", if (top == "all") "all" else paste0("top", top))),
+                                         c(TRUE))
+      for (method in c("lm_forest", "lm_forest_nonlinear")) {
+        all_varimps <- list()
+        all_plots <- list()
+        
+        for (outcome_mode in outcome_modes) {
+          outdir_outcome <- file.path(OUTDIR, variant, paste0(rolling_panel, "_", if (top == "all") "all" else paste0("top", top)), outcome_mode$outcome)
+          res <- RunForestEventStudy(
+            outcome_mode$outcome,
+            df_panel_common,
+            org_practice_modes,
+            outdir_outcome,
+            OUTDIR_DS,
+            method = method,
+            rolling_period = rolling_period,
+            top = top,
+            use_existing = FALSE
+          )
+          all_varimps[[outcome_mode$outcome]] <- res$varimp_df
+          all_plots <- c(all_plots, res$plots)
+        }
+        
+        # Global average rank
+        global_varimp <- bind_rows(all_varimps) %>%
+          group_by(variable) %>%
+          summarise(avg_rank = mean(rank), .groups = "drop") %>%
+          arrange(avg_rank)
+        library(grid)
+        
+        # PDF output in portrait orientation
+        outfile_pdf <- file.path(OUTDIR, variant, paste0("binscatter_all_", method, "_top", top, "_rolling", rolling_period, ".pdf"))
+        pdf(outfile_pdf, width = 8.5, height = 11)  # portrait, letter-like
+        for (v in global_varimp$variable) {
+          plots_for_v <- list()
+          for (outcome_mode in outcome_modes) {
+            key <- paste0(v, "_", outcome_mode$outcome)
+            if (key %in% names(all_plots)) {
+              plots_for_v[[outcome_mode$outcome]] <- all_plots[[key]]
+            }
+          }
+          
+          if (length(plots_for_v) > 0) {
+            # Pad to exactly 4 slots for consistent 2x2 grid
+            n_missing <- 4 - length(plots_for_v)
+            if (n_missing > 0) {
+              plots_for_v <- c(plots_for_v, replicate(n_missing, nullGrob(), simplify = FALSE))
+            }
+            grid.arrange(grobs = plots_for_v, ncol = 2, nrow = 2)
+          }
+        }
+        dev.off()
+      }
     }
   }
 }
