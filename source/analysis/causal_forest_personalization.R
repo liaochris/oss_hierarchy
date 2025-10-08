@@ -171,7 +171,7 @@ RunForestEventStudy_CrossFit <- function(outcome, df_panel_common, org_practice_
 
   
   dir_create(outdir)
-  cohort_outfile <- file.path(outdir, paste0(outcome, "_cohort_time_repo_coeffs_", method, "_rolling", rolling_period, ".parquet"))
+  cohort_outfile <- file.path(outdir, paste0(outcome, "_cohort_time_repo_coeffs_", method, ".parquet"))
   write_parquet(cohort_time_repo_long, cohort_outfile)
   
   event_time_repo <- AggregateRepoEventStudy(preds_all, df_data, max_time_val)
@@ -192,7 +192,7 @@ RunForestEventStudy_CrossFit <- function(outcome, df_panel_common, org_practice_
     ) %>%
     select(outcome, repo_name, repo_id, att, att_group, everything())
   
-  out_file <- file.path(outdir, paste0(outcome, "_repo_att_", method, "_rolling", rolling_period, ".parquet"))
+  out_file <- file.path(outdir, paste0(outcome, "_repo_att_", method, ".parquet"))
   write_parquet(repo_level, out_file)
   
   invisible(list(cohort_time = cohort_time_repo_long, repo_level = repo_level))
