@@ -111,7 +111,7 @@ main <- function() {
   plan(multisession, workers = availableCores() - 1)
   
   for (dataset in DATASETS) {
-    for (rolling_panel in c("rolling1", "rolling5")) {
+    for (rolling_panel in c("rolling5","rolling1")) {
       message("Processing dataset: ", dataset, " (", rolling_panel, ")")
       
       outdir_dataset <- file.path(OUTDIR, dataset, rolling_panel)
@@ -121,7 +121,8 @@ main <- function() {
       
       all_outcomes <- unlist(lapply(outcome_cfg, function(x) x$main))
       df_panel_common <- BuildCommonSample(df_panel, all_outcomes)
-      
+      df_panel_common <- KeepSustainedImportant(df_panel_common)
+
       df_panel_notyettreated <- df_panel_common %>% filter(num_departures == 1)
       df_panel_nevertreated  <- df_panel_common %>% filter(num_departures <= 1)
       
@@ -149,11 +150,11 @@ main <- function() {
         })
         # PNG
         png(outcome_mode$file)
-        CompareES(es_list, title = outcome_mode$outcome, legend_labels = metrics_fn)
+        CompareES(es_list, title = outcome_mode$outcome, legend_labels = metrics_fn, add_comparison = F)
         dev.off()
         
         # PDF
-        CompareES(es_list, title = outcome_mode$outcome, legend_labels = metrics_fn)
+        CompareES(es_list, title = outcome_mode$outcome, legend_labels = metrics_fn, add_comparison = F)
         
         # Collect coefficients
         for (i in seq_along(es_list)) {
@@ -175,8 +176,8 @@ main <- function() {
       #######################################
       # Org practice splits
       #######################################
-      metrics    <- c("cs")
-      metrics_fn <- c("Callaway and Sant'anna 2020")
+      metrics    <- c("sa")
+      metrics_fn <- c("Sun and Abraham 2020")
       
       for (practice_mode in org_practice_modes) {
         covar <- practice_mode$continuous_covariate
@@ -303,10 +304,4 @@ main <- function() {
   }
 }
 
-
-#######################################
-# Run
-#######################################
-if (sys.nframe() == 0) {
-  main()
-}
+main()
