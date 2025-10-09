@@ -1,5 +1,3 @@
-
-
 EventStudy <- function(df, outcome, control_group, method = c("cs", "sa", "es"), normalize = FALSE, title = NULL) {
   method <- match.arg(method)
   df_est <- if (normalize) NormalizeOutcome(df, outcome) else df %>% mutate("{outcome}_norm" := .data[[outcome]])
@@ -119,7 +117,8 @@ CompareES <- function(es_list,
                       legend_title = NULL,
                       legend_labels = NULL,
                       title = "",
-                      add_p = TRUE,
+                      add_comparison = TRUE,
+                      add_pretrends = TRUE,
                       ylim = NULL) {
   old_par <- par(no.readonly = TRUE)
   on.exit(par(old_par), add = TRUE)
@@ -159,10 +158,14 @@ CompareES <- function(es_list,
     par(xpd = FALSE)
   }
   
-  if (add_p) {
+  usr <- par("usr")
+  x_left <- usr[1] + 0.02 * (usr[2] - usr[1])
+  
+  if (add_comparison) {
+    wald_lbl <- ""
     if (length(results) == 2) {
       wp <- CompareEventCoefsWald(results, terms = 0:5)
-      wald_lbl <- paste0("Wald test p-value: ", sprintf("%.3f", wp))
+      wald_lbl <- paste0(legend_labels[1], " vs. ", legend_labels[2], " wald test p-value: ", sprintf("%.3f", wp))
     } else if (length(results) > 2) {
       combos <- combn(length(results), 2)
       wald_lbl <- paste(
@@ -173,7 +176,10 @@ CompareES <- function(es_list,
         collapse = " | "
       )
     }
-    
+    mtext(wald_lbl, side = 1, line = -1.6, at = x_left, adj = 0, cex = 1.2)
+  }
+  if (add_pretrends) {
+    pre_lbl <- ""
     pre_p <- vapply(results, TestPretrends, numeric(1))
     pre_strs <- ifelse(pre_p < 0.001,
                        "p-value < 0.001",
@@ -181,13 +187,8 @@ CompareES <- function(es_list,
     pre_lbl <- paste(paste0("Pretrend (", legend_labels, ") ", pre_strs), collapse = "\n")
     if (length(results) == 1) {
       pre_lbl <- paste0("Pretrend p-value: ", pre_strs)
-      wald_lbl <- ""
     }
-    
-    usr <- par("usr")
-    x_left <- usr[1] + 0.02 * (usr[2] - usr[1])
-    mtext(wald_lbl, side = 1, line = -1, at = x_left, adj = 0, cex = 0.8)
-    mtext(pre_lbl, side = 1, line = -1.8, at = x_left, adj = 0, cex = 0.8)
+    mtext(pre_lbl, side = 1, line = -2.6, at = x_left, adj = 0, cex = 0.8)
   }
 }
 

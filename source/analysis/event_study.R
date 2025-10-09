@@ -102,7 +102,7 @@ main <- function() {
   OUTDIR <- "output/analysis/event_study"
   dir_create(OUTDIR)
   
-  DATASETS <- c("important_topk", "important_thresh")
+  DATASETS <- c("important_topk", "important_topk_exact1", "important_thresh")
   exclude_outcomes <- c("num_downloads")
   
   outcome_cfg      <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
@@ -111,18 +111,22 @@ main <- function() {
   plan(multisession, workers = availableCores() - 1)
   
   for (dataset in DATASETS) {
-    for (rolling_panel in c("rolling5","rolling1")) {
+    for (rolling_panel in c("rolling5")) {
       message("Processing dataset: ", dataset, " (", rolling_panel, ")")
       
       outdir_dataset <- file.path(OUTDIR, dataset, rolling_panel)
       dir_create(outdir_dataset, recurse = TRUE)
       
-      df_panel <- read_parquet(file.path(INDIR, dataset, paste0("panel_", rolling_panel, ".parquet")))
-      
+      df_panel <- read_parquet(file.path(INDIR, gsub("_exact1", "", dataset), paste0("panel_", rolling_panel, ".parquet")))
+
       all_outcomes <- unlist(lapply(outcome_cfg, function(x) x$main))
       df_panel_common <- BuildCommonSample(df_panel, all_outcomes)
-      df_panel_common <- KeepSustainedImportant(df_panel_common)
-
+      if (endsWith(dataset, "exact1")) {
+        df_panel_common <- KeepSustainedImportant(df_panel_common, lb = 1, ub = 1)
+      } else {
+        df_panel_common <- KeepSustainedImportant(df_panel_common)
+      }
+      
       df_panel_notyettreated <- df_panel_common %>% filter(num_departures == 1)
       df_panel_nevertreated  <- df_panel_common %>% filter(num_departures <= 1)
       
@@ -130,8 +134,8 @@ main <- function() {
       assign("df_panel_nevertreated",  df_panel_nevertreated,  envir = .GlobalEnv)
       
       outcome_modes      <- BuildOutcomeModes(outcome_cfg, "nevertreated", outdir_dataset,
-                                              norm_options)
-      org_practice_modes <- BuildOrgPracticeModes(org_practice_cfg, "nevertreated", outdir_dataset)
+                                              norm_options, build_dir = TRUE)
+      org_practice_modes <- BuildOrgPracticeModes(org_practice_cfg, "nevertreated", outdir_dataset, build_dir = TRUE)
       
       coeffs_all <- list()
       df_bin_change <- data.frame()
@@ -273,9 +277,21 @@ main <- function() {
       # Export results (per rolling period)
       #######################################
       coeffs_df <- bind_rows(coeffs_all) %>%
-        mutate(event_time = as.numeric(event_time))
-      write_csv(coeffs_df, file.path(outdir_dataset,  paste0("all_coefficients","_",rolling_panel,".csv")))
-      write_csv(df_bin_change, file.path(outdir_dataset, paste0("bin_change","_",rolling_panel,".csv")))
+        mutate(event_time = as.numeric(event_time),
+               covar = ifelse(is.na(covar), "", covar),
+               split_value = ifelse(is.na(split_value), "", split_value))
+      SaveData(coeffs_df, 
+               c("dataset","rolling",
+               "category","outcome","normalize","method","covar","split_value", "event_time"),
+               file.path(outdir_dataset,  paste0("all_coefficients","_",rolling_panel,".csv")),
+               file.path(outdir_dataset,  paste0("all_coefficients","_",rolling_panel,".log")),
+               sortbykey = FALSE)
+      
+      SaveData(df_bin_change, 
+                c("covar","dataset","rolling","past_periods"),
+                file.path(outdir_dataset, paste0("bin_change","_",rolling_panel,".csv")),
+                file.path(outdir_dataset, paste0("bin_change","_",rolling_panel,".log")),
+               sortbykey = FALSE)
       
       #######################################
       # Combine PNGs into one PDF (per rolling period)
