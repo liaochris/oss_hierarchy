@@ -37,18 +37,18 @@ AssignOutcomeFolds <- function(repo_names, outcome, n_folds = 10, seed = SEED) {
   df %>% select(repo_name, fold)
 }
 
-CalculateDoublyRobust <- function(df_hold, method, treatment_model_fold, outcome_model_fold, x_hold,
-                                  y_hold, preds) {
-  W <- CalculateTreatment(df_hold, method)$W
-  W_og_form_hat <- predict(treatment_model_fold, newdata = x_hold)$predictions
-  W_hat <- TransformWHat(W_og_form_hat, W, df_hold)
-  
-  y_hat <- predict(outcome_model_fold, newdata = x_hold)$predictions
-  Y_residual <- y_hold - (y_hat + preds * (W - W_hat))
-  debiasing_weights <- (W - W_hat) / (W_hat * (1 - W_hat))
-  
-  return(preds + debiasing_weights * Y_residual)
-}
+# CalculateDoublyRobust <- function(df_hold, method, treatment_model_fold, outcome_model_fold, x_hold,
+#                                   y_hold, preds) {
+#   W <- CalculateTreatment(df_hold, method)$W
+#   W_og_form_hat <- predict(treatment_model_fold, newdata = x_hold)$predictions
+#   W_hat <- TransformWHat(W_og_form_hat, W, df_hold)
+#   
+#   y_hat <- predict(outcome_model_fold, newdata = x_hold)$predictions
+#   Y_residual <- y_hold - (y_hat + preds * (W - W_hat))
+#   debiasing_weights <- (W - W_hat) / (W_hat * (1 - W_hat))
+#   
+#   return(preds + debiasing_weights * Y_residual)
+# }
 
 TransformRepoCohortTimeCoefficients <- function(preds_all, df_data, outcome, values_to_col) {
   cohort_time_repo_long <- tibble::as_tibble(preds_all) %>%
@@ -205,7 +205,9 @@ RunBaselineHeterogeneityCrossFit <- function(df_data, keep_names, marg_dist_trea
   df_data
 }
 
-RunForestEventStudy_CrossFit <- function(outcome, df_panel_common, org_practice_modes, outdir, outdir_ds, method, rolling_period, n_folds = 10, seed = SEED, use_existing = FALSE) {
+RunForestEventStudy_CrossFit <- function(
+    outcome, df_panel_common, org_practice_modes, outdir, outdir_ds, method, rolling_period, 
+    n_folds = 10, seed = SEED, use_existing = FALSE, use_default_What = FALSE) {
   message("Cross-fit (no plotting) for outcome=", outcome, " method=", method, " rolling=", rolling_period, " folds=", n_folds)
   covars     <- unlist(lapply(org_practice_modes, \(x) x$continuous_covariate))
   covars_imp <- unlist(lapply(org_practice_modes, function(x) {
@@ -262,9 +264,9 @@ RunForestEventStudy_CrossFit <- function(outcome, df_panel_common, org_practice_
     outfile_fold <- file.path(
       outdir_ds, paste0(method, "_", outcome, "_rolling", rolling_period, "_fold", fold_id, ".rds"))
     forest_model_obj <- FitForestModel(
-      df_train, x_train, y_train, method, outfile_fold, use_existing = use_existing, seed = SEED)
+      df_train, x_train, y_train, method, outfile_fold, use_existing = use_existing, 
+      seed = SEED, use_default_What = use_default_What)
     model_fold <- forest_model_obj$model
-    outcome_model_fold <- forest_model_obj$outcome_model
     treatment_model_fold <- forest_model_obj$treatment_model
     
     pred_obj <- predict(model_fold, newdata = x_hold, drop = TRUE)
@@ -317,22 +319,29 @@ RunForestEventStudy_CrossFit <- function(outcome, df_panel_common, org_practice_
 outcome_cfg <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
 org_practice_cfg <- yaml.load_file(file.path(INDIR_YAML, "covariate_organization.yaml"))
 
-for (variant in c("important_topk",  "important_topk_exact1", "important_thresh")) {
+for (variant in c("important_topk_defaultWhat", "important_topk", 
+                  "important_topk_oneQual", "important_topk_oneQual_defaultWhat",
+                  "important_topk_exact1", "important_topk_exact1_defaultWhat")) {
   for (rolling_panel in c("rolling5")) {
+    panel_variant <- gsub("_exact1", "", variant)
+    panel_variant <- gsub("_defaultWhat", "", panel_variant)
+    panel_variant <- gsub("_oneQual", "", panel_variant)
+    
     rolling_period <- as.numeric(str_extract(rolling_panel, "\\d+$"))
     outdir_ds <- file.path(OUTDIR_DATASTORE, variant, rolling_panel)
-    df_panel <- read_parquet(file.path(INDIR, gsub("_exact1", "", variant), paste0("panel_", rolling_panel, ".parquet")))
+    df_panel <- read_parquet(file.path(INDIR, panel_variant, paste0("panel_", rolling_panel, ".parquet")))
     all_outcomes <- unlist(lapply(outcome_cfg, function(x) x$main))
 
     df_panel_common <- BuildCommonSample(df_panel, all_outcomes) %>%
       filter(num_departures <= 1) %>%
       mutate(quasi_event_time = time_index - quasi_treatment_group)
-    if (endsWith(variant, "exact1")) {
+    if (grepl("_exact1", variant)) {
       df_panel_common <- KeepSustainedImportant(df_panel_common, lb = 1, ub = 1)
-    } else {
+    } else if (grepl("_oneQual", variant)) {
       df_panel_common <- KeepSustainedImportant(df_panel_common)
-    }
-    
+    } 
+
+    use_default_What <- grep("_defaultWhat", variant)
     outdir_base <- file.path(OUTDIR, variant, rolling_panel)
     org_practice_modes <- BuildOrgPracticeModes(org_practice_cfg, "nevertreated", outdir_base, 
                                                 build_dir = FALSE)
@@ -341,7 +350,7 @@ for (variant in c("important_topk",  "important_topk_exact1", "important_thresh"
     outcome_modes <- BuildOutcomeModes(outcome_cfg, "nevertreated", outdir_base, c(TRUE),
                                        build_dir = FALSE)
     
-    for (method in c("lm_forest", "lm_forest_nonlinear", "multi_arm")) {
+    for (method in c("lm_forest", "lm_forest_nonlinear")) {
       outdir_for_spec <- outdir_base
       dir_create(outdir_for_spec)
       
@@ -356,7 +365,8 @@ for (variant in c("important_topk",  "important_topk_exact1", "important_thresh"
           rolling_period = rolling_period,
           n_folds = 10,
           seed = SEED,
-          use_existing = TRUE
+          use_existing = TRUE,
+          use_default_What = use_default_What
         )
       }
     }

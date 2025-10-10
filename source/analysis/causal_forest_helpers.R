@@ -98,19 +98,25 @@ TransformWHat <- function(W_og_form_hat, W, df_data, drop_never_treated = TRUE) 
       W_hat[, cohort == c] <- W_og_form_hat[, as.character(c)]
     }
   }
-  keep_mask <- outer(df_data$time_index, expected_time, `==`)
+  
+  keep_mask <- t(sapply(df_data$repo_id, function(id) {
+    time_set <- unique(df_data$time_index[df_data$repo_id == id])
+    in_time <- expected_time %in% time_set
+    weight <- 1 / length(time_set)
+    as.numeric(in_time) * weight
+  }))
   if (!drop_never_treated) {
-    keep_mask[, 1] <- TRUE
+    keep_mask[, 1] <- 1
   }
   W_hat <- W_hat * keep_mask
   W_hat
 }
 
-FitForestModel <- function(df_train, x_train, y_train, method, outfile_fold, use_existing, seed = SEED) {
+FitForestModel <- function(df_train, x_train, y_train, method, outfile_fold, 
+                           use_existing, seed = SEED, use_default_What = FALSE) {
   set.seed(seed)
   treatment_file <- sub("\\.rds$", "_treatment.rds", outfile_fold)
-  outcome_file   <- sub("\\.rds$", "_outcome.rds", outfile_fold)
-  
+
   drop_never_treated <- TRUE
   if (method == "lm_forest" | method == "lm_forest_nonlinear") {
     W <- CalculateTreatment(df_train, method)$W
@@ -124,30 +130,29 @@ FitForestModel <- function(df_train, x_train, y_train, method, outfile_fold, use
   }
   
   message("Model outfile: ", outfile_fold)
-  if (file.exists(outfile_fold) && file.exists(outcome_file) && file.exists(treatment_file) && isTRUE(use_existing)) {
+  if (file.exists(outfile_fold) && file.exists(treatment_file) && isTRUE(use_existing)) {
     message("Loading existing model from disk: ", outfile_fold)
     loaded_model <- readRDS(outfile_fold)
-    loaded_outcome <- readRDS(outcome_file)
     loaded_treat   <- readRDS(treatment_file)
-    return(list(model = loaded_model, outcome_model = loaded_outcome, treatment_model = loaded_treat))
+    return(list(model = loaded_model, treatment_model = loaded_treat))
   }
-
-  outcome_model <- regression_forest(x_train, y_train, clusters = df_train$repo_id)
-  y_hat <- predict(outcome_model, x_train)
-
+  
   W_og_form <- as.factor(df_train$treatment_group)
   treatment_model <- probability_forest(x_train, W_og_form, clusters = df_train$repo_id)
-  W_og_form_hat <- predict(treatment_model)$predictions
-  W_hat <- TransformWHat(W_og_form_hat, W_mat, df_train, drop_never_treated)
-  
+  if (use_default_What) {
+    W_hat <- NULL
+  } else {
+    W_og_form_hat <- predict(treatment_model)$predictions
+    W_hat <- TransformWHat(W_og_form_hat, W_mat, df_train, drop_never_treated)
+  }
   # fit main causal model depending on method
   if (method == "lm_forest" | method == "lm_forest_nonlinear") {
     model <- lm_forest(X = x_train, Y = y_train, W = W, clusters = df_train$repo_id, num.trees = 2000,
-                       Y.hat = y_hat, W.hat = W_hat)
+                       W.hat = W_hat)
   } else if (method == "multi_arm") {
     colnames(W_hat) <- gsub("treatment_arm", "", colnames(W_hat))
     model <- multi_arm_causal_forest(X = x_train, Y = y_train, W = W, clusters = df_train$repo_id, num.trees = 2000,
-                                     Y.hat = y_hat, W.hat = W_hat)
+                                     W.hat = W_hat)
   } else {
     stop("Unknown method (should not reach here): ", method)
   }
@@ -156,14 +161,13 @@ FitForestModel <- function(df_train, x_train, y_train, method, outfile_fold, use
   dir_create(dirname(outfile_fold))
   tryCatch({
     saveRDS(model, outfile_fold)
-    saveRDS(outcome_model, outcome_file)
     saveRDS(treatment_model, treatment_file)
-    message("Saved model, outcome_model, and treatment_model to: ", dirname(outfile_fold))
+    message("Saved model and treatment_model to: ", dirname(outfile_fold))
   }, error = function(e) {
     warning("Failed to write model files: ", e$message)
   })
   
-  return(list(model = model, outcome_model = outcome_model, treatment_model = treatment_model))
+  return(list(model = model, treatment_model = treatment_model))
 }
 
 AggregateEventStudy <- function(tau_hat, df, max_time, type = c("event_time", "att", "cumulative"), cumulative_cutoff = 4) {

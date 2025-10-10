@@ -44,9 +44,11 @@ main <- function() {
   OUTDIR <- "output/analysis/event_study_personalization"
   dir_create(OUTDIR)
   
-  DATASETS <- c("important_topk", "important_topk_exact1")
+  DATASETS <- c("important_topk_defaultWhat", "important_topk", 
+                "important_topk_oneQual", "important_topk_oneQual_defaultWhat",
+                "important_topk_exact1", "important_topk_exact1_defaultWhat")
   ROLLING_PANELS <- c("rolling5")
-  METHODS <- c("lm_forest", "multi_arm", "lm_forest_nonlinear")
+  METHODS <- c("lm_forest", "lm_forest_nonlinear")
   exclude_outcomes <- c("num_downloads")
   norm_options <- c(TRUE)
   
@@ -67,11 +69,20 @@ main <- function() {
         
         # ensure outdir_dataset exists early so aggregators can find files
         message("Processing dataset: ", dataset, " (", rolling_panel, ") method=", method)
+    
+        panel_dataset <- gsub("_exact1", "", dataset)
+        panel_dataset <- gsub("_defaultWhat", "", panel_dataset)
+        panel_dataset <- gsub("_oneQual", "", panel_dataset)
         
-        df_panel <- read_parquet(file.path("drive/output/derived/org_characteristics/org_panel", gsub("_exact1", "", dataset), paste0("panel_", rolling_panel, ".parquet")))
+        df_panel <- read_parquet(file.path("drive/output/derived/org_characteristics/org_panel", 
+                                           panel_dataset, paste0("panel_", rolling_panel, ".parquet")))
         all_outcomes <- unlist(lapply(outcome_cfg, function(x) x$main))
         df_panel_common <- BuildCommonSample(df_panel, all_outcomes)
-        df_panel_common <- KeepSustainedImportant(df_panel_common)
+        if (grepl("_exact1", dataset)) {
+          df_panel_common <- KeepSustainedImportant(df_panel_common, lb = 1, ub = 1)
+        } else if (grepl("_oneQual", dataset)) {
+          df_panel_common <- KeepSustainedImportant(df_panel_common)
+        } 
         
         df_panel_notyettreated <- df_panel_common %>% filter(num_departures == 1)
         df_panel_nevertreated  <- df_panel_common %>% filter(num_departures <= 1)
@@ -84,13 +95,7 @@ main <- function() {
                                            build_dir = FALSE)
         
         coeffs_all <- list()
-        
-        #######################################
-        # Org practice splits
-        #######################################
-        metrics    <- c("cs")
-        metrics_fn <- c("Callaway and Sant'anna 2020")
-        
+
         # Use the second outcome_mode as split_mode (as you were doing)
         for (split_mode in list(outcome_modes[[2]])) {
           split_var <- split_mode$outcome
