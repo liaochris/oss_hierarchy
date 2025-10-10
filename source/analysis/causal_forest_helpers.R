@@ -23,8 +23,7 @@ ComputeCovariateMeans <- function(df, covars, rolling_period = 1) {
       summarise(across(all_of(covars), ~ mean(.x, na.rm = TRUE), .names = "{.col}_mean"),
                 .groups = "drop")
     
-    df %>%
-      filter(quasi_event_time >= -5 & quasi_event_time <= 5) %>%
+    df %>% filter(quasi_event_time >= -5 & quasi_event_time <= 5) %>%
       left_join(means, by = "repo_name")
     
   } else if (rolling_period == 5) {
@@ -50,31 +49,32 @@ FirstDifferenceOutcome <- function(df, norm_outcome_col) {
   return(df)
 }
 
+GetWMatrix <- function(df, time_levels) {
+  n <- nrow(df)
+  col_names <- paste0("factor(time_index)", time_levels)
+  W <- matrix(0, nrow = n, ncol = length(col_names), dimnames = list(NULL, col_names))
+  
+  time_col_names <- paste0("factor(time_index)", df$time_index)
+  time_idx <- match(time_col_names, colnames(W))
+  W[cbind(seq_len(n), time_idx)] <- 1
+  
+  # quasi_treatment_group contribution uses (quasi_treatment_group - 1) as in your original code
+  norm_col_names <- paste0("factor(time_index)", df$quasi_treatment_group - 1)
+  # only set when that column exists in W (safety)
+  norm_idx <- match(norm_col_names, colnames(W))
+  valid_rows <- which(!is.na(norm_idx))
+  if (length(valid_rows) > 0) {
+    W[cbind(valid_rows, norm_idx[valid_rows])] <- -1
+  }
+  
+  return(W)
+}
+
 CalculateTreatment <- function(df_data, method) {
-  if (method == "lm_forest") {
+  if (method == "lm_forest" | method == "lm_forest_nonlinear") {
     W <- model.matrix(~ treatment_arm - 1, data = df_data)
     W <- W[, setdiff(colnames(W), colnames(W)[grepl("never-treated", colnames(W))])]
     return(list(W = W))
-  } else if (method == "lm_forest_nonlinear") {
-    W_treat <- model.matrix(~ treatment_arm - 1, data = df_data)
-    W_treat <- W_treat[, setdiff(colnames(W_treat), colnames(W_treat)[grepl("never-treated", colnames(W_treat))])]
-    # time dummies
-    W_time <- model.matrix(~ factor(time_index) - 1, data = df_data)
-    
-    # place -1 in the time-dummy column corresponding to baseline (cohort - 1)
-    # cohort here is the row's treatment_group (quasi_treatment_group)
-    baseline_time_index <- as.integer(df_data$quasi_treatment_group) - 1
-    baseline_col_names <- paste0("factor(time_index)", baseline_time_index)
-    col_idx_map <- match(baseline_col_names, colnames(W_time))   # NA if that time col doesn't exist
-    rows_with_baseline <- which(!is.na(col_idx_map))
-    if (length(rows_with_baseline) > 0) {
-      row_idx <- rows_with_baseline
-      col_idx <- col_idx_map[rows_with_baseline]
-      W_time[cbind(row_idx, col_idx)] <- -1
-    }
-    W <- cbind(W_treat, W_time)
-    grad_vec <- c(rep(1, ncol(W_treat)), rep(0, ncol(W_time)))
-    return(list(W = W, grad_vec = grad_vec))
   } else {
     stop("Unknown method: ", method)
   }
@@ -112,18 +112,13 @@ FitForestModel <- function(df_train, x_train, y_train, method, outfile_fold, use
   outcome_file   <- sub("\\.rds$", "_outcome.rds", outfile_fold)
   
   drop_never_treated <- TRUE
-  if (method == "lm_forest") {
+  if (method == "lm_forest" | method == "lm_forest_nonlinear") {
     W <- CalculateTreatment(df_train, method)$W
     W_mat <- W
-    grad_vec <- NULL
   } else if (method == "multi_arm") {
     W <- df_train$treatment_arm
     W_mat <- model.matrix(~ treatment_arm - 1, data = df_train)
     drop_never_treated <- FALSE
-  } else if (method == "lm_forest_nonlinear") {
-    calc_treatment <- CalculateTreatment(df_train, method)
-    W <- calc_treatment$W %||% calc_treatment[[1]]
-    grad_vec <- calc_treatment$grad_vec %||% calc_treatment[[2]] %||% NULL
   } else {
     stop("Unknown method: ", method)
   }
@@ -136,31 +131,23 @@ FitForestModel <- function(df_train, x_train, y_train, method, outfile_fold, use
     loaded_treat   <- readRDS(treatment_file)
     return(list(model = loaded_model, outcome_model = loaded_outcome, treatment_model = loaded_treat))
   }
-  
-  outcome_model <- regression_forest(x_train, y_train)
+
+  outcome_model <- regression_forest(x_train, y_train, clusters = df_train$repo_id)
   y_hat <- predict(outcome_model, x_train)
 
   W_og_form <- as.factor(df_train$treatment_group)
-  treatment_model <- probability_forest(x_train, W_og_form)
+  treatment_model <- probability_forest(x_train, W_og_form, clusters = df_train$repo_id)
   W_og_form_hat <- predict(treatment_model)$predictions
   W_hat <- TransformWHat(W_og_form_hat, W_mat, df_train, drop_never_treated)
   
   # fit main causal model depending on method
-  if (method == "lm_forest") {
+  if (method == "lm_forest" | method == "lm_forest_nonlinear") {
     model <- lm_forest(X = x_train, Y = y_train, W = W, clusters = df_train$repo_id, num.trees = 2000,
                        Y.hat = y_hat, W.hat = W_hat)
   } else if (method == "multi_arm") {
     colnames(W_hat) <- gsub("treatment_arm", "", colnames(W_hat))
     model <- multi_arm_causal_forest(X = x_train, Y = y_train, W = W, clusters = df_train$repo_id, num.trees = 2000,
                                      Y.hat = y_hat, W.hat = W_hat)
-  } else if (method == "lm_forest_nonlinear") {
-    # pass gradient.weights if available
-    if (is.null(grad_vec)) {
-      warning("No gradient weights returned by CalculateTreatment; proceeding without gradient.weights")
-      model <- lm_forest(X = x_train, Y = y_train, W = W, clusters = df_train$repo_id, num.trees = 2000)
-    } else {
-      model <- lm_forest(X = x_train, Y = y_train, W = W, clusters = df_train$repo_id, num.trees = 2000, gradient.weights = grad_vec)
-    }
   } else {
     stop("Unknown method (should not reach here): ", method)
   }

@@ -44,9 +44,9 @@ main <- function() {
   OUTDIR <- "output/analysis/event_study_personalization"
   dir_create(OUTDIR)
   
-  DATASETS <- c("important_topk")
+  DATASETS <- c("important_topk", "important_topk_exact1")
   ROLLING_PANELS <- c("rolling5")
-  METHODS <- c("lm_forest")
+  METHODS <- c("lm_forest", "multi_arm", "lm_forest_nonlinear")
   exclude_outcomes <- c("num_downloads")
   norm_options <- c(TRUE)
   
@@ -68,7 +68,7 @@ main <- function() {
         # ensure outdir_dataset exists early so aggregators can find files
         message("Processing dataset: ", dataset, " (", rolling_panel, ") method=", method)
         
-        df_panel <- read_parquet(file.path("drive/output/derived/org_characteristics/org_panel", dataset, paste0("panel_", rolling_panel, ".parquet")))
+        df_panel <- read_parquet(file.path("drive/output/derived/org_characteristics/org_panel", gsub("_exact1", "", dataset), paste0("panel_", rolling_panel, ".parquet")))
         all_outcomes <- unlist(lapply(outcome_cfg, function(x) x$main))
         df_panel_common <- BuildCommonSample(df_panel, all_outcomes)
         df_panel_common <- KeepSustainedImportant(df_panel_common)
