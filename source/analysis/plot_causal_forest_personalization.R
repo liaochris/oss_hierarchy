@@ -122,7 +122,7 @@ main <- function() {
           df_causal_forest_bins <- df_causal_forest_bins %>%
             mutate(att_wins = winsorize(att, c(0.01, 0.99)))
           p_att <- ggplot(df_causal_forest_bins, aes(x = att_wins, fill = att_group, color = att_group)) +
-            geom_histogram(position = "identity", alpha = 0.5, bins = 40) +
+            geom_histogram(position = "stack", alpha = 0.5, bins = 40) +
             labs(title = paste0("Causal Forest ATT ", split_var, "\n", rolling_panel, " (", method, ")"),
                  x = "ATT (winsorized)", y = "Count",
                  fill = "ATT Group", color = "ATT Group") +
