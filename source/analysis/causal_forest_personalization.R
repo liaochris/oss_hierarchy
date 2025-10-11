@@ -23,110 +23,30 @@ INDIR_YAML  <- "source/derived/org_characteristics"
 # ensure output directory exists and is writable
 dir_create(OUTDIR)
 
-#######################################
-# 4. Core Analysis (cross-fit per outcome, export cohort-time & event-time)
-#######################################
-AssignOutcomeFolds <- function(repo_names, outcome, n_folds = 10, seed = SEED) {
-  repo_sorted <- sort(unique(repo_names))
-  outcome_bytes <- as.integer(charToRaw(as.character(outcome)))
-  offset <- (sum(outcome_bytes) + as.integer(seed)) %% as.integer(n_folds)
-  n_repos <- length(repo_sorted)
-  df <- tibble(repo_name = repo_sorted, rank = seq_len(n_repos))
-  df <- df %>% mutate(fold = ((rank - 1) + offset) %% n_folds + 1)
-  df %>% select(repo_name, fold)
-}
 
-# CalculateDoublyRobust <- function(df_hold, method, treatment_model_fold, outcome_model_fold, x_hold,
-#                                   y_hold, preds) {
-#   W <- CalculateTreatment(df_hold, method)$W
-#   W_og_form_hat <- predict(treatment_model_fold, newdata = x_hold)$predictions
-#   W_hat <- TransformWHat(W_og_form_hat, W, df_hold)
-#   
-#   y_hat <- predict(outcome_model_fold, newdata = x_hold)$predictions
-#   Y_residual <- y_hold - (y_hat + preds * (W - W_hat))
-#   debiasing_weights <- (W - W_hat) / (W_hat * (1 - W_hat))
-#   
-#   return(preds + debiasing_weights * Y_residual)
-# }
+#######################################
+# Helpers - Organized
+#######################################
 
-FilterPredictions <- function(preds_all, df_data) {
-  arm_names <- colnames(preds_all)
-  quasi_arm <- paste0("treatment_armcohort", df_data$quasi_treatment_group, "event_time", 
-                      df_data$time_index - df_data$quasi_treatment_group) |>
-    sub("event_time-", "event_time.", x = _, fixed = TRUE)
-  valid_arms <- tapply(quasi_arm, df_data$repo_id, unique)
-  for (i in seq_len(nrow(preds_all))) {
-    keep <- arm_names %in% valid_arms[[as.character(df_data$repo_id[i])]]
-    preds_all[i, !keep] <- NA
+########## W / design matrix helpers ##########
+
+GetWMatrix <- function(df, time_levels) {
+  n <- nrow(df)
+  col_names <- paste0("factor(time_index)", time_levels)
+  W <- matrix(0, nrow = n, ncol = length(col_names), dimnames = list(NULL, col_names))
+  
+  time_col_names <- paste0("factor(time_index)", df$time_index)
+  time_idx <- match(time_col_names, colnames(W))
+  W[cbind(seq_len(n), time_idx)] <- 1
+  
+  norm_col_names <- paste0("factor(time_index)", df$quasi_treatment_group - 1)
+  norm_idx <- match(norm_col_names, colnames(W))
+  valid_rows <- which(!is.na(norm_idx))
+  if (length(valid_rows) > 0) {
+    W[cbind(valid_rows, norm_idx[valid_rows])] <- -1
   }
-  preds_all
-}
-
-
-TransformRepoCohortTimeCoefficients <- function(preds_all, df_data, outcome, values_to_col) {
-  cohort_time_repo_long <- tibble::as_tibble(preds_all) %>%
-    dplyr::bind_cols(df_data %>% dplyr::select(repo_name, repo_id)) %>%
-    tidyr::pivot_longer(-c(repo_name, repo_id), names_to = "arm", values_to = values_to_col) %>%
-    dplyr::distinct() %>%
-    dplyr::mutate(
-      arm = sub("^treatment_arm", "", arm),
-      cohort = as.integer(stringr::str_extract(arm, "(?<=cohort)\\d+")),
-      event_time_sep = dplyr::case_when(
-        grepl("event_time\\.", arm) ~ ".",
-        grepl("event_time-", arm)  ~ "-",
-        TRUE                       ~ ""
-      ),
-      event_time_num = as.integer(stringr::str_extract(arm, "\\d+$")),
-      event_time = dplyr::case_when(
-        event_time_sep == "." ~ -event_time_num,
-        event_time_sep == "-" ~ -event_time_num,
-        TRUE                  ~ event_time_num
-      ),
-      outcome = outcome
-    ) %>%
-    dplyr::rename(coef = !!rlang::sym(values_to_col)) %>%
-    dplyr::select(outcome, repo_name, repo_id, cohort, event_time, coef)
   
-  return(cohort_time_repo_long)
-}
-
-FilterRepoCohortEventPairs <- function(cohort_time_repo_long, df_data) {
-  valid_pairs <- df_data %>%
-    dplyr::transmute(repo_id, cohort = quasi_treatment_group, event_time = time_index - quasi_treatment_group) %>%
-    dplyr::distinct()
-  
-  cohort_time_repo_long %>%
-    dplyr::mutate(cohort = as.integer(cohort), event_time = as.integer(event_time)) %>%
-    dplyr::semi_join(valid_pairs, by = c("repo_id", "cohort", "event_time"))
-}
-
-
-AggregateRepoEventStudy <- function(preds_all, df_data, max_time_val) {
-  aggregated_repo <- AggregateEventStudy(preds_all, df_data, max_time_val, "event_time") %>%
-    as_tibble() %>%
-    select(-obs_id) %>%
-    bind_cols(df_data %>% select(repo_name, repo_id)) %>%
-    distinct()
-  return(aggregated_repo)
-}
-
-AggregateRepoATT <- function(preds_all, df_data, max_time_val) {
-  aggregated_repo_att <- bind_cols(
-    df_data %>% select(repo_name, repo_id),
-    AggregateEventStudy(preds_all, df_data, max_time_val, "att")
-  ) %>%
-    distinct()
-  return(aggregated_repo_att)
-}
-
-QuasiTreatmentGroupFirstDateMarginalDistribution <- function(df_data) {
-  df_data %>% group_by(repo_id) %>%
-    mutate(first_time = min(time_index)) %>%
-    ungroup() %>%
-    group_by(first_time, quasi_treatment_group) %>%
-    summarize(n = n_distinct(repo_id), .groups = "drop_last") %>%
-    mutate(prob = n / sum(n)) %>%
-    ungroup() 
+  return(W)
 }
 
 BuildTimeInvariantIndicator <- function(df_panel_nt) {
@@ -140,7 +60,6 @@ BuildTimeInvariantIndicator <- function(df_panel_nt) {
 }
 
 BuildWHatForBaselineHeterogeneity <- function(W_nt, df_panel_nt, marg_dist_treatment_group) {
-  # P(t = col time | X_i) condition on group, marginal distribution of number of time obs
   W_hat <- matrix(0, nrow = nrow(W_nt), ncol = ncol(W_nt), dimnames = list(NULL, colnames(W_nt)))
   repo_times <- tapply(df_panel_nt$time_index, df_panel_nt$repo_id, unique)
   for (i in seq_len(nrow(df_panel_nt))) {
@@ -150,7 +69,6 @@ BuildWHatForBaselineHeterogeneity <- function(W_nt, df_panel_nt, marg_dist_treat
   first_time_by_repo <- df_panel_nt %>%
     group_by(repo_id) %>%
     summarize(first_time = min(time_index), .groups = "drop")
-  # P(quasi_treamtent_group = col time + 1)
   repo_probs <- first_time_by_repo %>%
     left_join(marg_dist_treatment_group, by = "first_time") %>%
     select(repo_id, first_time, quasi_treatment_group, prob)
@@ -165,6 +83,154 @@ BuildWHatForBaselineHeterogeneity <- function(W_nt, df_panel_nt, marg_dist_treat
       W_hat[rows_idx, col_name] <- W_hat[rows_idx, col_name] - rp$prob[k]
     }
   }
+  W_hat
+}
+
+########## Treatment estimation & transformations ##########
+
+CalculateTreatment <- function(df_data, method) {
+  if (method == "lm_forest" | method == "lm_forest_nonlinear") {
+    W <- model.matrix(~ treatment_arm - 1, data = df_data)
+    W <- W[, setdiff(colnames(W), colnames(W)[grepl("never-treated", colnames(W))])]
+    return(list(W = W))
+  } else {
+    stop("Unknown method: ", method)
+  }
+}
+
+EstimateForestsByCohort <- function(x_train, df_train, never_treated_value = 0) {
+  cohorts_all <- sort(unique(df_train$treatment_group))
+  treated_cohorts <- setdiff(cohorts_all, never_treated_value)
+  forests_by_cohort <- list()
+  preds_by_cohort <- list()
+  
+  for (c_val in treated_cohorts) {
+    train_mask <- df_train$quasi_treatment_group == c_val
+    x_train_sub <- x_train[train_mask, , drop = FALSE]
+    W_binary <- as.factor(ifelse(df_train$treatment_group[train_mask] == c_val, "1", "0"))
+    
+    forest_c <- probability_forest(x_train_sub, W_binary)
+    preds_all <- predict(forest_c, newdata = x_train)$predictions
+    prob1 <- as.numeric(preds_all[, "1"])
+    
+    forests_by_cohort[[as.character(c_val)]] <- forest_c
+    preds_by_cohort[[as.character(c_val)]] <- prob1
+  }
+  
+  list(forests_by_cohort = forests_by_cohort,
+       preds_by_cohort = preds_by_cohort)
+}
+
+TransformWHat <- function(W_og_form_hat, W, df_data, drop_never_treated = TRUE) {
+  if (drop_never_treated) {
+    W_og_form_hat <- W_og_form_hat[, setdiff(colnames(W_og_form_hat), "0"), drop = FALSE]
+  }
+  cols <- colnames(W)
+  cohort <- as.integer(str_extract(cols, "(?<=cohort)\\d+"))
+  event_time <- as.integer(str_replace(str_extract(cols, "(?<=event_time)[.-]?\\d+"), "[.-]", "-"))
+  if (!drop_never_treated) {
+    cohort[is.na(cohort)] <- 0
+    event_time[is.na(event_time)] <- 0
+  }
+  expected_time <- cohort + event_time
+  W_hat <- matrix(0, nrow = nrow(W), ncol = ncol(W), dimnames = list(NULL, cols))
+  for (c in unique(cohort)) {
+    if (!is.na(c) && as.character(c) %in% colnames(W_og_form_hat)) {
+      W_hat[, cohort == c] <- W_og_form_hat[, as.character(c)]
+    }
+  }
+  
+  keep_mask <- outer(df_data$time_index, expected_time, `==`)
+  if (!drop_never_treated) {
+    keep_mask[, 1] <- TRUE
+  }
+  W_hat <- W_hat * keep_mask
+  W_hat
+}
+
+TransformWHatNuclear <- function(preds_by_cohort, W, df_data, drop_never_treated = TRUE) {
+  cols <- colnames(W)
+  cohort_vals <- as.integer(str_extract(cols, "(?<=cohort)\\d+"))
+  event_time <- as.integer(str_replace(str_extract(cols, "(?<=event_time)[.-]?\\d+"), "[.-]", "-"))
+  if (!drop_never_treated) {
+    cohort_vals[is.na(cohort_vals)] <- 0
+    event_time[is.na(event_time)] <- 0
+  }
+  expected_time <- cohort_vals + event_time
+  W_hat <- matrix(0, nrow = nrow(W), ncol = ncol(W), dimnames = list(NULL, cols))
+  
+  for (j in seq_along(cols)) {
+    c_val <- cohort_vals[j]
+    preds_for_cohort <- preds_by_cohort[[as.character(c_val)]]
+    use_mask <- (df_data$quasi_treatment_group == c_val)
+    W_hat[use_mask, j] <- preds_for_cohort[use_mask]
+  }
+  
+  keep_mask <- outer(df_data$time_index, expected_time, `==`)
+  if (!drop_never_treated) keep_mask[, 1] <- TRUE
+  W_hat * keep_mask
+}
+
+########## Forest fitting & prediction ##########
+
+FitForestModel <- function(df_train, x_train, y_train, method, outfile_fold,
+                           use_existing, seed = SEED, use_default_What = FALSE,
+                           use_nuclear_What = FALSE) {
+  set.seed(seed)
+  treatment_file <- sub("\\.rds$", "_treatment.rds", outfile_fold)
+  
+  drop_never_treated <- TRUE
+  if (method == "lm_forest" | method == "lm_forest_nonlinear") {
+    W <- CalculateTreatment(df_train, method)$W
+    W_mat <- W
+  } else if (method == "multi_arm") {
+    W <- df_train$treatment_arm
+    W_mat <- model.matrix(~ treatment_arm - 1, data = df_train)
+    drop_never_treated <- FALSE
+  } else {
+    stop("Unknown method: ", method)
+  }
+  
+  message("Model outfile: ", outfile_fold)
+  if (file.exists(outfile_fold) && file.exists(treatment_file) && isTRUE(use_existing)) {
+    message("Loading existing model from disk: ", outfile_fold)
+    loaded_model <- readRDS(outfile_fold)
+    loaded_treat   <- readRDS(treatment_file)
+    return(list(model = loaded_model, treatment_model = loaded_treat))
+  }
+  
+  if (use_default_What) {
+    W_hat <- NULL
+    treatment_model <- NULL
+  } else if (use_nuclear_What) {
+    est_res <- EstimateForestsByCohort(x_train, df_train, never_treated_value = 0)
+    preds_by_cohort <- est_res$preds_by_cohort
+    treatment_model <- est_res$forests_by_cohort
+    W_hat <- TransformWHatNuclear(preds_by_cohort, W_mat, df_train, drop_never_treated)
+  } else {
+    W_og_form <- as.factor(df_train$treatment_group)
+    treatment_model <- probability_forest(x_train, W_og_form, clusters = df_train$repo_id)
+    W_og_form_hat <- predict(treatment_model)$predictions
+    W_hat <- TransformWHat(W_og_form_hat, W_mat, df_train, drop_never_treated)
+  }
+  
+  if (method == "lm_forest" | method == "lm_forest_nonlinear") {
+    model <- lm_forest(X = x_train, Y = y_train, W = W, clusters = df_train$repo_id, num.trees = 2000,
+                       W.hat = W_hat)
+  } else if (method == "multi_arm") {
+    if (!is.null(W_hat)) colnames(W_hat) <- gsub("treatment_arm", "", colnames(W_hat))
+    model <- multi_arm_causal_forest(X = x_train, Y = y_train, W = W, clusters = df_train$repo_id, num.trees = 2000,
+                                     W.hat = W_hat)
+  } else {
+    stop("Unknown method (should not reach here): ", method)
+  }
+  
+  dir_create(dirname(outfile_fold))
+  saveRDS(model, outfile_fold)
+  saveRDS(treatment_model, treatment_file)
+  message("Saved model and treatment_model to: ", dirname(outfile_fold))
+  
+  list(model = model, treatment_model = treatment_model)
 }
 
 FitAndPredictBaselineFold <- function(df_data, keep_names, fold_id, time_levels, marg_dist_treatment_group, outdir_ds, method, outcome, num_trees = 200) {
@@ -189,7 +255,6 @@ FitAndPredictBaselineFold <- function(df_data, keep_names, fold_id, time_levels,
   hold_idx <- which(df_data$fold == fold_id)
   pred_obj <- predict(model, x_hold_out)
   pred_raw <- if (is.list(pred_obj) && !is.null(pred_obj$predictions)) pred_obj$predictions else as.matrix(pred_obj)
-  # handle 3D arrays (common lm_forest shape): extract Y.1 slice if present
   if (length(dim(pred_raw)) == 3) {
     pred_mat <- as.matrix(pred_raw[,, "Y.1"])
   } else {
@@ -229,6 +294,129 @@ RunBaselineHeterogeneityCrossFit <- function(df_data, keep_names, marg_dist_trea
   df_data
 }
 
+########## Aggregation & post-processing ##########
+
+AggregateEventStudy <- function(tau_hat, df, max_time, type = c("event_time", "att", "cumulative"), cumulative_cutoff = 4) {
+  type <- match.arg(type)
+  colnames(tau_hat) <- gsub("treatment_arm", "", colnames(tau_hat))
+  colnames(tau_hat) <- gsub(" - never-treated", "", colnames(tau_hat))
+  
+  arm_info <- data.frame(
+    arm    = colnames(tau_hat),
+    cohort = as.integer(sub("cohort(\\d+).*", "\\1", colnames(tau_hat))),
+    e      = ifelse(grepl("event_time[-\\.]", colnames(tau_hat)),
+                    -as.integer(sub(".*event_time[-\\.](\\d+)", "\\1", colnames(tau_hat))),
+                    as.integer(sub(".*event_time(\\d+)", "\\1", colnames(tau_hat))))
+  )
+  
+  cohort_probs <- df %>%
+    filter(quasi_treatment_group > 0) %>%
+    count(quasi_treatment_group, name = "n") %>%
+    mutate(p_g = n / sum(n))
+  
+  weighted_avg <- function(valid) {
+    tau_sub <- tau_hat[, valid$arm, drop = FALSE]
+    w_vec <- valid$p / sum(valid$p, na.rm = TRUE)
+    w_mat <- matrix(rep(w_vec, each = nrow(tau_sub)), nrow = nrow(tau_sub), ncol = length(w_vec))
+    w_mat[is.na(tau_sub)] <- 0
+    w_mat <- w_mat / rowSums(w_mat, na.rm = TRUE)
+    num <- rowSums(tau_sub * w_mat, na.rm = TRUE)
+    num[apply(tau_sub, 1, function(x) all(is.na(x)))] <- NA
+    num
+  }
+  
+  if (type == "event_time") {
+    est <- lapply(sort(unique(arm_info$e)), function(ev) {
+      valid <- subset(arm_info, e == ev & cohort + ev <= max_time)
+      if (!nrow(valid)) return(NULL)
+      valid$p <- cohort_probs$p_g[match(valid$cohort, cohort_probs$quasi_treatment_group)]
+      weighted_avg(valid)
+    })
+    out <- as.data.frame(do.call(cbind, est))
+    colnames(out) <- paste0("event_time", sort(unique(arm_info$e)))
+    cbind(obs_id = seq_len(nrow(out)), out)
+    
+  } else if (type == "att") {
+    valid <- subset(arm_info, e >= 0 & cohort + e <= max_time)
+    slots_per_cohort <- ave(valid$cohort, valid$cohort, FUN = length)
+    valid$p <- cohort_probs$p_g[match(valid$cohort, cohort_probs$quasi_treatment_group)] / slots_per_cohort
+    data.frame(att = weighted_avg(valid))
+    
+  } else if (type == "cumulative") {
+    valid <- subset(arm_info, e >= 0 & cohort <= cumulative_cutoff & cohort + e <= cumulative_cutoff)
+    if (!nrow(valid)) return(data.frame(cumu_t4 = NA))
+    valid$p <- cohort_probs$p_g[match(valid$cohort, cohort_probs$quasi_treatment_group)]
+    data.frame(cumu_t4 = weighted_avg(valid))
+  }
+}
+
+AggregateRepoEventStudy <- function(preds_all, df_data, max_time_val) {
+  aggregated_repo <- AggregateEventStudy(preds_all, df_data, max_time_val, "event_time") %>%
+    as_tibble() %>%
+    select(-obs_id) %>%
+    bind_cols(df_data %>% select(repo_name, repo_id)) %>%
+    distinct()
+  return(aggregated_repo)
+}
+
+AggregateRepoATT <- function(preds_all, df_data, max_time_val) {
+  aggregated_repo_att <- bind_cols(
+    df_data %>% select(repo_name, repo_id),
+    AggregateEventStudy(preds_all, df_data, max_time_val, "att")
+  ) %>%
+    distinct()
+  return(aggregated_repo_att)
+}
+
+TransformRepoCohortTimeCoefficients <- function(preds_all, df_data, outcome, values_to_col) {
+  cohort_time_repo_long <- tibble::as_tibble(preds_all) %>%
+    bind_cols(df_data %>% select(repo_name, repo_id)) %>%
+    tidyr::pivot_longer(-c(repo_name, repo_id), names_to = "arm", values_to = values_to_col) %>%
+    distinct() %>%
+    mutate(
+      arm = sub("^treatment_arm", "", arm),
+      cohort = as.integer(stringr::str_extract(arm, "(?<=cohort)\\d+")),
+      event_time_sep = case_when(
+        grepl("event_time\\.", arm) ~ ".",
+        grepl("event_time-", arm)  ~ "-",
+        TRUE                       ~ ""
+      ),
+      event_time_num = as.integer(stringr::str_extract(arm, "\\d+$")),
+      event_time = case_when(
+        event_time_sep == "." ~ -event_time_num,
+        event_time_sep == "-" ~ -event_time_num,
+        TRUE                  ~ event_time_num
+      ),
+      outcome = outcome
+    ) %>%
+    rename(coef = !!rlang::sym(values_to_col)) %>%
+    select(outcome, repo_name, repo_id, cohort, event_time, coef)
+  
+  return(cohort_time_repo_long)
+}
+
+FilterRepoCohortEventPairs <- function(cohort_time_repo_long, df_data) {
+  valid_pairs <- df_data %>%
+    transmute(repo_id, cohort = quasi_treatment_group, event_time = time_index - quasi_treatment_group) %>%
+    distinct()
+  
+  cohort_time_repo_long %>%
+    mutate(cohort = as.integer(cohort), event_time = as.integer(event_time)) %>%
+    semi_join(valid_pairs, by = c("repo_id", "cohort", "event_time"))
+}
+
+########## Cross-fit utilities & misc ##########
+
+QuasiTreatmentGroupFirstDateMarginalDistribution <- function(df_data) {
+  df_data %>% group_by(repo_id) %>%
+    mutate(first_time = min(time_index)) %>%
+    ungroup() %>%
+    group_by(first_time, quasi_treatment_group) %>%
+    summarize(n = n_distinct(repo_id), .groups = "drop_last") %>%
+    mutate(prob = n / sum(n)) %>%
+    ungroup()
+}
+
 RunForestEventStudy_CrossFit <- function(
     outcome, df_panel_common, org_practice_modes, outdir, outdir_ds, method, rolling_period, 
     n_folds = 10, seed = SEED, use_existing = FALSE, use_default_What = FALSE, use_nuclear_What = FALSE) {
@@ -237,22 +425,8 @@ RunForestEventStudy_CrossFit <- function(
   covars_imp <- unlist(lapply(org_practice_modes, function(x) {
     if (!str_detect(x$legend_title, "organizational_routines")) paste0(x$continuous_covariate, "_imp")
   }))
-  if (method == "lm_forest" | method == "multi_arm") {
-    df_panel_outcome <- ResidualizeOutcome(df_panel_common, outcome)
-  } else if (method == "lm_forest_nonlinear") {
-    df_panel_outcome <- NormalizeOutcome(df_panel_common, outcome)
-    norm_outcome_col <- paste(outcome, "norm", sep = "_")
-    df_panel_outcome <- FirstDifferenceOutcome(df_panel_outcome, norm_outcome_col)
-  } else {
-    stop("Unsupported method: ", method)
-  }
-  df_data <- ComputeCovariateMeans(df_panel_outcome, covars, rolling_period) %>%
-    filter(quasi_event_time != -1) %>%
-    mutate(treatment_arm = factor(ifelse(treatment_group == 0, "never-treated", paste0("cohort", treatment_group, "event_time", quasi_event_time))),
-           treatment_arm = relevel(treatment_arm, ref = "never-treated"))
-  fold_map <- AssignOutcomeFolds(df_data$repo_name, outcome, n_folds = n_folds, seed = seed)
-  df_data <- df_data %>% left_join(fold_map, by = "repo_name")
   
+  df_data <- CreateDataPanel(df_panel_common, method, outcome, covars, rolling_period, n_folds, seed)
   marg_dist_treatment_group <- QuasiTreatmentGroupFirstDateMarginalDistribution(df_data)
   keep_names <- paste0(covars, "_mean")
   x <- df_data %>% select(all_of(keep_names))
@@ -273,34 +447,42 @@ RunForestEventStudy_CrossFit <- function(
     message(" fold ", fold_id, " / ", n_folds)
     train_idx <- which(df_data$fold != fold_id)
     hold_idx  <- which(df_data$fold == fold_id)
-    
+
     df_train <- df_data[train_idx, , drop = FALSE]
     df_train <- df_train %>% group_by(repo_id) %>%
       filter(!any(is.na(resid_outcome))) %>%
       ungroup()
     x_train <- as.matrix(df_train %>% select(all_of(keep_names)))
     y_train <- df_train$resid_outcome
-    
+
     df_hold  <- df_data[hold_idx, , drop = FALSE]
     x_hold <- as.matrix(df_hold %>% select(all_of(keep_names)))
     y_hold <- df_hold$resid_outcome
-    
+
     outfile_fold <- file.path(
       outdir_ds, paste0(method, "_", outcome, "_rolling", rolling_period, "_fold", fold_id, ".rds"))
     forest_model_obj <- FitForestModel(
-      df_train, x_train, y_train, method, outfile_fold, use_existing = use_existing, 
+      df_train, x_train, y_train, method, outfile_fold, use_existing = use_existing,
       seed = SEED, use_default_What = use_default_What)
     model_fold <- forest_model_obj$model
     treatment_model_fold <- forest_model_obj$treatment_model
-    
+
     pred_obj <- predict(model_fold, newdata = x_hold, drop = TRUE)
     preds <- pred_obj$predictions
     if (is.null(preds_all)) {
       preds_all <- matrix(NA_real_, nrow = n_obs, ncol = ncol(preds))
       colnames(preds_all) <- colnames(preds)
     }
-    
+
     preds_all[hold_idx, ] <- preds
+  }
+  outfile <- file.path(outdir_ds, paste0(method, "_", outcome, "_rolling", rolling_period, ".rds"))
+  if (!use_existing | !file.exists(outfile)) {
+    x_data <- as.matrix(df_data %>% select(all_of(keep_names)))
+    y_data <- df_data$resid_outcome
+    forest_model_obj <- FitForestModel(
+      df_data, x_data, y_data, method, outfile, use_existing = use_existing, 
+      seed = SEED, use_default_What = use_default_What)
   }
   if (is.null(preds_all) || any(is.na(preds_all))) {
     message("Warning: some observations have missing predicted CATEs (preds_all contains NA). These will propagate to repo-level averages.")

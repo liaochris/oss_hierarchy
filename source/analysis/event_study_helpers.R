@@ -132,6 +132,7 @@ CompareES <- function(es_list,
   }
   
   par(mar = c(8, 4, 2, 2) + 0.1)
+  par(mgp = c(3, 1.5, 0))  # Added line for title spacing
   plot_args <- list(
     object = results,
     multi = TRUE,

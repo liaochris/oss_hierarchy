@@ -102,7 +102,9 @@ main <- function() {
   OUTDIR <- "output/analysis/event_study"
   dir_create(OUTDIR)
   
-  DATASETS <- c("important_topk", "important_topk_exact1", "important_thresh")
+
+  DATASETS <- c("important_topk", "important_topk_exact1", 
+                "important_topk_oneQual", "important_thresh")
   exclude_outcomes <- c("num_downloads")
   
   outcome_cfg      <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
@@ -117,7 +119,11 @@ main <- function() {
       outdir_dataset <- file.path(OUTDIR, dataset, rolling_panel)
       dir_create(outdir_dataset, recurse = TRUE)
       
-      df_panel <- read_parquet(file.path(INDIR, gsub("_exact1", "", dataset), paste0("panel_", rolling_panel, ".parquet")))
+      panel_dataset <- gsub("_exact1", "", dataset)
+      panel_dataset <- gsub("_defaultWhat", "", panel_dataset)
+      panel_dataset <- gsub("_oneQual", "", panel_dataset)
+      
+      df_panel <- read_parquet(file.path(INDIR, panel_dataset, paste0("panel_", rolling_panel, ".parquet")))
 
       all_outcomes <- unlist(lapply(outcome_cfg, function(x) x$main))
       df_panel_common <- BuildCommonSample(df_panel, all_outcomes)
