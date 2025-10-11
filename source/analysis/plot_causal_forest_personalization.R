@@ -44,15 +44,11 @@ main <- function() {
   OUTDIR <- "output/analysis/event_study_personalization"
   dir_create(OUTDIR)
   
-  DATASETS <- c("important_topk_defaultWhat", "important_topk", 
-                "important_topk_oneQual", "important_topk_oneQual_defaultWhat",
-                "important_topk_exact1", "important_topk_exact1_defaultWhat")
+  DATASETS <- c("important_topk_defaultWhat")
   ROLLING_PANELS <- c("rolling5")
-  METHODS <- c("lm_forest", "lm_forest_nonlinear")
+  METHODS <- c("lm_forest")#, "lm_forest_nonlinear")
   exclude_outcomes <- c("num_downloads")
   norm_options <- c(TRUE)
-  
-  plan(multisession, workers = availableCores() - 1)
   
   # load outcome config once
   outcome_cfg <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
@@ -66,7 +62,6 @@ main <- function() {
     for (rolling_panel in ROLLING_PANELS) {
       rolling_period <- as.numeric(str_extract(rolling_panel, "\\d+$"))
       for (method in METHODS) {
-        
         # ensure outdir_dataset exists early so aggregators can find files
         message("Processing dataset: ", dataset, " (", rolling_panel, ") method=", method)
     
@@ -119,52 +114,56 @@ main <- function() {
           covar <- practice_mode$continuous_covariate
           dir_create(practice_mode$folder, recurse = TRUE)
           
-          # -------------------------
-          # Diagnostics: ATT + ES plots using ggsave()
-          # -------------------------
-          # 1) ATT distribution (column 'att') with both groups, legend title "Causal Forest ATT Group"
-          hist_att_path <- file.path(practice_mode$folder, paste0("split_", split_mode$outcome, "_", method, "_hist_att.png"))
-          df_causal_forest_bins <- df_causal_forest_bins %>%
-            mutate(att_wins = winsorize(att, c(0.01, 0.99)))
-          p_att <- ggplot(df_causal_forest_bins, aes(x = att_wins, fill = att_group, color = att_group)) +
-            geom_histogram(position = "stack", alpha = 0.5, bins = 40) +
-            labs(title = paste0("Causal Forest ATT ", split_var, "\n", rolling_panel, " (", method, ")"),
-                 x = "ATT (winsorized)", y = "Count",
-                 fill = "ATT Group", color = "ATT Group") +
-            theme_minimal()
-          ggsave(filename = hist_att_path, plot = p_att, width = 9, height = 7, dpi = 150, units = "in")
-          message("Wrote ATT hist: ", hist_att_path)
-          hist_files_global <- c(hist_files_global, hist_att_path)
-          
-          # 2) Event-study estimates: one facet per event time, high/low overlaid on same plot
-          es_cols <- grep("^event_time", names(df_causal_forest_bins), value = TRUE)
-          
-          coef_hist_path <- file.path(practice_mode$folder,
-                                      paste0("split_", split_mode$outcome, "_", method, "_hist_es.png"))
-          coef_long <- df_causal_forest_bins %>%
-            select(repo_name, att_group, all_of(es_cols)) %>%
-            pivot_longer(cols = all_of(es_cols), names_to = "term", values_to = "estimate") %>%
-            filter(!is.na(estimate)) %>%
-            mutate(
-              term_num = as.numeric(stringr::str_extract(term, "-?\\d+$")),
-              term_label = paste0("k=", term_num)
-            ) %>%
-            arrange(term_num) %>%
-            mutate(
-              term_label = factor(term_label, levels = paste0("k=", sort(unique(term_num))))
-            ) %>%
-            mutate(estimate_wins = winsorize(estimate, c(0.01, 0.99)))
-          
-          p_coef <- ggplot(coef_long, aes(x = estimate_wins, fill = att_group, color = att_group)) +
-            geom_density(alpha = 0.35) +
-            facet_wrap(~ term_label, scales = "free_y", ncol = 3) +
-            labs(title = paste0("Causal Forest Event-study estimates", "\n", rolling_panel, " (", method, ")"),
-                 x = "Estimate (winsorized)", y = "Density",
-                 fill = "ATT Group", color = "ATT Group") +
-            theme_minimal()
-          ggsave(filename = coef_hist_path, plot = p_coef, width = 12, height = 9, dpi = 150, units = "in")
-          message("Wrote ES hist: ", coef_hist_path)
-          hist_files_global <- c(hist_files_global, coef_hist_path)
+          for (estimation_type in c("all", "observed")) {
+            # -------------------------
+            # Diagnostics: ATT + ES plots using ggsave()
+            # -------------------------
+            # 1) ATT distribution (column 'att') with both groups, legend title "Causal Forest ATT Group"
+            hist_att_path <- file.path(
+              practice_mode$folder, paste0("split_", split_mode$outcome, "_", method, "_", estimation_type, "_hist_att.png"))
+            df_causal_forest_bins_type <- df_causal_forest_bins %>%
+              filter(type == estimation_type) %>%
+              mutate(att_wins = winsorize(att, c(0.001, 0.999)))
+            p_att <- ggplot(df_causal_forest_bins_type, aes(x = att_wins, fill = att_group, color = att_group)) +
+              geom_histogram(position = "stack", alpha = 0.5, bins = 40) +
+              labs(title = paste0("Causal Forest ATT ", split_var, "\n", rolling_panel, " (", method, ") estimated on ", estimation_type),
+                   x = "ATT (winsorized)", y = "Count",
+                   fill = "ATT Group", color = "ATT Group") +
+              theme_minimal()
+            ggsave(filename = hist_att_path, plot = p_att, width = 9, height = 7, dpi = 150, units = "in")
+            message("Wrote ATT hist: ", hist_att_path)
+            hist_files_global <- c(hist_files_global, hist_att_path)
+            
+            # 2) Event-study estimates: one facet per event time, high/low overlaid on same plot
+            es_cols <- grep("^event_time", names(df_causal_forest_bins_type), value = TRUE)
+            
+            coef_hist_path <- file.path(practice_mode$folder,
+                                        paste0("split_", split_mode$outcome, "_", method, "_", estimation_type, "_hist_es.png"))
+            coef_long <- df_causal_forest_bins_type %>%
+              select(repo_name, att_group, all_of(es_cols)) %>%
+              pivot_longer(cols = all_of(es_cols), names_to = "term", values_to = "estimate") %>%
+              filter(!is.na(estimate)) %>%
+              mutate(
+                term_num = as.numeric(stringr::str_extract(term, "-?\\d+$")),
+                term_label = paste0("k=", term_num)
+              ) %>%
+              arrange(term_num) %>%
+              mutate(
+                term_label = factor(term_label, levels = paste0("k=", sort(unique(term_num))))
+              ) %>%
+              mutate(estimate_wins = winsorize(estimate, c(0.001, 0.999)))
+            
+            p_coef <- ggplot(coef_long, aes(x = estimate_wins, fill = att_group, color = att_group)) +
+              geom_density(alpha = 0.35) +
+              facet_wrap(~ term_label, scales = "free_y", ncol = 3) +
+              labs(title = paste0("Causal Forest Event-study estimates", "\n", rolling_panel, " (", method, ") estimated on ", estimation_type),
+                   x = "Estimate (winsorized)", y = "Density",
+                   fill = "ATT Group", color = "ATT Group") +
+              theme_minimal()
+            ggsave(filename = coef_hist_path, plot = p_coef, width = 12, height = 9, dpi = 150, units = "in")
+            message("Wrote ES hist: ", coef_hist_path)
+            hist_files_global <- c(hist_files_global, coef_hist_path)
+          }
         } 
       } 
     }  

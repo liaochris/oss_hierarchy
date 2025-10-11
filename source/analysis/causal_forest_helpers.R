@@ -108,11 +108,58 @@ TransformWHat <- function(W_og_form_hat, W, df_data, drop_never_treated = TRUE) 
   W_hat
 }
 
-FitForestModel <- function(df_train, x_train, y_train, method, outfile_fold, 
-                           use_existing, seed = SEED, use_default_What = FALSE) {
+TransformWHatNuclear <- function(preds_by_cohort, W, df_data, drop_never_treated = TRUE) {
+  cols <- colnames(W)
+  cohort_vals <- as.integer(str_extract(cols, "(?<=cohort)\\d+"))
+  event_time <- as.integer(str_replace(str_extract(cols, "(?<=event_time)[.-]?\\d+"), "[.-]", "-"))
+  if (!drop_never_treated) {
+    cohort_vals[is.na(cohort_vals)] <- 0
+    event_time[is.na(event_time)] <- 0
+  }
+  expected_time <- cohort_vals + event_time
+  W_hat <- matrix(0, nrow = nrow(W), ncol = ncol(W), dimnames = list(NULL, cols))
+  
+  for (j in seq_along(cols)) {
+    c_val <- cohort_vals[j]
+    preds_for_cohort <- preds_by_cohort[[as.character(c_val)]]
+    use_mask <- (df_data$quasi_treatment_group == c_val)
+    W_hat[use_mask, j] <- preds_for_cohort[use_mask]
+  }
+  
+  keep_mask <- outer(df_data$time_index, expected_time, `==`)
+  if (!drop_never_treated) keep_mask[, 1] <- TRUE
+  W_hat * keep_mask
+}
+
+EstimateForestsByCohort <- function(x_train, df_train, never_treated_value = 0) {
+  cohorts_all <- sort(unique(df_train$treatment_group))
+  treated_cohorts <- setdiff(cohorts_all, never_treated_value)
+  forests_by_cohort <- list()
+  preds_by_cohort <- list()
+  
+  for (c_val in treated_cohorts) {
+    train_mask <- df_train$quasi_treatment_group == c_val
+    x_train_sub <- x_train[train_mask, , drop = FALSE]
+    W_binary <- as.factor(ifelse(df_train$treatment_group[train_mask] == c_val, "1", "0"))
+    
+    forest_c <- probability_forest(x_train_sub, W_binary)
+    preds_all <- predict(forest_c, newdata = x_train)$predictions
+    prob1 <- as.numeric(preds_all[, "1"])
+    
+    forests_by_cohort[[as.character(c_val)]] <- forest_c
+    preds_by_cohort[[as.character(c_val)]] <- prob1
+  }
+  
+  list(forests_by_cohort = forests_by_cohort,
+       preds_by_cohort = preds_by_cohort)
+}
+
+FitForestModel <- function(df_train, x_train, y_train, method, outfile_fold,
+                           use_existing, seed = SEED, use_default_What = FALSE, 
+                           use_nuclear_What = FALSE) {
   set.seed(seed)
   treatment_file <- sub("\\.rds$", "_treatment.rds", outfile_fold)
-
+  
   drop_never_treated <- TRUE
   if (method == "lm_forest" | method == "lm_forest_nonlinear") {
     W <- CalculateTreatment(df_train, method)$W
@@ -133,37 +180,38 @@ FitForestModel <- function(df_train, x_train, y_train, method, outfile_fold,
     return(list(model = loaded_model, treatment_model = loaded_treat))
   }
   
-  W_og_form <- as.factor(df_train$treatment_group)
-  treatment_model <- probability_forest(x_train, W_og_form, clusters = df_train$repo_id)
   if (use_default_What) {
     W_hat <- NULL
+    treatment_model <- NULL
+  } else if (use_nuclear_What) {
+    est_res <- EstimateForestsByCohort(x_train, df_train, never_treated_value = 0)
+    preds_by_cohort <- est_res$preds_by_cohort
+    treatment_model <- est_res$forests_by_cohort
+    W_hat <- TransformWHatNuclear(preds_by_cohort, W_mat, df_train, drop_never_treated)
   } else {
+    W_og_form <- as.factor(df_train$treatment_group)
+    treatment_model <- probability_forest(x_train, W_og_form, clusters = df_train$repo_id)
     W_og_form_hat <- predict(treatment_model)$predictions
     W_hat <- TransformWHat(W_og_form_hat, W_mat, df_train, drop_never_treated)
   }
-  # fit main causal model depending on method
+  
   if (method == "lm_forest" | method == "lm_forest_nonlinear") {
     model <- lm_forest(X = x_train, Y = y_train, W = W, clusters = df_train$repo_id, num.trees = 2000,
                        W.hat = W_hat)
   } else if (method == "multi_arm") {
-    colnames(W_hat) <- gsub("treatment_arm", "", colnames(W_hat))
+    if (!is.null(W_hat)) colnames(W_hat) <- gsub("treatment_arm", "", colnames(W_hat))
     model <- multi_arm_causal_forest(X = x_train, Y = y_train, W = W, clusters = df_train$repo_id, num.trees = 2000,
                                      W.hat = W_hat)
   } else {
     stop("Unknown method (should not reach here): ", method)
   }
   
-  # persist safely
   dir_create(dirname(outfile_fold))
-  tryCatch({
-    saveRDS(model, outfile_fold)
-    saveRDS(treatment_model, treatment_file)
-    message("Saved model and treatment_model to: ", dirname(outfile_fold))
-  }, error = function(e) {
-    warning("Failed to write model files: ", e$message)
-  })
+  saveRDS(model, outfile_fold)
+  saveRDS(treatment_model, treatment_file)
+  message("Saved model and treatment_model to: ", dirname(outfile_fold))
   
-  return(list(model = model, treatment_model = treatment_model))
+  list(model = model, treatment_model = treatment_model)
 }
 
 AggregateEventStudy <- function(tau_hat, df, max_time, type = c("event_time", "att", "cumulative"), cumulative_cutoff = 4) {

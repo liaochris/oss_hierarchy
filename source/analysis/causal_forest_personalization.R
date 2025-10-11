@@ -28,7 +28,6 @@ dir_create(OUTDIR)
 #######################################
 AssignOutcomeFolds <- function(repo_names, outcome, n_folds = 10, seed = SEED) {
   repo_sorted <- sort(unique(repo_names))
-  if (length(repo_sorted) == 0) stop("No repositories provided to AssignOutcomeFolds for outcome=", outcome)
   outcome_bytes <- as.integer(charToRaw(as.character(outcome)))
   offset <- (sum(outcome_bytes) + as.integer(seed)) %% as.integer(n_folds)
   n_repos <- length(repo_sorted)
@@ -49,6 +48,20 @@ AssignOutcomeFolds <- function(repo_names, outcome, n_folds = 10, seed = SEED) {
 #   
 #   return(preds + debiasing_weights * Y_residual)
 # }
+
+FilterPredictions <- function(preds_all, df_data) {
+  arm_names <- colnames(preds_all)
+  quasi_arm <- paste0("treatment_armcohort", df_data$quasi_treatment_group, "event_time", 
+                      df_data$time_index - df_data$quasi_treatment_group) |>
+    sub("event_time-", "event_time.", x = _, fixed = TRUE)
+  valid_arms <- tapply(quasi_arm, df_data$repo_id, unique)
+  for (i in seq_len(nrow(preds_all))) {
+    keep <- arm_names %in% valid_arms[[as.character(df_data$repo_id[i])]]
+    preds_all[i, !keep] <- NA
+  }
+  preds_all
+}
+
 
 TransformRepoCohortTimeCoefficients <- function(preds_all, df_data, outcome, values_to_col) {
   cohort_time_repo_long <- tibble::as_tibble(preds_all) %>%
@@ -76,6 +89,17 @@ TransformRepoCohortTimeCoefficients <- function(preds_all, df_data, outcome, val
   
   return(cohort_time_repo_long)
 }
+
+FilterRepoCohortEventPairs <- function(cohort_time_repo_long, df_data) {
+  valid_pairs <- df_data %>%
+    dplyr::transmute(repo_id, cohort = quasi_treatment_group, event_time = time_index - quasi_treatment_group) %>%
+    dplyr::distinct()
+  
+  cohort_time_repo_long %>%
+    dplyr::mutate(cohort = as.integer(cohort), event_time = as.integer(event_time)) %>%
+    dplyr::semi_join(valid_pairs, by = c("repo_id", "cohort", "event_time"))
+}
+
 
 AggregateRepoEventStudy <- function(preds_all, df_data, max_time_val) {
   aggregated_repo <- AggregateEventStudy(preds_all, df_data, max_time_val, "event_time") %>%
@@ -207,7 +231,7 @@ RunBaselineHeterogeneityCrossFit <- function(df_data, keep_names, marg_dist_trea
 
 RunForestEventStudy_CrossFit <- function(
     outcome, df_panel_common, org_practice_modes, outdir, outdir_ds, method, rolling_period, 
-    n_folds = 10, seed = SEED, use_existing = FALSE, use_default_What = FALSE) {
+    n_folds = 10, seed = SEED, use_existing = FALSE, use_default_What = FALSE, use_nuclear_What = FALSE) {
   message("Cross-fit (no plotting) for outcome=", outcome, " method=", method, " rolling=", rolling_period, " folds=", n_folds)
   covars     <- unlist(lapply(org_practice_modes, \(x) x$continuous_covariate))
   covars_imp <- unlist(lapply(org_practice_modes, function(x) {
@@ -282,31 +306,45 @@ RunForestEventStudy_CrossFit <- function(
     message("Warning: some observations have missing predicted CATEs (preds_all contains NA). These will propagate to repo-level averages.")
   }
 
-  cohort_time_repo_long <- TransformRepoCohortTimeCoefficients(preds_all, df_data, outcome, "coef")
-
+  preds_all_filt <- FilterPredictions(preds_all, df_data)
+  
+  cohort_time_repo_long <- TransformRepoCohortTimeCoefficients(preds_all, df_data, outcome, "coef") %>%
+    filter(!is.na(coef))
+  cohort_time_repo_long_filt <- TransformRepoCohortTimeCoefficients(preds_all_filt, df_data, outcome, "coef")%>%
+    filter(!is.na(coef))
+  cohort_time_repo_long <- cohort_time_repo_long %>% 
+    left_join(cohort_time_repo_long_filt %>% mutate(present=1))
   
   dir_create(outdir)
   cohort_outfile <- file.path(outdir, paste0(outcome, "_cohort_time_repo_coeffs_", method, ".parquet"))
   write_parquet(cohort_time_repo_long, cohort_outfile)
   
-  event_time_repo <- AggregateRepoEventStudy(preds_all, df_data, max_time_val)
-  
-  att_repo <- AggregateRepoATT(preds_all, df_data, max_time_val)
+  event_time_repo <- rbind(
+    AggregateRepoEventStudy(preds_all, df_data, max_time_val) %>% mutate(type = "all"),
+    AggregateRepoEventStudy(preds_all_filt, df_data, max_time_val) %>% mutate(type = "observed")
+  )
+    
+  att_repo <- rbind(
+    AggregateRepoATT(preds_all, df_data, max_time_val) %>% mutate(type = "all"),
+    AggregateRepoATT(preds_all_filt, df_data, max_time_val) %>% mutate(type = "observed")
+  )
   
   repo_level <- att_repo %>%
-    left_join(event_time_repo, by = c("repo_name", "repo_id")) %>%
+    left_join(event_time_repo, by = c("repo_name", "repo_id", "type")) %>%
     mutate(outcome = outcome) %>%
     select(outcome, everything())
   
-  med_att <- median(repo_level$att, na.rm = TRUE)
-  repo_level <- repo_level %>%
+  repo_level <- repo_level %>% group_by(type) %>%
     mutate(
-      att_group = ifelse(!is.na(att) & att >= med_att, "high",
-        ifelse(!is.na(att) & att < med_att, "low", NA)
+      med_att = median(att, na.rm = TRUE),
+      att_group = case_when(
+        !is.na(att) & att >= med_att ~ "high",
+        !is.na(att) & att <  med_att ~ "low",
+        TRUE ~ NA_character_
       )
     ) %>%
-    select(outcome, repo_name, repo_id, att, att_group, everything())
-  
+    ungroup() %>%
+    select(outcome, repo_name, repo_id, type, att, att_group, everything())
   out_file <- file.path(outdir, paste0(outcome, "_repo_att_", method, ".parquet"))
   write_parquet(repo_level, out_file)
   
@@ -319,11 +357,12 @@ RunForestEventStudy_CrossFit <- function(
 outcome_cfg <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
 org_practice_cfg <- yaml.load_file(file.path(INDIR_YAML, "covariate_organization.yaml"))
 
-for (variant in c("important_topk_defaultWhat", "important_topk", 
-                  "important_topk_oneQual", "important_topk_oneQual_defaultWhat",
-                  "important_topk_exact1", "important_topk_exact1_defaultWhat")) {
+for (variant in c("important_topk_defaultWhat", "important_topk_nuclearWhat", "important_topk", 
+                  "important_topk_oneQual_defaultWhat", "important_topk_oneQual_nuclearWhat","important_topk_oneQual",
+                  "important_topk_exact1_defaultWhat", "important_topk_exact1_nuclearWhat")) {
   for (rolling_panel in c("rolling5")) {
     panel_variant <- gsub("_exact1", "", variant)
+    panel_variant <- gsub("_nuclearWhat", "", panel_variant)
     panel_variant <- gsub("_defaultWhat", "", panel_variant)
     panel_variant <- gsub("_oneQual", "", panel_variant)
     
@@ -341,7 +380,8 @@ for (variant in c("important_topk_defaultWhat", "important_topk",
       df_panel_common <- KeepSustainedImportant(df_panel_common)
     } 
 
-    use_default_What <- grep("_defaultWhat", variant)
+    use_default_What <- grepl("_defaultWhat", variant)
+    use_nuclear_What <- grepl("_nuclearWhat", variant)
     outdir_base <- file.path(OUTDIR, variant, rolling_panel)
     org_practice_modes <- BuildOrgPracticeModes(org_practice_cfg, "nevertreated", outdir_base, 
                                                 build_dir = FALSE)
@@ -350,7 +390,7 @@ for (variant in c("important_topk_defaultWhat", "important_topk",
     outcome_modes <- BuildOutcomeModes(outcome_cfg, "nevertreated", outdir_base, c(TRUE),
                                        build_dir = FALSE)
     
-    for (method in c("lm_forest", "lm_forest_nonlinear")) {
+    for (method in c("lm_forest")) { # , "lm_forest_nonlinear"
       outdir_for_spec <- outdir_base
       dir_create(outdir_for_spec)
       
@@ -366,7 +406,8 @@ for (variant in c("important_topk_defaultWhat", "important_topk",
           n_folds = 10,
           seed = SEED,
           use_existing = TRUE,
-          use_default_What = use_default_What
+          use_default_What = use_default_What,
+          use_nuclear_What = use_nuclear_What
         )
       }
     }

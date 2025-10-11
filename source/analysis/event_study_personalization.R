@@ -39,61 +39,65 @@ main <- function() {
   OUTDIR <- "output/analysis/event_study_personalization"
   dir_create(OUTDIR)
   
-  DATASETS <- c("important_topk_defaultWhat", "important_topk", 
-                "important_topk_oneQual", "important_topk_oneQual_defaultWhat",
-                "important_topk_exact1", "important_topk_exact1_defaultWhat")
+  DATASETS <- c("important_topk_defaultWhat") 
+  # , "important_topk", 
+  # "important_topk_oneQual_defaultWhat", "important_topk_oneQual",
+  # "important_topk_exact1_defaultWhat", "important_topk_exact1"
   exclude_outcomes <- c("num_downloads")
   norm_options <- c(TRUE)
   outcome_cfg      <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
-
+  
   for (dataset in DATASETS) {
+    png_ordered <- character(0)  
     for (rolling_panel in c("rolling5")) {
       rolling_period <- as.numeric(str_extract(rolling_panel, "\\d+$"))
-        for (method in c("lm_forest", "lm_forest_nonlinear")) { 
-          message("Processing dataset: ", dataset, " (", rolling_panel, ")")
-          outdir_dataset <- file.path(OUTDIR, dataset)
-          dir_create(outdir_dataset, recurse = TRUE)
-          
-          panel_dataset <- gsub("_exact1", "", dataset)
-          panel_dataset <- gsub("_defaultWhat", "", panel_dataset)
-          panel_dataset <- gsub("_oneQual", "", panel_dataset)
-          
-          df_panel <- read_parquet(file.path(INDIR, panel_dataset, paste0("panel_", rolling_panel, ".parquet")))
-          all_outcomes <- unlist(lapply(outcome_cfg, function(x) x$main))
-          df_panel_common <- BuildCommonSample(df_panel, all_outcomes)
-          if (grepl("_exact1", dataset)) {
-            df_panel_common <- KeepSustainedImportant(df_panel_common, lb = 1, ub = 1)
-          } else if (grepl("_oneQual", dataset)) {
-            df_panel_common <- KeepSustainedImportant(df_panel_common)
-          } 
-          df_panel_notyettreated <- df_panel_common %>% filter(num_departures == 1)
-          df_panel_nevertreated  <- df_panel_common %>% filter(num_departures <= 1)
-          
-          assign("df_panel_notyettreated", df_panel_notyettreated, envir = .GlobalEnv)
-          assign("df_panel_nevertreated",  df_panel_nevertreated,  envir = .GlobalEnv)
-          
-          outcome_modes      <- BuildOutcomeModes(outcome_cfg, "nevertreated", outdir_dataset,
-                                                  norm_options, build_dir = FALSE)
-          coeffs_all <- list()
-    
-          #######################################
-          # Org practice splits
-          #######################################
-          metrics    <- c("sa")
-          metrics_fn <- c("Sun and Abraham 2020")
-          
-          for (split_mode in list(outcome_modes[[2]])) {
+      for (method in c("lm_forest")) {  # , "lm_forest_nonlinear"
+        message("Processing dataset: ", dataset, " (", rolling_panel, ")")
+        outdir_dataset <- file.path(OUTDIR, dataset)
+        dir_create(outdir_dataset, recurse = TRUE)
+        
+        panel_dataset <- gsub("_exact1", "", dataset)
+        panel_dataset <- gsub("_defaultWhat", "", panel_dataset)
+        panel_dataset <- gsub("_oneQual", "", panel_dataset)
+        
+        df_panel <- read_parquet(file.path(INDIR, panel_dataset, paste0("panel_", rolling_panel, ".parquet")))
+        all_outcomes <- unlist(lapply(outcome_cfg, function(x) x$main))
+        df_panel_common <- BuildCommonSample(df_panel, all_outcomes)
+        if (grepl("_exact1", dataset)) {
+          df_panel_common <- KeepSustainedImportant(df_panel_common, lb = 1, ub = 1)
+        } else if (grepl("_oneQual", dataset)) {
+          df_panel_common <- KeepSustainedImportant(df_panel_common)
+        } 
+        df_panel_notyettreated <- df_panel_common %>% filter(num_departures == 1)
+        df_panel_nevertreated  <- df_panel_common %>% filter(num_departures <= 1)
+        
+        assign("df_panel_notyettreated", df_panel_notyettreated, envir = .GlobalEnv)
+        assign("df_panel_nevertreated",  df_panel_nevertreated,  envir = .GlobalEnv)
+        
+        outcome_modes      <- BuildOutcomeModes(outcome_cfg, "nevertreated", outdir_dataset,
+                                                norm_options, build_dir = FALSE)
+        coeffs_all <- list()
+        
+        #######################################
+        # Org practice splits
+        #######################################
+        metrics    <- c("sa")
+        metrics_fn <- c("Sun and Abraham 2020")
+        
+        for (split_mode in list(outcome_modes[[2]])) {
+          for (estimation_type in c("all", "observed")) {
             split_var <- split_mode$outcome
             control_group <- "nevertreated"
             df_causal_forest_bins <- read_parquet(
               file.path(INDIR_CF, dataset, rolling_panel, 
-                        paste0(split_var, "_repo_att_", method, ".parquet")))
+                        paste0(split_var, "_repo_att_", method, ".parquet"))) %>%
+              filter(type == estimation_type)
             
             practice_mode <- list(
               continuous_covariate = "att_group",
               filters = list(list(col = "att_group", vals = c("high", "low"))),
               legend_labels = c("High", "Low"),
-              legend_title = paste0("by Causal Forest ATT for ", split_var),
+              legend_title = paste0("by Causal Forest ATT for ", split_var, " on ", estimation_type, " estimates"),
               control_group = control_group,
               data = paste0("df_panel_",control_group),
               folder = file.path("output/analysis/event_study_personalization", 
@@ -131,10 +135,12 @@ main <- function() {
                 labels <- practice_mode$legend_labels[success_idx]
                 
                 if (length(es_list) > 0) {
-                  dir.create(practice_mode$folder, recursive = TRUE)
+                  dir.create(practice_mode$folder, recursive = TRUE, showWarnings = FALSE)
                   out_path <- file.path(practice_mode$folder,
                                         paste0(outcome_mode$outcome, norm_str, "_split_",
-                                        split_mode$outcome, "_", method, ".png"))
+                                               split_mode$outcome, "_", method, "_", estimation_type, ".png"))
+                  
+                  # write PNG (this is the canonical creation point; append to png_ordered here)
                   png(out_path)
                   do.call(CompareES, list(es_list,
                                           legend_labels = labels,
@@ -142,7 +148,10 @@ main <- function() {
                                           title = paste(outcome_mode$outcome, rolling_panel)))
                   dev.off()
                   
-                  # PDF
+                  # record creation order immediately (so final PDF follows this chronological order)
+                  png_ordered <- c(png_ordered, out_path)
+                  
+                  # Also render to current device for quick visual (keeps original behavior)
                   do.call(CompareES, list(es_list,
                                           legend_labels = labels,
                                           legend_title  = practice_mode$legend_title,
@@ -171,46 +180,49 @@ main <- function() {
         }
       }
     }
-  
-  #######################################
-  # Export results (per rolling period)
-  #######################################
-  coeffs_df <- bind_rows(coeffs_all) %>%
-    mutate(event_time = as.numeric(event_time))
-  write_csv(coeffs_df, file.path(outdir_dataset,  paste0("all_coefficients.csv")))
-  
-  #######################################
-  # Combine PNGs into one PDF (per rolling period)
-  #   -> event study plots only (exclude histograms)
-  #######################################
-  png_files <- list.files(outdir_dataset, 
-                          pattern = "\\.png$", 
-                          full.names = TRUE, recursive = TRUE)
-  
-  # keep only PNGs that are NOT histograms
-  png_files <- png_files[!grepl("_hist_", png_files)]
-  
-  pdf(file.path(outdir_dataset, paste0("all_results.pdf")))
-  if (length(png_files) > 0) {
-    imgs <- lapply(png_files[1:min(4, length(png_files))],
-                   function(f) grid::rasterGrob(readPNG(f), interpolate = TRUE))
-    do.call(grid.arrange, c(imgs, ncol = 2))
+    #######################################
+    # Export results (per rolling period)
+    #######################################
+    coeffs_df <- bind_rows(coeffs_all) %>%
+      mutate(event_time = as.numeric(event_time))
+    write_csv(coeffs_df, file.path(outdir_dataset,  paste0("all_coefficients.csv")))
     
-    if (length(png_files) > 4) {
-      folder_groups <- split(png_files[-(1:4)], dirname(png_files[-(1:4)]))
-      for (g in seq_along(folder_groups)) {
-        folder_files <- folder_groups[[g]]
-        for (i in seq(1, length(folder_files), by = 4)) {
-          group_files <- folder_files[i:min(i+3, length(folder_files))]
+    #######################################
+    # Combine PNGs into one PDF (per rolling period)
+    #   -> event study plots only (exclude histograms)
+    # The order follows png_ordered (first-created to last-created)
+    #######################################
+    # filter out any hist PNGs just in case
+    png_files <- png_ordered[!grepl("_hist_", png_ordered)]
+    
+    pdf(file.path(outdir_dataset, paste0("all_results.pdf")), width = 11, height = 8.5)
+    if (length(png_files) > 0) {
+      # Print up to first 4 on first page (if fewer than 4, pad in layout)
+      first_group <- png_files[1:min(4, length(png_files))]
+      imgs <- lapply(first_group, function(f) grid::rasterGrob(readPNG(f), interpolate = TRUE))
+      # pad with blanks if fewer than 4 for stable layout
+      if (length(imgs) < 4) {
+        for (i in seq_len(4 - length(imgs))) imgs <- c(imgs, list(textGrob("")))
+      }
+      do.call(grid.arrange, c(imgs, ncol = 2))
+      
+      # remaining groups in order, 4 per page
+      if (length(png_files) > 4) {
+        remaining <- png_files[-(1:4)]
+        for (i in seq(1, length(remaining), by = 4)) {
+          group_files <- remaining[i:min(i+3, length(remaining))]
           imgs <- lapply(group_files, function(f) grid::rasterGrob(readPNG(f), interpolate = TRUE))
+          # pad page if <4
+          if (length(imgs) < 4) {
+            for (p in seq_len(4 - length(imgs))) imgs <- c(imgs, list(textGrob("")))
+          }
           do.call(grid.arrange, c(imgs, ncol = 2))
         }
       }
     }
-  }
-  dev.off()
-}
-
+    dev.off()
+  } # end for dataset in DATASETS
+} # end main
 
 #######################################
 # Run
