@@ -99,14 +99,10 @@ TransformWHat <- function(W_og_form_hat, W, df_data, drop_never_treated = TRUE) 
     }
   }
   
-  keep_mask <- t(sapply(df_data$repo_id, function(id) {
-    time_set <- unique(df_data$time_index[df_data$repo_id == id])
-    in_time <- expected_time %in% time_set
-    weight <- 1 / length(time_set)
-    as.numeric(in_time) * weight
-  }))
+  keep_mask <- outer(df_data$time_index, expected_time, `==`)
+
   if (!drop_never_treated) {
-    keep_mask[, 1] <- 1
+    keep_mask[, 1] <- TRUE
   }
   W_hat <- W_hat * keep_mask
   W_hat
