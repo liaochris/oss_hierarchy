@@ -3,6 +3,7 @@ EventStudy <- function(df, outcome, control_group, method = c("cs", "sa", "es"),
   df_est <- if (normalize) NormalizeOutcome(df, outcome) else df %>% mutate("{outcome}_norm" := .data[[outcome]])
   yvar <- if (normalize) paste0(outcome, "_norm") else outcome
   
+  ref_p <- -1
   res_mat <- switch(method,
                     cs = {
                       set.seed(420)
@@ -22,7 +23,7 @@ EventStudy <- function(df, outcome, control_group, method = c("cs", "sa", "es"),
                       est
                     },
                     sa = {
-                      est_formula <- as.formula(sprintf("%s ~ sunab(treatment_group, time_index) | repo_name + time_index", yvar))
+                      est_formula <- as.formula(sprintf("%s ~ sunab(treatment_group, time_index, ref.p=%d) | repo_name + time_index", yvar, ref_p))
                       est_obj <- feols(est_formula, df_est, vcov = ~repo_name)
                       CleanFixEst(est_obj, "time_index::")
                     },
@@ -47,7 +48,7 @@ EventStudy <- function(df, outcome, control_group, method = c("cs", "sa", "es"),
                     }
   )
   
-  res_mat <- EnsureMinusOneRow(res_mat)
+  res_mat <- EnsureMinusOneRow(res_mat, ref_p)
   res_mat[is.na(res_mat)] <- 0
   res_mat <- res_mat[order(as.numeric(rownames(res_mat))), , drop = FALSE]
   
@@ -79,8 +80,8 @@ CleanFixEst <- function(est_obj, term_prefix) {
     as.matrix()
 }
 
-EnsureMinusOneRow <- function(est_mat) {
-  if (!("-1" %in% rownames(est_mat))) {
+EnsureMinusOneRow <- function(est_mat, ref_p) {
+  if (!(as.character(ref_p) %in% rownames(est_mat))) {
     blank_row <- matrix(c(0, 0, 0, 0), nrow = 1)
     colnames(blank_row) <- colnames(est_mat)
     rownames(blank_row) <- "-1"

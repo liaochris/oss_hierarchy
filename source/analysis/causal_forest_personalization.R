@@ -28,6 +28,7 @@ dir_create(OUTDIR)
 # Helpers - Organized
 #######################################
 
+
 ########## W / design matrix helpers ##########
 
 BuildTimeInvariantIndicator <- function(df_panel_nt) {
@@ -325,6 +326,64 @@ QuasiTreatmentGroupFirstDateMarginalDistribution <- function(df_data) {
     ungroup()
 }
 
+CalculateDoublyRobustScore <- function(model) {
+  x <- model$X.orig
+  y_hat <- model$Y.hat
+  y <- model$Y.orig
+  W <- model$W.orig
+  W_hat <- model$W.hat
+  
+  preds <- predict(model, newdata = x)$predictions[, , "Y.1"]
+  
+  treated_rows <- which(rowSums(W) == 1)
+  cols <- max.col(W[treated_rows, , drop = FALSE])
+  treated_rows_cols <- cbind(treated_rows, cols)
+  
+  y_hat_baseline <- y_hat - rowSums(W_hat * preds)
+  mu_hat <- y_hat_baseline
+  mu_hat[treated_rows] <- y_hat_baseline[treated_rows] + preds[treated_rows_cols]
+  
+  y_residual <- y - mu_hat
+  
+  IPW <- matrix(0, dim(W)[1], dim(W)[2])
+  prob_no_treat <- (1-rowSums(W_hat))
+  IPW[-treated_rows,] <- -1 * 1/prob_no_treat[-treated_rows] 
+  IPW[treated_rows_cols] <- 1/W_hat[treated_rows_cols]
+  
+  return(preds + IPW * as.vector(y_residual))
+}
+
+
+ModifyDoublyRobustTime <- function(dr_scores, df_data) {
+  colnames(dr_scores) <- gsub("treatment_arm", "", colnames(dr_scores))
+  arm_info <- data.frame(
+    arm    = colnames(dr_scores),
+    cohort = as.integer(sub("cohort(\\d+).*", "\\1", colnames(dr_scores))),
+    e      = ifelse(grepl("event_time[-\\.]", colnames(dr_scores)),
+                    -as.integer(sub(".*event_time[-\\.](\\d+)", "\\1", colnames(dr_scores))),
+                    as.integer(sub(".*event_time(\\d+)", "\\1", colnames(dr_scores))))
+  )
+  arm_info$expected_time <- arm_info$cohort + arm_info$e
+  match_mask <- outer(df_data$time_index, arm_info$expected_time, "==")
+  dr_scores[!match_mask] <- NA
+  
+  repo <- df_data$repo_id
+  groups <- split(seq_along(repo), repo)
+  dr_scores_repo <- do.call(rbind, lapply(groups, function(ii) {
+    apply(dr_scores[ii, , drop = FALSE], 2, function(x) {
+      v <- x[!is.na(x)]
+      if (length(v) > 0) v[1] else NA_real_
+    })
+  }))
+  dr_scores_repo
+}
+
+CalculateDoublyRobust <- function(model, df_data) {
+  dr_scores <- CalculateDoublyRobustScore(model)
+  dr_scores_repo <- ModifyDoublyRobustTime(dr_scores, df_data)
+  return(dr_scores_repo)
+}
+
 RunForestEventStudy_CrossFit <- function(
     outcome, df_panel_common, org_practice_modes, outdir, outdir_ds, method, rolling_period, 
     n_folds = 10, seed = SEED, use_existing = FALSE, use_default_What = FALSE, use_nuclear_What = FALSE) {
@@ -335,6 +394,7 @@ RunForestEventStudy_CrossFit <- function(
   }))
   
   df_data <- CreateDataPanel(df_panel_common, method, outcome, covars, rolling_period, n_folds, seed)
+  df_repo_data <- df_data %>% select(repo_id, repo_name, quasi_treatment_group, treatment_group) %>% unique()
   marg_dist_treatment_group <- QuasiTreatmentGroupFirstDateMarginalDistribution(df_data)
   keep_names <- paste0(covars, "_mean")
   x <- df_data %>% select(all_of(keep_names))
@@ -385,16 +445,25 @@ RunForestEventStudy_CrossFit <- function(
     preds_all[hold_idx, ] <- preds
   }
   outfile <- file.path(outdir_ds, paste0(method, "_", outcome, "_rolling", rolling_period, ".rds"))
-  if (!use_existing | !file.exists(outfile)) {
+  if (!(use_existing & file.exists(outfile))) {
     x_data <- as.matrix(df_data %>% select(all_of(keep_names)))
     y_data <- df_data$resid_outcome
     forest_model_obj <- FitForestModel(
       df_data, x_data, y_data, method, outfile, use_existing = use_existing, 
       seed = SEED, use_default_What = use_default_What)
   }
+  outfile_dr <- file.path(outdir_ds, paste0("dr_scores_", method, "_", outcome, "_rolling", rolling_period, ".csv"))
+  if (!(use_existing & file.exists(outfile_dr))) {
+    model <- readRDS(outfile)
+    dr_scores_repo <- CalculateDoublyRobust(model, df_data)
+    write.csv(dr_scores_repo, outfile_dr, row.names = FALSE)
+  } else {
+    dr_scores_repo <- read.csv(outfile_dr)
+  }
   if (is.null(preds_all) || any(is.na(preds_all))) {
     message("Warning: some observations have missing predicted CATEs (preds_all contains NA). These will propagate to repo-level averages.")
   }
+  dr_scores_repo_filt <- FilterDoublyRobustPredictions(dr_scores_repo, df_data, df_repo_data)
 
   preds_all_filt <- FilterPredictions(preds_all, df_data)
   
@@ -419,10 +488,17 @@ RunForestEventStudy_CrossFit <- function(
     AggregateRepoATT(preds_all_filt, df_data, max_time_val) %>% mutate(type = "observed")
   )
   
+  dr_scores_repo_all <- rbind(
+    AggregateRepoATT(dr_scores_repo, df_repo_data, max_time_val) %>% mutate(type = "all"),
+    AggregateRepoATT(dr_scores_repo_filt, df_repo_data, max_time_val) %>% mutate(type = "observed")
+  ) %>% rename(att_dr = att)
+  
   repo_level <- att_repo %>%
+    left_join(dr_scores_repo_all, by = c("repo_name", "repo_id", "type")) %>%
     left_join(event_time_repo, by = c("repo_name", "repo_id", "type")) %>%
     mutate(outcome = outcome) %>%
     select(outcome, everything())
+  
   
   repo_level <- repo_level %>% group_by(type) %>%
     mutate(
@@ -431,10 +507,16 @@ RunForestEventStudy_CrossFit <- function(
         !is.na(att) & att >= med_att ~ "high",
         !is.na(att) & att <  med_att ~ "low",
         TRUE ~ NA_character_
-      )
+      ),
+      med_att_dr = median(att_dr, na.rm = TRUE),
+      att_dr_group = case_when(
+        !is.na(att_dr) & att_dr >= med_att_dr ~ "high",
+        !is.na(att_dr) & att_dr <  med_att_dr ~ "low",
+        TRUE ~ NA_character_
+      ),
     ) %>%
     ungroup() %>%
-    select(outcome, repo_name, repo_id, type, att, att_group, everything())
+    select(outcome, repo_name, repo_id, type, att, att_group, att_dr, att_dr_group, everything())
   out_file <- file.path(outdir, paste0(outcome, "_repo_att_", method, ".parquet"))
   write_parquet(repo_level, out_file)
   
