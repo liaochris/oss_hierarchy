@@ -30,25 +30,6 @@ dir_create(OUTDIR)
 
 ########## W / design matrix helpers ##########
 
-GetWMatrix <- function(df, time_levels) {
-  n <- nrow(df)
-  col_names <- paste0("factor(time_index)", time_levels)
-  W <- matrix(0, nrow = n, ncol = length(col_names), dimnames = list(NULL, col_names))
-  
-  time_col_names <- paste0("factor(time_index)", df$time_index)
-  time_idx <- match(time_col_names, colnames(W))
-  W[cbind(seq_len(n), time_idx)] <- 1
-  
-  norm_col_names <- paste0("factor(time_index)", df$quasi_treatment_group - 1)
-  norm_idx <- match(norm_col_names, colnames(W))
-  valid_rows <- which(!is.na(norm_idx))
-  if (length(valid_rows) > 0) {
-    W[cbind(valid_rows, norm_idx[valid_rows])] <- -1
-  }
-  
-  return(W)
-}
-
 BuildTimeInvariantIndicator <- function(df_panel_nt) {
   W_og <- model.matrix(~ factor(time_index) - 1, data = df_panel_nt)
   W_nt <- matrix(0, nrow = nrow(W_og), ncol = ncol(W_og), dimnames = list(NULL, colnames(W_og)))
@@ -295,79 +276,6 @@ RunBaselineHeterogeneityCrossFit <- function(df_data, keep_names, marg_dist_trea
 }
 
 ########## Aggregation & post-processing ##########
-
-AggregateEventStudy <- function(tau_hat, df, max_time, type = c("event_time", "att", "cumulative"), cumulative_cutoff = 4) {
-  type <- match.arg(type)
-  colnames(tau_hat) <- gsub("treatment_arm", "", colnames(tau_hat))
-  colnames(tau_hat) <- gsub(" - never-treated", "", colnames(tau_hat))
-  
-  arm_info <- data.frame(
-    arm    = colnames(tau_hat),
-    cohort = as.integer(sub("cohort(\\d+).*", "\\1", colnames(tau_hat))),
-    e      = ifelse(grepl("event_time[-\\.]", colnames(tau_hat)),
-                    -as.integer(sub(".*event_time[-\\.](\\d+)", "\\1", colnames(tau_hat))),
-                    as.integer(sub(".*event_time(\\d+)", "\\1", colnames(tau_hat))))
-  )
-  
-  cohort_probs <- df %>%
-    filter(quasi_treatment_group > 0) %>%
-    count(quasi_treatment_group, name = "n") %>%
-    mutate(p_g = n / sum(n))
-  
-  weighted_avg <- function(valid) {
-    tau_sub <- tau_hat[, valid$arm, drop = FALSE]
-    w_vec <- valid$p / sum(valid$p, na.rm = TRUE)
-    w_mat <- matrix(rep(w_vec, each = nrow(tau_sub)), nrow = nrow(tau_sub), ncol = length(w_vec))
-    w_mat[is.na(tau_sub)] <- 0
-    w_mat <- w_mat / rowSums(w_mat, na.rm = TRUE)
-    num <- rowSums(tau_sub * w_mat, na.rm = TRUE)
-    num[apply(tau_sub, 1, function(x) all(is.na(x)))] <- NA
-    num
-  }
-  
-  if (type == "event_time") {
-    est <- lapply(sort(unique(arm_info$e)), function(ev) {
-      valid <- subset(arm_info, e == ev & cohort + ev <= max_time)
-      if (!nrow(valid)) return(NULL)
-      valid$p <- cohort_probs$p_g[match(valid$cohort, cohort_probs$quasi_treatment_group)]
-      weighted_avg(valid)
-    })
-    out <- as.data.frame(do.call(cbind, est))
-    colnames(out) <- paste0("event_time", sort(unique(arm_info$e)))
-    cbind(obs_id = seq_len(nrow(out)), out)
-    
-  } else if (type == "att") {
-    valid <- subset(arm_info, e >= 0 & cohort + e <= max_time)
-    slots_per_cohort <- ave(valid$cohort, valid$cohort, FUN = length)
-    valid$p <- cohort_probs$p_g[match(valid$cohort, cohort_probs$quasi_treatment_group)] / slots_per_cohort
-    data.frame(att = weighted_avg(valid))
-    
-  } else if (type == "cumulative") {
-    valid <- subset(arm_info, e >= 0 & cohort <= cumulative_cutoff & cohort + e <= cumulative_cutoff)
-    if (!nrow(valid)) return(data.frame(cumu_t4 = NA))
-    valid$p <- cohort_probs$p_g[match(valid$cohort, cohort_probs$quasi_treatment_group)]
-    data.frame(cumu_t4 = weighted_avg(valid))
-  }
-}
-
-AggregateRepoEventStudy <- function(preds_all, df_data, max_time_val) {
-  aggregated_repo <- AggregateEventStudy(preds_all, df_data, max_time_val, "event_time") %>%
-    as_tibble() %>%
-    select(-obs_id) %>%
-    bind_cols(df_data %>% select(repo_name, repo_id)) %>%
-    distinct()
-  return(aggregated_repo)
-}
-
-AggregateRepoATT <- function(preds_all, df_data, max_time_val) {
-  aggregated_repo_att <- bind_cols(
-    df_data %>% select(repo_name, repo_id),
-    AggregateEventStudy(preds_all, df_data, max_time_val, "att")
-  ) %>%
-    distinct()
-  return(aggregated_repo_att)
-}
-
 TransformRepoCohortTimeCoefficients <- function(preds_all, df_data, outcome, values_to_col) {
   cohort_time_repo_long <- tibble::as_tibble(preds_all) %>%
     bind_cols(df_data %>% select(repo_name, repo_id)) %>%
@@ -539,9 +447,12 @@ RunForestEventStudy_CrossFit <- function(
 outcome_cfg <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
 org_practice_cfg <- yaml.load_file(file.path(INDIR_YAML, "covariate_organization.yaml"))
 
-for (variant in c("important_topk_defaultWhat", "important_topk_nuclearWhat", "important_topk", 
-                  "important_topk_oneQual_defaultWhat", "important_topk_oneQual_nuclearWhat","important_topk_oneQual",
-                  "important_topk_exact1_defaultWhat", "important_topk_exact1_nuclearWhat")) {
+
+
+for (variant in c( "important_topk_defaultWhat", "important_topk_nuclearWhat", "important_topk",
+                   "important_topk_oneQual_defaultWhat", "important_topk_oneQual_nuclearWhat",
+                   "important_topk_oneQual", "important_topk_exact1_defaultWhat",
+                  "important_topk_exact1_nuclearWhat","important_topk_exact1_defaultWhat")) {
   for (rolling_panel in c("rolling5")) {
     panel_variant <- gsub("_exact1", "", variant)
     panel_variant <- gsub("_nuclearWhat", "", panel_variant)

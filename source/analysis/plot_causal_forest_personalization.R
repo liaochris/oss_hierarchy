@@ -44,8 +44,10 @@ main <- function() {
   OUTDIR <- "output/analysis/event_study_personalization"
   dir_create(OUTDIR)
   
-  DATASETS <- c("important_topk_defaultWhat", "important_topk_nuclearWhat", "important_topk", 
-                "important_topk_oneQual_defaultWhat")
+  DATASETS <- c( "important_topk_defaultWhat", "important_topk_nuclearWhat", "important_topk",
+                 "important_topk_oneQual_defaultWhat", "important_topk_oneQual_nuclearWhat",
+                 "important_topk_oneQual", "important_topk_exact1_defaultWhat",
+                 "important_topk_exact1_nuclearWhat","important_topk_exact1_defaultWhat")
   ROLLING_PANELS <- c("rolling5")
   METHODS <- c("lm_forest")#, "lm_forest_nonlinear")
   exclude_outcomes <- c("num_downloads")
@@ -186,7 +188,7 @@ main <- function() {
   
   if (length(hist_files_global) > 0) {
     # create single PDF with 4 images per page (2x2)
-    out_pdf_all <- file.path(outdir_dataset, "all_histograms_all_runs.pdf")
+    out_pdf_all <- file.path(OUTDIR, "all_histograms_all_runs.pdf")
     pdf(out_pdf_all, width = 11, height = 8.5)
     n_per_page <- 4
     chunks <- split(hist_files_global, ceiling(seq_along(hist_files_global)/n_per_page))
