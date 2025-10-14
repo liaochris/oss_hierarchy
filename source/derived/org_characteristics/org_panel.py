@@ -95,7 +95,7 @@ def ProcessRepoFrame(df_all, time_period, last_period, columns_dict):
     mask = df_all['time_period'] >= "2016-01-01"
     df_all.loc[mask, ["issue_template_count"]] = df_all.loc[mask, ["issue_template_count"]].fillna(0)
     df_all['num_departures'] = df_all.groupby('repo_name')['num_dropouts'].transform('sum')
-    df_all = AssignTreatmentDate(df_all)
+    df_all = AssignTreatmentDate(df_all, time_period)
     df_all = CreateTimeIndex(df_all)
     df_all["repo_id"] = pd.factorize(df_all["repo_name"])[0] + 1
     df_all['treatment'] = (df_all['treatment_group']>=df_all['time_index']).astype(int)
@@ -156,9 +156,9 @@ def FillListCols(df, cols):
     return df
 
 
-def AssignTreatmentDate(df):
+def AssignTreatmentDate(df, time_period):
     mask = (df["num_dropouts"] == 1) & (df["num_departures"] == 1)
-    first_dates = df.loc[mask].groupby("repo_name")["time_period"].first()
+    first_dates = df.loc[mask].groupby("repo_name")["time_period"].first() + pd.offsets.MonthBegin(time_period)
     df["treatment_date"] = df["repo_name"].map(first_dates)
     return df
 

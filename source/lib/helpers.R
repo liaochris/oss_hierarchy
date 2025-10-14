@@ -17,9 +17,7 @@ NormalizeOutcome <- function(df, outcome) {
   df_norm[is.finite(df_norm[[outcome_norm]]), ]
 }
 
-
-
-BuildOrgPracticeModes <- function(org_practice_cfg, control_group, outdir_dataset) {
+BuildOrgPracticeModes <- function(org_practice_cfg, control_group, outdir_dataset, build_dir) {
   modes <- list()
   for (org_practice in names(org_practice_cfg)) {
     for (main_cat in names(org_practice_cfg[[org_practice]])) {
@@ -27,7 +25,9 @@ BuildOrgPracticeModes <- function(org_practice_cfg, control_group, outdir_datase
         mains <- org_practice_cfg[[org_practice]][[main_cat]][[sub_cat]]$main
         for (outcome in mains) {
           folder <- file.path(outdir_dataset, control_group, org_practice, main_cat, sub_cat, outcome)
-          dir_create(folder)
+          if (build_dir) {
+            dir_create(folder)
+          }
           modes <- append(modes, list(
             list(
               continuous_covariate   = outcome,
@@ -47,7 +47,6 @@ BuildOrgPracticeModes <- function(org_practice_cfg, control_group, outdir_datase
   modes
 }
 
-
 BuildCommonSample <- function(df, outcomes) {
   valid_repos <- lapply(outcomes, function(outcome) {
     df_norm <- NormalizeOutcome(df, outcome)
@@ -56,3 +55,38 @@ BuildCommonSample <- function(df, outcomes) {
   keep_repos <- Reduce(intersect, valid_repos)
   df %>% filter(repo_name %in% keep_repos)
 }
+
+KeepSustainedImportant <- function(df_panel_common, lb = 1, ub = Inf) {
+  repos_with_important <- df_panel_common %>% 
+    filter(time_index - quasi_treatment_group == 0 & num_important_qualified >= lb & num_important_qualified <= ub) %>%
+    pull(repo_name)
+  df_panel_common %>% filter(repo_name %in% repos_with_important)
+}
+
+BuildOutcomeModes <- function(outcome_cfg, control_group, outdir_dataset, norm_options, build_dir = TRUE) {
+  expand <- function(cat, out, norm, control_group) list(
+    outcome   = out,
+    category  = cat,
+    normalize = norm,
+    control_group = control_group,
+    data      = paste0("df_panel_", control_group),
+    file      = file.path(outdir_dataset, control_group, cat,
+                          paste0(out, if (norm) "_norm", ".png"))
+  )
+  
+  modes <- lapply(names(outcome_cfg), function(cat) {
+    outcomes <- outcome_cfg[[cat]]$main
+    control_groups <- c(control_group)
+    do.call(c, lapply(control_groups, function(control_group) {
+      if (build_dir) {
+        dir_create(file.path(outdir_dataset, control_group, cat))
+      }
+      do.call(c, lapply(outcomes, function(out) {
+        lapply(norm_options, function(norm) expand(cat, out, norm, control_group))
+      }))
+    }))
+  })
+  
+  do.call(c, modes)
+}
+
