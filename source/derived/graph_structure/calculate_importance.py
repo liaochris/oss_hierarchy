@@ -47,53 +47,12 @@ def GetTopK(period_df: pd.DataFrame, centrality_col: str, top_k: int) -> set:
     return set(sorted_df.loc[sorted_df[centrality_col] >= cutoff, "actor_id"])
 
 
-def BuildTimelines(df: pd.DataFrame, periods: list, centrality_col: str, mode: str,
-                   z_thresh: float = None, top_k: int = None) -> pd.DataFrame:
-    df = df.copy()
-    df["time_period"] = (
-        pd.to_datetime(df["time_period"]).dt.to_period("6M").dt.to_timestamp()
-    )
-    df = df.groupby(["actor_id", "time_period"], as_index=False).agg({centrality_col: "max"})
-
-    if mode == "z_thresh":
-        df["important"] = df[centrality_col] > z_thresh
-        timelines = (
-            df.pivot(index="actor_id", columns="time_period", values="important")
-              .reindex(columns=periods)
-              .fillna(False)
-              .infer_objects(copy=False)
-              .astype(bool)
-        )
-        return timelines
-
-    elif mode == "top_k":
-        important_flags = []
-        for p in periods:
-            period_df = df[df["time_period"] == p]
-            if period_df.empty:
-                continue
-            top_ids = GetTopK(period_df, centrality_col, top_k)
-            flags = pd.DataFrame({"actor_id": list(top_ids), p: True})
-            important_flags.append(flags)
-
-        if important_flags:
-            flags_df = (
-                pd.concat(important_flags)
-                  .groupby("actor_id")
-                  .max()
-            )
-        else:
-            flags_df = pd.DataFrame(index=df["actor_id"].unique())
-
-        timelines = (
-            flags_df.reindex(index=df["actor_id"].unique(), columns=periods, fill_value=False)
-                    .infer_objects(copy=False)
-                    .astype(bool)
-        )
-        return timelines
-
-    else:
-        raise ValueError("mode must be either 'z_thresh' or 'top_k'")
+def BuildTimelinesFromDict(important_by_period: dict, periods: list, actor_ids: list) -> pd.DataFrame:
+    timelines = pd.DataFrame(False, index=actor_ids, columns=periods)
+    for p, actors in important_by_period.items():
+        if actors:  
+            timelines.loc[list(actors), p] = True
+    return timelines
 
 
 def TrackQualified(timelines: pd.DataFrame, periods: list, consecutive_req: int) -> dict:
@@ -152,7 +111,7 @@ def AnalyzeImportance(
         elif mode == "top_k":
             important_by_period[p] = GetTopK(period_df, centrality_col, top_k) if not period_df.empty else set()
 
-    timelines = BuildTimelines(df, periods, centrality_col, mode, z_thresh, top_k)
+    timelines = BuildTimelinesFromDict(important_by_period, periods, df["actor_id"].unique())
     qualified_by_period = TrackQualified(timelines, periods, consecutive_req)
 
     combined_records = []
@@ -216,6 +175,7 @@ def ProcessFile(task):
         combined_df["top_k"] = task["top_k"]
         combined_df["consecutive_req"] = task["consecutive_req"]
         combined_df["centrality_col"] = task["centrality_col"]
+        num_dropouts = combined_df['num_dropouts'].sum()
 
         outdir = Path("drive/output/derived/graph_structure/important_members/tmp")
         outdir.mkdir(parents=True, exist_ok=True)
@@ -224,7 +184,7 @@ def ProcessFile(task):
 
         combined_df.to_parquet(tmpfile, index=False)
 
-        return {**task, "file": os.path.basename(task["file"]), "tmpfile": str(tmpfile)}
+        return {**task, "file": os.path.basename(task["file"]), "tmpfile": str(tmpfile), 'num_dropouts': num_dropouts}
     except Exception as e:
         print(f"⚠️ Error processing {task}: {e}")
         return None
@@ -243,17 +203,9 @@ def Main(part: int, nparts: int):
     with Pool(processes=os.cpu_count() // 2) as pool:
         results = [r for r in pool.map(ProcessFile, my_tasks, chunksize=2) if r is not None]
 
-    if not results:
-        print(f"⚠️ Part {part}/{nparts} produced no results")
-        return
-
     outdir.mkdir(parents=True, exist_ok=True)
     summary_path = outdir / "analysis_summary.csv"
     summary_df = pd.DataFrame(results)
-
-    if summary_path.exists():
-        old_df = pd.read_csv(summary_path)
-        summary_df = pd.concat([old_df, summary_df], ignore_index=True).drop_duplicates()
 
     summary_df.drop(columns=['tmpfile']).to_csv(summary_path, index=False)
     print(f"✅ Part {part}/{nparts} done. Saved {len(summary_df)} rows to {summary_path}")

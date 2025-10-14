@@ -341,75 +341,30 @@ RunForestEventStudy <- function(outcome, df_panel_common, org_practice_modes,
 outcome_cfg <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
 org_practice_cfg <- yaml.load_file(file.path(INDIR_YAML, "covariate_organization.yaml"))
 
-for (variant in c("important_topk")) {
-  for (rolling_panel in c("rolling1", "rolling5")) {
-    rolling_period <- as.numeric(str_extract(rolling_panel, "\\d+$"))
-    
-    for (top in c("all", 15)) {
-      OUTDIR_DS <- file.path("drive/output/analysis/causal_forest_event_study", variant)
-      
-      df_panel <- read_parquet(file.path(INDIR, variant, paste0("panel_", rolling_panel, ".parquet")))
-      all_outcomes <- unlist(lapply(outcome_cfg, function(x) x$main))
-      df_panel_common <- BuildCommonSample(df_panel, all_outcomes) %>%
-        filter(num_departures <= 1) %>%
-        mutate(quasi_event_time = time_index - quasi_treatment_group)
-      
-      org_practice_modes <- BuildOrgPracticeModes(org_practice_cfg, "nevertreated",
-                                                  file.path(OUTDIR, variant, paste0(rolling_panel, "_", if (top == "all") "all" else paste0("top", top))))
-      outcome_modes <- BuildOutcomeModes(outcome_cfg, "nevertreated",
-                                         file.path(OUTDIR, variant, paste0(rolling_panel, "_", if (top == "all") "all" else paste0("top", top))),
-                                         c(TRUE))
-      for (method in c("lm_forest", "lm_forest_nonlinear")) {
-        all_varimps <- list()
-        all_plots <- list()
-        
-        for (outcome_mode in outcome_modes) {
-          outdir_outcome <- file.path(OUTDIR, variant, paste0(rolling_panel, "_", if (top == "all") "all" else paste0("top", top)), outcome_mode$outcome)
-          res <- RunForestEventStudy(
-            outcome_mode$outcome,
-            df_panel_common,
-            org_practice_modes,
-            outdir_outcome,
-            OUTDIR_DS,
-            method = method,
-            rolling_period = rolling_period,
-            top = top,
-            use_existing = FALSE
-          )
-          all_varimps[[outcome_mode$outcome]] <- res$varimp_df
-          all_plots <- c(all_plots, res$plots)
-        }
-        
-        # Global average rank
-        global_varimp <- bind_rows(all_varimps) %>%
-          group_by(variable) %>%
-          summarise(avg_rank = mean(rank), .groups = "drop") %>%
-          arrange(avg_rank)
-        library(grid)
-        
-        # PDF output in portrait orientation
-        outfile_pdf <- file.path(OUTDIR, variant, paste0("binscatter_all_", method, "_top", top, "_rolling", rolling_period, ".pdf"))
-        pdf(outfile_pdf, width = 8.5, height = 11)  # portrait, letter-like
-        for (v in global_varimp$variable) {
-          plots_for_v <- list()
-          for (outcome_mode in outcome_modes) {
-            key <- paste0(v, "_", outcome_mode$outcome)
-            if (key %in% names(all_plots)) {
-              plots_for_v[[outcome_mode$outcome]] <- all_plots[[key]]
-            }
-          }
-          
-          if (length(plots_for_v) > 0) {
-            # Pad to exactly 4 slots for consistent 2x2 grid
-            n_missing <- 4 - length(plots_for_v)
-            if (n_missing > 0) {
-              plots_for_v <- c(plots_for_v, replicate(n_missing, nullGrob(), simplify = FALSE))
-            }
-            grid.arrange(grobs = plots_for_v, ncol = 2, nrow = 2)
-          }
-        }
-        dev.off()
-      }
+# Define which outcomes to run
+OUTCOME_LIST <- c("pull_request_opened", "pull_request_merged",
+                  "major_minor_release_count", "overall_new_release_count")
+
+# Loop over both important_topk and important_thresh
+for (variant in c("important_thresh")) {
+  outdir_outcome_ds <- file.path(OUTDIR_DS, variant)
+  
+  df_panel <- read_parquet(file.path(INDIR, variant, "panel.parquet"))
+  df_panel_common <- BuildCommonSample(df_panel, OUTCOME_LIST) %>%
+    filter(num_departures <= 1) %>%
+    mutate(quasi_event_time = time_index - quasi_treatment_group)
+  
+  org_practice_modes <- BuildOrgPracticeModes(
+    org_practice_cfg,
+    "nevertreated",
+    file.path(OUTDIR, variant)
+  )
+  
+  for (method in c("lm_forest", "multi_arm")) {
+    for (outcome in OUTCOME_LIST) {
+      outdir_outcome <- file.path(OUTDIR, variant, outcome)
+      RunForestEventStudy(outcome, df_panel_common, org_practice_modes, outdir_outcome, 
+                          outdir_outcome_ds, method = method, use_existing = TRUE)
     }
   }
 }

@@ -109,8 +109,12 @@ def ConcatStatsByTimePeriod(*dfs):
         return pd.DataFrame
     return pd.concat(dfs_with_index, axis=1)
 
-def LoadFilteredImportantMembers(repo_name, INDIR_IMPORTANT, INDIR_LIB):
-    importance_parameters = json.load(open(INDIR_LIB / "importance.json"))
+def LoadFilteredImportantMembers(repo_name, INDIR_IMPORTANT, INDIR_LIB, importance_type):
+    importance_parameters_all = json.load(open(INDIR_LIB / "importance.json"))
+    if importance_type not in importance_parameters_all:
+        raise ValueError(f"importance_type '{importance_type}' not found in importance.json")
+
+    importance_parameters = importance_parameters_all[importance_type]
     df_important_members = pd.read_parquet(INDIR_IMPORTANT / f"{repo_name}.parquet")
 
     df_filtered_important = df_important_members.copy()
@@ -118,10 +122,14 @@ def LoadFilteredImportantMembers(repo_name, INDIR_IMPORTANT, INDIR_LIB):
         if col in df_filtered_important.columns:
             df_filtered_important = df_filtered_important[df_filtered_important[col] == value]
 
-    df_filtered_important["time_period"] = pd.to_datetime(
-        df_filtered_important["time_period"], format="%Y-%m"
-    ).dt.to_period("M").dt.to_timestamp()
-    df_filtered_important['important_actors'] = df_filtered_important['important_actors'].apply(lambda x: [int(ele) for ele in x])
+    # Normalize time_period and cast important_actors to ints
+    df_filtered_important["time_period"] = (
+        pd.to_datetime(df_filtered_important["time_period"], format="%Y-%m")
+        .dt.to_period("M")
+        .dt.to_timestamp()
+    )
+    df_filtered_important["important_actors"] = df_filtered_important["important_actors"].apply(lambda x: [int(ele) for ele in x])
+
     return df_filtered_important
 
 def FilterOnImportant(df, df_filtered_important):
@@ -134,3 +142,18 @@ def FilterOnImportant(df, df_filtered_important):
         )
     ]
     return df
+
+TIME_PERIOD = 6
+def ApplyRolling(df_all, rolling_periods, stat_func, **kwargs):
+    results = []
+    unique_periods = sorted(df_all['time_period'].unique())
+    for t in unique_periods:
+        window_start = t - pd.DateOffset(months=(rolling_periods - 1) * TIME_PERIOD)
+        df_window = df_all[(df_all['time_period'] >= window_start) & (df_all['time_period'] <= t)]
+        if df_window.empty:
+            continue
+        df_result = stat_func(df_window, **kwargs)
+        if not df_result.empty:
+            df_result = df_result.assign(time_period=t)
+            results.append(df_result)
+    return pd.concat(results, ignore_index=True) if results else pd.DataFrame()
