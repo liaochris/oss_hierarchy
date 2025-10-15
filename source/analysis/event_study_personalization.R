@@ -6,7 +6,9 @@ library(arrow)
 library(yaml)      
 library(fs)          
 library(eventstudyr) 
-library(gridExtra)   
+library(gridExtra)  
+library(dplyr)
+library(fixest)
 library(png)       
 library(grid)        
 
@@ -25,7 +27,7 @@ main <- function() {
   OUTDIR <- "output/analysis/event_study_personalization"
   dir_create(OUTDIR)
   
-  DATASETS <- c( "important_topk_defaultWhat", "important_topk_exact1_defaultWhat","important_topk_oneQual_defaultWhat")
+  DATASETS <-  c( "important_topk", "important_topk_exact1","important_topk_oneQual")
   exclude_outcomes <- c("num_downloads")
   norm_options <- c(TRUE)
   outcome_cfg      <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
@@ -81,7 +83,7 @@ main <- function() {
               file.path(INDIR_CF, dataset, rolling_panel, 
                         paste0(split_var, "_repo_att_", method, ".parquet"))) %>%
               filter(type == estimation_type)
-            for (split_estimate in c("att_group", "att_dr_group")) {
+            for (split_estimate in c("att_dr_group")) {
               split_text <- ifelse(split_estimate == "att_group", "Causal Forest ATT", "Causal Forest DR ATT")
               practice_mode <- list(
                 continuous_covariate = split_estimate,

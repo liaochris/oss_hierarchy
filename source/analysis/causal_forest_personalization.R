@@ -575,7 +575,7 @@ for (variant in c( "important_topk", "important_topk_exact1","important_topk_one
           rolling_period = rolling_period,
           n_folds = 10,
           seed = SEED,
-          use_existing = FALSE,
+          use_existing = TRUE,
           use_default_What = use_default_What,
           use_nuclear_What = use_nuclear_What
         )
