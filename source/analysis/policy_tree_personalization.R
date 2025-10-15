@@ -34,7 +34,9 @@ main <- function() {
   OUTDIR_POLICYTREE_DATASTORE <- "drive/output/analysis/event_study_personalization"
   dir_create(OUTDIR)
   
-  DATASETS <-  c( "important_topk", "important_topk_exact1","important_topk_oneQual")
+  DATASETS <-  c( "important_topk", "important_topk_exact1","important_topk_oneQual",
+                  "important_topk_defaultWhat", "important_topk_exact1_defaultWhat","important_topk_oneQual_defaultWhat",
+                  "important_topk_nuclearWhat", "important_topk_exact1_nuclearWhat","important_topk_oneQual_nuclearWhat")
   ESTIMATION_TYPES <- c("all", "observed")
   SPLIT_CRITERION <- c("dr_scores")
   exclude_outcomes <- c("num_downloads")
@@ -114,9 +116,13 @@ main <- function() {
                         paste0(split_var, "_repo_att_", method, ".parquet"))) %>%
               filter(type == estimation_type)
             
-            
-            x_complete <- as.matrix(replace(x, is.na(x), 0))
-            
+            x_num <- x %>%
+              mutate(across(where(is.logical), ~as.integer(.)),
+                     across(where(is.factor),  ~as.numeric(as.character(.)),
+                            across(where(is.character), ~as.numeric(.)))) # optional; remove if you have text columns
+            x_num[is.na(x_num)] <- -1
+            x_complete <- as.matrix(x_num)
+
             score_criterion <- as.matrix(df_causal_forest_bins %>% pull(att_dr))
             gamma <- data.frame(
               control = 0, 
