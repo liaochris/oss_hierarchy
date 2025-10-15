@@ -39,10 +39,7 @@ main <- function() {
   OUTDIR <- "output/analysis/event_study_personalization"
   dir_create(OUTDIR)
   
-  DATASETS <- c( "important_topk_defaultWhat", "important_topk_nuclearWhat", "important_topk",
-                 "important_topk_oneQual_defaultWhat", "important_topk_oneQual_nuclearWhat",
-                 "important_topk_oneQual", "important_topk_exact1_defaultWhat",
-                 "important_topk_exact1_nuclearWhat","important_topk_exact1_defaultWhat")
+  DATASETS <- c( "important_topk_defaultWhat", "important_topk_exact1_defaultWhat","important_topk_oneQual_defaultWhat")
   exclude_outcomes <- c("num_downloads")
   norm_options <- c(TRUE)
   outcome_cfg      <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))

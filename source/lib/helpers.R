@@ -13,7 +13,7 @@ NormalizeOutcome <- function(df, outcome) {
     ) %>%
     ungroup()
   
-  df_norm[[outcome_norm]] <- (df_norm[[outcome]] - df_norm$mean_outcome) / df_norm$sd_outcome
+  df_norm[[outcome_norm]] <- df_norm[[outcome]] / df_norm$mean_outcome
   df_norm[is.finite(df_norm[[outcome_norm]]), ]
 }
 
@@ -58,7 +58,7 @@ BuildCommonSample <- function(df, outcomes) {
 
 KeepSustainedImportant <- function(df_panel_common, lb = 1, ub = Inf) {
   repos_with_important <- df_panel_common %>% 
-    filter(time_index - quasi_treatment_group == 0 & num_important_qualified >= lb & num_important_qualified <= ub) %>%
+    filter(time_index - quasi_treatment_group == -1 & num_important_qualified >= lb & num_important_qualified <= ub) %>%
     pull(repo_name)
   df_panel_common %>% filter(repo_name %in% repos_with_important)
 }

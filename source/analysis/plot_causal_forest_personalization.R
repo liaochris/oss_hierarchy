@@ -47,7 +47,7 @@ main <- function() {
   DATASETS <- c( "important_topk_defaultWhat", "important_topk_nuclearWhat", "important_topk",
                  "important_topk_oneQual_defaultWhat", "important_topk_oneQual_nuclearWhat",
                  "important_topk_oneQual", "important_topk_exact1_defaultWhat",
-                 "important_topk_exact1_nuclearWhat","important_topk_exact1_defaultWhat")
+                 "important_topk_exact1_nuclearWhat","important_topk_exact1")
   ROLLING_PANELS <- c("rolling5")
   METHODS <- c("lm_forest")#, "lm_forest_nonlinear")
   exclude_outcomes <- c("num_downloads")

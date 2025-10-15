@@ -80,8 +80,21 @@ AssignOutcomeFolds <- function(repo_names, outcome, n_folds = 10, seed = SEED) {
   df %>% select(repo_name, fold)
 }
 
+FilterPredictions <- function(preds_all, df_data) {
+  arm_names <- colnames(preds_all)
+  quasi_arm <- paste0("treatment_armcohort", df_data$quasi_treatment_group, "event_time",
+                      df_data$time_index - df_data$quasi_treatment_group) |>
+    sub("event_time-", "event_time.", x = _, fixed = TRUE)
+  
+  valid_arms <- tapply(quasi_arm, df_data$repo_id, unique)
+  for (i in seq_len(nrow(preds_all))) {
+    keep <- arm_names %in% valid_arms[[as.character(df_data$repo_id[i])]]
+    preds_all[i, !keep] <- NA
+  }
+  preds_all
+}
 
-FilterPredictions <- function(preds_all, df_data, df_repo_data) {
+FilterDoublyRobustPredictions <- function(preds_all, df_data, df_repo_data) {
   arm_names <- colnames(preds_all)
   quasi_arm <- paste0("cohort", df_data$quasi_treatment_group,
                       "event_time", df_data$time_index - df_data$quasi_treatment_group) |>
