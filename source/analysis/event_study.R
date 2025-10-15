@@ -104,7 +104,7 @@ main <- function() {
   
 
   DATASETS <- c("important_topk", "important_topk_exact1", 
-                "important_topk_oneQual", "important_thresh")
+                "important_topk_oneQual")
   exclude_outcomes <- c("num_downloads")
   
   outcome_cfg      <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
@@ -120,7 +120,6 @@ main <- function() {
       dir_create(outdir_dataset, recurse = TRUE)
       
       panel_dataset <- gsub("_exact1", "", dataset)
-      panel_dataset <- gsub("_defaultWhat", "", panel_dataset)
       panel_dataset <- gsub("_oneQual", "", panel_dataset)
       
       df_panel <- read_parquet(file.path(INDIR, panel_dataset, paste0("panel_", rolling_panel, ".parquet")))
