@@ -158,7 +158,7 @@ def FillListCols(df, cols):
 
 def AssignTreatmentDate(df, time_period):
     mask = (df["num_dropouts"] == 1) & (df["num_departures"] == 1)
-    first_dates = df.loc[mask].groupby("repo_name")["time_period"].first() + pd.offsets.MonthBegin(time_period)
+    first_dates = df.loc[mask].groupby("repo_name")["time_period"].first()
     df["treatment_date"] = df["repo_name"].map(first_dates)
     return df
 
