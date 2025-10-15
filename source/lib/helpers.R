@@ -13,7 +13,7 @@ NormalizeOutcome <- function(df, outcome) {
     ) %>%
     ungroup()
   
-  df_norm[[outcome_norm]] <- (df_norm[[outcome]] - df_norm$mean_outcome) / df_norm$sd_outcome
+  df_norm[[outcome_norm]] <- df_norm[[outcome]] / df_norm$mean_outcome
   df_norm[is.finite(df_norm[[outcome_norm]]), ]
 }
 

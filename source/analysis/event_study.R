@@ -103,8 +103,7 @@ main <- function() {
   dir_create(OUTDIR)
   
 
-  DATASETS <- c("important_topk", "important_topk_exact1", 
-                "important_topk_oneQual")
+  DATASETS <- c("important_topk_exact1", "important_topk", "important_topk_oneQual")
   exclude_outcomes <- c("num_downloads")
   
   outcome_cfg      <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
@@ -121,7 +120,8 @@ main <- function() {
       
       panel_dataset <- gsub("_exact1", "", dataset)
       panel_dataset <- gsub("_oneQual", "", panel_dataset)
-      
+      num_qualified_label <- ifelse(grepl("_exact1", dataset), "num-qualified=1",
+                                    ifelse(grepl("_oneQual", dataset), "num-qualified>=1", "all obs"))
       df_panel <- read_parquet(file.path(INDIR, panel_dataset, paste0("panel_", rolling_panel, ".parquet")))
 
       all_outcomes <- unlist(lapply(outcome_cfg, function(x) x$main))
@@ -245,18 +245,12 @@ main <- function() {
               out_path <- file.path(practice_mode$folder,
                                     paste0(outcome_mode$outcome, norm_str, ".png"))
               png(out_path)
+              title_suffix <- paste0("\nSample: ", num_qualified_label)
               do.call(CompareES, list(es_list,
                                       legend_labels = labels,
                                       legend_title  = practice_mode$legend_title,
-                                      title = paste(outcome_mode$outcome, rolling_panel)))
+                                      title = paste(outcome_mode$outcome, rolling_panel, title_suffix)))
               dev.off()
-              
-              # PDF
-              do.call(CompareES, list(es_list,
-                                      legend_labels = labels,
-                                      legend_title  = practice_mode$legend_title,
-                                      title = paste(outcome_mode$outcome, rolling_panel)))
-              
               # Collect coefficients
               for (j in seq_along(es_list)) {
                 res <- es_list[[j]]$results
