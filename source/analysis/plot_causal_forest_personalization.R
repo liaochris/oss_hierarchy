@@ -1,29 +1,13 @@
 #######################################
 # 1. Libraries
 #######################################
-library(future.apply)
-library(tidyverse)
-library(did)
-library(arrow)
-library(gridExtra)
-library(ggplot2)
-library(egg)
-library(eventstudyr)
-library(SaveData)
-library(future)
-library(dplyr)
-library(purrr)
-library(stringr)
-library(fixest)
-library(didimputation)
-library(did2s)
-library(rlang)
-library(aod)
-library(yaml)
-library(fs)
-library(png)
-library(grid)
-
+library(tidyverse)     
+library(arrow)       
+library(yaml)   
+library(fs)       
+library(gridExtra)    
+library(png)       
+library(grid)    
 source("source/lib/helpers.R")
 source("source/analysis/event_study_helpers.R")
 
@@ -67,7 +51,7 @@ main <- function() {
       for (method in METHODS) {
         # ensure outdir_dataset exists early so aggregators can find files
         message("Processing dataset: ", dataset, " (", rolling_panel, ") method=", method)
-    
+        
         panel_dataset <- gsub("_exact1", "", dataset)
         panel_dataset <- gsub("_nuclearWhat", "", panel_dataset)
         panel_dataset <- gsub("_defaultWhat", "", panel_dataset)
@@ -99,7 +83,7 @@ main <- function() {
                                            build_dir = FALSE)
         
         coeffs_all <- list()
-
+        
         # Use the second outcome_mode as split_mode (as you were doing)
         for (split_mode in list(outcome_modes[[2]])) {
           split_var <- split_mode$outcome

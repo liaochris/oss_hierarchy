@@ -1,29 +1,15 @@
 #######################################
 # 1. Libraries
 #######################################
-library(future.apply)
 library(tidyverse)
-library(did)
 library(arrow)
-library(gridExtra)
-library(ggplot2)
-library(egg)
-library(eventstudyr)
-library(SaveData)
-library(future)
-library(dplyr)
-library(purrr)
-library(stringr)
-library(fixest)
-library(didimputation)
-library(did2s)
-library(rlang)
-library(aod)
-library(grf)
 library(yaml)
 library(fs)
+library(eventstudyr)
+library(gridExtra)
 library(png)
 library(grid)
+library(grf)
 library(policytree)
 
 source("source/lib/helpers.R")
@@ -115,12 +101,12 @@ main <- function() {
           model <- readRDS(file.path(outdir_cf_ds, paste0(method, "_", split_var, "_rolling", rolling_period, ".rds")))
           covars     <- unlist(lapply(org_practice_modes, \(x) x$continuous_covariate))
           keep_names <- paste0(covars, "_mean")
-
+          
           df_data <- CreateDataPanel(df_panel_common, method, split_var, covars, rolling_period, n_folds, SEED)
           x <- df_data %>% select(all_of(c(keep_names, "repo_name"))) %>% 
             unique() %>% select(-repo_name)
           df_repo_data <- df_data %>% select(repo_id, repo_name, quasi_treatment_group, treatment_group) %>% unique()
-
+          
           
           for (estimation_type in ESTIMATION_TYPES) {
             df_causal_forest_bins <- read_parquet(
