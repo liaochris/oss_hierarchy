@@ -34,9 +34,11 @@ main <- function() {
   OUTDIR_POLICYTREE_DATASTORE <- "drive/output/analysis/event_study_personalization"
   dir_create(OUTDIR)
   
-  DATASETS <-  c( "important_topk", "important_topk_exact1","important_topk_oneQual",
-                  "important_topk_defaultWhat", "important_topk_exact1_defaultWhat","important_topk_oneQual_defaultWhat",
-                  "important_topk_nuclearWhat", "important_topk_exact1_nuclearWhat","important_topk_oneQual_nuclearWhat")
+  # ,
+  # "important_topk_defaultWhat", "important_topk_exact1_defaultWhat","important_topk_oneQual_defaultWhat",
+  # "important_topk_nuclearWhat", "important_topk_exact1_nuclearWhat","important_topk_oneQual_nuclearWhat"
+  # 
+  DATASETS <-  c( "important_topk", "important_topk_exact1","important_topk_oneQual")
   ESTIMATION_TYPES <- c("all", "observed")
   SPLIT_CRITERION <- c("dr_scores")
   exclude_outcomes <- c("num_downloads")
