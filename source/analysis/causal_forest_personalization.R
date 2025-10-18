@@ -532,7 +532,8 @@ org_practice_cfg <- yaml.load_file(file.path(INDIR_YAML, "covariate_organization
 # "important_topk_defaultWhat", "important_topk_exact1_defaultWhat","important_topk_oneQual_defaultWhat",
 # "important_topk_nuclearWhat", "important_topk_exact1_nuclearWhat","important_topk_oneQual_nuclearWhat"
 
-for (variant in c( "important_topk", "important_topk_exact1","important_topk_oneQual")) {
+for (variant in c( "important_topk", "important_topk_exact1","important_topk_oneQual",
+                   "important_thresh", "important_thresh_exact1","important_thresh_oneQual")) {
   for (rolling_panel in c("rolling5")) {
     panel_variant <- gsub("_exact1", "", variant)
     panel_variant <- gsub("_nuclearWhat", "", panel_variant)
@@ -578,7 +579,7 @@ for (variant in c( "important_topk", "important_topk_exact1","important_topk_one
           rolling_period = rolling_period,
           n_folds = 10,
           seed = SEED,
-          use_existing = FALSE,
+          use_existing = TRUE,
           use_default_What = use_default_What,
           use_nuclear_What = use_nuclear_What
         )
