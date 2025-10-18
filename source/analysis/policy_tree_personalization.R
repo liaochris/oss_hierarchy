@@ -1,29 +1,15 @@
 #######################################
 # 1. Libraries
 #######################################
-library(future.apply)
 library(tidyverse)
-library(did)
 library(arrow)
-library(gridExtra)
-library(ggplot2)
-library(egg)
-library(eventstudyr)
-library(SaveData)
-library(future)
-library(dplyr)
-library(purrr)
-library(stringr)
-library(fixest)
-library(didimputation)
-library(did2s)
-library(rlang)
-library(aod)
-library(grf)
 library(yaml)
 library(fs)
+library(eventstudyr)
+library(gridExtra)
 library(png)
 library(grid)
+library(grf)
 library(policytree)
 
 source("source/lib/helpers.R")
@@ -48,7 +34,11 @@ main <- function() {
   OUTDIR_POLICYTREE_DATASTORE <- "drive/output/analysis/event_study_personalization"
   dir_create(OUTDIR)
   
-  DATASETS <- c( "important_topk_defaultWhat", "important_topk_exact1_defaultWhat","important_topk_oneQual_defaultWhat")
+  # ,
+  # "important_topk_defaultWhat", "important_topk_exact1_defaultWhat","important_topk_oneQual_defaultWhat",
+  # "important_topk_nuclearWhat", "important_topk_exact1_nuclearWhat","important_topk_oneQual_nuclearWhat"
+  # 
+  DATASETS <-  c( "important_topk", "important_topk_exact1","important_topk_oneQual")
   ESTIMATION_TYPES <- c("all", "observed")
   SPLIT_CRITERION <- c("dr_scores")
   exclude_outcomes <- c("num_downloads")
@@ -115,19 +105,26 @@ main <- function() {
           model <- readRDS(file.path(outdir_cf_ds, paste0(method, "_", split_var, "_rolling", rolling_period, ".rds")))
           covars     <- unlist(lapply(org_practice_modes, \(x) x$continuous_covariate))
           keep_names <- paste0(covars, "_mean")
-
+          
           df_data <- CreateDataPanel(df_panel_common, method, split_var, covars, rolling_period, n_folds, SEED)
           x <- df_data %>% select(all_of(c(keep_names, "repo_name"))) %>% 
             unique() %>% select(-repo_name)
           df_repo_data <- df_data %>% select(repo_id, repo_name, quasi_treatment_group, treatment_group) %>% unique()
-
+          
           
           for (estimation_type in ESTIMATION_TYPES) {
             df_causal_forest_bins <- read_parquet(
               file.path(INDIR_CF, dataset, rolling_panel, 
                         paste0(split_var, "_repo_att_", method, ".parquet"))) %>%
               filter(type == estimation_type)
-            x_complete <- as.matrix(replace(x, is.na(x), 0))
+            
+            x_num <- x %>%
+              mutate(across(where(is.logical), ~as.integer(.)),
+                     across(where(is.factor),  ~as.numeric(as.character(.)),
+                            across(where(is.character), ~as.numeric(.)))) # optional; remove if you have text columns
+            x_num[is.na(x_num)] <- -1
+            x_complete <- as.matrix(x_num)
+
             score_criterion <- as.matrix(df_causal_forest_bins %>% pull(att_dr))
             gamma <- data.frame(
               control = 0, 

@@ -1,3 +1,14 @@
+library(dplyr)        
+library(tidyr)        
+library(broom)        
+library(fixest)       
+library(did)          
+library(eventstudyr)  
+library(aod)     
+library(stringr) 
+library(tibble)  
+library(purrr)  
+
 EventStudy <- function(df, outcome, control_group, method = c("cs", "sa", "es"), normalize = FALSE, title = NULL) {
   method <- match.arg(method)
   df_est <- if (normalize) NormalizeOutcome(df, outcome) else df %>% mutate("{outcome}_norm" := .data[[outcome]])

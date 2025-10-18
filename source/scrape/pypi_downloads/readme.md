@@ -15,7 +15,8 @@ In order to access the Google Cloud BigQuery data for python downloads, I used t
 ### Description
 - `drive/source/scrape/pypi_monthly_downloads.csv` contains the monthly download data 
 - `docs/query_monthly_pip_downloads.py` queries Google BQ for PyPI Download data
-- `docs/get_popular_packages.py` extracts the popular python libraries (10k+ downloads in every month between July 2018 and September 2023)
+- `docs/get_popular_packages.py` extracts the popular python libraries (10k+ downloads in at least one month month between July 2018 and December 2024)
+  - See [this link](https://pypistats.org/faqs#:~:text=Why%20are%20there,dropped%20%20%20%20%20%20%20%20download%20records.) for why I consider only post July 201 downloads
 - `data/popular_python_packages.csv` contains the extracted popular lbiraries
 - `docs/pypistats_about.py` contains the about page for [pypistats.org](pypistats.org)
 

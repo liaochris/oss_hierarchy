@@ -1,28 +1,16 @@
 #######################################
 # 1. Libraries
 #######################################
-library(future.apply)
 library(tidyverse)
-library(did)
 library(arrow)
-library(gridExtra)
-library(ggplot2)
-library(egg)
-library(eventstudyr)
-library(SaveData)
-library(future)
-library(dplyr)
-library(purrr)
-library(stringr)
-library(fixest)
-library(didimputation)
-library(did2s)
-library(rlang)
-library(aod)
 library(yaml)
 library(fs)
+library(eventstudyr)
+library(gridExtra)
 library(png)
 library(grid)
+library(future.apply)
+library(SaveData)
 
 source("source/lib/helpers.R")
 source("source/analysis/event_study_helpers.R")
@@ -102,7 +90,7 @@ main <- function() {
   OUTDIR <- "output/analysis/event_study"
   dir_create(OUTDIR)
   
-
+  
   DATASETS <- c("important_topk_exact1", "important_topk", "important_topk_oneQual")
   exclude_outcomes <- c("num_downloads")
   
@@ -123,7 +111,7 @@ main <- function() {
       num_qualified_label <- ifelse(grepl("_exact1", dataset), "num-qualified=1",
                                     ifelse(grepl("_oneQual", dataset), "num-qualified>=1", "all obs"))
       df_panel <- read_parquet(file.path(INDIR, panel_dataset, paste0("panel_", rolling_panel, ".parquet")))
-
+      
       all_outcomes <- unlist(lapply(outcome_cfg, function(x) x$main))
       df_panel_common <- BuildCommonSample(df_panel, all_outcomes)
       if (endsWith(dataset, "exact1")) {
@@ -281,15 +269,15 @@ main <- function() {
                split_value = ifelse(is.na(split_value), "", split_value))
       SaveData(coeffs_df, 
                c("dataset","rolling",
-               "category","outcome","normalize","method","covar","split_value", "event_time"),
+                 "category","outcome","normalize","method","covar","split_value", "event_time"),
                file.path(outdir_dataset,  paste0("all_coefficients","_",rolling_panel,".csv")),
                file.path(outdir_dataset,  paste0("all_coefficients","_",rolling_panel,".log")),
                sortbykey = FALSE)
       
       SaveData(df_bin_change, 
-                c("covar","dataset","rolling","past_periods"),
-                file.path(outdir_dataset, paste0("bin_change","_",rolling_panel,".csv")),
-                file.path(outdir_dataset, paste0("bin_change","_",rolling_panel,".log")),
+               c("covar","dataset","rolling","past_periods"),
+               file.path(outdir_dataset, paste0("bin_change","_",rolling_panel,".csv")),
+               file.path(outdir_dataset, paste0("bin_change","_",rolling_panel,".log")),
                sortbykey = FALSE)
       
       #######################################
