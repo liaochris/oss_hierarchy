@@ -42,7 +42,7 @@ EventStudy <- function(df, outcome, control_group, method = c("cs", "sa", "es"),
                       est <- eventstudyr::EventStudy(
                         estimator = "OLS", data = df_est, outcomevar = yvar,
                         policyvar = "treatment", idvar = "repo_name",
-                        timevar = "time_index", post = 5, pre = 0
+                        timevar = "time_index", post = 7, pre = 0
                       )$output %>%
                         tidy() %>%
                         rename(sd = std.error, ci_low = conf.low, ci_high = conf.high) %>%
@@ -67,7 +67,7 @@ EventStudy <- function(df, outcome, control_group, method = c("cs", "sa", "es"),
     res_mat,
     main = title,
     xlab = "Event time (k)",
-    keep = "^-[1-5]|[0-5]",
+    keep = "^-[1-7]|[0-7]",
     drop = "[[:digit:]]{2}",
     ref.line = 0
   )
@@ -101,7 +101,7 @@ EnsureMinusOneRow <- function(est_mat, ref_p) {
   est_mat
 }
 
-TestPretrends <- function(res_mat, terms = as.character(-5:-1)) {
+TestPretrends <- function(res_mat, terms = as.character(-7:-1)) {
   available <- intersect(rownames(res_mat), terms)
   if (length(available) == 0) return(NA_real_)
   
@@ -151,9 +151,9 @@ CompareES <- function(es_list,
     xlab = "Event time (k)",
     ylab = "",
     main = title,
-    keep = "^-[1-5]|[0-5]",
+    keep = "^-[1-7]|[0-7]",
     drop = "[[:digit:]]{2}",
-    order = c("-5", "-4", "-3", "-2", "-1", "0", "1", "2", "3", "4", "5"),
+    order = c("-7", "-6", "-5", "-4", "-3", "-2", "-1", "0", "1", "2", "3", "4", "5", "6", "7"),
     xaxt = "n",
     yaxt = "n",
     grid = FALSE
@@ -177,13 +177,13 @@ CompareES <- function(es_list,
   if (add_comparison) {
     wald_lbl <- ""
     if (length(results) == 2) {
-      wp <- CompareEventCoefsWald(results, terms = 0:5)
+      wp <- CompareEventCoefsWald(results, terms = 0:7)
       wald_lbl <- paste0(legend_labels[1], " vs. ", legend_labels[2], " wald test p-value: ", sprintf("%.3f", wp))
     } else if (length(results) > 2) {
       combos <- combn(length(results), 2)
       wald_lbl <- paste(
         apply(combos, 2, function(idx) {
-          p_val <- CompareEventCoefsWald(results[idx], terms = 0:5)
+          p_val <- CompareEventCoefsWald(results[idx], terms = 0:7)
           paste0(legend_labels[idx[1]], " vs ", legend_labels[idx[2]], ": p=", sprintf("%.3f", p_val))
         }),
         collapse = " | "
@@ -205,7 +205,7 @@ CompareES <- function(es_list,
   }
 }
 
-CompareEventCoefsWald <- function(tidy_list, terms = 0:5) {
+CompareEventCoefsWald <- function(tidy_list, terms = 0:7) {
   sel <- as.character(terms)
   m1 <- as.matrix(tidy_list[[1]])
   m2 <- as.matrix(tidy_list[[2]])

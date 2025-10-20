@@ -89,10 +89,9 @@ main <- function() {
   INDIR_YAML <- "source/derived/org_characteristics"
   OUTDIR <- "output/analysis/event_study"
   dir_create(OUTDIR)
+  #  "important_topk","important_thresh_oneQual", "important_topk_oneQual", "important_thresh", 
   
-  
-  DATASETS <- c("important_topk_exact1", "important_topk", "important_topk_oneQual",
-                "important_thresh", "important_thresh_exact1","important_thresh_oneQual")
+  DATASETS <- c("important_topk_exact1","important_thresh_exact1")
   exclude_outcomes <- c("num_downloads")
   
   outcome_cfg      <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
@@ -137,8 +136,8 @@ main <- function() {
       #######################################
       # Outcomes
       #######################################
-      metrics    <- c("cs", "sa")
-      metrics_fn <- c("Callaway and Sant'anna 2020", "Sun and Abraham 2020")
+      metrics    <- c("sa")
+      metrics_fn <- c("Sun and Abraham 2020")
       
       for (outcome_mode in outcome_modes) {
         es_list <- lapply(metrics, function(m) {
