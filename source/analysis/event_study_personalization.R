@@ -30,9 +30,8 @@ main <- function() {
   # ,
   # "important_topk_defaultWhat", "important_topk_exact1_defaultWhat","important_topk_oneQual_defaultWhat",
   # "important_topk_nuclearWhat", "important_topk_exact1_nuclearWhat","important_topk_oneQual_nuclearWhat"
-  # 
-  DATASETS <- c( "important_topk", "important_topk_exact1","important_topk_oneQual",
-                 "important_thresh", "important_thresh_exact1","important_thresh_oneQual")
+  # "important_topk", ,"important_topk_oneQual", "important_thresh","important_thresh_oneQual"
+  DATASETS <- c( "important_topk_exact1", "important_thresh_exact1")
   exclude_outcomes <- c("num_downloads")
   norm_options <- c(TRUE)
   outcome_cfg      <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))

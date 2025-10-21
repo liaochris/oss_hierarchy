@@ -153,13 +153,13 @@ AggregateEventStudy <- function(tau_hat, df, max_time, type = c("event_time", "a
     cbind(obs_id = seq_len(nrow(out)), out)
     
   } else if (type == "att") {
-    valid <- subset(arm_info, e >= 0 & cohort + e <= max_time)
+    valid <- subset(arm_info, e > 0 & cohort + e <= max_time)
     slots_per_cohort <- ave(valid$cohort, valid$cohort, FUN = length)
     valid$p <- cohort_probs$p_g[match(valid$cohort, cohort_probs$quasi_treatment_group)] / slots_per_cohort
     data.frame(att = weighted_avg(valid))
     
   } else if (type == "cumulative") {
-    valid <- subset(arm_info, e >= 0 & cohort <= cumulative_cutoff & cohort + e <= cumulative_cutoff)
+    valid <- subset(arm_info, e > 0 & cohort <= cumulative_cutoff & cohort + e <= cumulative_cutoff)
     if (!nrow(valid)) return(data.frame(cumu_t4 = NA))
     valid$p <- cohort_probs$p_g[match(valid$cohort, cohort_probs$quasi_treatment_group)]
     data.frame(cumu_t4 = weighted_avg(valid))

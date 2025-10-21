@@ -47,13 +47,17 @@ BuildOrgPracticeModes <- function(org_practice_cfg, control_group, outdir_datase
   modes
 }
 
-BuildCommonSample <- function(df, outcomes) {
+BuildCommonSample <- function(df, outcomes, max_time = 5) {
   valid_repos <- lapply(outcomes, function(outcome) {
     df_norm <- NormalizeOutcome(df, outcome)
     unique(df_norm$repo_name)
   })
   keep_repos <- Reduce(intersect, valid_repos)
-  df %>% filter(repo_name %in% keep_repos)
+  df %>% filter(repo_name %in% keep_repos) %>%
+    mutate(quasi_event_time = time_index - quasi_treatment_group) %>%
+    group_by(repo_id) %>%
+    filter(all(seq(-max_time, max_time) %in% quasi_event_time)) %>%
+    ungroup()
 }
 
 KeepSustainedImportant <- function(df_panel_common, lb = 1, ub = Inf) {

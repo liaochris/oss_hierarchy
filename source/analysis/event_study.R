@@ -125,6 +125,7 @@ main <- function() {
       
       assign("df_panel_notyettreated", df_panel_notyettreated, envir = .GlobalEnv)
       assign("df_panel_nevertreated",  df_panel_nevertreated,  envir = .GlobalEnv)
+
       
       outcome_modes      <- BuildOutcomeModes(outcome_cfg, "nevertreated", outdir_dataset,
                                               norm_options, build_dir = TRUE)
@@ -147,11 +148,9 @@ main <- function() {
         })
         # PNG
         png(outcome_mode$file)
-        CompareES(es_list, title = outcome_mode$outcome, legend_labels = metrics_fn, add_comparison = F)
+        CompareES(es_list, title = "", legend_labels = metrics_fn, add_comparison = F,
+                  ylim = c(-1.75, .75))
         dev.off()
-        
-        # PDF
-        CompareES(es_list, title = outcome_mode$outcome, legend_labels = metrics_fn, add_comparison = F)
         
         # Collect coefficients
         for (i in seq_along(es_list)) {
