@@ -91,7 +91,7 @@ main <- function() {
   dir_create(OUTDIR)
   #  "important_topk","important_thresh_oneQual", "important_topk_oneQual", "important_thresh", 
   
-  DATASETS <- c("important_topk_exact1","important_thresh_exact1")
+  DATASETS <- c("important_topk_exact1","important_thresh_exact1", "important_topk_cons5_exact1")
   exclude_outcomes <- c("num_downloads")
   
   outcome_cfg      <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))

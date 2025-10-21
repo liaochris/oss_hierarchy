@@ -7,9 +7,9 @@ NormalizeOutcome <- function(df, outcome) {
     group_by(repo_name) %>%
     mutate(
       mean_outcome = mean((!!outcome_sym)[time_index < quasi_treatment_group & 
-                                            time_index >= (quasi_treatment_group - 7)], na.rm = TRUE),
+                                            time_index >= (quasi_treatment_group - 5)], na.rm = TRUE),
       sd_outcome   = sd((!!outcome_sym)[time_index < quasi_treatment_group & 
-                                          time_index >= (quasi_treatment_group - 7)], na.rm = TRUE)
+                                          time_index >= (quasi_treatment_group - 5)], na.rm = TRUE)
     ) %>%
     ungroup()
   
