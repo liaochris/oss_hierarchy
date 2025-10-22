@@ -33,8 +33,7 @@ BuildOrgPracticeModes <- function(org_practice_cfg, control_group, outdir_datase
               continuous_covariate   = outcome,
               filters                = list(list(col = paste0(outcome, "_2bin"), vals = c(1, 0))),
               legend_labels          = c("High", "Low"),
-              legend_title           = paste(paste(org_practice, main_cat, sep = " -> "),
-                                             paste(sub_cat, outcome, sep = " -> "), sep = "\n"),
+              legend_title           = outcome,
               control_group          = control_group,
               data                   = paste0("df_panel_", control_group),
               folder                 = folder

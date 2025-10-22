@@ -233,10 +233,17 @@ main <- function() {
                                     paste0(outcome_mode$outcome, norm_str, ".png"))
               png(out_path)
               title_suffix <- paste0("\nSample: ", num_qualified_label)
+              ylim <- NULL
+              legend_title <- practice_mode$legend_title
+              if (covar %in% c("avg_members_per_problem", "ov_sentiment_avg", "pct_members_multiple")) {
+                ylim <- c(-3, 1.5)
+                legend_title <- NULL
+              }
               do.call(CompareES, list(es_list,
                                       legend_labels = labels,
-                                      legend_title  = practice_mode$legend_title,
-                                      title = paste(outcome_mode$outcome, rolling_panel, title_suffix)))
+                                      legend_title  = legend_title,
+                                      title = "",
+                                      ylim = ylim))
               dev.off()
               # Collect coefficients
               for (j in seq_along(es_list)) {

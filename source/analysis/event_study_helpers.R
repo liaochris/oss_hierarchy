@@ -177,13 +177,13 @@ CompareES <- function(es_list,
   if (add_comparison) {
     wald_lbl <- ""
     if (length(results) == 2) {
-      wp <- CompareEventCoefsWald(results, terms = 0:5)
+      wp <- CompareEventCoefsWald(results, terms = 1:5)
       wald_lbl <- paste0(legend_labels[1], " vs. ", legend_labels[2], " wald test p-value: ", sprintf("%.3f", wp))
     } else if (length(results) > 2) {
       combos <- combn(length(results), 2)
       wald_lbl <- paste(
         apply(combos, 2, function(idx) {
-          p_val <- CompareEventCoefsWald(results[idx], terms = 0:5)
+          p_val <- CompareEventCoefsWald(results[idx], terms = 1:5)
           paste0(legend_labels[idx[1]], " vs ", legend_labels[idx[2]], ": p=", sprintf("%.3f", p_val))
         }),
         collapse = " | "
@@ -199,13 +199,13 @@ CompareES <- function(es_list,
                        sprintf("p-value: %.3f", pre_p))
     pre_lbl <- paste(paste0("Pretrend (", legend_labels, ") ", pre_strs), collapse = "\n")
     if (length(results) == 1) {
-      pre_lbl <- paste0("Pretrend p-value: ", pre_strs)
+      pre_lbl <- paste0("Pretrend ", pre_strs)
     }
     mtext(pre_lbl, side = 1, line = -2.6, at = x_left, adj = 0, cex = 0.8)
   }
 }
 
-CompareEventCoefsWald <- function(tidy_list, terms = 0:5) {
+CompareEventCoefsWald <- function(tidy_list, terms = 1:5) {
   sel <- as.character(terms)
   m1 <- as.matrix(tidy_list[[1]])
   m2 <- as.matrix(tidy_list[[2]])

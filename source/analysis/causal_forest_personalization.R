@@ -563,11 +563,11 @@ for (variant in c("important_topk_exact1", "important_thresh_exact1", "important
     outcome_modes <- BuildOutcomeModes(outcome_cfg, "nevertreated", outdir_base, c(TRUE),
                                        build_dir = FALSE)
     
-    for (method in c("lm_forest")) { # , "lm_forest_nonlinear"
+    for (method in c("lm_forest", "lm_forest_nonlinear")) { 
       outdir_for_spec <- outdir_base
       dir_create(outdir_for_spec)
       
-      for (outcome_mode in list(outcome_modes[[2]])) {
+      for (outcome_mode in list(outcome_modes[[3]])) {
         RunForestEventStudy_CrossFit(
           outcome_mode$outcome,
           df_panel_common,
@@ -578,7 +578,7 @@ for (variant in c("important_topk_exact1", "important_thresh_exact1", "important
           rolling_period = rolling_period,
           n_folds = 10,
           seed = SEED,
-          use_existing = FALSE,
+          use_existing = TRUE,
           use_default_What = use_default_What,
           use_nuclear_What = use_nuclear_What
         )

@@ -38,7 +38,7 @@ main <- function() {
   # "important_topk_nuclearWhat", "important_topk_exact1_nuclearWhat","important_topk_oneQual_nuclearWhat"
   # "important_topk", ,"important_topk_oneQual", "important_thresh","important_thresh_oneQual"
   
-  DATASETS <-  c( "important_topk_exact1", "important_thresh_exact1")
+  DATASETS <-  c( "important_topk_exact1", "important_thresh_exact1", "important_topk_cons5_exact1")
   ESTIMATION_TYPES <- c("all", "observed")
   SPLIT_CRITERION <- c("dr_scores")
   exclude_outcomes <- c("num_downloads")
@@ -129,7 +129,8 @@ main <- function() {
             score_criterion <- as.matrix(df_causal_forest_bins %>% pull(att_dr))
             score_criterion_clean <- ifelse(is.na(score_criterion), 0, score_criterion)
             gamma <- data.frame(control = 0, treated = score_criterion_clean)
-            tree <- policy_tree(x_complete, gamma, depth = 2, split.step = 1, verbose = TRUE)
+            #min_size <- as.integer(dim(gamma)[1]*0.05) , min.node.size = min_size
+            tree <- policy_tree(x_complete, gamma, depth = 3, split.step = 50, verbose = TRUE)
             plot(tree, leaf.labels = c("dont treat", "treat"))
             treatment_assignment <- predict(tree, x_complete) - 1
             df_causal_forest_bins$policy_tree_group <- treatment_assignment
