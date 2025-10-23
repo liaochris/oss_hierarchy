@@ -30,7 +30,7 @@ main <- function() {
   # "important_topk_defaultWhat", "important_topk_exact1_defaultWhat","important_topk_oneQual_defaultWhat",
   # "important_topk_nuclearWhat", "important_topk_exact1_nuclearWhat","important_topk_oneQual_nuclearWhat"
   # "important_topk", ,"important_topk_oneQual", "important_thresh","important_thresh_oneQual"
-  DATASETS <- c( "important_topk_exact1", "important_thresh_exact1", "important_topk_cons5_exact1")
+  DATASETS <- c( "important_topk_exact1", "important_thresh_exact1")
   exclude_outcomes <- c("num_downloads")
   norm_options <- c(TRUE)
   outcome_cfg      <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
@@ -39,7 +39,7 @@ main <- function() {
   for (dataset in DATASETS) {
     for (rolling_panel in c("rolling5")) {
       rolling_period <- as.numeric(str_extract(rolling_panel, "\\d+$"))
-      for (method in c("lm_forest")) {  # , "lm_forest_nonlinear"
+      for (method in c("lm_forest", "lm_forest_nonlinear")) {  
         message("Processing dataset: ", dataset, " (", rolling_panel, ")")
         outdir_dataset <- file.path(OUTDIR, dataset)
         dir_create(outdir_dataset, recurse = TRUE)
@@ -78,7 +78,7 @@ main <- function() {
         metrics    <- c("sa")
         metrics_fn <- c("Sun and Abraham 2020")
         
-        for (split_mode in list(outcome_modes[[2]])) {
+        for (split_mode in outcome_modes[2:3]) {
           for (estimation_type in c("all", "observed")) {
             split_var <- split_mode$outcome
             control_group <- "nevertreated"

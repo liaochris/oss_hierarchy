@@ -567,7 +567,7 @@ for (variant in c("important_topk_exact1", "important_thresh_exact1", "important
       outdir_for_spec <- outdir_base
       dir_create(outdir_for_spec)
       
-      for (outcome_mode in list(outcome_modes[[3]])) {
+      for (outcome_mode in outcome_modes[2:3]) {
         RunForestEventStudy_CrossFit(
           outcome_mode$outcome,
           df_panel_common,

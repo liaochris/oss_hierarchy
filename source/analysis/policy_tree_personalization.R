@@ -38,7 +38,7 @@ main <- function() {
   # "important_topk_nuclearWhat", "important_topk_exact1_nuclearWhat","important_topk_oneQual_nuclearWhat"
   # "important_topk", ,"important_topk_oneQual", "important_thresh","important_thresh_oneQual"
   
-  DATASETS <-  c( "important_topk_exact1", "important_thresh_exact1", "important_topk_cons5_exact1")
+  DATASETS <-  c( "important_topk_exact1", "important_thresh_exact1")
   ESTIMATION_TYPES <- c("all", "observed")
   SPLIT_CRITERION <- c("dr_scores")
   exclude_outcomes <- c("num_downloads")
@@ -50,7 +50,7 @@ main <- function() {
   for (dataset in DATASETS) {
     for (rolling_panel in c("rolling5")) {
       rolling_period <- as.numeric(str_extract(rolling_panel, "\\d+$"))
-      for (method in c("lm_forest")) {  # , "lm_forest_nonlinear"
+      for (method in c("lm_forest", "lm_forest_nonlinear")) {  
         outdir_cf_ds <- file.path(OUTDIR_DATASTORE, dataset, rolling_panel)
         outdir_policy_tree_ds <- file.path(OUTDIR_POLICYTREE_DATASTORE, dataset, rolling_panel)
         
@@ -98,7 +98,7 @@ main <- function() {
         metrics    <- c("sa")
         metrics_fn <- c("Sun and Abraham 2020")
         
-        for (split_mode in list(outcome_modes[[2]])) {
+        for (split_mode in list(outcome_modes[[2]], outcome_modes[[3]])) {
           split_var <- split_mode$outcome
           control_group <- "nevertreated"
           
