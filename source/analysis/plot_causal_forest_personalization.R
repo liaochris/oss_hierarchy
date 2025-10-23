@@ -28,13 +28,13 @@ main <- function() {
   OUTDIR <- "output/analysis/event_study_personalization"
   dir_create(OUTDIR)
   
-  # ,
+  # "important_thresh_exact1"
   # "important_topk_defaultWhat", "important_topk_exact1_defaultWhat","important_topk_oneQual_defaultWhat",
   # "important_topk_nuclearWhat", "important_topk_exact1_nuclearWhat","important_topk_oneQual_nuclearWhat"
   # "important_topk", ,"important_topk_oneQual", "important_thresh","important_thresh_oneQual"
-  DATASETS <-c( "important_topk_exact1", "important_thresh_exact1")
+  DATASETS <-c( "important_topk_exact1")
   ROLLING_PANELS <- c("rolling5")
-  METHODS <- c("lm_forest")#, "lm_forest_nonlinear")
+  METHODS <- c("lm_forest", "lm_forest_nonlinear")
   exclude_outcomes <- c("num_downloads")
   norm_options <- c(TRUE)
   
@@ -108,7 +108,7 @@ main <- function() {
           covar <- practice_mode$continuous_covariate
           dir_create(practice_mode$folder, recurse = TRUE)
           
-          for (estimation_type in c("all", "observed")) {
+          for (estimation_type in c("all")) {
             # -------------------------
             # Diagnostics: ATT + ES plots using ggsave()
             # -------------------------
