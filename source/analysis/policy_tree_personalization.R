@@ -17,7 +17,7 @@ source("source/analysis/event_study_helpers.R")
 source("source/analysis/causal_forest_helpers.R")
 
 #######################################
-# Major helpers only
+# Major helpers only (updated to accept depth & split_step)
 #######################################
 
 TrainPolicyTree <- function(x_matrix, gamma_matrix, depth = 2, split_step = 1, verbose = FALSE) {
@@ -25,20 +25,22 @@ TrainPolicyTree <- function(x_matrix, gamma_matrix, depth = 2, split_step = 1, v
 }
 
 RunFullSamplePolicyTree <- function(df_bins, x_complete, outdir_base,
-                                    method, split_outcome, rolling_label, estimation_type) {
+                                    method, split_outcome, rolling_label, estimation_type,
+                                    depth = 2, split_step = 1, tag = "depth2") {
   gamma_vec <- df_bins %>% pull(att_dr)
   gamma_clean <- ifelse(is.na(gamma_vec), 0, gamma_vec)
   gamma_mat <- data.frame(control = 0, treated = gamma_clean)
   
-  tree <- TrainPolicyTree(x_complete, gamma_mat, depth = 2, split_step = 1, verbose = TRUE)
+  tree <- TrainPolicyTree(x_complete, gamma_mat, depth = depth, split_step = split_step, verbose = TRUE)
   dir_create(outdir_base)
   saveRDS(tree,
           file.path(outdir_base,
-                    paste0(method, "_", split_outcome, "_", rolling_label, "_", estimation_type, ".rds")))
+                    paste0(method, "_", split_outcome, "_", rolling_label, "_", estimation_type, "_", tag, ".rds")))
   
   assignments <- as.integer(predict(tree, x_complete) - 1)
   df_bins <- df_bins %>%
-    left_join(tibble(repo_name = df_bins$repo_name, policy_tree_group = assignments),
+    left_join(tibble(repo_name = df_bins$repo_name,
+                     !!sym(paste0("policy_tree_group_", tag)) := assignments),
               by = "repo_name")
   list(tree = tree, df_bins = df_bins)
 }
@@ -52,8 +54,14 @@ RunKFoldPredictAndAggregate <- function(df_bins,
                                         split_outcome,
                                         rolling_label,
                                         estimation_type,
+                                        depth = 2,
+                                        split_step = 1,
+                                        tag = "depth2",
                                         seed = 420) {
   repo_map <- df_repo_level %>% select(repo_id, repo_name, fold) %>% distinct()
+  if (!"fold" %in% colnames(repo_map) || any(is.na(repo_map$fold))) {
+    stop("RunKFoldPredictAndAggregate requires df_repo_level to include a non-missing 'fold' column.")
+  }
   
   repo_names_all <- df_repo_level$repo_name
   n_repos <- length(repo_names_all)
@@ -71,17 +79,19 @@ RunKFoldPredictAndAggregate <- function(df_bins,
     train_idx <- which(repo_names_all %in% train_repo_names)
     held_idx  <- which(repo_names_all %in% held_repo_names)
     
+    if (length(held_idx) == 0) next
+    
     x_train <- x_complete[train_idx, , drop = FALSE]
     x_held  <- x_complete[held_idx,  , drop = FALSE]
     gamma_train <- gamma_mat[train_idx, , drop = FALSE]
     
-    tree <- TrainPolicyTree(x_train, gamma_train, depth = 2, split_step = 1, verbose = FALSE)
+    tree <- TrainPolicyTree(x_train, gamma_train, depth = depth, split_step = split_step, verbose = FALSE)
     
     dir_create(outdir_base)
     saveRDS(tree,
             file.path(outdir_base,
                       paste0(method, "_", split_outcome, "_", rolling_label, "_",
-                             estimation_type, "_fold", fold, ".rds")))
+                             estimation_type, "_fold", fold, "_", tag, ".rds")))
     
     held_preds <- as.integer(predict(tree, x_held) - 1)
     kfold_preds[held_idx] <- held_preds
@@ -94,7 +104,7 @@ RunKFoldPredictAndAggregate <- function(df_bins,
   
   df_bins <- df_bins %>%
     left_join(tibble(repo_name = repo_names_all,
-                     policy_tree_group_kfold = kfold_preds),
+                     !!sym(paste0("policy_tree_group_kfold_", tag)) := kfold_preds),
               by = "repo_name")
   df_bins
 }
@@ -183,7 +193,7 @@ main <- function() {
   dir_create(OUTDIR)
   
   DATASETS <- c("important_topk_exact1")
-  ESTIMATION_TYPES <- c("all")
+  ESTIMATION_TYPES <- c("observed")
   exclude_outcomes <- c("num_downloads")
   norm_options <- c(TRUE)
   outcome_cfg      <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
@@ -191,6 +201,12 @@ main <- function() {
   
   png_ordered <- character(0)
   coeffs_all <- list()
+  
+  # Define tree configurations: depth, split_step, and tag for filenames/labels
+  tree_configs <- list(
+    list(depth = 2, split_step = 1, tag = "depth2"),
+    list(depth = 3, split_step = 50, tag = "depth3_split50")
+  )
   
   for (dataset in DATASETS) {
     for (use_imp in c(TRUE, FALSE)) {
@@ -265,116 +281,129 @@ main <- function() {
                           paste0(split_var, "_repo_att_", method, ".parquet"))) %>%
                 filter(type == estimation_type)
               
-              # Full-sample policy tree + ES
-              full_res <- RunFullSamplePolicyTree(df_causal_forest_bins,
-                                                  x_complete,
-                                                  file.path(OUTDIR_POLICYTREE_DATASTORE, dataset, rolling_panel_imp),
-                                                  method,
-                                                  split_mode$outcome,
-                                                  rolling_panel_imp,
-                                                  estimation_type)
-              df_causal_forest_bins <- full_res$df_bins
-              
-              practice_mode <- list(
-                continuous_covariate = "policy_tree_group",
-                filters = list(list(col = "policy_tree_group", vals = c(1, 0))),
-                legend_labels = c("High", "Low"),
-                legend_title = paste0("by Policy Tree for ", split_var, " on ", estimation_type, " estimates"),
-                control_group = control_group,
-                data = paste0("df_panel_", control_group),
-                folder = file.path("output/analysis/event_study_personalization", dataset, rolling_panel_imp,
-                                   paste(control_group, "policy_tree", sep = "_"))
-              )
-              
-              tmp_full <- RunEventStudyAndCollect(base_df = get(practice_mode$data),
-                                                  df_bins = df_causal_forest_bins,
-                                                  practice_mode = practice_mode,
-                                                  outcome_modes = outcome_modes,
-                                                  norm_options = norm_options,
-                                                  rolling_label = rolling_panel,
-                                                  method_label = method,
-                                                  estimation_type = estimation_type,
-                                                  png_collector = png_ordered,
-                                                  coeffs_collector = coeffs_all)
-              png_ordered <- tmp_full$pngs
-              coeffs_all <- tmp_full$coeffs
-              
-              # K-fold: produce aggregated OOF predictions (one per repo)
-              df_causal_forest_bins <- RunKFoldPredictAndAggregate(
-                df_bins = df_causal_forest_bins,
-                df_repo_level = x_repo,
-                x_complete = x_complete,
-                n_folds = n_folds,
-                outdir_base = file.path(OUTDIR_POLICYTREE_DATASTORE, dataset, rolling_panel_imp),
-                method = method,
-                split_outcome = split_mode$outcome,
-                rolling_label = rolling_panel_imp,
-                estimation_type = estimation_type,
-                seed = SEED
-              )
-              
-              # Single EventStudy using aggregated OOF predictions
-              practice_mode_kfold <- list(
-                continuous_covariate = "policy_tree_group_kfold",
-                filters = list(list(col = "policy_tree_group_kfold", vals = c(1, 0))),
-                legend_labels = c("High", "Low"),
-                legend_title = paste0("by Kfold policy tree (OOF) for ", split_mode$outcome),
-                control_group = control_group,
-                data = paste0("df_panel_", control_group),
-                folder = file.path("output/analysis/event_study_personalization", dataset, rolling_panel_imp,
-                                   paste(control_group, "policy_tree_kfold", sep = "_"))
-              )
-              
-              tmp_kfold <- RunEventStudyAndCollect(
-                base_df = get(practice_mode_kfold$data),
-                df_bins = df_causal_forest_bins,
-                practice_mode = practice_mode_kfold,
-                outcome_modes = outcome_modes,
-                norm_options = norm_options,
-                rolling_label = paste0(rolling_panel, "_kfold"),
-                method_label = paste0(method, "_kfold"),
-                estimation_type = estimation_type,
-                png_collector = png_ordered,
-                coeffs_collector = coeffs_all
-              )
-              png_ordered <- tmp_kfold$pngs
-              coeffs_all <- tmp_kfold$coeffs
-            }
-          }
+              # Run analyses for each tree configuration
+              for (tc in tree_configs) {
+                depth_val <- tc$depth
+                split_step_val <- tc$split_step
+                tag_val <- tc$tag
+                
+                # Full-sample policy tree + ES (tagged)
+                full_res <- RunFullSamplePolicyTree(df_causal_forest_bins,
+                                                    x_complete,
+                                                    file.path(OUTDIR_POLICYTREE_DATASTORE, dataset, rolling_panel_imp),
+                                                    method,
+                                                    split_mode$outcome,
+                                                    rolling_panel_imp,
+                                                    estimation_type,
+                                                    depth = depth_val,
+                                                    split_step = split_step_val,
+                                                    tag = tag_val)
+                df_causal_forest_bins <- full_res$df_bins
+                
+                practice_mode <- list(
+                  continuous_covariate = paste0("policy_tree_group_", tag_val),
+                  filters = list(list(col = paste0("policy_tree_group_", tag_val), vals = c(1, 0))),
+                  legend_labels = c("High", "Low"),
+                  legend_title = paste0("by Policy Tree (", tag_val, ") for ", split_var, " on ", estimation_type, " estimates"),
+                  control_group = control_group,
+                  data = paste0("df_panel_", control_group),
+                  folder = file.path("output/analysis/event_study_personalization", dataset, rolling_panel_imp,
+                                     paste(control_group, "policy_tree", tag_val, sep = "_"))
+                )
+                
+                tmp_full <- RunEventStudyAndCollect(base_df = get(practice_mode$data),
+                                                    df_bins = df_causal_forest_bins,
+                                                    practice_mode = practice_mode,
+                                                    outcome_modes = outcome_modes,
+                                                    norm_options = norm_options,
+                                                    rolling_label = paste0(rolling_panel, "_", tag_val),
+                                                    method_label = paste0(method, "_", tag_val),
+                                                    estimation_type = estimation_type,
+                                                    png_collector = png_ordered,
+                                                    coeffs_collector = coeffs_all)
+                png_ordered <- tmp_full$pngs
+                coeffs_all <- tmp_full$coeffs
+                
+                # K-fold: produce aggregated OOF predictions (one per repo) for this tree config
+                df_causal_forest_bins <- RunKFoldPredictAndAggregate(
+                  df_bins = df_causal_forest_bins,
+                  df_repo_level = x_repo,
+                  x_complete = x_complete,
+                  n_folds = n_folds,
+                  outdir_base = file.path(OUTDIR_POLICYTREE_DATASTORE, dataset, rolling_panel_imp),
+                  method = method,
+                  split_outcome = split_mode$outcome,
+                  rolling_label = rolling_panel_imp,
+                  estimation_type = estimation_type,
+                  depth = depth_val,
+                  split_step = split_step_val,
+                  tag = tag_val,
+                  seed = SEED
+                )
+                
+                # Single EventStudy using aggregated OOF predictions (tagged)
+                practice_mode_kfold <- list(
+                  continuous_covariate = paste0("policy_tree_group_kfold_", tag_val),
+                  filters = list(list(col = paste0("policy_tree_group_kfold_", tag_val), vals = c(1, 0))),
+                  legend_labels = c("High", "Low"),
+                  legend_title = paste0("by Kfold policy tree (OOF, ", tag_val, ") for ", split_mode$outcome),
+                  control_group = control_group,
+                  data = paste0("df_panel_", control_group),
+                  folder = file.path("output/analysis/event_study_personalization", dataset, rolling_panel_imp,
+                                     paste(control_group, "policy_tree_kfold", tag_val, sep = "_"))
+                )
+                
+                tmp_kfold <- RunEventStudyAndCollect(
+                  base_df = get(practice_mode_kfold$data),
+                  df_bins = df_causal_forest_bins,
+                  practice_mode = practice_mode_kfold,
+                  outcome_modes = outcome_modes,
+                  norm_options = norm_options,
+                  rolling_label = paste0(rolling_panel, "_kfold_", tag_val),
+                  method_label = paste0(method, "_kfold_", tag_val),
+                  estimation_type = estimation_type,
+                  png_collector = png_ordered,
+                  coeffs_collector = coeffs_all
+                )
+                png_ordered <- tmp_kfold$pngs
+                coeffs_all <- tmp_kfold$coeffs
+              } # end tree_configs loop
+            } # end estimation_type loop
+          } # end split_mode loop
+        } # end method loop
+      } # end rolling_panel loop
+    } # end use_imp loop
+  } # end dataset loop
+  
+  #######################################
+  # Export coefficients & combined PDF
+  #######################################
+  coeffs_df <- bind_rows(coeffs_all) %>% mutate(event_time = as.numeric(event_time))
+  write_csv(coeffs_df, file.path(OUTDIR, paste0("policy_tree_all_coefficients.csv")))
+  
+  png_files <- png_ordered[!grepl("_hist_", png_ordered)]
+  pdf(file.path(OUTDIR, paste0("policy_tree_results.pdf")), width = 11, height = 8.5)
+  if (length(png_files) > 0) {
+    first_group <- png_files[1:min(4, length(png_files))]
+    imgs <- lapply(first_group, function(f) grid::rasterGrob(readPNG(f), interpolate = TRUE))
+    if (length(imgs) < 4) {
+      for (i in seq_len(4 - length(imgs))) imgs <- c(imgs, list(textGrob("")))
+    }
+    do.call(grid.arrange, c(imgs, ncol = 2))
+    
+    if (length(png_files) > 4) {
+      remaining <- png_files[-(1:4)]
+      for (i in seq(1, length(remaining), by = 4)) {
+        group_files <- remaining[i:min(i+3, length(remaining))]
+        imgs <- lapply(group_files, function(f) grid::rasterGrob(readPNG(f), interpolate = TRUE))
+        if (length(imgs) < 4) {
+          for (p in seq_len(4 - length(imgs))) imgs <- c(imgs, list(textGrob("")))
         }
+        do.call(grid.arrange, c(imgs, ncol = 2))
       }
     }
-    
-    #######################################
-    # Export coefficients & combined PDF
-    #######################################
-    coeffs_df <- bind_rows(coeffs_all) %>% mutate(event_time = as.numeric(event_time))
-    write_csv(coeffs_df, file.path(OUTDIR, paste0("policy_tree_all_coefficients.csv")))
-    
-    png_files <- png_ordered[!grepl("_hist_", png_ordered)]
-    pdf(file.path(OUTDIR, paste0("policy_tree_results.pdf")), width = 11, height = 8.5)
-    if (length(png_files) > 0) {
-      first_group <- png_files[1:min(4, length(png_files))]
-      imgs <- lapply(first_group, function(f) grid::rasterGrob(readPNG(f), interpolate = TRUE))
-      if (length(imgs) < 4) {
-        for (i in seq_len(4 - length(imgs))) imgs <- c(imgs, list(textGrob("")))
-      }
-      do.call(grid.arrange, c(imgs, ncol = 2))
-      
-      if (length(png_files) > 4) {
-        remaining <- png_files[-(1:4)]
-        for (i in seq(1, length(remaining), by = 4)) {
-          group_files <- remaining[i:min(i+3, length(remaining))]
-          imgs <- lapply(group_files, function(f) grid::rasterGrob(readPNG(f), interpolate = TRUE))
-          if (length(imgs) < 4) {
-            for (p in seq_len(4 - length(imgs))) imgs <- c(imgs, list(textGrob("")))
-          }
-          do.call(grid.arrange, c(imgs, ncol = 2))
-        }
-      }
-    }
-    dev.off()
   }
+  dev.off()
 } # end main
 
 #######################################

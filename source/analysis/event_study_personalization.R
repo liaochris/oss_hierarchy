@@ -82,7 +82,7 @@ main <- function() {
         for (use_imp in c(TRUE, FALSE)) {
           rolling_panel_imp <- ifelse(use_imp, paste0(rolling_panel, "_imp"), rolling_panel)
           for (split_mode in outcome_modes[2]) {
-            for (estimation_type in c("all","observed")) {
+            for (estimation_type in c("observed")) {
               split_var <- split_mode$outcome
               control_group <- "nevertreated"
               df_causal_forest_bins <- read_parquet(

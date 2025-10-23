@@ -108,7 +108,7 @@ main <- function() {
           covar <- practice_mode$continuous_covariate
           dir_create(practice_mode$folder, recurse = TRUE)
           
-          for (estimation_type in c("all")) {
+          for (estimation_type in c("observed")) {
             # -------------------------
             # Diagnostics: ATT + ES plots using ggsave()
             # -------------------------
