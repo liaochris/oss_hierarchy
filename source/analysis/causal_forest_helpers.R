@@ -52,7 +52,7 @@ ComputeCovariateMeans <- function(df, covars, rolling_period = 1) {
     means <- df %>%
       filter(quasi_event_time >= -5 & quasi_event_time < -1) %>%
       group_by(repo_name) %>%
-      summarise(across(all_of(covars), ~ mean(.x, na.rm = TRUE), .names = "{.col}_mean"),
+      summarise(across(any_of(covars), ~ mean(.x, na.rm = TRUE), .names = "{.col}_mean"),
                 .groups = "drop")
     
     df %>% filter(quasi_event_time >= -5 & quasi_event_time <= 5) %>%
@@ -61,8 +61,8 @@ ComputeCovariateMeans <- function(df, covars, rolling_period = 1) {
   } else if (rolling_period == 5) {
     means <- df %>%
       filter(quasi_event_time == -1) %>%
-      select(repo_name, all_of(covars)) %>%
-      rename_with(~ paste0(.x, "_mean"), all_of(covars))
+      select(repo_name, any_of(covars)) %>%
+      rename_with(~ paste0(.x, "_mean"), any_of(covars))
     
     df %>%
       filter(quasi_event_time >= -5 & quasi_event_time <= 5) %>%
