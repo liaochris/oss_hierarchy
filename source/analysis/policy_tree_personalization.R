@@ -189,7 +189,7 @@ main <- function() {
   INDIR_YAML <- "source/derived/org_characteristics"
   OUTDIR <- "output/analysis/event_study_personalization"
   OUTDIR_DATASTORE <- "drive/output/analysis/causal_forest_personalization"
-  OUTDIR_POLICYTREE_DATASTORE <- "drive/output/analysis/event_study_personalization"
+  OUTDIR_POLICYTREE_DATASTORE <- "drive/output/analysis/policy_forest_personalization"
   dir_create(OUTDIR)
   
   DATASETS <- c("important_topk_exact1")
@@ -204,6 +204,7 @@ main <- function() {
   
   # Define tree configurations: depth, split_step, and tag for filenames/labels
   tree_configs <- list(
+    list(depth = 1, split_step = 1, tag = "depth1"),
     list(depth = 2, split_step = 1, tag = "depth2"),
     list(depth = 3, split_step = 50, tag = "depth3_split50")
   )

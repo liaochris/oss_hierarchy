@@ -43,11 +43,13 @@ BuildTimeInvariantIndicator <- function(df_panel_nt) {
 
 BuildWHatForBaselineHeterogeneity <- function(W_nt, df_panel_nt, marg_dist_treatment_group) {
   W_hat <- matrix(0, nrow = nrow(W_nt), ncol = ncol(W_nt), dimnames = list(NULL, colnames(W_nt)))
-  repo_times <- tapply(df_panel_nt$time_index, df_panel_nt$repo_id, unique)
   for (i in seq_len(nrow(df_panel_nt))) {
-    times_i <- repo_times[[as.character(df_panel_nt$repo_id[i])]]
-    W_hat[i, paste0("factor(time_index)", times_i)] <- 1 / length(times_i)
+    col_name <- paste0("factor(time_index)", df_panel_nt$time_index[i])
+    if (col_name %in% colnames(W_hat)) {
+      W_hat[i, col_name] <- 1
+    }
   }
+  
   first_time_by_repo <- df_panel_nt %>%
     group_by(repo_id) %>%
     summarize(first_time = min(time_index), .groups = "drop")
@@ -219,7 +221,8 @@ FitForestModel <- function(df_train, x_train, y_train, method, outfile_fold,
   list(model = model, treatment_model = treatment_model, outcome_model = outcome_model)
 }
 
-CalculateDoublyRobustHold <- function(model_fold, outcome_model_fold, treatment_model_fold, df_hold, x_hold, y_hold, method, use_nuclear_What = FALSE) { 
+CalculateDoublyRobustHold <- function(model_fold, outcome_model_fold, treatment_model_fold, df_hold, x_hold, y_hold, method, use_nuclear_What = FALSE,
+                                      drop_never_treated) { 
   y_hat <- predict(outcome_model_fold, x_hold)$predictions 
   W <- CalculateTreatment(df_hold, method)$W 
   
@@ -287,7 +290,7 @@ FitAndPredictBaselineFold <- function(df_data, keep_names, fold_id, time_levels,
   list(hold_idx = hold_idx, time_vals = pred_time_vals, quasi_vals = pred_quasi_vals)
 }
 
-RunBaselineHeterogeneityCrossFit <- function(df_data, keep_names, marg_dist_treatment_group, outdir_ds, method, outcome, n_folds = 10, num_trees = 200) {
+RunBaselineHeterogeneityCrossFit <- function(df_data, keep_names, marg_dist_treatment_group, outdir_ds, method, outcome, n_folds = 10, num_trees = 2000) {
   time_levels <- sort(unique(df_data$time_index))
   n_obs <- nrow(df_data)
   time_baseline_all <- numeric(n_obs)
@@ -489,7 +492,8 @@ RunForestEventStudy_CrossFit <- function(
     
     preds_all[hold_idx, ] <- preds
     
-    dr_hold <- CalculateDoublyRobustHold(model_fold, outcome_model_fold, treatment_model_fold, df_hold, x_hold, y_hold, method, use_nuclear_What = use_nuclear_What)
+    dr_hold <- CalculateDoublyRobustHold(model_fold, outcome_model_fold, treatment_model_fold, df_hold, x_hold, y_hold, method, use_nuclear_What = use_nuclear_What,
+                                         drop_never_treated = TRUE)
     if (is.null(dr_scores_all)) {
       dr_scores_all <- matrix(NA_real_, nrow = n_obs, ncol = ncol(dr_hold))
       colnames(dr_scores_all) <- colnames(dr_hold)
@@ -607,7 +611,7 @@ for (variant in c("important_topk_exact1")) {
       outcome_modes <- BuildOutcomeModes(outcome_cfg, "nevertreated", outdir_base, c(TRUE),
                                          build_dir = FALSE)
       
-      for (method in c("lm_forest", "lm_forest_nonlinear")) { 
+      for (method in c("lm_forest")) { 
         outdir_for_spec <- outdir_base
         dir_create(outdir_for_spec)
         
@@ -622,7 +626,7 @@ for (variant in c("important_topk_exact1")) {
             rolling_period = rolling_period,
             n_folds = 10,
             seed = SEED,
-            use_existing = TRUE,
+            use_existing = FALSE,
             use_default_What = use_default_What,
             use_nuclear_What = use_nuclear_What,
             use_imp = use_imp
