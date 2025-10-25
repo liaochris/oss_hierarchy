@@ -1,6 +1,8 @@
 #######################################
-# 1. Libraries
+# Event-study main script (uses helpers from separate files)
 #######################################
+
+# Libraries
 library(tidyverse)
 library(arrow)
 library(yaml)
@@ -12,75 +14,23 @@ library(grid)
 library(future.apply)
 library(SaveData)
 
+# Other packages (used by helpers and plotting)
+library(dplyr)
+library(tidyr)
+library(broom)
+library(fixest)
+library(did)
+library(aod)
+library(stringr)
+library(tibble)
+library(purrr)
+library(ggplot2)
+
 source("source/lib/helpers.R")
 source("source/analysis/event_study_helpers.R")
-#######################################
-# 2. Normalization helpers
-#######################################
+
 norm_options <- c(TRUE)
 
-#######################################
-# 6. Sample restriction helpers
-#######################################
-CompareBinsFast <- function(df, covar, max_periods = 5, ref_period = 1) {
-  bins <- map_dfc(1:max_periods, function(p) {
-    per_repo <- df %>%
-      group_by(repo_name) %>%
-      summarize(
-        mean_pre = mean(
-          if_else(time_index < quasi_treatment_group & time_index >= (quasi_treatment_group - p),
-                  .data[[covar]], NA_real_),
-          na.rm = TRUE
-        ),
-        .groups = "drop"
-      )
-    
-    threshold <- median(per_repo$mean_pre, na.rm = TRUE)
-    
-    per_repo %>%
-      mutate(val = as.integer(mean_pre > threshold)) %>%
-      pull(val)
-  })
-  
-  names(bins) <- paste0("bin_", 1:max_periods)
-  ref <- bins[[paste0("bin_", ref_period)]]
-  
-  tibble(
-    past_periods = setdiff(1:max_periods, ref_period),
-    percent_changed_from_0 = sapply(setdiff(1:max_periods, ref_period), function(p) {
-      mean(ref == 0 & bins[[paste0("bin_", p)]] == 1, na.rm = TRUE) * 100
-    }),
-    percent_changed_from_1 = sapply(setdiff(1:max_periods, ref_period), function(p) {
-      mean(ref == 1 & bins[[paste0("bin_", p)]] == 0, na.rm = TRUE) * 100
-    })
-  )
-}
-
-#######################################
-# 8. Org practice bin helpers
-#######################################
-CreateOrgPracticeBin <- function(df, covar, past_periods = 1) {
-  col_bin <- paste0(covar, "_2bin")
-  
-  df %>%
-    group_by(repo_name) %>%
-    mutate(
-      pre_vals   = if_else(time_index < quasi_treatment_group & time_index >= (quasi_treatment_group - past_periods),
-                           .data[[covar]], NA_real_),
-      mean_pre   = mean(pre_vals, na.rm = TRUE)
-    ) %>%
-    ungroup() -> tmp
-  
-  threshold <- median(tmp$mean_pre, na.rm = TRUE)
-  
-  tmp %>%
-    mutate(!!col_bin := if_else(mean_pre > threshold, 1, 0)) %>%
-    select(-pre_vals, -mean_pre)
-}
-
-#######################################
-# 9. Main execution
-#######################################
 main <- function() {
   SEED <- 420
   set.seed(SEED)
@@ -89,7 +39,6 @@ main <- function() {
   INDIR_YAML <- "source/derived/org_characteristics"
   OUTDIR <- "output/analysis/event_study"
   dir_create(OUTDIR)
-  #  "important_topk","important_thresh_oneQual", "important_topk_oneQual", "important_thresh","important_thresh_exact1", "important_topk_cons5_exact1"
   
   DATASETS <- c("important_topk_exact1")
   exclude_outcomes <- c("num_downloads")
@@ -125,7 +74,6 @@ main <- function() {
       
       assign("df_panel_notyettreated", df_panel_notyettreated, envir = .GlobalEnv)
       assign("df_panel_nevertreated",  df_panel_nevertreated,  envir = .GlobalEnv)
-
       
       outcome_modes      <- BuildOutcomeModes(outcome_cfg, "nevertreated", outdir_dataset,
                                               norm_options, build_dir = TRUE)
@@ -133,9 +81,10 @@ main <- function() {
       
       coeffs_all <- list()
       df_bin_change <- data.frame()
+      att_diffs_all <- list()
       
       #######################################
-      # Outcomes
+      # Baseline outcome plots + collect coeffs
       #######################################
       metrics    <- c("sa")
       metrics_fn <- c("Sun and Abraham 2020")
@@ -146,13 +95,11 @@ main <- function() {
           EventStudy(panel, outcome_mode$outcome, outcome_mode$control_group,
                      m, title = "", normalize = outcome_mode$normalize)
         })
-        # PNG
         png(outcome_mode$file)
         CompareES(es_list, title = "", legend_labels = metrics_fn, add_comparison = F,
                   ylim = c(-1.75, .75))
         dev.off()
         
-        # Collect coefficients
         for (i in seq_along(es_list)) {
           res <- es_list[[i]]$results
           coeffs_all[[length(coeffs_all) + 1]] <- as_tibble(res, rownames = "event_time") %>%
@@ -170,10 +117,9 @@ main <- function() {
       }
       
       #######################################
-      # Org practice splits
+      # Org practice splits + ATT-diff computation
       #######################################
       metrics    <- c("sa")
-      metrics_fn <- c("Sun and Abraham 2020")
       
       for (practice_mode in org_practice_modes) {
         covar <- practice_mode$continuous_covariate
@@ -195,17 +141,62 @@ main <- function() {
             ungroup()
         }
         
-        # update df_bin_change
         df_bin_change <- rbind(df_bin_change,
                                CompareBinsFast(base_df, covar, 5, 1) %>%
                                  mutate(covar = covar,
                                         dataset = dataset,
                                         rolling = rolling_panel))
         
+        # compute ATT differences using first filter's first two vals as low/high
+        if (length(practice_mode$filters) >= 1) {
+          split_filter <- practice_mode$filters[[1]]
+          split_col <- split_filter$col
+          split_vals <- split_filter$vals
+          if (length(split_vals) >= 2) {
+            val_low <- split_vals[[1]]
+            val_high <- split_vals[[2]]
+            for (outcome_mode in outcome_modes) {
+              for (norm in norm_options) {
+                df_low  <- base_df %>% filter(.data[[split_col]] == val_low)
+                df_high <- base_df %>% filter(.data[[split_col]] == val_high)
+                att_low <- tryCatch(
+                  GetEventAtt(df_low, outcome_mode$outcome, outcome_mode$control_group, method = "sa", normalize = norm, periods = 1:5),
+                  error = function(e) NULL
+                )
+                
+                att_high <- tryCatch(
+                  GetEventAtt(df_high, outcome_mode$outcome, outcome_mode$control_group, method = "sa", normalize = norm, periods = 1:5),
+                  error = function(e) NULL
+                )
+                
+                # Skip if either estimation failed or returned NULL
+                if (is.null(att_low) || is.null(att_high)) next
+                
+                att_diff <- ComputeDiffHighLow(att_high, att_low) %>%
+                  mutate(dataset = dataset,
+                         rolling = rolling_panel,
+                         category = outcome_mode$category,
+                         outcome = outcome_mode$outcome,
+                         normalize = norm,
+                         covar = covar,
+                         split_col = split_col,
+                         low_value = as.character(val_low),
+                         high_value = as.character(val_high)) %>%
+                  select(dataset, rolling, category, outcome, normalize, covar, split_col, low_value, high_value,
+                         period, high_estimate, high_sd, high_ci_low, high_ci_high,
+                         low_estimate, low_sd, low_ci_low, low_ci_high,
+                         diff_estimate, diff_se, diff_ci_low, diff_ci_high)
+                
+                att_diffs_all[[length(att_diffs_all) + 1]] <- att_diff
+              }
+            }
+          }
+        }
+        
+        # existing split-based event study (keeps previous behavior)
         for (outcome_mode in outcome_modes) {
           for (norm in norm_options) {
             norm_str <- ifelse(norm, "_norm", "")
-            
             combo_grid <- expand.grid(lapply(practice_mode$filters, `[[`, "vals"),
                                       KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
             
@@ -235,7 +226,7 @@ main <- function() {
               title_suffix <- paste0("\nSample: ", num_qualified_label)
               ylim <- NULL
               legend_title <- practice_mode$legend_title
-              if (covar %in% c("avg_members_per_problem", "ov_sentiment_avg", "pct_members_multiple")) {
+              if (covar %in% c("mean_has_assignee", "ov_sentiment_avg", "issue_share_only")) {
                 ylim <- c(-3, 1.5)
                 legend_title <- NULL
               }
@@ -245,7 +236,6 @@ main <- function() {
                                       title = "",
                                       ylim = ylim))
               dev.off()
-              # Collect coefficients
               for (j in seq_along(es_list)) {
                 res <- es_list[[j]]$results
                 split_val <- practice_mode$filters[[1]]$vals[j]
@@ -256,7 +246,7 @@ main <- function() {
                     category = outcome_mode$category,
                     outcome = outcome_mode$outcome,
                     normalize = norm,
-                    method = metrics[1],   # split uses cs
+                    method = metrics[1],
                     covar = covar,
                     split_value = split_val
                   )
@@ -267,7 +257,7 @@ main <- function() {
       }
       
       #######################################
-      # Export results (per rolling period)
+      # Export results
       #######################################
       coeffs_df <- bind_rows(coeffs_all) %>%
         mutate(event_time = as.numeric(event_time),
@@ -286,16 +276,49 @@ main <- function() {
                file.path(outdir_dataset, paste0("bin_change","_",rolling_panel,".log")),
                sortbykey = FALSE)
       
+      if (length(att_diffs_all) > 0) {
+        att_diffs_df <- bind_rows(att_diffs_all) %>% mutate(period = as.numeric(period))
+        SaveData(att_diffs_df,
+                 c("dataset","rolling","category","outcome","normalize","covar","split_col","low_value","high_value","period"),
+                 file.path(outdir_dataset, paste0("att_diff_high_low_", rolling_panel, ".csv")),
+                 file.path(outdir_dataset, paste0("att_diff_high_low_", rolling_panel, ".log")),
+                 sortbykey = FALSE)
+        
+        practice_map_file <- "source/analysis/organizational_practice_map.csv"
+        outcome_map <- c(
+          "major_minor_release_count" = "Major and minor software releases",
+          "overall_new_release_count" = "New software releases",
+          "pull_request_opened" = "Pull requests opened",
+          "pull_request_merged" = "Pull requests merged"
+        )
+        
+        map_df <- ReadPracticeMap(practice_map_file)
+        
+        PlotPracticeOutcomeHorizontal(att_diffs_df,
+                                      out_file = file.path(outdir_dataset, "att_by_practice_outcomes_grouped.png"),
+                                      practice_map = map_df,
+                                      outcome_map = outcome_map,
+                                      periods = 1:5,
+                                      label_offset = 0.43,    # fraction of x_range: labels distance left of plotted area
+                                      bracket_offset = 0.45,  # fraction of x_range: bracket further left than labels
+                                      right_pad = 0.18,       # fraction of x_range to pad right side of axis
+                                      left_margin_pt = 0,
+                                      cap_height = 0.12,
+                                      cap_thickness = 1.0,
+                                      point_size = 3,
+                                      point_alpha = 0.6,
+                                      width = 10,
+                                      height = 8)
+      
+      
       #######################################
       # Combine PNGs into one PDF (per rolling period)
       #######################################
       png_files <- list.files(outdir_dataset, pattern = "\\.png$", full.names = TRUE, recursive = TRUE)
-      
       pdf(file.path(outdir_dataset, paste0("all_results","_",rolling_panel,".pdf")))
       if (length(png_files) > 0) {
         imgs <- lapply(png_files[1:min(4, length(png_files))], function(f) grid::rasterGrob(readPNG(f), interpolate = TRUE))
         do.call(grid.arrange, c(imgs, ncol = 2))
-        
         if (length(png_files) > 4) {
           folder_groups <- split(png_files[-(1:4)], dirname(png_files[-(1:4)]))
           for (g in seq_along(folder_groups)) {
@@ -313,4 +336,5 @@ main <- function() {
   }
 }
 
+# run main
 main()
