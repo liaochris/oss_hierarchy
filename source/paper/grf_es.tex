@@ -1,0 +1,442 @@
+\documentclass[12pt,notitlepage]{article}
+
+% --------------------------------------------------
+% Core math & symbols
+% --------------------------------------------------
+\usepackage{amssymb, amsmath, amsthm, bm, mathtools}
+\usepackage{dsfont, bbm}
+
+% --------------------------------------------------
+% Figures & tables
+% --------------------------------------------------
+\usepackage{graphicx}
+\usepackage{epstopdf}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{tabularx, longtable, array, multirow, diagbox}
+\usepackage{arydshln}
+\usepackage{subcaption}
+\captionsetup[sub]{subrefformat=parens}
+\DeclareCaptionLabelFormat{subpanel}{Panel~(#2):}
+\captionsetup[sub]{labelformat=subpanel, labelsep=space}
+\usepackage{pdflscape}
+
+% required by modelsummary
+\usepackage{tabularray}
+\UseTblrLibrary{booktabs}
+\UseTblrLibrary{siunitx}
+\newcommand{\tinytableTabularrayUnderline}[1]{\underline{#1}}
+\newcommand{\tinytableTabularrayStrikeout}[1]{\sout{#1}}
+\NewTableCommand{\tinytableDefineColor}[3]{\definecolor{#1}{#2}{#3}}
+
+% --------------------------------------------------
+% Formatting & utilities
+% --------------------------------------------------
+\usepackage{xcolor}
+\usepackage[colorinlistoftodos,prependcaption,textsize=small]{todonotes}
+\usepackage{xargs}
+\usepackage{setspace}
+\usepackage{epigraph}
+\usepackage{textcomp}
+\usepackage{verbatim}
+\usepackage{scalerel, stackengine}
+\usepackage[framemethod=tikz]{mdframed}
+\usepackage[hyphens]{url}
+\usepackage[colorlinks,allcolors=blue]{hyperref}
+\usepackage{cleveref}
+\usepackage[shortlabels]{enumitem}
+\usepackage{subfiles} % Best loaded last in the preamble
+\usepackage[normalem]{ulem}
+\usepackage[authoryear]{natbib}
+
+% --------------------------------------------------
+% Page setup
+% --------------------------------------------------
+\setlength{\marginparwidth}{2cm}
+\setlength{\epigraphrule}{0pt}
+\renewcommand{\baselinestretch}{1.25}
+\topmargin=-1.5cm \textheight=23cm \oddsidemargin=0.5cm
+\evensidemargin=0.5cm \textwidth=15.5cm
+\onehalfspacing
+\setcounter{MaxMatrixCols}{10}
+
+% --------------------------------------------------
+% Columns
+% --------------------------------------------------
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{C}[1]{>{\centering\let\newline\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\let\newline\\arraybackslash\hspace{0pt}}m{#1}}
+
+% --------------------------------------------------
+% Custom commands
+% --------------------------------------------------
+\newcommand{\I}{\mathbb{I}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Prob}{\mathbb{P}}
+\newcommand{\Var}{\mathrm{Var}}
+\newcommand{\Cov}{\mathrm{Cov}}
+\newcommand{\Corr}{\mathrm{Corr}}
+\newcommand{\Bias}{\mathrm{Bias}}
+\newcommand{\MSE}{\mathrm{MSE}}
+\newcommand{\supp}{\mathrm{supp}}
+\newcommand{\notimplies}{\mathrel{{\ooalign{\hidewidth$\not\phantom{=}$\hidewidth\cr$\implies$}}}}
+\newcommand\dapprox{\stackrel{\mathclap{\tiny \mbox{d}}}{\approx}}
+\newcommand\papprox{\stackrel{\mathclap{\tiny \mbox{p}}}{\approx}}
+\newcommand\pconverge{\stackrel{\mathclap{\tiny \mbox{p}}}{\to}}
+\newcommand\dconverge{\stackrel{\mathclap{\tiny \mbox{d}}}{\to}}
+\newcommand\independent{\protect\mathpalette{\protect\independenT}{\perp}}
+\def\independenT#1#2{\mathrel{\rlap{$#1#2$}\mkern2mu{#1#2}}}
+
+\newcommand{\red}[1]{{\color{red} #1}}
+\newcommand{\blue}[1]{{\color{blue} #1}}
+
+\renewcommand{\eqref}[1]{Equation~\ref{#1}}
+\newcommand{\assref}[1]{Assumption~\ref{#1}}
+
+% Todos
+\let\OldTodo\todo
+\RenewDocumentCommand{\todo}{O{} m}{\OldTodo[#1]{\textbf{TODO}: #2}}
+\newcommandx{\thiswillnotshow}[2][1=]{\OldTodo[disable,#1]{#2}}
+\newcommandx{\askjesse}[2][1=]{\OldTodo[linecolor=Plum,backgroundcolor=Plum!25,bordercolor=Plum,#1]{\textbf{{Ask Jesse:}} #2}}
+\newcommandx{\longterm}[2][1=]{\OldTodo[linecolor=Blue,backgroundcolor=Blue!25,bordercolor=Blue,#1]{\textbf{{Long-term:}} #2}}
+\newcommandx{\donow}[2][1=]{\OldTodo[linecolor=Green,backgroundcolor=Green!25,bordercolor=Green,#1]{\textbf{{Do Now:}} #2}}
+
+% --------------------------------------------------
+% Theorems and assumptions
+% --------------------------------------------------
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{cor}{Corollary}
+\newtheorem{conjecture}{Conjecture}
+\newtheorem{remark}{Remark}
+\newtheorem{assumption}{Assumption}
+\newtheorem{definition}{Definition}
+\newtheorem{hyp}{Hypothesis}
+\newtheorem{subhyp}{Hypothesis}[hyp]
+\renewcommand{\thesubhyp}{\thehyp\alph{subhyp}}
+
+% --------------------------------------------------
+% Section numbering
+% --------------------------------------------------
+\renewcommand{\thesubsection}{\arabic{section}.\arabic{subsection}}
+\renewcommand{\thesubsubsection}{\arabic{section}.\arabic{subsection}.\arabic{subsubsection}}
+
+% --------------------------------------------------
+\begin{document}
+
+\title{Generalized Random Forest Event Studies}
+
+\author{
+  Chris Liao, \textit{Harvard Business School}\thanks{I am grateful to Jesse Shapiro for helpful comments and support. Email: cliao@hbs.edu} \\
+}
+\date{\today}
+\maketitle
+
+\section{Motivation}
+
+Event studies are used to estimate the causal effects of policies over multiple periods. 
+Their use is widespread; a survey by \cite{roth_pretest_2022} found 70 papers that use an event-study plot from three leading economics journals over a four year period from 2014-2018. 
+
+Treatment effect heterogeneity within an event-study setting may also be of interest to researchers. For example, a researcher analyzing the impact of a disruption (such as the unexpected passing of a CEO) on a business's outcomes may be interested in understanding how the organization's characteristics affect the organization's response
+Existing work enables analyzing treatment effect heterogeneity at the level of treatment date (\citealt{sun_estimating_2021}, \citealt{callaway_difference--differences_2021}) but do not allow treatment effects to vary flexibly with unit-level covariates. 
+
+An existing literature in statistics and economics has produced work on heterogeneous treatment effect estimation (see work by \citealt{wager_estimation_2018}, \citealt{athey_generalized_2019}, \citealt{nie_quasi-oracle_2021}) that takes advantage of modern machine learning algorithms. These enable flexible estimation of treatment effects conditional on covariate values, even when the covariate space is large, covariates are continuous and the true functional form is nonlinear. 
+However, these methods do not consider how dynamic heterogeneous treatment effects: how covariates may affect treatment effects over several periods. 
+In this note, I show that estimating heterogeneous dynamic treatment effects in event study settings with staggered adoption and unit-invariant covariates is equivalent to estimating a special case of the conditional linear model with binary regressors and panel-data aware propensity scores. 
+The solution to the conditional linear model can be written as the solution to a set of local moment equations, for which \cite{athey_generalized_2019} provide solutions enabling consistent and unbiased estimation .
+
+This note builds on existing work in event study estimation and heterogeneous treatment effect estimation to estimate heterogeneous treatment effects in an event study framework. 
+There exists some theoretical and applied work at the intersection of these two topics. 
+\cite{miao_eects_2023} and \cite{wang_effect_2022} both embed the causal forest from \cite{athey_generalized_2019} within a differences-in-difference framework but only consider a single pre- and post-treatment period. 
+
+The most similar existing work to this note is \cite{gavrilova_difference--difference_2023}.
+Both are interested in estimating the effect of unit-level covariates on treatment effects in an event-study framework with multiple pre- and post-treatment periods and staggered treatment adoption. 
+However, whereas \cite{gavrilova_difference--difference_2023} fits a separate generalized random forest for event-time–cohort parameter, this note estimates a single generalized random forest across all such parameters, which has some conceptual advantages. 
+Fitting separate forests means that each event-time parameter is estimated using a different kernel weighting function. 
+This implies that even in a balanced panel, the same unit may receive different weights across different parameters, even though the covariates, which are what determine the weights, are time-invariant. 
+In contrast, my approach, by using a single forest to estimate all parameters, is less computationally intensive and ensures that each unit’s contribution to conditional average treatment effects is consistent across event times in balanced panels.
+
+
+\section{Setup}
+I observe units $i=1,\dots,n$, and each unit $i$ is observed from time $t=s_i, \cdots, e_i$ where $1 \leq s_i <e_i\leq T$ represent the first and last period $i$ is observed, respectively.  
+Observations are assumed i.i.d at the unit level. 
+Each unit $i$ is either treated in period $G_i \in \{2, \dots, T-1\} \equiv G_T$ or never treated ($G_i=\infty$). 
+Treatments are irreversible and binary. 
+Units can be separated into cohorts $G_i = g$. 
+Outcomes are denoted $Y_{i,t}$, and $Y_{i,t}^\infty$ represents the potential outcome for unit $i$ in period $t$ if it were never treated.
+
+\cite{sun_estimating_2021} define the cohort-specific average treatment effect on the treated (CATT) $k$ periods after treatment. 
+For a treated cohort $g \in G_T$,
+\begin{equation}\label{sec:CATT_x}
+    CATT_{g,k} = \E[Y_{i,g+k} - Y_{i,g+k}^\infty \mid G_i=g].
+\end{equation}
+$CATT_{g,k}$ captures the average treatment effect at event time $k$ for units in treatment cohort $g$. 
+
+Define the cohort-event time treatment indicator as
+$$Z_{i,t}^{g,k} = \mathbf{1}\{G_i=g\}\cdot \mathbf{1}\{t=g+k\}$$
+where $Z_{i,t}^{g,k} = 1$ if and only if unit $i$ belongs to cohort $g$ and at time $t$ is at event time $k$.
+\cite{sun_estimating_2021} show that when the saturated fixed-effects regression below is estimated,
+\begin{equation}\label{eq:SA-reg}
+Y_{i,t} = \alpha_i + \gamma_t + \sum_{g \in G_T}\sum_{k \neq -1} \delta_{g,k}\, Z_{i,t}^{g,k} + \varepsilon_{i,t}
+\end{equation}
+$\delta_{g, k}$ identifies $CATT_{g, k}$.
+$\alpha_i$ and $\gamma_t$ represent unit and time effects, respectively.  
+
+For ease of exposition, I define
+\begin{itemize}
+  \item $\delta = (\delta_{g,k})_{g \in G_T, \, k \neq -1}$ as the vector of cohort-event time coefficients, with one entry for each cohort $g$ and event time $k$.
+  \item $Z_{i,t} = (Z_{i,t}^{g,k})_{g \in G_T, \, k \neq -1}$ as the corresponding vector of cohort-event time treatment indicators
+\end{itemize}
+I can then rewrite \eqref{eq:SA-reg} as
+\begin{equation}\label{eq:SA-reg-vec}
+Y_{i,t} = \alpha_i + \gamma_t + \langle \delta, Z_{i,t} \rangle + \varepsilon_{i,t}
+\end{equation}
+\section{Heterogeneous Treatment Effects} \label{sec:het_te}
+Each unit $i$ has a set of unit-invariant covariates $X_i \in \mathcal{X}$.
+I am interested in how $X_i$ affects the CATT, which motivates my estimand of inference: the conditional CATT, defined as 
+\begin{equation}\label{eq:catt_hte}
+    CATT_{g,k}(x) = \E[Y_{i,g+k} - Y_{i,g+k}^\infty \mid G_i=g, X_i=x]. 
+\end{equation}
+
+The model I plan to estimate is 
+\begin{equation}\label{eq:SA-reg-ml}
+Y_{i,t} = \alpha_i + f_t(X_i) 
++ \langle \delta(X_i), Z_{i,t} \rangle + \varepsilon_{i,t}. 
+\end{equation}
+The estimated equation differs from \eqref{eq:SA-reg-vec} in two ways: 
+\begin{enumerate}
+    \item I replace time fixed effects with flexible, time-varying functions of $f_t(x)$ that capture baseline heterogeneity in the outcome
+    \item I define cohort-event time coefficients $\delta_{g,k}(x)$ as functions of covariates. Furthermore, define $\delta(X_i) = \big(\delta_{g,k}(X_i)\big)_{g \in G_T, \, k \neq -1}$ 
+\end{enumerate}
+
+I maintain the linear fixed effects from \eqref{eq:SA-reg} because my covariates are time-invariant.
+See \citealt{johannemann_sufficient_2021} for work on implementing alternative, lower-dimensional representations of categorical variables into generalized random forests. 
+\eqref{eq:SA-reg-ml} embeds the possibility of a model with fixed effects, if $f_t(x)$ is constant across all $x$. 
+Appendix Section~\ref{sec:time_fe} discusses this possibility in more detail. 
+
+\subsection{Quasi-Treatment Dates and First Differences}
+My goal is to rewrite the \eqref{eq:SA-reg-ml} in the centered regression form of \cite{robinson_root-n-consistent_1988}.
+This requires writing the (residualized) outcome as a function of the dot product product of the (residualized) treatment vector and $\delta(x)$. 
+This requires partiailng out the unit fixed effect.\footnote{The baseline heterogeneity function can be included or partialed out. }
+
+I will first-difference all observations with respect to the reference period corresponding to event time $-1$ to eliminate the unit-level fixed effects. 
+Since the notion of event time is not well-defined for never-treated observations, to enable first-differencing, I introduce the notion of the \emph{quasi-treatment date}.
+
+Each never-treated unit first appears at time $s_i$. 
+Define 
+\begin{equation}\label{sec:}
+    F_G(g \mid s) = \frac{\sum_{j: s_j = s} \mathbbm{1}\{G_j = g,\, G_j < \infty\}}{\sum_{j: s_j = s} \mathbbm{1}\{G_j < \infty\}}
+\end{equation}
+which is the cumulative mass function of treatment dates among treated units, conditional on first appearing at time $s$. 
+Each never-treated unit $i$ is then assigned a quasi-treatment date $Q_i$, drawn from $F_G(\cdot \mid s_i)$. 
+For treated units, the quasi-treatment date is defined as the actual treatment date, so $Q_i = G_i$ when $G_i \neq \infty$
+
+Suppose that the baseline period is the period immediately prior to treatment. 
+I then define the first-differenced outcomes for observation $i$ relative to the baseline period $Q_i - 1$, so for any $(i, t)$, the first-differenced outcome, baseline heterogeneity function and error are:
+\begin{align*}
+   Y_{i,t}^{FD} &= Y_{i,t} - Y_{i,Q_i-1} \\ 
+\varepsilon_{i,t}^{FD} &= \varepsilon_{i,t} - \varepsilon_{i,Q_i-1}
+\end{align*}
+First-differenced treatment indicators are equivalent to treatment indicators from \eqref{eq:SA-reg-ml} because event time $-1$ is the reference period.
+The first-differenced form of \eqref{eq:SA-reg-ml} is hence 
+\begin{align} \label{eq:SA-reg-ml-fd}
+Y_{i,t}^{FD} = f_t(X_i) - f_{Q_i - 1}(X_i) + \langle \delta(X_i) , Z_{i,t} \rangle + \varepsilon_{i,t}^{FD}.
+\end{align}
+I can then rewrite $Y_{i,t}^{FD}$ as
+\begin{align} \label{eq:SA-reg-ml-fd-vec}
+Y_{i,t}^{FD} = \langle f(X_i) , T_{i,t} \rangle  + \langle \delta(X_i) , Z_{i,t} \rangle + \varepsilon_{i,t}^{FD}.
+\end{align}
+where, for ease of exposition
+\begin{itemize}
+    \item $f(X_i) = \left(f_s(X_i)\right)_{s \in T}$ is the vector of baseline heterogeneity functions
+    \item $T_{i,t} = \left(T_{i,t}^s\right)_{s \in T}$ is the vector of indicators, where row $T_{i,t}^s = 1$ if $s=t$, $T_{i,t}^s = -1$ if $s=Q_i - 1$ and $0$ otherwise. 
+\end{itemize}
+From henceforth, the observation equal to event time $-1$ is omitted. 
+\subsection{Identifying the Conditional CATT}
+Three assumptions enable $\delta_{g,k}$ to identify the $CATT_{g, k}(x)$. The proof is in Appendix Section~\ref{sec:ccatt_identification}
+\begin{assumption}[Conditional Unconfoundedness] \label{ass:unconfound_cond}
+For all observations $(i, j)$ and time periods $(s, t)$
+\[
+\E[\varepsilon_{i,t} \mid \{X_j\}_{j=1}^n, \{Z_{j, s}\}_{(j, s) \in \{1, \cdots, n\} \times \{1, \cdots T\}}] = 0.
+\]
+\end{assumption}
+
+\begin{assumption}[Conditional Quasi-Treatment Parallel Trends]\label{ass:parallel_trends_cond}
+For all $s \neq t$, $x \in \mathcal{X}$,
+\[
+\E[Y_{i,s}^{\infty} - Y_{i,t}^{\infty}\mid Q_i = g, G_i=g', X_i = x] 
+\quad \text{is the same across all } (g, g') \in \{G_T \cup \{\infty\}\}^2.
+\]
+\end{assumption}
+
+\begin{assumption}[Conditional No Anticipation]\label{ass:no_ant_cond}
+For all $k<0$ and $x \in \mathcal{X}$,
+\[
+\E[Y_{i,g+k} \mid X_i = x] = \E[Y_{i,g+k}^\infty \mid X_i = x] 
+\quad \text{for all } g \in G_T.
+\]
+\end{assumption}
+
+\subsection{Estimation Framework} \label{sec:estimation_framework}
+Define the conditional means
+\begin{align*}
+e(x) &= \E[Z_{i,t}\mid X_i=x] \\
+t(x) &= \E[T_{i,t}\mid X_i=x] \\
+m(x) &= \E[Y_{i,t}^{FD} \mid X_i=x]  = \langle f(x), t(x)\rangle  + \langle \delta(x), e(x)\rangle 
+\end{align*}
+Appendix Section~\ref{sec:treatment_propensity} describes the estimation of $e(x)$ and $t(x)$ in more detail. 
+Note that the definition of $m(x)$ relies on the conditional mean-zero nature of the erorr term, as imposed in \assref{ass:unconfound_cond}.
+Subtracting the conditional means from the model in \eqref{eq:SA-reg-ml-fd} yields the centered regression from \cite{robinson_root-n-consistent_1988}. 
+\begin{equation} 
+\widetilde{Y}_{i,t}^{FD} - m(X_i) = \langle f(x), t(x)\rangle  + \langle \delta(x), e(x)\rangle  + \varepsilon_{i,t}^{FD} \label{eq:centered_reg}
+\end{equation}
+The key insight from \cite{robinson_root-n-consistent_1988} is that if there is some neighborhood $S$ where for all $x \in S$, $\delta(x)$ and $f(x)$ are constant, then we can estimate $\delta(x)$ and $f(x)$ by running the residual on residual regression on the subsample of observations $j$ where $X_j \in S$.
+Empirically, kernel weights are used. 
+Define the centered treatment, baseline heterogeneity assignment and outcome as
+\begin{align*}
+    \widetilde{Z}_{i,t} &= Z_{i, t} - e(x)\\
+    \widetilde{T}_{i,t} &= T_{i,t} - t(x)\\
+    \widetilde{Y}_{i,t}^{FD} &= Y_{i,t}^{FD} - m(x)
+\end{align*}
+Hence, \cite{athey_generalized_2019} show that for any covariate values $x$, $\delta(x)$ is identified by the solution to
+\begin{align*} 
+(\delta(x), f(x)) = \Var[(\widetilde{Z}_{i,t} + \widetilde{T}_{i,t}) \mid X_i \in S]^{-1} \Cov[(\widetilde{Z}_{i,t} + \widetilde{T}_{i,t}), \widetilde{Y}_{i,t}^{FD} \mid X_i \in S] 
+\end{align*}
+In finite-sample terms, the estimate is the solution to 
+\begin{align*}\label{eq:catt-x-est}
+(\hat{\delta}(x), \hat{f}(x)) = \left(\sum_{i,t} \alpha_i(x) \left( Z_{i, t} - e^{(-i)}(x) + T_{i,t} - t^{(-i)}(x)\right)^{\otimes 2}\right)^{-1} \cdot \\ \sum_{i,t} \alpha_i(x) \left( Z_{i, t} - e^{(-i)}(x) + T_{i,t} - t^{(-i)}(x)\right)\left(Y_{i,t} - m^{(-i)}(x)\right).
+\end{align*}
+Here, $\alpha_{i}(x)$ are kernel weights estimated using generalized random forests (\citealt{athey_generalized_2019}) that quantify the relevance of observation $i$ to fitting $\delta(x)$. 
+$e^{(-i)}(x),t^{(-i)}(x)$ and $m^{(-i)}(x)$ are estimated using $k$-fold cross-fitting, using data from the $k-1$ folds that do not contain observation $i$. 
+Existing work has shown that by using $k$-fold cross-fitting to fit the outcome and treatment functions (\citealt{chernozhukov_doubledebiased_2018}), valid inference on $\delta(x)$ and $f(x)$ can be conducted even when the conditional mean and propensity score functions have small errors. 
+
+Appendix Section~\ref{sec:doubly_robust} shows doubly robust scores for $\hat{\delta}(x)$ are estimated.
+\clearpage
+\bibliographystyle{source/paper/aea}
+\bibliography{source/paper/references}
+
+
+\appendix
+
+\clearpage
+\section{The linear fixed effects model}\label{sec:time_fe}
+A special case of Section~\ref{sec:het_te} arises when $f_t(X_i)$ affects outcomes uniformly within each period $t$, implying a time fixed effect. The model from Section~\ref{eq:SA-reg-ml} then simplifies to
+\begin{equation*} 
+Y_{i,t} = \alpha_i + \gamma_t
++ \langle \delta(X_i), Z_{i,t} \rangle + \varepsilon_{i,t}. \label{eq:SA-reg-ml-fe}
+\end{equation*}
+with first difference
+\begin{equation*}
+Y_{i,t}^{FD} = \gamma_t  - \gamma_{Q_i - 1} + \langle \delta(X_i), Z_{i,t} \rangle + \varepsilon_{i,t}^{FD}. \label{eq:SA-reg-ml-fd-fe}
+\end{equation*}
+Note that the average of the first-differenced outcome across all never-treated individuals at time $t$ belonging to the quasi-treatment cohort $Q_i = g$ is $\gamma_t - \gamma_{g - 1}$. Hence, I can define the demeaned outcome and residual as
+\begin{align*}
+    \widetilde{Y}_{i, t}^{FD} &= Y_{i,t}^{FD} -  \frac{1}{|j \in Q_i, G_j = \infty|} \sum_{j \in Q_i, G_j = \infty} Y_{j,t}^{FD} \\
+    \widetilde{\varepsilon}_{i, t}^{FD}&=  \varepsilon_{i,t}^{FD} - \frac{1}{|j \in Q_i, G_j = \infty|} \sum_{j \in Q_i, G_j = \infty} \varepsilon_{j,t}^{FD}
+\end{align*}
+and rewrite the regression as  
+\begin{equation*}
+\widetilde{Y}_{i,t}^{FD} = \langle \delta(X_i) , Z_{i,t} \rangle + \widetilde{\varepsilon}_{i,t}^{FD} .
+\end{equation*}
+The framework in Section~\ref{sec:estimation_framework} can then be used $\delta(x)$, except that the baseline heterogeneity functions are be omitted. 
+
+\section{Proof of conditional CATT identification} \label{sec:ccatt_identification}
+From \eqref{eq:SA-reg-ml-fd}, taking expectations conditional on cohort membership $G_i$ and covariates $X_i = x$ under the conditional exogeneity assumption in \assref{ass:unconfound_cond} gives
+\begin{align*}
+\E[Y_{i,g+k}^{FD} \mid  Q_i = g, G_i=g, X_i = x] &= f_{g+k}(x) - f_{g-1}(x) + \delta_{g, k}(x) \\
+\E[Y_{i,g+k}^{FD} \mid Q_i = g, G_i=\infty, X_i = x] &= f_{g+k}(x) - f_{g-1}(x).
+\end{align*}
+Then, 
+\begin{align*}
+& \E[Y_{i,g+k}^{FD} \mid  Q_i = g, G_i=g, X_i = x]  - \E[Y_{i,g+k}^{FD} \mid Q_i = g, G_i=\infty, X_i = x] \\
+&= \delta_{g, k}(x) 
+\end{align*}
+Finally, 
+\begin{align*}
+   \delta_{g, k}(x) &= \E[Y_{i,g+k}^{FD} \mid  Q_i = g, G_i=g, X_i = x]  - \E[Y_{i,g+k}^{FD} \mid Q_i = g, G_i=\infty, X_i = x]\\
+   &= \E[Y_{i,g+k}^{FD} \mid  Q_i = g, G_i=g, X_i = x]  - \E[Y_{i,g+k}^{FD, \infty} \mid Q_i = g, G_i=\infty, X_i = x]\\
+   &\text{ by the definition of being untreated} \\
+   &= \E[Y_{i,g+k}^{FD} \mid  Q_i = g, G_i=g, X_i = x]  - \E[Y_{i,g+k}^{FD, \infty} \mid Q_i = g, G_i=g, X_i = x]\\
+   &\text{ by the parallel trends assumption in \assref{ass:parallel_trends_cond}} \\
+   &= \E[Y_{i,g+k}^{FD} \mid   G_i=g, X_i = x]  - \E[Y_{i,g+k}^{FD, \infty} \mid  G_i=g, X_i = x]\\
+   &= \E[Y_{i,g+k}^{FD} - Y_{i,g+k}^{FD, \infty} \mid  G_i=g, X_i = x]\\
+   &= \E[Y_{i,g+k} - Y_{i,g-1} - (Y_{i,g+k}^{\infty} - Y_{i,g-1}^{\infty}) \mid  G_i=g, X_i = x]\\
+   &= \E[Y_{i,g+k} - Y_{i,g-1}^\infty - (Y_{i,g+k}^{\infty} - Y_{i,g-1}^{\infty}) \mid  G_i=g, X_i = x]\\
+   &\text{ by the no anticipation assumption in \assref{ass:no_ant_cond}}\\
+   &= \E[Y_{i,g+k} - Y_{i,g+k}^{\infty} \mid  G_i=g, X_i = x]\\
+   &= CATT_{g, k}(x)
+\end{align*}
+
+\section{Panel data aware propensity scores}\label{sec:treatment_propensity}
+Estimating the treatment propensity $E[Z_{i,t} \mid X_i]$ is a nontrivial task because of the panel data setting and staggered treatment adoption. 
+Recall $Z_{i,t}^{g,k}=\mathbf{1}\{G_i=g\}\mathbf{1}\{t=g+k\}$. 
+Now, for some $(g, k)$ any for observation $(i, t)$, conditional on covariates $X_i$, 
+$$
+\E[Z_{i,t}^{g,k}\mid X_i]
+= \E\big[\mathbf{1}\{G_i=g\}\mathbf{1}\{t=g+k\}\mid X_i=x\big]
+= \Pr(G_i=g, t=g+k \mid X_i).
+$$
+By the chain rule for probabilities,
+$$
+\Pr(G_i=g, t=g+k \mid X_i)
+=\Pr(G_i=g\mid X_i)\cdot \Pr(t=g+k \mid G_i=g, X_i).
+$$
+$\Pr(G_i=g\mid X_i)$, is the probability of treatment time conditional on covariates. But notice that conditional on $g$ and $k$, for any observation $(i, t)$, we immediately know whether $t = g+k$. 
+Hence, 
+$$\Pr(G_i=g\mid X_i)\cdot \mathbf{1}\{t=g+k\}.$$
+The indicator function $\mathbf{1}\{t=g+k\}$ is what makes the propensity score ``panel data aware.''
+There are many known procedures for estimating $\Pr(G_i=g\mid X_i)$, including using a logit or probability forest. 
+
+The estimation of $\E[T_{i,t}\mid X_i=x]$ follows a similar logic . 
+Note that I can define the $s$-th row of $T_{i,t}$ as 
+\begin{equation*}
+    T_{i,t}^s = \mathbf{1}\{s=t\} + \mathbf{1}\{s = Q_i - 1\}.
+\end{equation*}
+The two indicators will never both be $1$ because all observations at event time $-1$ are omitted. 
+Hence, 
+\begin{align*}
+\E[T_{i,t}^s \mid X_i] 
+&= \E[\mathbf{1}\{s = t\} \mid X_i] + \E[\mathbf{1}\{s = Q_i - 1\} \mid X_i] \\[4pt]
+&= \E[\mathbf{1}\{t = s\} \mid X_i] + \E[\mathbf{1}\{Q_i = s + 1\} \mid X_i] \\[4pt]
+&= \mathbf{1}\{t = s\} + \Pr(Q_i = s + 1 \mid X_i).
+\end{align*}
+since the time period $t$ and row $s$ are known by definition. 
+
+$\Pr(Q_i = s + 1 \mid X_i)$ is also already known because the quasi-treatment date is assigned based off an organization's first appearance date, independently of covariates.
+Hence, $\Pr(Q_i = s + 1 \mid X_i) = \Pr(Q_i = s + 1)$.
+I integrate over the empirical distribution of treatment dates conditional on an observation's first appearance in the data to obtain the distribution of quasi-treatment dates. 
+
+\section{Calculating Doubly Robust Scores} \label{sec:doubly_robust}
+Since all my treatment variables are indicators and for all treated units $i$, $\sum_{g, k}Z_{i, t} = 1$, I can reframe staggered adoption treatment as a single multivalued treatment, where each treatment arm corresponds to a treatment cohort-event time. 
+I can then doubly robust treatment effects by using existing work on calculating doubly robust scores when treatments are multi-valued (\citealt{uysal_dr_2015})
+
+Define the average baseline outcome as
+$$\widehat Y_{i,t}^{\mathrm{baseline}} = m^{(-i)}(X_i) - \sum_{g,k} \widehat P(G_i = g \mid X_i) \mathbf{1}\{t=g+k\} \widehat\delta_{g,k}(X_i) $$
+The predicted baseline outcome, accounting for which units are treated and untreated is hence
+$$\widehat\mu_{i,t}  = \widehat Y_{i,t}^{FD, \mathrm{baseline}} + \widehat\delta_{g,k}(X_i) \text{ if $G_i \neq \infty$ else } \widehat Y_{i,t}^{FD, \mathrm{baseline}} $$
+The outcome residual is 
+$$\widetilde{Y}_{i,t} = Y_{i,t}^{FD} - \widehat\mu_{i,t}^{\,G_i,k_i}$$
+For a given column $(g, k)$ of observation $(i, t)$, the inverse propensity estimate = is 
+$$\mathrm{IPW}_{i,t}^{g, k} = \dfrac{\mathbf{1}\{G_i=g\} \mathbf{1}\{t=g+k\}}{ P(G_i = g \mid X_i) }- \dfrac{\mathbf{1}\{G_i=\infty\}}{ P(G_i = \infty \mid X_i) } $$
+Hence, the doubly robust score for $\hat{\delta}_{g, k}(X_i)$ is 
+\begin{align*}
+\widehat\varphi_{i,t}^{g, k} &= \widehat \delta_{g,k}(X_i) + \mathrm{IPW}_{i,g} \cdot \widetilde{Y}_{i,t} \\ 
+&= \widehat \delta_{g,k}(X_i)
+  + \left( \dfrac{\mathbf{1}\{G_i=g\} \mathbf{1}\{t=g+k\}}{ P(G_i = g \mid X_i) }
+  - \dfrac{\mathbf{1}\{G_i=\infty\}}{ P(G_i = \infty \mid X_i) } \right) \cdot \left( Y_{i,t}^{FD}  - \widehat\mu_{i,t}^{\,G_i,k_i} \right) 
+\end{align*}
+
+
+
+\section{Notes on Implementation}
+The procedure allows for consistent and unbiased estimation of CATT(x), following \citealt{athey_generalized_2019}. 
+One can use the conditionally linear model forest (\texttt{lm\_forest}) from the R package \texttt{grf} and should cluster by observation $i$ when using panel data. 
+Alternatively, one can use the multi-arm causal forest, which is the multivariate extension of the R-learner from \citealt{nie_quasi-oracle_2021} if they partial out the baseline heterogeneity functions from \eqref{eq:SA-reg-ml-fd-vec}.\footnote{Note that \citealt{nie_quasi-oracle_2021} solves a global minimization function to estimate $\delta(x)$, as opposed to estimating a local parametric model of $\delta(x)$.}
+The literature on event study and difference-in-differences also  provides weights that can be used to consistently aggregate $CATT(x)$ into more aggregate quantities of interest (\citealt{callaway_difference--differences_2021}, \citealt{sun_estimating_2021}).
+By default, for each observation, \texttt{lm\_forest} will produce $CATT(x)$ values for many treatment cohorts. 
+Only the treatment cohort-event time estimate pertaining to that $(i, t)$ should be used when estimating doubly robust scores. 
+
+\end{document}

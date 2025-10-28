@@ -1,0 +1,64 @@
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.2\textwidth} p{0.8\textwidth}}
+\caption{Knowledge Redundancy Metrics}\label{tab:knowledge_redundancy_metrics} \\
+\toprule
+\textbf{Name} & \textbf{Definition} \\
+\midrule
+\endfirsthead
+
+\caption*{\textbf{Table \ref{tab:knowledge_redundancy_metrics} (continued):} Knowledge Redundancy Metrics} \\
+\toprule
+\textbf{Name} & \textbf{Definition} \\
+\midrule
+\endhead
+
+\bottomrule
+\multicolumn{2}{r}{\textit{Continued on next page}} \\
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+\multicolumn{2}{l}{\phantomsection\label{tab:knowledge_redundancy_metrics:collab}\textbf{Panel A}: Collaboration}
+\\%
+\noalign{\vskip-0.6ex}
+\midrule
+Average discussants & Average \# of discussants per issue or pull request thread \\
+Multiple discussants & \% of issue or pull request threads with multiple discussants \\
+Review concentration & Organization-level Herfindahl–Hirschman Index based on each member's share of pull request review comments \\
+Comment concentration & Organization-level Herfindahl–Hirschman Index based on each member's share of issue or pull request comments \\
+Issue thread concentration & Weighted average of thread-level Herfindahl–Hirschman Indices based on members’ shares of comments within issue threads, weighted by each thread’s total comment count \\
+Pull request comment concentration & Weighted average of thread-level Herfindahl–Hirschman Indices based on members’ shares of pull request comments within pull request threads, weighted by each thread’s total comment count \\
+Pull request review concentration & Weighted average of thread-level Herfindahl–Hirschman Indices based on members’ shares of pull request reviews within pull request review threads, weighted by each thread’s total comment count \\
+Pull request review comment concentration & Weighted average of thread-level Herfindahl–Hirschman Indices based on members’ shares of pull request review comments within pull request review threads, weighted by each thread’s total comment count \\
+\midrule
+
+\multicolumn{2}{l}{\phantomsection\label{tab:knowledge_redundancy_metrics:external}\textbf{Panel B}: External Review}%
+\\
+\noalign{\vskip-0.6ex} 
+\midrule
+Approved review share & \% of merged pull requests that received at least one ``approved'' pull request review \\
+Any review share & \% of merged pull requests that received any pull request review \\
+Discussion volume & Average number of discussion activities per pull request, consisting of pull request comments, review comments, and reviews \\
+\midrule
+
+\multicolumn{2}{l}{\phantomsection\label{tab:knowledge_redundancy_metrics:expertise}\textbf{Panel C}: Expertise Level and Overlap}%
+\\
+\noalign{\vskip-0.6ex} 
+\midrule
+Issue only share & \% of members involved in only issue threads \\
+Pull request only share & \% of members involved in only pull request threads \\
+Both issue and pull request share & \% of members involved in both issue and pull request threads \\
+Unique activity types & Average number of unique activities each member engages in, across the following nine options: opening, commenting on, or closing issues; and opening, commenting on, leaving review comments, reviewing, or merging pull requests \\
+Same author similarity & Average cosine similarity between embeddings from (\citealt{song_mpnet_2020}) of up to 1,000 pairs of distinct comments authored by the same member \\
+Different author similarity & Average cosine similarity between embeddings from \cite{song_mpnet_2020} of up to 1,000 pairs of distinct comments authored by different members \\
+Similarity ratio & Ratio of \textbf{Same author similarity} to \textbf{Different author similarity} \\
+
+\end{longtable}
+
+\vspace{-0.5em} % tighten vertical space
+\begin{minipage}{\textwidth}
+\footnotesize
+\setlength{\parskip}{0pt}
+\setlength{\baselineskip}{0.9\baselineskip}
+% \textit{Notes:} Placeholder for table notes. 
+\end{minipage}

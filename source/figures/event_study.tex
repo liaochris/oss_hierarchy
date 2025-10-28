@@ -1,0 +1,33 @@
+\begin{figure}[t]
+  \caption{Average Organizational Resilience}
+    \label{fig:event_study}
+    \centering
+    \begin{minipage}[b]{0.48\textwidth}
+        \centering
+        \subcaption{Pull requests opened} \label{fig:event_study_prs_opened}
+        \includegraphics[width=\textwidth]{output/analysis/event_study/important_topk_exact1/rolling5/nevertreated/github_outcomes/pull_request_opened_norm}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[b]{0.48\textwidth}
+        \centering
+        \subcaption{Pull requests merged} \label{fig:event_study_prs_merged}
+        \includegraphics[width=\textwidth]{output/analysis/event_study/important_topk_exact1/rolling5/nevertreated/github_outcomes/pull_request_merged_norm.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[b]{0.48\textwidth}
+        \centering
+        \subcaption{New software releases} \label{fig:event_study_releases}
+        \includegraphics[width=\textwidth]{output/analysis/event_study/important_topk_exact1/rolling5/nevertreated/downstream_outcomes/major_minor_release_count_norm}
+    \end{minipage}
+    \begin{minipage}[b]{0.48\textwidth}
+        \centering
+        \subcaption{Major and minor software releases} \label{fig:event_study_major_releases}
+        \includegraphics[width=\textwidth]{output/analysis/event_study/important_topk_exact1/rolling5/nevertreated/downstream_outcomes/overall_new_release_count_norm.png}
+    \end{minipage}
+
+  \begin{minipage}{1\textwidth}
+    \textbf{Figure notes:} Panel~\subref{fig:event_study_prs_opened} depicts event study estimates from \cite{sun_estimating_2021} showing the impact of key member departures on the number of pull requests opened. Each outcome is standardized by the organization’s mean and standard deviation over the five pre-periods. Confidence intervals are 95\% confidence intervals calculated using asymptotic standard errors clustered at the organization level. Panel~\subref{fig:event_study_prs_merged},~\subref{fig:event_study_releases} and~\subref{fig:event_study_major_releases} replace the outcome in Panel~\subref{fig:event_study_prs_opened} with pull requests merged, new software releases, and major and minor software releases.
+\end{minipage}
+  
+
+\end{figure}

@@ -4,18 +4,19 @@
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage{epstopdf}
-\usepackage{pdflscape}
 \usepackage[pdftex,dvipsnames]{xcolor}
 \setlength{\marginparwidth}{2cm}
 \usepackage[colorinlistoftodos,prependcaption,textsize=small]{todonotes}
+\usepackage{ragged2e}
 \usepackage{xargs}
+\usepackage{csquotes}
 \usepackage{tabularx}
 \usepackage{longtable}
 \usepackage{arydshln}
 \usepackage{array}
 \usepackage{dsfont}
-\usepackage{float}
 \usepackage{booktabs}
+\usepackage{xparse}
 \usepackage{tikz}
 \usepackage{marvosym}
 \usepackage{multirow}
@@ -33,6 +34,7 @@
 \captionsetup[sub]{subrefformat=parens}
 \DeclareCaptionLabelFormat{subpanel}{Panel~(#2):}
 \captionsetup[sub]{labelformat=subpanel, labelsep=space}
+\usepackage[authoryear]{natbib}
 
 \usepackage{caption}
 \usepackage{lipsum}
@@ -41,16 +43,9 @@
 \usepackage{stackengine}
 \usepackage{amsthm}
 \usepackage{epsfig}
-\usepackage[
-backend=biber,
-authordate, 
-]{biblatex-chicago}
 
 \usepackage[colorlinks,allcolors=blue]{hyperref}
 \usepackage[shortlabels]{enumitem}
-\usepackage{subfiles} % Best loaded last in the preamble
-
-
 \setlength{\epigraphrule}{0pt}
 \renewcommand{\baselinestretch}{1.25}
 
@@ -60,6 +55,7 @@ authordate,
 \newcolumntype{C}[1]{>{\centering\let\newline\\arraybackslash\hspace{0pt}}m{#1}}
 \newcolumntype{R}[1]{>{\raggedleft\let\newline\\arraybackslash\hspace{0pt}}m{#1}}
 
+\usepackage{subfiles} % Best loaded last in the preamble
 
 
 \newcommand{\I}{\mathbb{I}}
@@ -80,9 +76,12 @@ authordate,
 \newcommand{\MSE}{\mathrm{MSE}}
 \let\OldTodo\todo
 
+\definecolor{brightpink}{rgb}{1.0, 0.0, 0.5}
+
 \RenewDocumentCommand{\todo}{O{} m}{\OldTodo[#1]{\textbf{TODO}: #2}}
 \newcommandx{\thiswillnotshow}[2][1=]{\OldTodo[disable,#1]{#2}}
 \newcommandx{\askjesse}[2][1=]{\OldTodo[linecolor=Plum,backgroundcolor=Plum!25,bordercolor=Plum,#1]{\textbf{{Ask Jesse:}} #2}}
+\newcommandx{\telljesse}[2][1=]{\OldTodo[linecolor=brightpink,backgroundcolor=brightpink!25,bordercolor=brightpink,#1]{\textbf{{Tell Jesse:}} #2}}
 \newcommandx{\longterm}[2][1=]{\OldTodo[linecolor=Blue,backgroundcolor=Blue!25,bordercolor=Blue,#1]{\textbf{{Long-term:}} #2}}
 \newcommandx{\donow}[2][1=]{\OldTodo[linecolor=Green,backgroundcolor=Green!25,bordercolor=Green,#1]{\textbf{{Do Now:}} #2}}
 
@@ -109,14 +108,13 @@ authordate,
 \newcommand\pconverge{\stackrel{\mathclap{\tiny \mbox{p}}}{\to}}
 \newcommand\dconverge{\stackrel{\mathclap{\tiny \mbox{d}}}{\to}}
 
-\addbibresource{source/paper/references.bib}
-
 
 \newcommand\independent{\protect\mathpalette{\protect\independenT}{\perp}}
 \def\independenT#1#2{\mathrel{\rlap{$#1#2$}\mkern2mu{#1#2}}}
 
 \onehalfspacing
 \newtheorem{theorem}{Theorem}
+\newtheorem{assumption}{Assumption}
 \newtheorem{corollary}[theorem]{Corollary}
 \newtheorem{proposition}{Proposition}
 
@@ -145,19 +143,20 @@ authordate,
 
 \begin{titlepage}
 \title{Organizational Resilience: Evidence from Open Source Software}
-\author{Christopher Liao\thanks{I am indebted to Jesse Shapiro and Ali Hortaçsu for their support and guidance. I also thank Noah Sobel-Lewin, Krishna Dasari, Anjali Pullabhotla, Jeff Gortmaker, Ruru Hoong, Ruby Zhang, Matthew Lee Chen, Emanuel Scherz and members of the Harvard Predoc Workshop and Jesse Morgan Shapiro Lab for helpful comments and suggestions. This work builds on my undergraduate thesis, which benefited from discussions with Luis Garicano, Jordan Rosenthal-Kay, James Traina, Victor Lima, Kotaro Yoshida and the UChicago Economics Honors Workshop.}}
+\author{Christopher Liao\thanks{I am indebted to my advisors Jesse Shapiro and Ali Hortaçsu for their support and guidance. I also thank Matthew Lee Chen, Krishna Dasari,  Jeff Gortmaker, Ruru Hoong, Noah Sobel-Lewin, Anjali Pullabhotla, Ruby Zhang, Emanuel Scherz and members of the Harvard Economics Predoc Workshop and JMSLab for helpful comments and suggestions. E-mail: cliao@hbs.edu}}
 \date{\today}
 \maketitle
 
-\iffalse
 \begin{abstract}
-\noindent Placeholder\\
+\noindent 
+A large body of work in academia and industry has produced insights on what organizational practices induce organizational resilience. 
+I systematically examine, in a large scale empirical study of open source software organizations, whether and which organizational practices affect resilience. 
+I define resilience as how software development and release activity change after a key member permanently leaves the organization.
+When the data are divided into balanced halves based on the adoption of a single organizational practice, these practices explain little variation in resilience.
+However, splitting rules derived from flexible machine learning models that capture interactions among pre-departure practices can divide organizations into balanced halves that differ markedly in resilience.
+Organizations whose members share expertise and maintain a positive atmosphere tend to be more resilient; surprisingly, those that are unwelcoming to newcomers and have a negative atmosphere are also more resilient.
 \vspace{0in}\\
-\noindent\textbf{Keywords:} key1, key2, key3\\
-
-\bigskip
 \end{abstract}
-\fi
 
 \setcounter{page}{0}
 \thispagestyle{empty}
@@ -166,645 +165,665 @@ authordate,
 
 \section{Introduction} \label{sec:intro}
 % \textbf{Paragraphs 1-2: Motivation. After reading these paragraphs a reader in any field of economics should believe that if you answer your research question your paper will make an important contribution.}
+All organizations face challenges. 
+Some crumble.
+Others are able to weather the storm and bounce back. 
+In doing so, they demonstrate their resilience. 
+Building a resilient organization that successfully navigates disruptions is a topic of great interest. 
+Witness, for instance, the myriad of organizational resilience insights produced by consulting companies such as McKinsey (\citealt{
+maor_raising_2022}, \citealt{maor_foster_2023}, \citealt{kristensen_building_2025}), academic papers in fields ranging from business research (\citealt{duchek_organizational_2020}, \citealt{hillmann_organizational_2021}) to health policy (\citealt{barasa_what_2018}) or teaching cases in industries from journalism (\citealt{dutton_heart_2010}) to cloud technology services (\citealt{tang_business_2025}) and healthcare (\citealt{atkinson_organizational_2023}). 
+But when brought to the data, do these insights actually contribute to improved organizational resilience? 
+And if so, what are the organizational practices that enable an organization ``to maintain or restore an acceptable level of functioning despite perturbations or failures'' (\citealt{robert_organizational_2009})?
 
-All organizations will face challenges. Some crumble under pressure. Others are able to weather the storm, bouncing not just back, but forward. 
-These are resilient organizations. Building a resilient organization that successfully navigate disruptions to environment is a topic of great interest. 
-Witness, for instance, the myriad of organizational resilience insights produced by McKinsey \& Company (\cite{maor_building_2022}, \cite{maor_foster_2023}, \cite{kristensen_building_2025}), academic papers in fields from business research (\cite{duchek_organizational_2020}) to health policy (\cite{barasa_what_2018}) or teaching cases in industries such as journalism (\cite{dutton_heart_2010}), cloud technology services (\cite{tang_business_2025}) and healthcare (\cite{atkinson_organizational_2023}). 
-But what organizational practices actually contribute to organizational resilience, enabling organizations ``to maintain or restore an acceptable level of functioning despite perturbations or failures.'' (\cite{robert_organizational_2009})
-
-A wide variety of organizational practices have been found to bolster organizational resilience, from investing in talent (\cite{maor_building_2022}) and promoting positive communication (\cite{luthans_psychological_2006}) to establishing shared knowledge via resource or knowledge redundancy (\cite{sheffi_supply_2005}, \cite{rashid_systematic_2019}) and establishing routine s(\cite{suarez_building_2020}). 
-Yet, despite the prevalence of research on organizational resilience and the high levels among the broader business community, there does not exist an systematic empirical analysis of what factors contribute to organizational resilience. 
-Addressing this gap is important because it will help us understand whether existing beliefs about organizational resilience based off case studies, surveys or personal experience are generalizable.
-% on redundancy Linnenluecke, Martina K., and Andrew Griffiths. 2010. Beyond adaptation: resilience for business in light of climate change and weather extremes. Business and Society 49: 477–511.
+A wide variety of case studies and surveys have found that certain organizational practices bolster organizational resilience. 
+Examples include investing in talent (\citealt{maor_raising_2022}), promoting positive communication (\citealt{luthans_psychological_2006}), establishing shared knowledge via resource or knowledge redundancy (\citealt{sheffi_supply_2005}, \citealt{rashid_systematic_2019}) and instituting  routines (\citealt{suarez_building_2020}). 
+However, to date, there exists little empirical work on what organizational practices contribute to organizational resilience, despite extensive research and strong business interest in the topic.  
+A systematic empirical analysis is valuable for determining whether commonly held beliefs about organizational resilience are generalizable at scale.
 
 % \textbf{Paragraphs 3-4: Challenges. These paragraphs explain why your research question has not already been answered, i.e., what are the central challenges a researcher must tackle to answer this question.}
 
-A systematic empirical analysis of what organizational practices contribute to organizational resilience question requires addressing two challenges.
-The first challenge is that measurement of organizational practices is difficult. 
-The most detailed measures of organizational practices are derived from the actions of individual members. 
-Yet member-level data—such as how much they work, what tasks they undertake, and with whom they work with—is often unavailable to researchers. 
-Even studies that draw on high-quality administrative records of individuals and firms or comprehensive surveys of management practices, are unable to speak to the day-to-day activities of members and how these activities contribute to or reflect broader organizational practices (\cite{bloom_management_2012}, \cite{jaravel_team-specific_2018}, \cite{jager_how_2022}). 
+Conducting a systematic empirical analysis of the relationship between organizational practices and organizational resilience requires addressing two challenges: obtaining data on organizational practices and measuring organizational resilience.
 
-The second challenge is developing a general and convincing measure of organizational resilience. 
-Organizational resilience can only be assessed by examining how an organization responds to disruptions. 
-A systematic comparison requires assessing organizations along comparable outcomes and in relation to the same type of disruption. 
-This ensures that differences in resilience reflect differences in organizational practices rather than differences in the nature of the disruption. 
-Identifying a plausibly exogenous disruption is also critical to ensure that variation in organizational outcomes can be attributed to differences in resilience rather than to unobserved trends.
+The first challenge arises because detailed, systematic measures of organizational practices are rarely available. 
+Even studies that leverage rich administrative data on individuals and firms provide limited insight into the inner workings of organizations (\citealt{jaravel_team-specific_2018}, \citealt{jager_how_2022}). 
+When data on management practices is available, it comes in the form of organization-level surveys  (\citealt{bloom_management_2012}). 
+This means researchers lack detailed information on the members of the organization, such as what they work on or how they work, that would enable researchers to analyze the impact of organizational practices. 
+% Such detail is essential, as the actions of individual members both embody organizational practices and reveal how those practices shape an organization’s operations.
 
-In this paper, I study organizational resilience in open source software (OSS) organizations, where member-level data on activities is available. 
-I use the departures of key organizational members as the window into understanding what organizational practices contribute to organizational resilience. 
-I measure organizational resilience by assessing how the open source software's development activity, release frequency, and usage are affected following a key member’s departure.
-I then investigate how four types of organizational practices contribute to organizational resilience post-departure: practices that build knowledge redundancy, invest in member human capital, establish organizational routines, and reflect organizational adaptivity.  
-These practices are selected based off their relevance in literature reviews on organizational resilience research
-
+The second challenge is identifying a general measure of organizational resilience that meaningfully captures how organizations respond to disruptions.
+Measuring organizational resilience requires exposing organizations to a disruption. 
+Moreover, an organization's resilience should be assessed using outcomes that are both comparable across and matter to organizations. 
+Ideally, organizations are exposed to the same type of disruption, to ensure that differences in organizational resilience will not confound differences in the effect of organizational practices with differences in the nature of the disruption. 
 % \textbf{Paragraph 5: This Paper. This paragraph states in a nutshell what the paper accomplishes and how. }
 
+In this paper, I study the relationship between organizational practices and organizational resilience using evidence from open source software (OSS) organizations, where detailed member-level data on activities is available. 
+I leverage the abrupt departure of key members from the organization as the disruption that enables the measurement of organizational resilience. 
+I measure organizational resilience by evaluating the causal effect of key departures on two categories of organizational outcomes: software development and software release activities.
+I investigate how differences in the adoption of three categories of organizational practices affect organizational resilience: practices that build knowledge redundancy, invest in organizational member talent, and establish problem-solving routines. 
+These categories are selected based on their relevance in the literature,
 
 % \longterm[inline]{Paragraphs 6-7: Model. Summarize the key formal assumptions you will maintain in your analysis.
 
 % \textbf{Paragraphs 8-9: Data. Explain where you obtain your data and how you measure the concepts that are central to your study}
 
-OSS refers to software that is freely available for use and modification and is considered a public good. 
-OSS is pervasive - a recent report found that 97\% of all software included OSS code (\cite{fred_bals_six_2025}). 
-Prominent examples of OSS organizations include the operating system Linux, the operating system of choice for 96.4\% of the top one million web servers (\cite{w3cook_os_2015})\footnote{Ubuntu, CentOS, Debian, Fedora, SUSE and Redhat are all Linux-based} and the machine learning framework PyTorch, which is used by 63\% of all organizations training machine learning models (\cite{lawson_shaping_2024}). 
-Data from the GitHub Archive (\cite{github_archive_github_2025}) expose the contributions and communications of members within OSS organizations, enabling me to characterize organizational practices. 
+OSS is a category of software that is freely available for use and modification. 
+OSS is pervasive; a recent report found that 97\% of all software (including commercial types) included OSS code (\citealt{fred_bals_six_2025}). 
+Prominent examples of OSS include the operating system Linux, the operating system of choice for 96.4\% of the top one million web servers (\citealt{w3cook_os_2015})\footnote{Ubuntu, CentOS, Debian, Fedora, SUSE and Redhat are all Linux-based} and the machine learning framework PyTorch, which is used by 63\% of all organizations training machine learning models (\citealt{lawson_shaping_2024}). 
+Data from the GitHub Archive\footnote{GitHub is the world's largest host of OSS development repositories. The GitHub Archive is a third-party project to ``to record the public GitHub timeline, archive it, and make it easily accessible for further analysis'' (\citealt{GitHub_archive_GitHub_2025}).} provide activity-level data on the ongoings of OSS organizations.
+I use this data to identify key members, measure software development activity and characterize organizational practices. 
 
-To measure knowledge redundancy, I assess the extent of collaboration within organizations and the degree to which members act as specialists or generalists, based on the range of tasks they perform. To measure investment in human capital, I evaluate the timeliness, frequency, and positivity of feedback provided to members, the cohesiveness of the organization's social structure, and the frequency of internal advancement. To measure organizational routines, I examine the extent to which organizations formalize processes for problem description, problem solving, approving solutions, and problem assignment. Finally, to assess organizational adaptivity, I analyze how organizations reallocate members in response to delays or lags.
 
 % \textbf{Paragraphs 10-11: Methods. Explain how you take your model to the data and how you overcome the challenges you raised in paragraphs 3-4.}
+Defining organizational resilience as the causal effect of key departures on organizational software development outcomes allows me to examine how OSS organizations respond to a common disruption---abruptly losing a key member---and evaluates them along a shared goal: developing software. 
+Measuring organizational resilience is challenging because leaving the organization is, in part, a choice made by members. 
+This means that the choice to depart may be driven by unobservable organizational trends that also affect outcomes. 
+My aim is to identify a set of key departures that are plausibly exogenous to unobservable organizational trends.
+Evidence from the literature suggests that abrupt key departures, which occur when a key member suddenly and permanently ceases all involvement with the organization, tend to be motivated by shocks to a member's time budget, such as a major life events, as opposed to unobservable organizational trends such as dissatisfaction with organizational leadership (\citealt{miller_why_2019}). 
+Existing research from the literature that does not explicitly filter on abrupt key departures do find that departure tends to be motivated by organizational characteristics, such as dissatisfaction with the organization's management or disengagement from the organization's social community (\citealt{hannon_retaining_2008}, \citealt{constantinou_empirical_2017}, \citealt{miller_why_2019}), emphasizing the importance of the departure's abrupt nature. 
 
-Identifying the causal effect of departures is necessary for my measure of resilience, but challenging because departures can occur for personal reasons unobservable to the researcher, such as personal dissatisfaction with the organization (\cite{hannon_retaining_2008}, \cite{yu_empirical_2012}), which may itself be driven by underlying trends in organizational outcomes. 
-To identify a set of important departures that are plausibly exogenous to underlying trends in organizational outcomes, I use the data on OSS organizations to isolate abrupt departures. 
-Abrupt departures occur when a member ceases all contributions to the organization immediately after several periods of high activity. 
-Survey evidence shows that abrupt departures by important members tend to be motivated by shocks to a member's time budget unrelated to underlying organization trends, such as job changes or major life events (\cite{miller_why_2019}). 
-In contrast, other forms of departures tend to be associated with unobservable organizational factors, such as disengagement with the organization's social community or personal dissatisfaction with leadership (\cite{yu_empirical_2012}, \cite{constantinou_empirical_2017}, \cite{miller_why_2019}).
-
-I estimate the empirical effect of important departures on organization outcomes using an event study design.
-The treatment date is the time period immediately following an important departure. 
-I restrict the sample to organizations that only ever experience a single important departure, so that the treatment is binary, irreversible and absorbing. 
-My primary estimation method is \cite{callaway_difference--differences_2021}, which allows me to estimate dynamic treatment effects robust to heterogeneity in treatment timing using the set of ``not-yet-treated'' organizations as controls. 
-
-To analyze how organizational practices affect organizational resilience, I subset organizations based off their pre-departure organizational practices and estimate separate event studies for each subset. Since differences in pre-departure organizational practices may differ across organizations due to endogenous factors, I leverage the microdata on OSS organizations and members to show the direct mechanisms by which different organizational practices affect organizational resilience. 
-
+To characterize knowledge redundancy, I measure the extent of collaboration within organizations and the breadth of the tasks taken on by members.
+To measure organizational investment in talent, I evaluate the characteristics of feedback provided to members, the cohesiveness of the organization's social structure, and the frequency of internal advancement. 
+To measure organizational routines, I examine the extent to which organizations codify processes for problem solving. 
+There are 37 different practices in total across the three categories. 
 % \textbf{Paragraphs 12-13: Findings. Describe the key findings. Make sure they connect clearly to the motivation in paragraphs 1-2.}
 % \todo[inline]{It would be nice to place a number on "impacts" caused by departure (what's the headline number?)}
 
-\todo[inline]{Results to come}
+The analysis proceeds in four steps. 
+First, I estimate organizational resilience using an event study design.
+I find that in line with results from the literature, key departures have significant negative impacts on all software development outcomes. 
+Next, I provide descriptive evidence that organizational resilience does vary when I subset organizations by their pre-departure organizational practices, although the evidence is not strong. 
 
-% I also want a robustness for departures (that are vs. aren't abrupt) using that departure filtering event study graph
+In the third step, I use the \textit{generalized random forest event study} to develop the \textit{optimal split rule} that classifies organizations as more or less resilient based on their pre-departure organizational practices. 
+The generalized random forest event study, which I develop in a separate note in \href{https://drive.google.com/file/d/1brRivFrurkeuNHZHLgT_iuaZx_kuhXAz/view?usp=share_link}{\textbf{Liao (Forthcoming)}}, shows how the tools developed in \cite{athey_generalized_2019} can be used to estimate dynamic heterogeneous treatment effects in an event study with staggered treatment (\citealt{sun_estimating_2021}). 
+I find that the optimal split rule performs exceedingly well; on average, less resilient organizations experience declines between 0.68 and 2.02 standard deviations larger than more resilient organizations across all organizational outcomes. 
+In the final step, I transform the optimal split rule into an interpretable lower-dimensional rule that incorporates between 1 and 3 split layers using a policy learning algorithm (\citealt{athey_policy_2021}).
+I call this the \textit{policy tree split rule}. 
+Even under this highly regularized algorithm, I find that the policy tree split rule can still separate organizations into two subsets whose difference in resilience is statistically meaningful. 
+Less resilient organizations still experience declines between 0.22 and 0.96 standard deviations larger than more resilient organizations across all organizational outcomes. 
+One (perhaps not so surprising) finding is from the more interpretable rule is that more resilient organizations tend to have members with higher levels of shared expertise and conversations that are more positive.
+One (more surprising) finding is that organizations that are more negative and unwelcoming to newcomers are also more resilient. 
+
 
 % \textbf{Paragraphs 14-15: Literature. Lay out the two main ways your paper contributes to the literature. Each paragraph should center around one contribution and should explain precisely how your paper differs from the most closely related recent work.}
 
-While a large literature in economics has examined how organizational structure influences organizational outcomes (\cite{bloom_measuring_2007}, \cite{brynjolfsson_complementarity_2012}, \cite{ichniowski_insider_2012}), research on organizational resilience has primarily emerged from the management literature (\cite{annarelli_strategic_2016}, \cite{hillmann_organizational_2021}). 
-However, empirical work on organizational resilience has largely consisted of case studies and surveys (see Table 2 of \cite{annarelli_strategic_2016}) or contributions to the measurement of organizational resilience (\cite{hillmann_organizational_2021}). 
-A large body of work in economics has also examined the impact of plausibly exogenous departures on labor demand (\cite{jager_how_2022}) and collaborations among inventors (\cite{agrawal_how_2008}, \cite{jaravel_team-specific_2018}, \cite{azoulay_does_2019}), academics (\cite{waldinger_quality_2010},\cite{oettl_reconceptualizing_2012}), scientists (\cite{khanna_aftermath_2021}) and doctors (\cite{chen_team-specific_2021}). 
+A large body of conceptual and empirical research on organizational resilience exists in the management literature (see review papers by \citealt{annarelli_strategic_2016} and  \citealt{hillmann_organizational_2021}), although most empirical work relies on case study or survey methods (see Table 2 in \citealt{annarelli_strategic_2016}). 
+Two central challenges to empirical work are defining organizational resilience and identifying appropriate ways to measure it. 
+I define organizational resilience as the capacity of organizations to respond to disruptions or shocks.\footnote{Work from the literature that has also used this definition include \cite{horne_iii_coming_1997}, \cite{kantur_organizational_2012}, \cite{boin_resilient_2013}, and \cite{sahebjamnia_integrated_2015}. 
+Additional definitions widely used by the literature are listed in Table 2 of \cite{hillmann_organizational_2021}.} 
+I measure organizational resilience by analyzing organizational outcomes observed \textit{ex post} the disruptive event.
+Other work that adopt similar definitions and measures of organizational resilience include \cite{ortiz-de-mandojana_long-term_2016} and \cite{desjardine_bouncing_2019}, who examine the relationship between an organizations’ social and environmental practices (SEPs) and post-financial crisis performance and \cite{gittell_relationships_2006}, who examine the relationship between an organization in the airline industry's financial flexibility and performance post 9/11.
+This paper differs in two key respects from prior work. 
+First, I focus on a different category of organizational characteristics: organizational practices describing problem-solving, as opposed to financial characteristics or secondary goals like SEPs.
+Second, I study organization-specific departures, as opposed to aggregate shocks that affect all organizations within a market at once. 
+Because departures are more common events for organizations than large aggregate shocks, my findings will be more generalizable. 
+This is especially true for OSS organizations, which depend on volunteers and thus face frequent turnover issues.
+Moreover, aggregate shocks will affect all organizations operating in the same market, so quantifying how much an organization's resilience is attributable to its individual characteristics versus declines in its market competitiveness is difficult. 
 
-The most closely related work is \cite{jaravel_team-specific_2018}, who leverage plausibly exogenous disruptions to a team (via the premature death of an inventor) to understand the impact of past collaboration. 
-However, while \cite{jaravel_team-specific_2018} examines why some co-inventors are worse off following the premature death of a collaborator, I investigate why some organizations may be better off following a member’s departure, with the aim of identifying practices that enhance resilience implementable by organizations. 
-I am able to pursue this question due to the granularity of my organizational data, a feature largely absent from data used by related work. I am also evaluating several organizational practices adopted by the organization, as opposed to just collaboration among members. 
+This paper lies at the intersection of two bodies of work in economics.
+The first body is empirical work studying organizational structure and practices (\citealt{bloom_measuring_2007}, \citealt{bloom_management_2012}). 
+My work differs because I am specifically interested in understanding the contribution of organizational practices towards organizational resilience.
+I do so by leveraging abrupt departures, which are plausibly exogenous departures; detail on the dynamics of member turnover is typically unobservable using organizational-level data.
+This relates to a second body of empirical work that leverages plausibly exogenous departures to study various outcomes of interest, such as labor demand (\citealt{jager_how_2022}) and collaborations among inventors (\citealt{agrawal_how_2008}, \citealt{jaravel_team-specific_2018}, \citealt{azoulay_does_2019}), academics (\citealt{waldinger_quality_2010}, \citealt{oettl_reconceptualizing_2012}), scientists (\citealt{khanna_aftermath_2021}) and doctors (\citealt{chen_team-specific_2021}). 
+However, even papers that leverage large-scale administrative datasets (\citealt{jaravel_team-specific_2018}, \citealt{jager_how_2022}) cannot describe in detail what practices different organizations or teams adopt and how those practices affect organizational resilience
+My paper fills this gap by leveraging the rich data from open source software to understand both the extent and the details of how organizational practices contribute to resilience. 
 
-This work contributes also contributes to the economics literature on open source software (OSS) and organizational structure. 
-Past work has explored how open source software organizations are organized (\cite{mockus_two_2002}, \cite{crowston_coordination_2005}, \cite{den_besten_allocation_2008}) and the factors that determine organization success (\cite{mustonen_copyleft--economics_2003}, \cite{fershtman_open_2007}, \cite{comino_planning_2007}, \cite{belenzon_motivation_2008}, \cite{giuri_skills_2010}). 
-However, work related specifically to what makes organizations resilient post-departure is a more active research topic in the information systems and software engineering literature. 
-\cite{rashid_systematic_2019} provides an detailed overview of that literature. 
-There has been extensive conceptual, survey and case study work  on the prevalence and ways OSS organizations can mitigate departures (\cite{robles_evolution_2005}, \cite{hannon_retaining_2008}, \cite{westlund_retaining_2008}, \cite{xu_volunteers_2010}, \cite{yu_empirical_2012}, \cite{miller_why_2019}) and how members can engage in ``knowledge sharing" behaviors (\cite{von_krogh_community_2003}, \cite{rashid_exploring_2017}) within an OSS organization. 
-Prior empirical work has sough to quantify the impact of departures through metrics characterizing potential damage to the codebase (\cite{izquierdo-cortazar_using_2009}, \cite{rigby_quantifying_2016}, \cite{nassif_revisiting_2017}). 
 
-\cite{rigby_quantifying_2016}, which is most closely related to this paper, finds that the presence of “successors” who worked on tasks similar to the departed member can mitigate the repercussions of departures, though there are important differences. 
+What makes OSS organizations resilient post-departure is also an active research topic in the information systems and software engineering literature. 
+\cite{rashid_systematic_2019} provides a detailed review of that topic. 
+There has been extensive conceptual, survey and case study work on the prevalence and ways OSS organizations can mitigate either departures or their impact (\citealt{von_krogh_community_2003}, \citealt{robles_evolution_2005}, \citealt{hannon_retaining_2008}, \citealt{xu_volunteers_2010}, \citealt{yu_empirical_2012}, \citealt{rashid_exploring_2017}, \citealt{miller_why_2019}).
+One outcome prior empirical work has used to quantify the impact of departures is ``potential damage to the codebase'' (\citealt{izquierdo-cortazar_using_2009}, \citealt{rigby_quantifying_2016}, \citealt{nassif_revisiting_2017}). 
+\citealt{rigby_quantifying_2016}, which is most closely related to this paper, finds that the presence of “successors” who worked on tasks similar to the departed member can mitigate the repercussions of departures. 
+However, this paper differs in several ways.
 First, I focus on a variety of organizational practices, as opposed to just one. 
-Second, whereas \cite{rigby_quantifying_2016} analyzes all departures from just 5 organizations, my analysis includes many more projects. 
-Finally, while \cite{rigby_quantifying_2016} considers hypothetical impacts based on potential codebase damage and possible mitigation through a successor, I quantify using realized outcomes measuring organizational resilience, the actual impact of organizational practices. 
+Second, whereas \cite{rigby_quantifying_2016} analyzes all departures from just 5 organizations, my analysis includes 699 organizations.
+Finally, while \cite{rigby_quantifying_2016} considers hypothetical impacts based on potential codebase damage and possible mitigation through a successor, I quantify, using realized outcomes of organizational output, the actual impact of organizational practices. 
 
-\newpage
-\section{Data} \label{sec:data}
-\subsection{Data sample}
+\section{Background and Data on Open Source Software} \label{sec:data}
+\subsection{Background} \label{sec:data_background}
+I analyze an important subset of the current OSS ecosystem: Python libraries. 
+Python is the world's most popular programming language (\citealt{paul_jansen_tiobe_2025}). 
+Python libraries--collections of reusable toolkits providing prewritten code for specific tasks--are a major reason for Python’s popularity, as they provide extensive functionality across diverse domains.
+The development of most Python libraries occurs on GitHub, a cloud-based platform for software development and version control. 
 
-I am interested in OSS organizations that develop widely used Python libraries - defined as libraries with at least 1000 monthly downloads each month from September 2018 to July 2023. I focus on the subset of organizations whose development data is publicly available on GitHub. 
-
-The unit of observation is an open source software organization. In Panel~\subref{fig:dask-home} of Figure~\ref{fig:dask-screenshots}, I show an example homepage for the Github organization \textbf{dask/dask}. Each open source software organization has members who work on problems. Conceptually, a problem consist of at least one of two components: discussion and solution evaluation. To initiate discussion of a problem, a member opens an issue, and discussion occurs in the issue thread. Panel~\subref{fig:dask-issue} of Figure~\ref{fig:dask-screenshots} depicts an example issue thread. If a solution is required for a particular problem, members will make code changes. The solver can open a pull request (PR) that is linked to a solution and requests others to review their solution prior to incorporating it into the software. Any general subsequent discussion that occurs regarding the pull request occurs in the pull request thread, and any discussion about specific code changes (with references to the code) occur in the pull request thread.\footnote{There are two exceptions. First, sometimes these code changes are implemented without approval. Second, sometimes pull requests are opened without a prior discussion} Solutions consist of changes to the software's codebase. Each change is called a commit. I define an OSS organization’s activity within a time period as all activity within a six-month interval—either January through June or July through December of the relevant calendar year and my period of observation spans from 2015 to the first half of 2023. Panel~\subref{fig:organization-summary-stats} provides further summary statistics on organization activity and members. All aforementioned data on development activity are obtained from the GitHub Archive (\cite{github_archive_github_2025}), via Google BigQuery.
-
-\donow[inline]{
-Provide insight into what a organization is like with a table and add other summary stats that may be interesting as I read the paper (don't delete this)
-}
-
-\subsection{Departures, Collaboration and Important members}
-\subsubsection{Defining member Departures}
-I am interested in the departure effects of members who worked extensively on code development, defined as those with contributions (measured in commit counts) above the 75th percentile in each period for at least 3 consecutive periods. From this subset, I classify a member as “departed” if, after ranking above the 75th percentile of commits for at least three consecutive periods, their activity across all areas (commits, discussion participation, etc) ceases in the immediately following period and remains at that state for all future observable periods. I subset to organizations that only experience one departure to simplify the identification of treatment effects. Finally, I subset to only include organizations with at least 2 important members (defined in Section~\ref{sec:collab_imp_contr}) and at least 5 pull requests opened in each of the periods prior to departure. This leaves me with 80 departed members, and hence 80 organizations. Panel~\subref{fig:departed-summary-stats} of Figure~\ref{fig:summary-stats} displays the number of members left after each successful filtering. 
-
-\todo[inline]{Use autofills for 80 + summary stats table}
-
-\subsubsection{Defining Collaboration and Important members} \label{sec:collab_imp_contr}
-
-I focus exclusively on collaboration between the departing member and other important members for three reasons related to the OSS community. First, extensive interactions with unimportant members are uncommon because unimportant members typically aim only to have their own solutions adopted, rather than to engage with the broader community (\cite{hippel_open_2003}). Second, collaborations in which a non-key member does engage with a key member are largely procedural, as important members must approve pull requests opened by unimportant members, so variation offers little insight into voluntary collaborative behavior. Finally, behavior among important members is most interesting in OSS organizations because at important members are vastly more influential in shaping organization outcomes and code changes (\cite{crowston_core_2006}). 
-
-To operationalize collaboration with the departed, I must first specify what constitutes an “important member.” The concept that there is a wide gulf of importance between certain members and others is accepted in the literature. Prior case studies of the OSS community (\cite{cox_cathedrals_1998}, \cite{mockus_two_2002}, \cite{gacek_many_2004}) have suggested that the structure of OSS organizations is akin to a hierarchy.
-
-One natural criterion to evaluate a member's importance is to base it off their involvement in organizational discussions. To operationalize this, I construct an undirected social network characterizing discussions in each time period (following the procedure in \cite{crowston_hierarchy_2006}). Nodes represent members and edge weights record the number of exchanges in issue and pull request threads. If one member’s comment follows another’s within the same thread, I treat that as one exchange. For example, the conversation depicted in Panel~\subref{fig:dask-issue} of Figure~\ref{fig:dask-screenshots} would represent two exchanges between the users engaging in the conversation. A member is deemed important in period $t$ if, during any of the three most recent periods ($t-2, t-1$ or $t$) they are active and satisfy at least one of the following two criteria:
-\begin{enumerate}
-    \item Among all members active in period $t$, the number of unique peers they have exchanged messages (termed as their network degree) has a $z$‐score exceeding 1.5 or ranks highest among all members, OR
-    \item they are the focal departed member under study. 
-\end{enumerate} 
-
-\subsection{Defining Collaboration} \label{sec:defining_collab}
-A given organization $i$ in time period $t$ faces problems $P_{i,t} = \{p_{i,t}^1, \cdots, p_{i,t}^{N_{i,t}} \}$ where $N_{i,t}$ is the number of problems faced by organization $i$ in time period $t$. 
-\begin{itemize}
-\item Let $C_{i,t}$ denote the set of all members to organization $i$ in time $t$ decomposed into the set of important and unimportant members: $C_{i,t} = C_{i,t}^{imp} \cup C_{i,t}^{other}$ 
-\item For each problem $p_{i,t}^k$ you have a set of collaborators $C_{i,t}^{k} \subseteq C_{i,t}^{imp} $ that consists of important ($C_{i,t}^{k, imp} = C_{i,t}^{k} \cap C_{i,t}^{imp}$) and unimportant collaborators ($C_{i,t}^{k, other} = C_{i,t}^{k} \cap C_{i,t}^{other}$)
-\end{itemize}
-Collaboration occurs in a problem when 2 or more important members are both involved. Hence, overall collaborativeness is deined as as 
-\begin{equation}
-\mathrm{OverallCollab}_{i,t} = \frac{1}{N_{i,t}}\sum_{k=1}^{N_{i,t}}\mathbf{1}\bigl\{|C_{i,t}^{k,imp}|\ge2\bigr\}
-\end{equation}
-The collaboration score has a nice decomposition. Let $d$ denote the departed member. I can then define $P_{i,t}^d = \{p_{i,t}^{k} \mid d \in C_{i,t}^k, 1 \leq k \leq N_{i,t} \}$ as the set of problems where the departed member $d$ is involved and $N_{i, t}^d = |P_{i,t}^d|$ as the number of problems where the departed member is involved. 
-I can describe the overall collaborativeness as a function of collaborativeness metrics that involve and totally exclude the departed member. 
-Define 
-\begin{align*}
- \mathrm{DepartedCollab}_{i,t} &= \frac{1}{N_{i,t}^d} \sum_{k \in P_{i,t}^d} \mathbf{1}\bigl\{|C_{i,t}^{k,\mathrm{key}}|\ge2\bigr\} \\
- \mathrm{OtherCollab}_{i,t} &= \frac{1}{N-N_{i,t}^{d}} \sum_{k \notin P_{i,t}^d} \mathbf{1}\bigl\{|C_{i,t}^{k,\mathrm{key}}|\ge2\bigr\}
-\end{align*}
-then I can rewrite $\mathrm{OverallCollab_{i,t}}$ as the following
-\begin{align*}
-\mathrm{OverallCollab}_{i,t} &= \frac{N_{i,t}^d}{N_{i,t}} \frac{1}{N_{i,t}^d} \sum_{k \in P_{i,t}^d} \mathbf{1}\bigl\{|C_{i,t}^{k,\mathrm{key}}|\ge2\bigr\} + \frac{N_{i,t}-N_{i,t}^{d}}{N_{i,t}} \frac{1}{N_{i,t}-N_{i,t}^{d}} \sum_{k \notin P_{i,t}^d} \mathbf{1}\bigl\{|C_{i,t}^{k,\mathrm{key}}|\ge2\bigr\} \\
-&= \frac{N_{i,t}^d}{N_{i,t}}\mathrm{DepartedCollab}_{i,t} + \frac{N_{i,t}-N_{i,t}^{d}}{N_{i,t}} \mathrm{OtherCollab}_{i,t}
-\end{align*}
-Henceforth, most collaboration-related analyses will focus on $\mathrm{DepartedCollab}_{i,t}$. 
-
-\section{Methods} \label{sec:method}
-\subsection{Estimating the impact of departures} \label{sec:main_method}
-My primary outcome of interest $y_{i,t}$ is the number of pull requests opened by organization $i$ in time period $t$. I focus on pull requests because they are the most direct measure of production effort that organizations are engaging in. I transform the outcome into a z-score to enable cross-organization comparisons under one unit - standard deviations - which accounts for underlying cross-organization differences in the number of pull requests opened. To avoid contaminating treatment effect estimation with the outcome, I standardize based on the pre-treatment mean and standard deviation, calculated using the 4 periods prior to treatment.
-
-Denote by $G_i$ the first period where organization $i$'s departed member is no longer part of the organization. Accordingly, organization $i$'s treatment indicator at time $t$ is defined as
-$$
-D_{i,t} = \mathbf{1}\{t \ge G_i\}.
-$$
-
-Define a cohort $g$ as organizations with the same treatment date $g = G_i$. For all $t \geq g$, I define the group‐time average treatment effect as 
-\begin{align*} \label{eq:group_time}
-    \mathrm{ATT}(g,t) = \mathbb{E}\bigl [ y_{i,t}(1)-y_{i,t}(0)\mid G_i = g \bigr ].
-\end{align*}
-Let $k = t - g$. Our primary estimate of interest, the average effect \(k\) periods after departure is
-\begin{align*} 
-\mathrm{ATT}(k) =
-\mathbb{E}\bigl[y_{i,G_i+k}(1)-y_{i,G_i+k}(0)\bigr] = 
-\sum_{g} \Pr\!\bigl(G_i = g \mid G_i + k \le T\bigr)\,\mathrm{ATT}\bigl(g,\,g+k\bigr).
-\end{align*} 
-
-My estimation does not involve covariates so I can ignore the overlap assumption from \cite{callaway_difference--differences_2021}. Treatment is irreversible, by definition of $D_{i,t}$ and I assume that $\{Y_{i,1},\dots,Y_{i,T},D_{i,1},\dots,D_{i,T}\}_{i=1}^n$ are independent and identically distributed. As such, identification of $\mathrm{ATT}(g,t)$ (and hence $\mathrm{ATT}(k)$) requires the following teo assumptions:\\
-\textbf{Limited treatment anticipation}: There exists $\delta\ge0$ such that for all $t<g-\delta$, $\mathbb{E}[Y_{i,t}(g)\mid G_i=g] = \mathbb{E}[Y_{i,t}(0)\mid G_i=g].$\\
-I assume no treatment anticipation ($\delta=0$) in my setting, as I am analyzing abrupt departures that are more associated with factors unrelated to organization outcomes such as a company change. It's worth noting that the full process of a job transition, from giving notice to finding a new job, can occur within the six month window that constitutes a time period in my analysis, especially given the healthy labor market experienced by tech companies over the past decade.\\
-\textbf{Parallel trends based on ``not-yet-treated" groups and no anticipation}. For each $g\in\mathcal{G}$ and each $s, t$ such that $g \leq t \leq s$, I assume \[\mathbb{E}\bigl[Y_{i,t}(0)-Y_{i,t-1}(0)\,\bigm|\,G_i = g\bigr] =\mathbb{E}\bigl[Y_{i,t}(0)-Y_{i,t-1}(0)\,\bigm|\,D_{i,s}=0,\,G_i > g\bigr]\]
-
-The parallel trends assumption states that in the absence of treatment, treated organizations would have experienced the same outcome evolution as not-yet-treated organizations. 
-There are two reasons why I believe the parallel trends assumption is plausible in my setting. First, the analysis uses ``not-yet-treated'' organizations as controls, which makes it more likely that underlying, time-invariant factors that differ between eventually treated and never-treated organizations do not confound the analysis. 
-
-Second, my analysis focuses on abrupt departures, which survey evidence from \cite{miller_why_2019} shows is associated with ``some kind of transition (e.g., switching jobs or leaving academia)" or because members were ``having children or getting married." Switching jobs or leaving academia increases the difficulty of contributing to OSS because new jobs may not support contributing to OSS or incur additional demands on one's time that take time away from contributing to OSS. These are also departure reasons that are unrelated to unobservable organization factors, such as declining outside interest or personal dissatisfaction, which could cause parallel trends violations. Finally, \cite{miller_why_2019}'s focus on abrupt departures lead to the finding that major life changes were cited as a departure reason far more often than reasons such as "lacking peer support or losing interest that are more commonly discussed in the literature" which suggests that focusing on abrupt departures is not just sufficient, but also necessary for obtaining fulfilling the parallel trends assumption. 
+The unit of observation in my analysis is the organization.
+I define an organization as the GitHub project that handles development for one or more Python libraries. 
+On GitHub, to initiate discussion about a topic, such as a software bug or feature request, a member of the organization opens an \textit{issue} thread. 
+Members participate in the issue thread by posting \textit{issue comments}. 
+To propose a change to the codebase, such as a software bug fix, members will open a \textit{pull request} thread. 
+Members ask general questions about a pull request, such as the overarching goal, by posting \textit{pull request comments}.
+Members ask questions about specific code changes, such as whether a specific line of code can be simplified, by posting \textit{pull request review comments} and decide what action should be taken by leaving \textit{pull request reviews}. 
+If the organization's higher-ranking members believe the proposed code changes have value, typically, following some back and forth discussion, the pull request will be merged into the codebase. 
+Changes made to the codebase are not immediately available to software users; instead, every so often, the organization releases an updated version of the Python library incorporating the new code changes. 
+Anyone who participates in any of the aforementioned activities is classified as a member of the organization. 
 
 
-\donow[inline]{Once I get the WRDS access, see if I can incorporate the picture of the ES graph of corporate departues for my chosen specification and subset to the main subset of organizations I'm using? Highlights how many of these are corporate related. TBH, it looks a little less impressive than I'd like but it is what it is. Also, see if I can get it as a proper event study estimate as opposed to what I'm doing right now}
-\todo[inline]{\textbf{Show this is true}:
-Abrupt departures aren't associated with changes in demand for the departed member's services - the number of issues opened, forks, stars and downloads are still increasing. 
-Moreover, the departure date is unrelated to the proximity to major software releases/updates}
-\todo[inline]{Can I show that organizational characteristics that might lead to dissatisfaction/change aren't the driving reason for departure/aren't systematically changing in a way that would explain their departure? For example, I don't see declines or increases in member count prior to their departure (signalling broad organizational changes) or changes in the distribution of communication z score/important members (which also suggests changes in how people are communicating/working) or in the sentiment of their communications (are they getting burnt out?)}
+The organizational outcomes of interest are software development and software update activity. 
+Within the first category of outcomes, pull request activity, I am interested in the number of pull requests opened and merged. 
+I will henceforth refer to this category as pull request-related activity. 
+Within the second category of outcomes, software update activity, I am interested in the total number of new software releases and the number of major and minor software releases. 
+Pull request activity is a more proximate category of outcomes  because pull requests are opened/merged at higher frequency and more closely map to an organization's overall level of activity.
+In contrast, software release activity is a more downstream category of outcomes because releases are observed less frequently.
+Software releases are akin to an organization's ``final output'' because releases often bundle the result of many merged pull requests. 
+Ultimately, software users or other stakeholders are likely more interested in software updates, which deliver new features and address bugs, than the frequency of pull requests being opened and merged, which do not directly affect their usage of the software. 
+I consider major and minor software releases as a separate outcome because those release types contain the most substantive changes to the software. 
+
+I observe the aforementioned activity, including the member performing each activity and the date and content of their contributions, via the GitHub Archive (\citealt{GitHub_archive_GitHub_2025}).
+In Section~\ref{sec:key_members}, I define the organization's key members and what defines an abrupt departure. 
+I also defend the plausible exogeneity of these departures to unobservable organizational trends. 
+In Section~\ref{sec:org_practices}, I describe the organizational practices of interest and how I use GitHub activity data to measure adoption. 
+In Section~\ref{sec:treatment_sample}, I describe the final sample used in the analysis. 
+
+\subsection{Key Members and Abrupt Departures}\label{sec:key_members}
+\subsubsection{Defining key members}
+Identifying the organization's key members requires a measure of each member’s prominence.
+I define a member's prominence based on the organization's social network. 
+The organization's social network is an undirected weighted graph constructed based on conversations between members.
+The graph's nodes represent members, and edge weights between two members reflect the extent of their interactions. 
+Each graph is constructed from activity data spanning a six month time period, corresponding to either the first or second half of the calendar year.
+%\longterm[inline]{Appendix Section~\ref{sec:app_data} provides additional detail about the social network's construction. }
 
 
-Under these assumptions, the $ATT(k)$ is identified by the estimated parameter
-\begin{equation}
-\widehat{\mathrm{ATT}}(k) = \sum_{g=1}^{T-k}
-\Pr\bigl(G_i = g \mid G_i + k \le T\bigr) \widehat{ATT}(g, k)
-\end{equation}
-where
-\begin{equation}\label{eq:event_study_time}
-\widehat{ATT}(g,k) = \E\bigl(y_{i,g+k} - y_{i,g-1}\mid G_i = g\bigr) - \E\bigl(y_{i,g+k} - y_{i,g-1}\mid D_{i,g+k} = 0\bigr).
-\end{equation}
+A member’s prominence is measured by their degree centrality in the social network.
+A member's degree centrality is the number of unique members with whom they interacted during that time period.
+In any given period, members who rank among the top three by degree centrality are defined as \textit{single-period key members}.\footnote{All members whose degree centrality is equal to or greater than that of the third-ranked member are included, so the number of single-period key members may exceed three when ties occur.}  
+Members who are single-period key members for at least three consecutive periods are classified as \textit{key members} beginning in the third period.
 
-Define $\widehat{{ATT}}_{\mathrm{pre}} = \bigl(\widehat{ATT}(-L),\;\widehat{ATT}(-L+1),\;\dots,\;\widehat{ATT}(-1)\bigr)^{\!\top}$ where $-L$ is the last period I am estimating event study coefficients for. To evaluate the plausibility of the parallel-trends assumption, I will conduct a Wald test
-\begin{equation}
-H_0\colon \widehat{{ATT}}_{\mathrm{pre}} = \mathbf{0} \label{eq:wald_test_pretrends}
-\end{equation}
- of the pre-trends coefficients. In my analysis, $L=4$.
+My definition of an OSS organization's social network follows existing work by \cite{crowston_hierarchy_2006}. 
+My definition of what it means to be a \textit{key member} is informed by two aspects of OSS organizations known from the literature. 
+First, key members of OSS organizations interact with many more people than other members, which I capture by defining key members based on their degree centrality. 
+The aim of non-key members of the OSS organization is typically to share the problems they are encountering or propose features they would like to see. 
+Their goal is not to engage with the broader community; hence, they only interact with a select few of the organization's members (\citealt{hippel_open_2003}). 
+In contrast, key members will participate in discussions started by many members; hence, I expect them to have high degree centrality.
+Second, even though OSS organizations have no predetermined structure and community structure can vary substantially from project to project, the literature has found that a small minority of members account for a majority of the organization's activity (\citealt{mockus_two_2002}, \citealt{crowston_hierarchy_2006}). 
+My measure captures this aspect by restricting key members to those with the three highest degree centrality scores in at least three consecutive periods.
 
-\subsection{Heterogeneous Treatment Effects (NEW)}
-I am interested in how four factors: knowledge redundancy, investment in talent, organizational routines and organizational adaptivity. 
-\todo[inline]{
-Try using network to create important contributors since commits might take awhile.. }
-\subsubsection{Knowledge redundancy}
-Knowledge redundancy arises when multiple individuals hold the same knowledge. I proxy for true knowledge redundancy via knowledge redundancy-building actions. 
-% https://www.scopus.com/pages/publications/28744459229
-\begin{enumerate}
-    \item Collaboration creates knowledge redundancy because it spreads knowledge around all collaborators. 
-    \item Broad expertise from members who work on a range of problems are more able to plug in holes
-    \item When work undergoes review and revision process, more people are informed 
-    %https://executive.mit.edu/How-to-build-organizational-resilience.html
-\end{enumerate}
-\textbf{Collaboration measurement}: 
-\% of problems with multiple members or \# of people/problem {participating, discussing, communicating}. Member subsets are all members, important members only, important members only plus departed has to be included. \\
-HHI of {comments, review comments, discussion comments, commits} across all problems, or per-problem HHI with weighted average across \\
-\textbf{Broad expertise measurement}:
-Average share of work per problem, weighted by member work total - can consider {all comments, review comments, discussion comments, all commits, push commits, pr commits}. \\
-\% of members who only ever work on only issues or PRs.\\
-Categories: open issue, discussion, open PR, commit, review. Figure out, for each contributor, how many they engage in and find the average across members. \\
-For all, can subset by {all members, important members only, unimportant members}
-\textbf{Work is reviewed}
-\% of commits that are from pull requests vs. pushes (should weight by the number of changes, files changed because pull request commits are one squashed commit). \\
-\% of pull requests that are merged without approval, without reviews. \# of reviews per pull request, \# of reviewers per pull request. 
-\askjesse[inline]{How can I measure whether members in a project are working on problems with lots of tags (accounting for project-level differences in tag usage)? }
-\longterm[inline]{Aspirational: shared code ownership, working in the same folders}
+\subsubsection{Abrupt Departures and their Plausible Exogeneity} \label{sec:departures_exogeneity}
+I next define when a key member abruptly departs an organization. 
+To qualify as having abruptly departed in period $t$, a key member in period $t$ must no longer have any recorded activity in the organization in all future periods. 
+Existing survey evidence shows that abrupt departures occur because of ``some kind of transition (e.g., switching jobs or leaving academia)" or because members were ``having children or getting married" (\citealt{miller_why_2019}). 
+The definition of abrupt departure that I build on from \cite{miller_why_2019} also requires key members to have been highly active for at least 3 consecutive 6-month periods. 
+
+I believe that the motivations behind abrupt departures of key members is unrelated and hence plausibly exogenous to unobservable organizational trends that affect organizational outcomes. 
+First, as noted by \cite{miller_why_2019}, abrupt departures are often driven by major life changes. 
+These are, by definition, unrelated to an OSS organization's unobservable trends.
+Since many OSS members are volunteers and contribute as a hobby, when major life changes occur, OSS contribution is often dropped as a consequence of there being only 24 hours in a day.
+If one contributes to OSS as part of their academic program, they may stop contributing once they graduate because it is no longer required. 
+Graduation is typically a fixed date that members cannot adjust around due to the costs of tuition (for undergraduate students) and limited funding (for graduate students).
+It also seems implausible that the timing of one's marriage or having children, important milestone events in one's life, is related to unobservable organizational trends in one's hobby. 
+
+Even if one contributes to OSS as part of their job because their company develops OSS, when they switch jobs, their departure is completely driven by the job switch as company rules likely require disengagement from company projects. 
+Some developers also contribute to external OSS organizations as part of their job because OSS organizations contain tools valuable to their work at the job. 
+However, not all employers support OSS contributions to external organizations, so job changes can also lead to disengagement even from projects unrelated to one's former employer. 
+It seems reasonable to assume that job changes, which can occur for much more important personal reasons such as financial circumstances or changes in work location (compared to the OSS one works on), are unrelated to the unobservable trends of the OSS they worked on.
+Even if the company's underlying trends caused the departure, for companies that do produce OSS, OSS development is typically is a small part of its operations because OSS as a product often does not bring in revenue.
+
+The existing literature does cite organizational reasons, such as the absence of peer support, that might motivate departures from an organization. 
+However, the key reason why these studies are not a threat to exogeneity is that they consider general departures that do not necessarily involve either key members or immediate and permanent disengagement. 
+For example, \cite{miller_why_2019}, when discussing abrupt departures, find that
+\begin{displayquote}
+occupational reasons such as major life changes (e.g., getting a new job or leaving school) were the most cited (with 106 citations), significantly more than lacking peer support or losing interest that are more commonly discussed in the literature (\citealt{miller_why_2019}).
+\end{displayquote}
+Commonly cited reasons for departures from the literature that may be related to unobservable organizational trends include social factors or role changes (\citealt{iaffaldano_preliminary_2019}). 
+I do not believe that my definition of departures includes departures driven by social reasons because social reasons are most often cited as barriers to joining or becoming an integral part of the project (\citealt{bosu_impact_2014}, \citealt{steinmacher_let_2019}).
+In contrast, my analysis focuses on the departure of key members who have already been integral to the project for at least 18 months.
+Sometimes, members have stop contributing to code changes because their role within the organization changes. 
+However, since my definition of departure requires total disengagement, I do not think that ``role departures'' driven by unobservable organizational changes would be captured by my definition.
+Even if someone stops writing as much code, I would still expect them, as a member of the project, to engage in discussion. 
+This is a key way my definition differs from \cite{miller_why_2019}, who still permit low levels of engagement post-departure. 
+
+
+\subsection{Organizational Practices}\label{sec:org_practices}
+I am interested in the effects of three categories of organizational practices: knowledge redundancy among members of the organization, investment by the organization in talent and organizational routines. 
+The choice was inspired by existing research in both the organizational resilience and OSS literature. 
+For example, three of the four concepts that \cite{duchek_organizational_2020} describes as ``general attributes that may facilitate an organization's resilience'' map to my categories.\footnote{See section 2.2 of \cite{duchek_organizational_2020}. I rephrase what \cite{duchek_organizational_2020} terms ``redundancy,'' ``positive relationships,'' and ``specific organizational strategies'' as knowledge redundancy, investment in talent, and organizational routines, respectively. The fourth type is adequate resources, which is less applicable to OSS organizations as most organizations are made up of volunteers who collaborate remotely.}
+\cite{rashid_systematic_2019} highlights disaster-mitigation practices that can be categorized as bolstering knowledge redundancy, increasing investment in talent and establishing organizational routines as potential mitigation strategies.\footnote{See section 6.2 of \cite{rashid_systematic_2019}. The knowledge redundancy practices are ``pair programming and shared code ownership,'' ``successor[s],'' and ``uniform knowledge distribution.'' The investment in talent practices are ``removal of knowledge barriers'' and ``improving code review feedback time for non-cores.''. The organizational routine is ``gamification''.}
+
+The following sections describe the specific practices I use to characterize knowledge redundancy, talent investment and the adoption of organizational routines within OSS organizations. 
+
+\subsubsection{Knowledge Redundancy}
+Knowledge redundancy in an organization arises when multiple individuals possess the same knowledge required to solve a task. 
+Organizational resilience can be enhanced via knowledge redundancy because it means the ability to solve a task is not lost when one member leaves. 
+Since each member's knowledge cannot be directly observed, I proxy for it using three broad subcategories: assessing how often members collaborate, how often their activities undergo external review, and using a text-based method to quantify each member in the organization's problem-solving expertise. 
+
+The first subcategory measures the extent of collaboration among members. 
+Collaboration contributes to knowledge redundancy because it exposes multiple members to a task's problem solving process.
+One metric I use to measure the adoption level of collaboration is the average number of members per discussion thread. 
+Panel A of Table~\ref{tab:knowledge_redundancy_metrics:collab} lists all measurements associated with this subcategory. 
+
+The second subcategory measures the extent to which a given member's codebase changes are reviewed by other members. 
+High ranking members can make codebase changes without external review, but this is considered poor software engineering practice. 
+External review contributes to knowledge redundancy because it ensures that multiple people have seen, reviewed, and possibly understand how codebase changes will alter the software.
+One measurement I use to measure the adoption of external review is the proportion of merged pull requests that receive an ``approving'' pull request review.
+Panel B of Table~\ref{tab:knowledge_redundancy_metrics:external} lists all measurements associated with this subcategory. 
+
+The third subcategory uses each member's text discussions to produce organization-level aggregates of average and shared expertise. 
+Here, the content of text discussions proxy for expertise. 
+I define the average level of expertise as one minus the average cosine similarity between different discussion comments written by the same member, using \texttt{sentence-transformers/all-mpnet-base-v2} embeddings (\citealt{song_mpnet_2020}).\footnote{I transform cosine similarity values to be between 0 and 1. }
+When members have more similar comments, they have lower expertise. 
+
+To evaluate overlapping expertise, conceptually, I can compare the similarity of content written by different members. 
+My measure of overlapping expertise is the ratio of the average cosine similarity between comments written by different members to the average level of expertise previously described. 
+The numerator measures how much different members overlap in expertise; more similar comments indicate more shared expertise.
+I include the denominator because overlap in expertise is inherently relative to each member's level of expertise. 
+Suppose we have two organizations and both organizations have the same numerator, but in the first organization, the average level of expertise among members is higher.
+The first organization has much lower shared expertise because as a proportion of each member's expertise, less is shared. 
+Panel C of Table~\ref{tab:knowledge_redundancy_metrics:expertise} lists all measurements associated with the individual and shared expertise category. 
+
+\askjesse[inline]{Would I benefit from using math here to define the text similarity metric?}
+
 \subsubsection{Investment in members}
-Organizations that invest in their members are conscious about how the well-being of their members is affected and how much they are learning. The literature has considered what factors lower turnover, but not specifically "talent investment"
-% Mckinsey: https://www.mckinsey.com/capabilities/people-and-organizational-performance/our-insights/raising-the-resilience-of-your-organization
-% HBR: https://www.gystconsulting.com.au/userfiles/files/building_a_resilient_organizat.pdf
-% Social ties matter, https://psycnet.apa.org/record/2006-05341-007
-\begin{enumerate}
-\item Quick feedback and positive feedback improve learning and well-being
-\item High feedback quantity also increases learning
-\item Organizations that create opportunities for advancement 
-\item Organizations where everyone is close are more cohesive
-\end{enumerate}
-\textbf{Quick and High quantity Feedback}:
-On average, how long does it take to get a response (conditional on receiving one)? For all responses, can we measure the sentiment after removing all code chunks? On average, how many responses does one get? 
-For all, can subset by {comments, review comments, discussion comments}\\
-\textbf{Opportunities for advancement}
-What \% of contributors eventually get the opportunity for more advanced roles, such as merging PRs, reviewing PRs or closing issues, and didn't have the ability to do that when they first joined (or for their first 2 periods)? Perhaps condition on those who stay for several periods first.\\
-\textbf{Cohesiveness}
-Measure based off the closeness centrality or the clustering coefficient of the network of contributors 
-% https://arxiv.org/pdf/1208.4289
-Subset to contributors who {joined recently (1, 2, 3 periods ago), are somewhat important but not super important}
+Organizations that invest in their members encourage learning by members and aim to foster positive environments. 
+Existing research has shown for example, that resilient organizations invest in talent (\citealt{maor_raising_2022}) and that social ties within the organization matter (\citealt{luthans_psychological_2006}). 
+I measure organizational investment in members by examining the characteristics of feedback they receive, the extent to which new members have opportunities to take on greater responsibility, and the cohesiveness of the organization’s social network.
+
+The first subcategory measures the frequency, timeliness, and positivity of feedback received by members. 
+For example, existing research shows that new developers are discouraged from continuing to participate in project when they experience delays in receiving feedback (\citealt{bosu_impact_2014}). 
+I measure the timeliness of feedback by examining, for all discussion responses, the average number of days it takes to receive feedback. 
+Panel A of Table~\ref{tab:talent_investment_metrics:response} lists all measurements associated with this subcategory. 
+
+The second subcategory measures whether members have opportunities to take on greater responsibility. 
+For example, on GitHub, only higher-level members within the organization have the authority to merge pull requests. 
+Hence, I measure, in a given 6-month time period, the proportion of members who merged a pull request for the first time, out of all members who had joined in the previous 18 months and had never merged a pull request. 
+Conceptually, being granted the ability to merge a pull request proxies for promotion. 
+Panel B of Table~\ref{tab:talent_investment_metrics:growth} lists all measurements associated with this subcategory. 
+
+The final subcategory examines how cohesive the organization's social network is. 
+To measure this, I use the clustering coefficient, which is used to measure cohesiveness in networks (\citealt{wasserman_social_1994}, \citealt{serrano_zanetti_quantitative_2012}).
+This is the only measure used to characterize the organization's cohesiveness and Panel C of Table~\ref{tab:talent_investment_metrics:cohesiveness} provides additional measurement details. 
+
+
 \subsubsection{Organizational routines}
-Organizations have routines that they use to approach problems. 
-\begin{enumerate}
-    \item Organizations that organize problems, assign people to tasks and assign reviewers may be more equipped to deal with shocks
-    \item Organizations that systematize inquiries and link issues to pull requests can better deal with information flow 
-    \item Organizations that have guidelines on contributing have routines for new people to join and help
-    \item Organizations that have standards (tests) for what needs to be completed for a pull are able to continue operating, merging PRs
-\end{enumerate}
-\textbf{Organized problems}:
-\% of problems that have tags, \% of problems with assignees, \% of pull requests with reviewers, presence of a CODEOWNERS file. \\
-\textbf{Systematized inquiries}:
-\% of issues that are linked that contain an explicit link, whether there is an issue and/or pull request template, \% of issues or pull requests with checklists\\
-\textbf{Routines for joining}:
-Whether there are "good first issues" and whether there is a CONTRIBUTING.md\\
-\textbf{Standards for problem resolution}:
-Whether pull requests required to pass tests, \% of tests that pass before merging
-\subsubsection{Adaptive organizations}
-Organizations that are adaptive can change procedures to accommodate new situations when crises occur. 
-\begin{enumerate}
-    \item Organizations that reassign members to tasks when there are slowdowns are adaptive
-\end{enumerate}
-\textbf{Reassignment}: What \% of the time, when an {none of the assigned reviewers has not done anything, assigned issue asignee has not said anything} does the {reviewer, assignee} change? \textbf{Not exactly sure if this is measurable}
-\askjesse[inline]{Discuss with Jesse whether he has suggestions about measurement - this will be challenging to measure… \\
-Organizations that are more central and have one key decision-maker are more resilient - Connect adaptive efficiency to having a single central authority??
-}
+Organizations may also have routines it uses to solve problems.
+Routines can contribute to organizational resilience by providing plans organizations can adhere to during times of crisis. 
+Evidence from the literature suggests that in situations as wide ranging from surmounting Mount Everest (\citealt{suarez_building_2020}) to governing the Roman Empire (\citealt{carmeli_capture_2011}), organizational resilience is enhanced by having routines or combinations of routines in place. 
+I classify organizational routines into three subcategories: assignment-based routines, problem-solving routines and initiation routines. 
 
-\subsection{Heterogeneous Treatment Effects (OLD)}
-\subsubsection{Organizational-level Classification Recipe}\label{sec:org_level_subset}
-I am interested in analyzing how treatment effects vary by organizational characteristics. In this section I will describe a recipe for categorizing organizations based on their organizational characteristics. For any organization–time metric \(M_{i,t}\) with aggregation weights \(W_{i,t}\):
-\begin{enumerate}
-\item Compute the \(K\)-period pre-departure average for each organization \(i\):
- \[
- \bar X_i
- \;=\;
- \frac{\sum_{k=1}^{K} W_{i,\,G_i-k}\,X_{i,\,G_i-k}}
-{\sum_{k=1}^{K} W_{i,\,G_i-k}}.
- \]
-\item Compute the cross-sectional mean of these averages: 
- $\bar X = \frac{1}{N}\sum_{i=1}^N \bar X_i.$
-\item Define the binary classifier
- \[
- f_i^M \;=\; \mathbf{1}\{\bar X_i > \bar X\},
- \text{so }
- f_i^M = 
- \begin{cases}
- 1 & \text{(``high'') if pre‐departure average exceeds the overall mean},\\
- 0 & \text{(``low'') otherwise}.
- \end{cases}
- \]
-\end{enumerate}
-\medskip
-I apply this to categorize organizations based on three attributes
-\begin{itemize}
-\setlength\itemsep{0.5em}
-\item \textbf{Departed member collaborativeness:}
-\[
-M_{i,t} = \mathrm{DepartedCollab}_{i,t},\quad
-W_{i,t} = N^d_{i,t}
-\]
-For example, organizations with \(f_i^M=1\) have ``high'' departed member collaborativeness.
-\item \textbf{Departed member involvement:}
-\[
-M_{i,t} = \frac{N^d_{i,t}}{N_{i,t}},\quad
-W_{i,t} = N^d_{i,t}
-\]
-organizations with \(f_i^M=1\) have ``high'' departed member involvement
-\item \textbf{Departed member pull request involvement:}
-\[
-M_{i,t} = \mathrm{PRShare}_{i,t}
-= \frac{\text{pull requests opened by departed at}(i,t)}{\text{total pull requests opened in }(i,t)},
-\quad
-W_{i,t} = N^d_{i,t}
-\]
-organizations with \(f_i^M=1\) have ``high'' departed member pull request involvement.
-\setlength\itemsep{0.5em}
-\item \textbf{Other member collaborativeness:}
-\[
-M_{i,t} = \mathrm{OtherCollab}_{i,t},\quad
-W_{i,t} = N_{i, t} - N^d_{i,t}
-\]
-\end{itemize}
-The framework naturally extends to category combinations. 
+The first subcategory measures whether organizations explicitly assign responsibilities to project members or add clarifying labels to tasks. 
+Such actions enhance organizational resilience by eliminating ambiguity about responsibility for tasks.
+For example, some projects have a file called the CODEOWNERS inside the software codebase, which formally delineates responsibility for different parts of the codebase to particular members. 
+When a pull request is opened, members of the project responsible for the affected parts of the code are automatically assigned as pull request reviewers. 
+This can be used to enable members to continue contributing, even in the absence of a member that explicitly coordinates task assignment. 
+Panel A of Table~\ref{tab:org_routine_metrics:assignment} lists all measurements associated with this category. 
 
-\subsubsection{Treatment Effects using Sample Subsets} \label{sec:att_subset}
-Say, for example, we're interested in the effect of a organization departure in organizations where the departed member was collaborative. Our parameter of interest would still be $ATT(k)$, but calculated using the subset of organizations $i$ where $f_i^M = 1$ when $M_{i,t} = \mathrm{DepartedCollab}_{i,t}$ and $W_{i,t} = N_{i,t}^d$. 
+The second subcategory measures whether organizations systematize problem solving by requiring that the comment initiating any discussion contain certain pieces of information.
+On GitHub, organizations can do this by creating issue and pull request templates.
+For example, an organization's pull request template can require that prior to opening a pull request, members must have ensured that all unit tests have passed and that the documentation relevant to the code change has been updated. 
+This enables organizations to continue maintaining high standards for pull requests, even in the absence of a leading member who might have implicitly enforced these standards in their pull request review. 
+Panel B of Table~\ref{tab:org_routine_metrics:problem-solving} provides additional detail about measurements associated with this subcategory. 
 
-I believe the key identification assumptions still hold when I subset to organizations that have a particular attribute, such as a collaborative departed member. Within the literature, there does not exist evidence that departed members who are more or less collaborative, involved, or involved in opening pull requests are more likely to inform organizations of an impending departure ahead of time. Second, the parallel trends assumption might actually be more plausible using a sample subset as now, I'm now only evaluating the plausibility of parallel trends conditioning on a departed member characteristic that's the same across all organizations in my sample.
-\todo[inline]{I'm not sure how much I believe this - people who are more involved might feel more responsibility abt informing, or be more affected by organization underlying trends and hence choose to leave}
 
-One note is that the underlying reasons whether some organizations have highly collaborative departed members or less collaborative departed members (or any other attributes) is unrelated the plausibility of the subsetted parallel trends. The subsetted parallel trends assumption describes the plausibility of departures being exogenous to trends in organization outcomes, conditional on organizations that fulfill a particular attribute. By construction, the parallel trends assumption does not care about what other factors might differentiate two subsets of organizations, such as those with highly or less collaborative departed members. Instead, the underlying reasons why some organizations have highly collaborative departed members or less collaborative departed members is related to understanding the causal effects of collaboration. 
-\todo[inline]{Write out math??}
+The third category of metrics measures whether organizations adopt routines to assist new members joining the organization. 
+Some organizations have contributing guides that introduce members to the project and ``good first issues" that are considered suitable tasks for new members to try and tackle.
+These allow new members to independently learn about how they can help solve tasks as part of the organization. 
+These may be especially valuable post-departure, when existing members in the organization may have less time to initiate new members because they are preoccupied with taking on the departed's tasks.  
+Panel C of Table~\ref{tab:org_routine_metrics:initiation} provides additional detail about measurements associated with this subcategory. 
 
-To test whether the treatment effect differs between two mutually exclusive subsets (e.g.\ collaborative vs.\ non-collaborative organizations), I first estimate separate event-study coefficients for each group over the window \(k=-4,\dots,4\) and subset to the coefficients describing post-departure treatment effects $(k>0)$. Denote event study estimates for the treatment effect $k$ periods after treatment for subset 1 as $\widehat{ATT}^1(k)$ and for subset 2 as $\widehat{ATT}^2(k)$. The full vector of treatment effect estimators is hence
-\begin{align*}
-\widehat{ATT}^1
-&= \bigl(\widehat{ATT}(0)^1,\;\widehat{ATT}(1)^1,\;\dots,\;\widehat{ATT}(4)^1\bigr)^{\!\top},\\
-\widehat{ATT}^2
-&= \bigl(\widehat{ATT}(0)^2,\;\widehat{ATT}(1)^2,\;\dots,\;\widehat{ATT}(4)^2\bigr)^{\!\top}.
-\end{align*} 
-To assess whether the two subsets exhibit statistically different treatment effects over the departure period and the five subsequent periods, I conduct a Wald test of
+
+\subsection{Defining Treatment and the Final Sample} \label{sec:treatment_sample}
+My sample spans 10 years from 2015-2024. 
+Each time period $t$ in my analysis is 6 months. 
+Treated organizations are those that experience at least one key member departure during the sample period; control organizations never experience a key member departure. 
+I define the treatment date $E_i$ for an organization $i$ as the last period where the first key member who leaves is present. 
+For control organizations that never experience a key member departure, $E_i = \infty$.
+Any organization where $E_i = e$ is a member of the treatment cohort $e$. 
+
+For each control organization, I assign a \textit{quasi-treatment date} $Q_i$, drawn from the empirical distribution of treatment dates among treated units conditional on the organization's first appearance in the sample. 
+The quasi-treatment date $Q_i$ for treated units is equal to its treatment date. 
+The concept of quasi-treatment date allows me to assign control organizations reference periods.
+Event time for all organizations can thus be defined relative to the quasi-treatment date as $k=t-Q_i$.\footnote{I abuse notation slightly not specifying that event time $k_i$ is organization-specific to maintain the typical convention used}
+I define the time periods where $k<0$ as an organization's pre-period, and $k>0$ as an organization's post period. 
+
+The organizational outcomes $Y_{i,t}$ represent, in each period $t$, the number of pull requests opened, pull requests merged, new software releases, and major or minor software releases.
+To ensure comparability across organizations, I standardize each organization’s outcome values using the organization-level mean and standard deviation from its five most recent pre-periods ($k = -5$ to $k = -1$).
+Hence, my standardized outcomes $Y_{i,t}^{SD}$ are in units of standard deviations. 
+For each organization in my sample, I measure adoption of each organizational practice $X_i = (X_i^1, \cdots, X_i^J)$ by calculating each of the $J$ metrics described in Section~\ref{sec:org_practices} over the five most recent pre-periods. 
+
+I impose the following sample restrictions. 
+First, all organizations must have experienced at most one key member departure during the sample period, eliminating contamination problems arising from multiple treatments.
+Second, all organizations must have exactly one key member at the time of the quasi-treatment date. 
+This ensures that comparisons between treated and control organizations are not biased by differences in the distribution of key members across treated and control organizations. 
+Third, organizations must be observed for at least 5 pre- and post-periods.
+Finally, all organizations must be a GitHub project corresponding to at least one widely-used Python library. 
+I define a Python library as widely-used if, in any month between September 2018 and December 2024, it was downloaded at least 10,000 times, according to the Python Package Index (\citealt{the_Python_software_foundation_pypi_2025}). 
+The sample features 699 organizations and includes major GitHub projects, including \texttt{pytorch/pytorch}, the flagship deep learning framework; \texttt{googleapis/google-cloud-Python}, the Python Google Cloud software development kit (SDK); and \texttt{boto/boto3}, the Python Amazon Web Services SDK. 
+
+\section{Illustrative Event Studies} \label{sec:event_study}
+\subsection{Organizational Resilience}\label{sec:org_resilience}
+In this section, I estimate organizational resilience, defined as the causal effect of a key departure on organizational outcomes.
+This analysis is meant to illustrate the empirical effect of departures and introduce the event study that serves as the backbone of my analysis. 
+
+Following \cite{sun_estimating_2021}, I estimate the regression
 \begin{equation}
-H_0\colon \bigl (\widehat{ATT}^1 - \widehat{ATT}^2\bigr ) = \mathbf{0} \label{eq:wald_test}
+    Y_{i,t}^{SD} = \alpha_i + \lambda_t + \sum_{e \neq \infty} \sum_{k \neq -1} \delta_{e, k} Z_{i,t}^{e,k}  + \epsilon_{i,t} \label{eq:event_study}
+\end{equation}
+where $Z_{i, t}^{e,k}$ equals 1 if 1) organization $i$ is at event time $k$ in period $t$ and 2) belongs to treatment cohort $e$, and 0 otherwise. 
+I include organization fixed effects $\alpha_i$ and time fixed effects $\lambda_t$.
+Standard errors are clustered at the organization level. 
+
+Equation~\ref{eq:event_study} is robust to treatment effect heterogeneity across treatment cohorts $e$. 
+To simplify the analysis, post-estimation, I aggregate the cohort-specific estimates $\hat{\delta}_{e,k}$ into an event-time average defined as the following: 
+\begin{equation}\label{eq:event_time}
+    \hat{\delta}_k = \sum_{e} \hat{\delta}_{e,k} \Pr(E_i = e \mid \text{treatment cohort } e \text{ is observed at event time } k)
 \end{equation}
 
-\subsection{Treatment Effect for Population Subsets} \label{sec:contr_subset}
-We may also be interested in the effect of member departures on aggregate outcomes produced by a subset of members. Below, I define the subsets of interest. For each subset, during estimation, I replace only the pull request count in the standardized outcome with the count of pull requests opened by each subset, excluding any pull request with contributions by the departed member. Using the same standard deviation allows me to estimate treatment effects for member subsets on the same scale as the treatment effects estimated using all members in an organization and decompose the magnitudes of different factors affecting project outcomes. Excluding pull requests with any contribution by the departed member allows me to focus specifically on independent work done by other members. 
+Under two identifying assumptions, $\hat{\delta}_{e, k}$ is an unbiased and consistent estimator of the causal effect of a key member departure on organizational outcomes $k$ periods post-treatment, for organizations in treatment cohort $e$. 
+If the two assumptions hold, since the sample shares of each treatment cohort are also unbiased and consistent estimators for the population share, $\hat{\delta}_k$ will also be unbiased and consistent. 
 
-\begin{enumerate}
-\item \textbf{Pre-departure}: This is the set of members, aside from the departed member, who joined prior to the member's departure. 
-\item \textbf{All other}: This is the set of all members, aside from the departed member. 
-\item \textbf{Communicated with the departed}: A member has communicated with the departed member if, in any of the periods prior to departure, the edge weight in the communication network defined in Section~\ref{sec:collab_imp_contr} exceeded zero. 
-\item \textbf{Never communicated with the departed}: This is the set of all members, aside from those who have \textbf{communicated with the departed}.
-\item \textbf{Above average communication intensity with the departed}: A member's communication intensity with the departed is the number of exchanges, as defined in Section~\ref{sec:collab_imp_contr}, that occurred between the departed and the member. Formally, it is the sum of the edge weights between the departed and the member across all pre-departure periods. A member has above-average communication intensity if this value exceeds the organization-wide average among those who had communicated with the departed.
-\item \textbf{Below average communication intensity with the departed}: This is all members who had \textbf{communicated with the departed} but did not have \textbf{above average communication intensity with the departed}
-\end{enumerate}
-
-A concern that arises when comparing aggregate outcomes produced by member subsets from the same organization is that members belonging to one subset may contribute to work done by members belonging to another subset. This is relevant in my analysis because the aggregate outcome for members who communicated with the departed, for example, is based on the number of pull requests opened by members who had communicated with the departed. However, opening a pull request is the culmination of work that involves not just the PR opener, but potentially other members, including those outside of their member subset. This could potentially mean that I could be over or underestimating the contributions of a particular member subset. 
-
-This is a concern for two comparisons that I use in the analysis: comparing the \textbf{Communicated with the departed} subset with the \textbf{Never communicated with the departed} subset and comparing the \textbf{Above average communication intensity communicated with the departed} subset with the \textbf{Below average communication intensity communicated with the departed}
-
-I find that empirically, this is not a major concern. 7.2\% (0.2 standard deviations) of pull requests opened by members who had never and 10.03\% (0.3 standard deviations) of pull requests opened by members who had communicated with the departed involve a member of the other subset who had participated prior to the opening of the pull request, post-departure. These magnitudes are not large enough to appear concerning as there appear to be similar levels of overlap across the two groups. 
-
-This is also not a concern for the \textbf{Above average communication intensity communicated with the departed} vs. the \textbf{Below average communication intensity communicated with the departed} comparison.  6.5\% (0.2 standard deviations) of pull requests opened by members who had below and 2.8\% (0.1 standard deviations) of pull requests opened by members who had above average communication with the departed involve a member of the other subset who had participated prior to the opening of the pull request, post-departure.  
+\begin{assumption}[Parallel Trends]\label{ass:parallel_trends}
+\text{For all time periods $s \neq t$}, 
+\[
+\E[Y_{i,s}^{SD,\infty} - Y_{i,t}^{SD, \infty}\mid E_i = e] 
+\quad \text{is the same across all treatment cohorts $e$}
+\]
+\end{assumption}
+$Y_{i,s}^{SD,\infty}$ is the value of $Y_{i,s}^{SD}$ in the event that $i$ is never treated. 
+I believe this is reasonable because as discussed in Section~\ref{sec:departures_exogeneity}, since my treatment is whether an organization experiences an abrupt departure, the decision to depart is unrelated to unobservable organizational trends. 
+Hence, outcomes for treated and control organizations should not differ along unobservable organizational trends. 
 
 
-\subsection{Outcome decomposition} \label{sec:outcome_decomp}
-Recall that $ y_{i, g+k} $ is the standardized number of pull requests opened $g+k$ periods after treatment in organization $i$. Define $y_{i,g+k}\equiv \frac{Y_{i,g+k}-\bar Y_i^{\mathrm{pre}}}{\sigma_i^{\mathrm{pre}}}$ where $Y_{i,g+k}$ is the number of pull requests opened $g+k$ periods after treatment in organization $i$, $Y_i^{\mathrm{pre}}$ is the pre-period organization mean and $\sigma_i^{\mathrm{pre}}$ is the pre-period organization standard deviation. Recall also that the number of pull requests opened in a period is by definition, the product of the average number of pull requests opened in a period per member and the member count. Hence, $Y_{i,g+k} = \overline{Y}_{i,g+k} \cdot N_{i,g+k}$ where $\overline{Y}_{i,g+k}$ is the average and $N_{i,g+k}$ is member count. 
+\begin{assumption}[No Anticipation]\label{ass:no_ant}
+\[
+\E[Y_{i,s}^{SD,\infty} - Y_{i,s}^{SD}\mid E_i = e]  = 0
+\quad \text{for all pre-periods periods $s < Q_i$}
+\]
+\end{assumption}
+One way the no anticipation assumption could be violated would be if the organization knows both that departure is occurring in advance and adjusts its behavior sufficiently far in advance. 
+I think this is unlikely because each time period in my analysis is six months and the treatment period is the last period where the member is present.
+Hence, violations would require the organization to start adjusting at least six months prior to the actual departure, conditional on even having advance notice. 
+For example, I find it unlikely that the anticipation assumption affects organizations whose key member departures occur because the member experienced a job transition, a central core of the departees my measure captures. 
+This is because in the technology industry, where most OSS members are employed, the standard notice period is two weeks, so it seems unlikely that the organizations would start adjusting six months prior.
 
-Then,
-\begin{align*} 
-\E\bigl(y_{i,g+k} - y_{i,g-1}\mid G_i = g\bigr)&= \mathbb{E}\!\left[\frac{Y_k - \bar{Y}}{\sigma_Y}
- - \frac{Y_{-1} - \bar{Y}}{\sigma_Y}
- \Big| T=1\right] \\
- &= \mathbb{E}\!\left[\frac{Y_k - Y_{-1}}{\sigma_Y}
- \Big| T=1\right] \\
- &= \mathbb{E}\!\left[\frac{\bar{Y}_k N_k - \bar{Y}_{-1}N_{-1}}{\sigma_Y}
- \Big| T=1\right] \\
- &= \mathbb{E}\!\left[\frac{\bar Y_k (N_k - N_{-1})}{\sigma_Y}
- + \frac{(\bar Y_k - \bar Y_{-1}) N_{-1}}{\sigma_Y}
- \Big| T=1\right]
-\end{align*}
+The departures I observe are also permanent. 
+I find it plausible that members who are taking temporary, but long-term breaks (such as parental leave) would wish to inform their supervisors of breaks several periods in advance to maintain goodwill.
+However, given that in all cases, I can see that departed members have completely disengaged for at least 2.5 years, I do not see a strong reason why these members would fall into the category of those taking temporary long-term breaks.
 
-Then,
-\begin{align*}
-\E\bigl(y_{i,g+k} - y_{i,g-1}\mid G_i = g\bigr)
-&= \E\!\left[\frac{Y_{i,g+k}-\bar Y_i^{\mathrm{pre}}}{\sigma_i^{\mathrm{pre}}}
- - \frac{Y_{i,g-1}-\bar Y_i^{\mathrm{pre}}}{\sigma_i^{\mathrm{pre}}}
- \,\Big|\, G_i=g\right] \\
-&= \E\!\left[\frac{Y_{i,g+k}-Y_{i,g-1}}{\sigma_i^{\mathrm{pre}}}
- \,\Big|\, G_i=g\right] \\
-&= \E\!\left[\frac{\overline{Y}_{i,g+k} N_{i,g+k} - \overline{Y}_{i,g-1} N_{i,g-1}}{\sigma_i^{\mathrm{pre}}}
- \,\Big|\, G_i=g\right] \\
-&= \E\!\left[\frac{\overline{Y}_{i,g+k}\bigl(N_{i,g+k}-N_{i,g-1}\bigr)}{\sigma_i^{\mathrm{pre}}}
- + \frac{\bigl(\overline{Y}_{i,g+k}-\overline{Y}_{i,g-1}\bigr) N_{i,g-1}}{\sigma_i^{\mathrm{pre}}}
- \,\Big|\, G_i=g\right]\\
-&= \E\!\left[\frac{\overline{Y}_{i,g+k}\bigl(N_{i,g+k}-N_{i,g-1}\bigr)}{\sigma_i^{\mathrm{pre}}}
- \,\Big|\, G_i=g\right]\\
- &+\E\!\left[\frac{\bigl(\overline{Y}_{i,g+k}-\overline{Y}_{i,g-1}\bigr) N_{i,g-1}}{\sigma_i^{\mathrm{pre}}}
- \,\Big|\, G_i=g\right]
-\end{align*}
-I can similarly define 
-\begin{align*}
-\E\bigl(y_{i,g+k} - y_{i,g-1}\mid D_{i,g+k} = 0\bigr) &= \E\!\left[\frac{\overline{Y}_{i,g+k}\bigl(N_{i,g+k}-N_{i,g-1}\bigr)}{\sigma_i^{\mathrm{pre}}}
- \,\Big|\,D_{i,g+k} = 0\right]
- \\
- &+ \E\!\left[\frac{\bigl(\overline{Y}_{i,g+k}-\overline{Y}_{i,g-1}\bigr) N_{i,g-1}}{\sigma_i^{\mathrm{pre}}}
- \,\Big|\,D_{i,g+k} = 0\right]
-\end{align*}
-Define
-\begin{align*}
-\widehat{ATT}(g,k)^{\Delta avg} &= \E\!\left[\frac{\bigl(\overline{Y}_{i,g+k}-\overline{Y}_{i,g-1}\bigr) N_{i,g-1}}{\sigma_i^{\mathrm{pre}}}
- \,\Big|\, G_i=g\right] - \E\!\left[\frac{\bigl(\overline{Y}_{i,g+k}-\overline{Y}_{i,g-1}\bigr) N_{i,g-1}}{\sigma_i^{\mathrm{pre}}}
- \,\Big|\,D_{i,g+k} = 0\right]\\
-\widehat{ATT}(g,k)^{\Delta contr} &= \E\!\left[\frac{\overline{Y}_{i,g+k}\bigl(N_{i,g+k}-N_{i,g-1}\bigr)}{\sigma_i^{\mathrm{pre}}}
- \,\Big|\, G_i=g\right] - \E\!\left[\frac{\overline{Y}_{i,g+k}\bigl(N_{i,g+k}-N_{i,g-1}\bigr)}{\sigma_i^{\mathrm{pre}}}
- \,\Big|\,D_{i,g+k} = 0\right]
-\end{align*}
-I can rewrite $\widehat{ATT}(g,k) = \widehat{ATT}(g,k)^{\Delta avg} + \widehat{ATT}(g,k)^{\Delta contr}$ 
-Define
-\begin{align}
-    \widehat{\mathrm{ATT}}(k)^{\Delta avg} &= \sum_{g=1}^{T-k} \Pr\bigl(G_i = g \mid G_i + k \le T\bigr) \widehat{ATT}(g,k)^{\Delta avg} \label{eq:att_delta_avg}
-\end{align}
-\begin{align*}
-\widehat{\mathrm{ATT}}(k)^{\Delta contr} &= \sum_{g=1}^{T-k} \Pr\bigl(G_i = g \mid G_i + k \le T\bigr) \widehat{ATT}(g,k)^{\Delta contr} 
-\end{align*}
-
-\section{Results} \label{sec:result}
-Panel~\subref{fig:all_prs_opened} of Figure~\ref{fig:prs_opened} depicts an event study plot of the effect of a departure on the quantity of pull requests opened for the four periods prior to and during a departure and the five periods after. Immediately following a departure, organizations experience noticeable declines in outcomes that worsen in the subsequent two periods after, before stabilizing in the region of half a standard deviation four periods after a member leaves. 
-
-Panel~\subref{fig:all_prs_opened_collab} of Figure~\ref{fig:prs_opened} examines how organizational outcomes vary depending on the departed member's collaborativeness. Panel~\subref{fig:all_prs_opened_collab} depicts an event study plot with estimates from two mutually exclusive organization subsamples: organizations with highly and less collaborative departed members. Immediately after a member’s departure (event time $k=0$), both types of organizations see a decline in PRs opened. In subsequent periods, however, organizations whose departing members had been highly collaborative suffer ever-larger declines. Two years after a member’s departure, organizations that lost a highly collaborative team member open about 1.5 SD fewer PRs—nearly three times the average decline across all organizations. By contrast, although organizations with less collaborative departures exhibit the same initial dip, they rebound over time—so much so that the long-run treatment effects are statistically indistinguishable from zero. Pretrends for event study estimates from both samples are statistically indistinguishable from 0. The difference in event study estimates for $k>0$ is also statistically significant. 
-
-\subsection{Decomposing Collaboration's Effect}
-The treatment effect associated with the departed member arises from three factors: impacts on pre-departure members, impacts on post-departure members, and the departed member’s involvement in pull requests. Differences in how a a departed member's collaborativeness affects each of the above three factors explain the differences observed in Panel~\subref{fig:all_prs_opened}. I next examine each factor’s contribution.
-
-Panel~\subref{fig:predep_prs_opened_collab} of Figure~\ref{fig:prs_opened_other_contr} replaces the standardized outcome’s total pull request count with that of the \textbf{Pre-departure} member subset (Section~\ref{sec:contr_subset}) prior to estimation. I expect this subset to experience the most direct effects of collaboration and departure. I find that in the long term, members of this subset belonging to organizations with collaborative departed members experience increasingly large declines in PRs opened. Throughout the last 4 periods ($k > 0$), the average treatment effect difference is -1.3 standard deviations which represents 68.6\% of the total difference between organizations with and without collaborative departed members. It is also notable that the benchmark here excludes problems the departed contributor and the \textbf{Pre-departure} member subset might have been involved together. 
-
-Panel~\subref{fig:nondep_prs_opened_collab} of Figure~\ref{fig:prs_opened_other_contr} replaces the standardized outcome's total pull request count with that of the \textbf{All other} member subset (Section~\ref{sec:contr_subset}) prior to estimation. New members who join post-departure have positive effects on organization outcomes, irrespective of organizational type, as indicated by treatment effects increases compared to their counterparts in Panel~\subref{fig:predep_prs_opened_collab}. 
-There is also evidence that new members benefit organizations with uncollaborative departed members more. Over the last 4 periods ($k > 0$), the average treatment effect difference is -1.8 standard deviations which represents 87.8\% of the total difference between organizations with and without collaborative departed members, a 19.2\% gain compared to estimates from just the \textbf{Pre-departure} member subset 
+Figure~\ref{fig:event_study} presents an event study plot of $\hat{\delta}_k$ for 5 pre- and post-periods. 
+I find that the departure of a key member has a statistically significant negative effect on all organizational outcomes starting in the first treatment period, when the key member has left.
+On average, in the 5 post-periods, a key member departure reduces the number of pull requests opened (merged) by 0.924 (0.960) standard deviations. 
+In contrast, over the same horizon, a key member departure reduces the number of new (major and minor) software releases by 0.484 (0.385) standard deviations. 
+Moreover, the decline in software releases levels out fairly quickly. 
+Given the smaller decline in all new software releases compared to pull request activity, and the even comparatively smaller decline in major and minor software releases, it would be interesting to explore, in future work, how the characteristics of software releases are changing. 
+For example, given the trends, do future software releases contain less new features, as a consequence of the decline in pull request activity?
 
 
-That tells us that only 12.2\% of the difference in treatment effects between organizations with more or less collaborative departed members is driven by differences in the involvement of the departed member in pull requests. Note that since the sum of the percent difference between organizations with more and less collaborative departed members including all three factors is 100\%, we can arrive at the 12.2\% difference without examining how the pull request involvement varies by project collaborativeness. 
-
-Figure~\ref{fig:prs_opened_more_imp} provides more insight into dynamics related to involvement in problem solving and pull requests Panel~\subref{fig:prs_opened_involved} of Figure~\ref{fig:prs_opened_more_imp} uses the standardized outcome but subsets organizations by \textbf{departed member involvement}, as defined in Section~\ref{sec:org_level_subset}. Panel~\subref{fig:prs_opened_pr_involved} of Figure~\ref{fig:prs_opened_more_imp} is an analog of Panel~\subref{fig:prs_opened_involved} of but subsets organizations by \textbf{departed member pull request involvement}, as defined in Section~\ref{sec:org_level_subset}. One explanation for why \textbf{departed member pull request involvement} may not be driving the treatment effect difference is because \textbf{departed member pull request involvement} does not explain much at all. In contrast, when we account for a departed member's role in discussion (via \textbf{departed member involvement}), not just raw problem-solving output, the difference is more statistically precise (albeit still insignificant), which suggests that the harms departed members cause arrive through involvement in problem solving with others. I also find that conditioining on departed member pull request involvement does not affect my key finding that increased departed member collaborativeness negatively affects organizations. Panel~\subref{fig:prs_opened_more_involved} of Figure~\ref{fig:prs_opened_more_imp} and Panel~\subref{fig:prs_opened_less_involved} of Figure~\ref{fig:prs_opened_more_imp} subset on organizations where the departed was and was not very involved, respectively, and finds that organizations with collaborative departed members still tend to experience worse outcomes (although the differences are not statistically significant).
-
-\subsection{Mechanisms driving Collaboration's Effect}
-
-I next examine the drivers of the declines in Panel~\subref{fig:predep_prs_opened_collab} of Figure~\ref{fig:prs_opened_other_contr}, which does not distinguish actual from potential interactions. Temporal overlap with the departed member does not necessarily indicate interaction or collaboration. Figure~\ref{fig:prs_opened_comm_ext_marg} examines  organization outcomes from subsetting members into groups based off their communication history with the departed. 
-
-Panel~\subref{fig:predep_prs_opened_high_collab_comm_ext_marg} of Figure~\ref{fig:prs_opened_comm_ext_marg} replaces the standardized outcome’s total pull request count with that of two different member subsets: members who had ever \textbf{communicated with the departed} and members who had \textbf{never communicated with the departed} prior to estimation (as defined in Section~\ref{sec:contr_subset}). The organization-level filter is for highly collaborative departed members. Panel~\subref{fig:predep_prs_opened_low_collab_comm_ext_marg} of Figure~\ref{fig:prs_opened_comm_ext_marg} is the analog of Panel~\subref{fig:predep_prs_opened_high_collab_comm_ext_marg} of Figure~\ref{fig:prs_opened_comm_ext_marg} for less collaborative departed members. Surprisingly, there do not appear to be differences between member sets based on communication history with the departed in either panel. However, conditional on having communicated with the departed member, members of collaborative organizations experience worse outcomes. This is a major driver of the difference in aggregate outcomes for organizations with and without collaborative departed members. 
-
-In Figure~\ref{fig:prs_opened_comm_ext_marg_inv}, I examine how communication history with the departed and departed member collaborativeness intersect with departed member involvement. I choose to focus on departed member involvement as opposed to departed member pull request involvement because the former also exposes variation in engagement in pre- pull request opening issue discussions, which may be more relevant for studying collaborative effects. Panel~\subref{fig:predep_prs_opened_high_collab_comm_ext_marg_inv0} and Panel~\subref{fig:predep_prs_opened_high_collab_comm_ext_marg_inv1} of Figure~\ref{fig:prs_opened_comm_ext_marg_inv} are analogs of Panel~\subref{fig:predep_prs_opened_high_collab_comm_ext_marg} of Figure~\ref{fig:prs_opened_comm_ext_marg}, except I also condition on organizations with less and more involved departed members, respectively. Similarly, Panel~\subref{fig:predep_prs_opened_low_collab_comm_ext_marg_inv0} and Panel~\subref{fig:predep_prs_opened_low_collab_comm_ext_marg_inv1} of Figure~\ref{fig:prs_opened_comm_ext_marg_inv} are analogs of Panel~\subref{fig:predep_prs_opened_low_collab_comm_ext_marg} of Figure~\ref{fig:prs_opened_comm_ext_marg}, except I also condition on organizations with less and more involved departed members, respectively. 
-
-There are two main findings from the set of plots in Figure~\ref{fig:prs_opened_comm_ext_marg_inv}, centered around Panel~\subref{fig:predep_prs_opened_high_collab_comm_ext_marg} and Panel~\subref{fig:predep_prs_opened_high_collab_comm_ext_marg_inv1} . First, the largest post-departure impacts are driven by members who were highly collaborative but not very involved. This occurs irrespective of communication history, as indicated in Panel~\subref{fig:predep_prs_opened_high_collab_comm_ext_marg_inv0}. Second, surprisingly, Panel~\subref{fig:predep_prs_opened_high_collab_comm_ext_marg_inv1} shows that when members are highly collaborative and involved, never having communicated with the departed member is a strength. 
-
-Figure~\ref{fig:prs_opened_comm_int_marg} probes further at these two findings by examining how aggregate outcomes might vary along the intensive margin of communication. In Panel~\subref{fig:predep_prs_opened_high_collab_comm_int_marg_inv0} of Figure~\ref{fig:prs_opened_comm_int_marg}, I subset members based off whether they had \textbf{above average communication intensity with the departed} or \textbf{below average communication intensity with the departed}, as defined in Section~\ref{sec:contr_subset}, conditioning on organizations with highly collaborative and less involved departed members. I find that there is no statistically significant difference in treatment effects between members based off the intensive margin of their communication with the departed. Although there is a visual disparity that suggests increase communication leads to worsened treatment effects, I reject this hypothesis in Panel~\subref{fig:predep_prs_opened_collab_comm_int_marg_inv0_avg2} of Figure~\ref{fig:prs_opened_comm_int_marg} , as I show that if I bin based off having communication history above or below twice the average communication intensity in a organization, the pattern disappears. If this hypothesis were true, we would expect to see increasingly negative treatment effects conditional on having higher communication history. Panel~\subref{fig:predep_prs_opened_high_collab_comm_int_marg_inv1} of Figure~\ref{fig:prs_opened_comm_int_marg} and Panel~\subref{fig:predep_prs_opened_high_collab_comm_int_marg_inv1} of Figure~\ref{fig:prs_opened_comm_int_marg}  display the analogs of Panel~\subref{fig:predep_prs_opened_high_collab_comm_int_marg_inv0} and Panel~\subref{fig:predep_prs_opened_collab_comm_int_marg_inv0_avg2} for organizations with highly collaborative and involved members and find similar results. 
-
-In Figure~\ref{fig:prs_opened_comm_int_marg_avg}, I explore whether effects are driven by changes in either reduced output per member, declines in member count or both. To do this, I use the tools from Section~\ref{sec:outcome_decomp}. Panel~\subref{fig:predep_prs_opened_high_collab_comm_inv0_rep} of Figure~\ref{fig:prs_opened_comm_int_marg_avg} is the same as Panel~\subref{fig:predep_prs_opened_high_collab_comm_ext_marg_inv0} of Figure~\ref{fig:prs_opened_comm_ext_marg_inv}. Panel~\subref{fig:predep_n_avg_prs_opened_high_collab_comm_inv0} of Figure~\ref{fig:prs_opened_comm_int_marg_avg}  plots $\widehat{\mathrm{ATT}}(k)^{\Delta avg}$ from equation~\ref{eq:att_delta_avg} for Panel~\subref{fig:predep_prs_opened_high_collab_comm_inv0_rep}, the counterfactual where I hold member count fixed at the level of $k=-1$. The visual similarity indicates that the negative treatment effect is driven by declines in average pull requests opened per member, as opposed to by reduced member count. I find similar results in Panel~\subref{fig:predep_prs_opened_high_collab_comm_inv1_rep} of  Figure~\ref{fig:prs_opened_comm_int_marg_avg}, which is the analog of Panel~\subref{fig:predep_prs_opened_high_collab_comm_ext_marg_inv1} from Figure~\ref{fig:prs_opened_comm_ext_marg_inv} and in Panel~\subref{fig:predep_n_avg_prs_opened_high_collab_comm_inv1} of  Figure~\ref{fig:prs_opened_comm_int_marg_avg}, which plots $\widehat{\mathrm{ATT}}(k)^{\Delta avg}$ for Panel~\subref{fig:predep_prs_opened_high_collab_comm_inv1_rep}. Thus, the primary mechanism by which a collaborative departing member affects others is to lower individual productivity. There are two reasons to believe past collaboration with the departed member is behind this effect. First, given that new members are able to join the organization and make contributions, it does not appear that the availability of work that can be done in a organization is drying up. Second, the literature tells us that one's productivity might decline if someone knowledgeable or who they rely on leaves, because you might now lack the ability to solve certain problems you used to have the ability to solve via teamwork (\cite{rigby_quantifying_2016}, \cite{jaravel_team-specific_2018}). 
-
-Here are the main takeaways and areas for future exploration. First, I have not observed evidence that explicit collaboration with a highly collaborative departed member, via communication, benefits individual members. Instead, the evidence suggests that communication of any form leads to declines in individual productivity. This effect holds irrespective of the intensity of communication, which suggests that it cannot be due wholly to investments in team-specific capital, as observed in \cite{jaravel_team-specific_2018}. An open question is what characteristics about communication between departed and other members cause individual declining productivity, how these characteristics vary across communication intensity and if there are scenarios where communication does have positive effects that lead to learning. This will provide more insight to the specific implications of collaboration on organizations. 
-
-Second, members who did not communicate with the highly collaborative departed member, specifically those in organizations where the departed member was highly involved. It is not implausible that not having communicated with an impending departed members shields other members from being reliant on someone they cannot rely on soon. That being said, an open question is why this phenomenon is specific to organizations where the departed member is highly involved. Could these "non-communicators" be more effective because they can learn more (from a very involved as opposed to less involved departed member) but avoid being affected by dependency on the departed?
-
-It is also worth noting that these negative effects are observed relative to problems these departed members had previously already worked on independently. That suggests that there might be effects the departed's presence or the presence of collaboration that others are benefiting from (for example, perhaps people are learning from observing others collaborate and using that as a template or guide for their own?) and would be interesting to explore in future work.
-
-\subsection{Other Collaboration}
-We might be concerned that the departed member's collaboration is a function of the overall problem environment which is more conducive to collaboration by everyone and that the results we're observing for departed member collaborativeness are really driven by collaborativeness between other members as well (as defined in Section~\ref{sec:org_level_subset} ). If this was true, I would expect to see similar results to Panel~\subref{fig:all_prs_opened_collab} when I bin by other member collaborativeness. In fact, as shown in Panel~\subref{fig:prs_opened_other} of Figure~\ref{fig:prs_opened_other_fig}, other member collaborativeness has no distinguishable effect on organization outcomes (although I will caution that the estimates for the high other member collaborativeness subset reject the pretrends assumption). 
-
-\subsection{Pre-departure effects of collaboration}
-We have observed that a highly collaborative departed member can negatively affect overall post-departure organization outcomes via reducing individual member productivity. I next examine whether there might be benefits to collaborative departed members in pre-departure periods. By construction, this exercise is descriptive. 
-
-Figure~\ref{fig:tradeoffs} shows the distribution of various organization outcomes by departed member collaborativeness. Organizations with highly collaborative departed members open more pull requests in aggregate and per member. In fact, in organizations with highly collaborative departed members, less contribution and discussion is required per pull requests. Although I cannot determine whether slightly less discussion occurs because highly collaborative departed members are more efficient or because perhaps the problems are easier, it does weaken the concern that collaboration occurs because it is required to tackle more difficult problems, which I would expect to require more contributions per problem. Each PR in a organization with a highly collaborative departed member has more important members involved, slightly less unimportant members and receives more attention and scrutiny via reviews and review comments, which suggests that more attention is being paid via quality control to ensure solutions are correct. Finally, in organizations where the departed member is collaborative, a higher share of work done in each problem is done by important members and problems are resolved more quickly. Each observation is at the organization-time period level. 
-
-That problems are resolved more quickly, despite facing more scrutiny, is an interesting finding. I explore this further in Figure~\ref{fig:close_time_regression}. I find that organizations with more collaborative departed members are able to resolve problems more quickly because typically, organizations with more collaborative departed members have important members take a greater share of the problem solving, and more important members are more efficient. On average, switching a pull request from all unimportant members to all important members would result in a pull request being resolved 226 days faster. 
-\longterm[inline]{autofill}
+In the bottom left corner of each event study plot, I report the p-value of the pre-trend Wald test $\delta_k = 0$ for the 5 plotted pre-periods $k$ (following the suggestion in \citealt{freyaldenhoven_visualization_2021}). 
+Across all organizational outcomes, I fail to reject the null hypothesis that pre-trends do not exist. 
+Moreover, pre-trend coefficients are closest to 0 during the pre-periods closes to the actual treatment date. 
+This is reassuring because I would expect that the unobservable organizational trends that pose the greatest threats to identification are those visible, as pre-trends, in the periods immediately prior to treatment. 
 
 
-% \section{Conclusion} \label{sec:conclusion}
+\subsection{Descriptive Evidence on the Explanatory Power of Organizational Practices} \label{sec:human_event_study}
+In this section, I will provide descriptive evidence that variation in the adoption of organizational practices does explain variation in organizational resilience. 
+To do this, I use a \textit{median splitting rule} to subset organizations based off organizational practice adoption levels $X_i$. 
+The median splitting rule says that for each organizational practice $j$, organization $i$ belongs to the ``low'' adoption subset if adoption level $X_{i,j}$ is below the median value, across all organizations, and the high adoption subset otherwise. 
 
+Figure~\ref{fig:event_study_human} depicts event study estimates of $\hat{\delta}_k$ from estimating Equation~\ref{eq:event_study} separately for the ``high'' and ``low'' subsets of three selected organizational practices: whether organization discussions were positive\footnote{I measure sentiment based off the VADER score from \cite{hutto_vader_2014}, which was specifically designed for sentiment analysis on social media platforms}, whether members of the organization tended to work only on issues, which are discussion-based tasks (as opposed to also working on code-development tasks) and whether organizations assigned assignees to tasks.
+In each event study plot, three p-values are reported. 
+The first two report the p-value of the pre-trend Wald test estimated separately on the ``high'' and ``low'' subsets.
+The last value reports the p-value from a Wald test under the null hypothesis that the post-treatment trajectories of the treatment effect following a key member’s departure are identical between the ``high'' and ``low'' subsets in all post-periods. Formally, define for any event time $k$, the event-time estimates $\hat{\delta}_k^{high},\hat{\delta}_k^{low}$ obtained from estimating Equation~\ref{eq:event_study} and Equation~\ref{eq:event_time} separately on the ``high'' and ``low'' subsets.  
+I then test the joint null hypothesis: 
+\begin{equation} \label{eq:wald}
+H_0\colon \hat{\delta}_k^{high} - \hat{\delta}_k^{low} = 0 \text{ for all $1 \leq k \leq 5$}
+\end{equation}
+
+I find that variation in the adoption of organizational practices has some explanatory power, although the differences in reslience are not large. 
+Moreover, some of the findings contradict my expectations based off the literature.
+Panel 1 of Figure~\ref{fig:event_study_human} is one such surprising finding; organizations where the conversation tended to be less positive were more resilient.
+Panel 2 of Figure~\ref{fig:event_study_human} suggests that organizations where a greater share of members worked only on issues tended to be less resilient.
+This suggests that resilient organizations are those where members have experience across multiple tasks types. 
+Not all organizational practices have explanatory power.
+Panel 3 of Figure~\ref{fig:event_study_human} suggests organizations that tend to adopt a formal system of assigning individuals to tasks do not tend to be systematically more resilient, across most outcomes. 
+
+A flaw with Figure~\ref{fig:event_study_human} is that it only presents a few hypotheses about the impact of adopting organizational practices. 
+Figure~\ref{fig:event_study_att_human} summarizes, for all 37 organizational practices, the difference in the post-period ATT between the ``high'' and ``low'' subset for all four organizational outcomes. 
+I find that for most organizational practices, the difference in the post-period ATT between the ``high'' and ``low'' subset across all  organizational outcomes is not statistically significant. 
+Moreover, even when the difference is statistically significant, the results are typically not consistent across all outcomes or the difference in point estimates is either large and very noisy, or economically small. 
+
+Two assumptions are required to interpret $\hat{\delta}_k^{high}$ and $\hat{\delta}_k^{low}$ (and hence, the ATT's) as causal effects.
+These are that Assumption~\ref{ass:parallel_trends} and Assumption~\ref{ass:no_ant} from Section~\ref{sec:org_resilience} both hold for each of the two subsets.
+A sufficient and stronger condition is that Assumption~\ref{ass:parallel_trends} and Assumption~\ref{ass:no_ant} hold conditional on any vector of organizational practices $X_i$. 
+I will justify the stronger assumptions here; the reason will become apparent in the next section. 
+
+\begin{assumption}[Conditional Parallel Trends]\label{ass:parallel_trends_cond}
+\text{For all time periods $s \neq t$}, 
+\[
+\E[Y_{i,s}^{SD}(\infty) - Y_{i,t}^{SD}(\infty) \mid E_i = e, X_i = x] 
+\quad \text{is the same across all treatment cohorts $e$}
+\]
+\end{assumption}
+\begin{assumption}[Conditional No Anticipation]\label{ass:no_ant_cond}
+\[
+\E[Y_{i,s}^{SD}(\infty) - Y_{i,s}^{SD}\mid E_i = e, X_i = x]  = 0
+\quad \text{for all pre-periods periods $s < Q_i$}
+\]
+\end{assumption}
+$Y_{i,t}^{SD}(e)$ is potential outcomes notation for the outcome of organization $i$ at time $t$ if it is part of treatment cohort $e$. 
+Conditional parallel trends is a strong assumption, but I believe it is plausible for two reasons. 
+First, since abrupt key member departures are driven by major life changes that are not affected by one's participation in OSS development, it seems reasonable to assume that unobservable organizational trends do not affect one's participation decision, even conditional on organizational practices. 
+Second, Assumption~\ref{ass:parallel_trends_cond} might be even more plausible than Assumption~\ref{ass:parallel_trends}, because we control for organizational practices, such as social cohesiveness, that the literature has described as motivating general departures. 
+For the conditional anticipation assumption, while one might expect that organizations with certain characteristics might require longer notice periods, I still find it unlikely that these notice periods would be anywhere close to six months. 
+
+For some subsets in Figure~\ref{fig:event_study_human}, I can reject the null hypothesis that there are no pre-trends. 
+However, even in such cases, the pre-trends tend to trend closer to 0 as event time approaches treatment time. 
+Rejection of the pre-trends test is driven by pre-trends from event times far from treatment time. 
+As discussed in Section~\ref{sec:org_resilience}, I expect the pre-periods closest to treatment time to provide the most information about whether unobservable organizational trends might cause parallel trends violations. 
+
+One conceptual note is that the plausibility of conditional parallel trends is a separate task from understanding whether the effect of adopting certain organizational practices is causal. 
+Whether adoption is causal depends on the underlying reasons for why variation in organizational practice adoption exists. 
+
+\subsection{Flaws of the Median Split Rule}\label{sec:median_split}
+Empirically, Figure~\ref{fig:event_study_att_human} shows that the median split rule from Section~\ref{sec:human_event_study} does not provide conclusive statements about how organizational practices affect organizational resilience. 
+My ability to understand how organizational practices affect organizational resilience using the median split rule is limited for several reasons. I discuss two below. 
+
+First, the median split rule is poorly suited for discovering how organizational practices interact to affect organizational resilience. 
+This is a well-known problem that arises due to the curse of dimensionality.
+The number of possible interactions between organizational practices increases factorially in the number of variables in each interaction.
+Moreover, naively reporting covariates combinations where I observe statistically significant differences across subgroups using the Wald test from Equation~\ref{eq:wald} complicates inference due to multiplicity of testing. 
+Interactions are important because organizations are complex and multiple factors may work in tandem to contribute to their resilience. 
+
+Second, since the median split rule does not use a data-driven approach to subset organizations, some subsets with heterogeneity may be omitted. 
+This is because it is not necessarily true (and likely incorrect) to assume ex-ante that for any given organizational practice, splitting along the median and using two subsets is the best way to model induced heterogeneity in organizational resilience. 
+For example, suppose that organizational resilience is highest for only values at the left and right tail of the adoption distribution for a particular organizational practice. 
+In this case, the Wald test from Equation~\ref{eq:wald} may report that the coefficients for event studies run on the two subsets produced by the median split rule are statistically indistinguishable.
+Assuming based off this that no heterogeneity exists is incorrect; the relationship between adoption of the organizational practice and organizational resilience is just nonlinear. 
+
+These two reasons combined suggest that developing an improved splitting rule may yield dividends. 
+\section{Machine Learning Optimal Splits}
+Conceptually, my goal is to estimate heterogeneous treatment effects. 
+One standard approach for heterogeneous treatment effects estimation is to apply the generalized random forest from \cite{athey_generalized_2019}.
+The generalized random forest estimates heterogeneous treatment effects by adaptively splitting the covariate space to group together observations with comparable treatment effects, before averaging treatment effects within these groups.
+This splitting procedure is done thousands of times, each on a different random subsample of the dataset; the set of splits associated with each random subsample is called a tree (hence the forest moniker). 
+This procedure addresses both flaws discussed in Section~\ref{sec:median_split}, as generalized random forests capture complex interactions and adaptively split the covariate space to group observations based off treatment effect similarity.
+
+However, I cannot apply the generalized random forest out-of-the-box because I am estimating dynamic treatment effects and treatment adoption is staggered. 
+To deal with this, in a separate note, I develop the \textit{generalized random forest event study}.
+\href{https://drive.google.com/file/d/1brRivFrurkeuNHZHLgT_iuaZx_kuhXAz/view?usp=share_link}{\textbf{Liao (Forthcoming)}} shows that estimating heterogeneous treatment effects in event study settings with staggered adoption and unit-invariant covariates is equivalent to estimating a special case of the conditional linear model with binary regressors and panel-data aware propensity scores. 
+The conditional linear model estimator is unbiased and consistent when estimated using generalized random forests (\citealt{athey_generalized_2019}), so the estimated event study heterogeneous treatment effects inherit these desirable properties under assumptions tailored to my panel data setting.
+
+\href{https://drive.google.com/file/d/1brRivFrurkeuNHZHLgT_iuaZx_kuhXAz/view?usp=share_link}{\textbf{Liao (Forthcoming)}} call this procedure the generalized random forest event study. Section~\ref{sec:assumptions_grf_es} provides a brief overview of the model and describes the identifying assumptions. 
+Section~\ref{sec:optimal_split} describes and applies it an improved splitting rule 
+using the generalized random forest event study.
+Section~\ref{sec:policy_tree} uses the generalized random forest event study splits to learn about which organizational practices contribute to organizational resilience. 
+
+\subsection{Applying the Generalized Random Forest Event Study}\label{sec:assumptions_grf_es}
+I model the standardized organizational outcome $Y_{i,t}^{SD}$ as
+\begin{equation}\label{eq:event_study_ml}
+Y_{i,t}^{SD} = \alpha_i + \lambda_t + \sum_{e \neq \infty} \sum_{k \neq -1} \delta_{e, k}(X_i) Z_{i,t}^{e,k} + \varepsilon_{i,t} 
+\end{equation}
+Since my aim is to estimate the local parametric function $\delta_{e,k}(x)$ as opposed to an average treatment effect, in addition to conditional parallel trends and conditional no anticipation, identification requires a conditional independence assumption. 
+I also assume that the regularity conditions from Section 3 of \cite{athey_generalized_2019}  hold. 
+
+\begin{assumption}[Conditional exogeneity]\label{ass:no_confound} For all organizations $(i, j)$ and time periods $(s, t)$
+$$\E[\varepsilon_{i,t} \mid \{X_j\}_{j}, \{Z_{j, s}\}_{(j, s)} ]$$
+\text{ where $Z_{j, s}$ is a vector of $Z_{j, s}^{e, k}$ for all $e\neq \infty$ and $k \neq 1$.}
+\end{assumption}
+I believe this assumption is plausible for two reasons.
+First, each key member's departure is unrelated to underlying organizational trends that would affect organizational outcomes. 
+Moreover, since OSS organizations operate independently, it seems unlikely that the organizational practices or key member departures of one would affect the other. 
+While OSS organizations do exist within the same ecosystem, my model accounts for aggregate shocks, such as temporal changes in Python popularity, via $\lambda_t$. 
+
+One way to make the model in Equation~\ref{eq:event_study_ml} even more flexible is to replace time fixed effects $\lambda_t$ with flexible time-varying functions of covariates $f_t(X_i)$.
+These would represent baseline heterogeneity induced by covariates across time. 
+I think it is unlikely that this more flexible model, which is also more difficult to estimate, would lead to substantial improvements for two reasons. 
+First, since covariates are unit invariant, I already embed a time-invariant notion of baseline heterogeneity induced by covariates via $\alpha_i$, which can be rewritten as $f(X_i)$ without cost.
+Second, I find it unlikely that organizational practices would have systematically different aggregate effects in, for example, 2023 than 2016. 
+
+The procedure I use to estimate the heterogeneous treatment effects $\hat{\delta}_{e,k}(x)$ follows \cite{athey_generalized_2019}.\footnote{I use the default hyperparameters as of version 2.4.0.}
+As discussed in \href{https://drive.google.com/file/d/1brRivFrurkeuNHZHLgT_iuaZx_kuhXAz/view?usp=share_link}{\textbf{Liao (Forthcoming)}}, I use panel-aware propensity scores in the estimation.
+I estimate the model using a $k$-fold procedure. 
+$k-1$ folds of the data are used to train the model.
+I then use the trained model to estimate $\hat{\delta}_{e,k}(x)$ for the hold-out fold. 
+This is done $k$ times, on the $k$ different possible splits. 
+Using a $k-$fold procedure ensures that small biases from the outcome and propensity score models used for estimation will not affect $\hat{\delta}_{e,k}(x)$.
+For each organization's cohort-event time estimates $\hat{\delta}_{e,k}(X_i)$, I calculate the doubly robust equivalent  $\hat{\psi}_{e, k}(X_i)$ using the same $k$-fold procedure and panel-aware propensity scores. 
+I adapt \cite{uysal_dr_2015}, who describe propensity scores estimation with multivalued treatments, for my setting with staggered treatments. 
+For each organization, I then calculate the doubly robust post-period treatment effect, 
+\begin{equation}\label{eq:doubly_robust}
+    \hat{\psi}(X_i) = \frac{1}{5} \sum_{k >0}^{5} \hat{\psi}_{e, k}(X_i)
+\end{equation}
+
+\subsection{The Optimal Split Rule}\label{sec:optimal_split}
+
+To assess whether organizational practices affect organizational resilience, I define the \textit{optimal split rule} to subset organizations into ``high'' and ``low'' resilience subsets. 
+Using just the standardized pull requests merged outcome, I estimate the treatment cohort event time heterogeneous treatment effect $\hat{\delta}_{e, k}(X_i)$.
+I then transform it into the doubly robust post-period treatment effect $\hat{\psi}(X_i)$. 
+Organizations are classified into the ``low'' resilience subset when $\hat{\psi}(X_i)$ is below the median value across all organizations, and the ``high'' resilience subset otherwise. 
+I use the doubly robust scores rather than the heterogeneous treatment effect estimates $\hat{\delta}_{e,k}(x)$ because they are robust to either outcome or treatment propensity model misspecification. 
+
+Figure~\ref{fig:event_study_optimal} depicts estimates of Equation~\ref{eq:event_study} estimated separately on the ``high'' and ``low'' subsets determined using the optimal split rule. 
+I find that organizational resilience does vary substantially based on pre-departure organizational practices. 
+The difference is both statistically significant and economically large. 
+On average, across all 5 post-periods, the difference between the number of pull requests opened (merged) by organizations in the ``high'' versus ``low'' resilience subset is 1.998 (2.019) standard deviations.
+On average, across all 5 post-periods, the difference between the number of new (major and minor) software releases by organizations in the ``high'' versus ``low'' resilience subset is 1.144 (0.680) standard deviations.
+Since the heterogeneous treatment effects used for classification are hold-out fold predictions, we know organizational practices actually have explanatory power and are not fitting to training-sample noise. 
+As a consequence of splitting on doubly robust scores from an estimation that only uses pull requests merged, the ``high'' and ``low'' subsets are the same in all plots, so the same organizational practices induce resilience across many outcomes. 
+
+One concern with Figure~\ref{fig:event_study_optimal} is that in the event study plots using pull-request activity as an outcome, I observe statistically significant pre-trends. 
+These pre-trends are concerning for two reasons.
+First, they are statistically significant in the pre-periods close to the departure.
+Second, they suggest that pre-departure, organizations in the ``high'' (``low'') subset that eventually experience departure are more (``less'') productive that their never-treated counterparts. 
+This suggests that the magnitude of the treatment effects is biased upwards, the treatment effect likely includes both the causal effect of the departure, and the unobservable trend affecting the organization's outcomes. as observed in Panel~\ref{fig:event_study_prs_merged_optimal}.
+Although the pre-trend magnitudes are much smaller in magnitude than the actual difference in effects and do not follow any perceptible upwards or downwards trend, future work should consider adopting methods from \cite{rambachan_pt_2022} to perform robust inference under parallel trends assumption violations. 
+
+
+\subsection{Identifying Organizational Practices that Matter} \label{sec:policy_tree}
+\subsubsection{The Policy Tree Split Rule}
+While Figure~\ref{fig:event_study_optimal} illustrates that organizational practices do explain substantial variation in organizational resilience, the second goal of the paper, which is what practices matter most, remains unanswered. 
+The vast difference observed in Figure~\ref{fig:event_study_optimal} (in contrast to the results in Figure~\ref{fig:event_study_att_human}) suggests that interactions and potential nonlinearities between covariates matter. 
+Widely-used interpretability approaches for forest-based methods such as the SHAP value or reporting what \% of trees use an organizational practice when splitting, are limited in their ability to describe interactions of importance. 
+Instead, in this section, I use a \textit{policy tree} (\citealt{athey_policy_2021}) to provide a lower-dimensional summary of the \textit{generalized random forest event study}. 
+
+
+Given a pre-specified tree depth $k$, the policy tree identifies the mapping $\pi(X_i) $ that maps organizational practices to either a low or high resilience subset by solving the following
+\begin{equation}
+\pi^*=\arg\max_{\pi\in\Pi_k};\frac{1}{n}\sum_{i=1}^n \Gamma_i\big(\pi(X_i)\big).
+\end{equation}
+$\Gamma_i (\cdot)\in\mathbb R^2$ denotes the organization-level reward vector for assigning that unit to the ``low'' or ``high'' resilience subset. 
+
+The policy tree determines $\pi^*$ by partitioning the space of organizational practices via individual organizational practice splits; the number of candidate partitions grows with the number of features and with tree depth $k$.
+I call the policy tree's assignments the \textit{policy tree split rule}.
+I specify that the reward $\Gamma_i(x_i)$ is the doubly robust estimate of the post-period treatment effect $\hat{\psi}(X_i)$ if the organization is classified as belonging to the ``high'' subset, and 0 if classified into the ``low'' subset. 
+Although the policy tree is limited by only being able to use up to $2^{k}-1$ covariates, it is not required to have a balanced ``high'' and ``low'' subset, unlike the previous rules which split along the median of a distribution. 
+
+\subsubsection{Applying the Policy Tree Split Rule}
+I will first show how the policy tree performs in a k-fold estimation procedure. 
+I will then train a policy tree on the full sample to show how the policy split rule's decision process. 
+
+Panel~\ref{fig:event_study_policy_tree} depicts estimates of Equation~\ref{eq:event_study} for the ``low'' and ``high'' resilience subset, as determined by the policy tree split rule, for trees of depth 1, 2, and 3. 
+Recall again that across all outcomes, the doubly robust post-period treatment effects used to determine the splits are estimated using just one outcome: pull requests merged. 
+Panel 1 of Figure~\ref{fig:event_study_policy_tree} shows that when we deviate from splitting along the median, splitting along one organizational practice can still identify meaningful variation in organizational resilience. 
+The difference in average post-period treatment effects for the high vs. low resilience subset is statistically significant for all outcomes except the number of major and minor software releases.
+Although substantially smaller than differences observed in Figure~\ref{fig:event_study_optimal}, the differences are still economically meaningful for pull-request related activity. In standard deviations, the ``high''-``low'' differences are 0.855 for pull requests opened, 0.662 for pull requests merged, 0.225 for new software releases and 0.313 for major and minor software releases. 
+
+Panel 2 of Figure~\ref{fig:event_study_policy_tree} shows that using two organizational practices can improve the difference in performance. 
+The differences are both economically meaningful and statistically significant for all outcomes except for major and minor software releases. In standard deviations, the ``high''-``low'' differences are 0.953 for pull requests opened, 0.795 for pull requests merged, 0.674 for new software releases and 0.217 for major and minor software releases. 
+Panel 3 of Figure~\ref{fig:event_study_policy_tree} shows that the policy tree split is likely overfitting to noise in the data when using 3 layers, as differences between the ``high'' and ``low'' resilience subsets are statistically insignificant. 
+
+Figure~\ref{fig:policy_tree} depicts the organizational practices that the policy tree identifies as distinguishing more and less resilient organizations.
+The 1-layer policy tree shows that organizations with a high text \textit{similarity ratios} are more resilient. 
+This measure proxies for the level of overlapping expertise between members. 
+In the tree with 2 layers, I find that organizations with both high text similarity ratios and high \textit{overall sentiment} are resilient. 
+An organization's overall sentiment is higher when conversations in the organization tend to be more positive. 
+I also find that organizations with low overall sentiment, and no \textit{contributing guide} to initiate newcomers, are resilient. 
+This latter result is quite surprising, as both of these practices contribute to a more insular and unwelcoming project, which the literature does not find to contribute to organizational resilience. 
+One potential explanation is that newcomers, who have less experience, may actually worsen a project that is already suffering from a departure. 
+Taken together, these results suggest that while some of the literature's proposed organizational practices, such as knowledge redundancy and positive communication, do strengthen resilience, there are also resilient organizations that deviate substantially from these recommendations. 
+
+\section{Conclusion}
+I develop measures of organizational resilience and practice using detailed activity-level data on open source software projects.
+I show, via a novel method combining event study and heterogeneous treatment effect estimation, that differences in organizational practices explain substantial variation in organizational resilience. 
+Some of the literature's hypotheses on what makes an organization resilience are supported and some are rejected. 
+
+There are many interesting directions for future research.
+I can expand the set of organizational practices to include data on code changes and characteristics of important project members, and the set of organizational outcomes to include software release characteristics such as quality, security and usage. 
+I can enrich the analysis by shining light on how organizational practices contribute to resilience and whether the adoption of organizational practices includes tradeoffs.
+I can strengthen the plausibility of identifying assumptions by providing empirical evidence on the circumstances surrounding abrupt departures, such as whether they coincide with job transitions or graduation, and whether they co-occur with confounding organizational changes or circumstances such as a large reorganization or having just met a major milestone. 
 
 \newpage
-\todo[inline]{Check bibliography}
-\printbibliography[title={References}]
+\input{source/paper/tables/knowledge_redundancy}
+\newpage
+\input{source/paper/tables/talent_investment}
+\newpage
+\input{source/paper/tables/organizational_routines}
+\input{source/figures/event_study}
+\input{source/figures/event_study_human}
+\input{source/figures/event_study_human_att}
+\input{source/figures/event_study_optimal}
+\input{source/figures/event_study_policy}
+\input{source/figures/policy_tree}
 
-\input{source/paper/figures/dask_github_explainer}
-\input{source/paper/tables/summary_stats}
+\clearpage
+\bibliographystyle{source/paper/aea}
+\bibliography{source/paper/references}
 
-\input{source/paper/figures/prs_opened}
-\input{source/paper/figures/prs_opened_join_date}
-\input{source/paper/figures/prs_opened_more_imp}
-\input{source/paper/figures/prs_opened_comm}
-\input{source/paper/figures/prs_opened_comm_inv}
-\input{source/paper/figures/prs_opened_comm_int_marg}
-\input{source/paper/figures/prs_opened_comm_avg}
-\input{source/paper/figures/prs_opened_other}
-\input{source/paper/figures/collab_predep_outcomes}
-\input{source/paper/tables/collab_regression_table}
 
 \clearpage
 \onehalfspacing
+\appendix
+\renewcommand{\thesection}{\Alph{section}}
+\renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
+\section{Additional Details on Data Construction}\label{sec:app_data}
+\todo[inline]{I really don't like the wording here but fine to leave as is}
+The social network for each organization in a given time period is constructed from all discussion threads that occurred within that six month period. Each discussion thread corresponds to a distinct conversational space on GitHub. There are three types of discussion threads: an *issue thread* (an issue post and its comments), a *pull request thread* (a pull request post and subsequent pull request comments), or a *pull request review thread* (a pull request post and the review comments attached to specific code lines). Within each thread, comments are ordered chronologically, with the first comment representing the opening post that initiates the discussion. For every subsequent comment, I identify the most recent prior comment made by a different contributor and treat this as a directed interaction from the current commenter (sender) to that prior participant (receiver). If the comment occurs in a review thread and is the first review comment, it is treated as a reply to the pull request opener. This procedure ensures that interactions represent meaningful exchanges between distinct contributors rather than self-replies or system events. Actor identifiers are standardized by converting all numeric and string IDs to a canonical string format, and duplicate comment records are removed to avoid inflating edge counts.
 
-\section*{Appendix (Future goals)}\label{sec:appendixa}
-\subsection{Questiosn for Jesse}
-\begin{enumerate}
-\item Do you see an obvious place for a model. See below for old model notes
-\iffalse
-Model of hierarchy incorporates cooperation and communication as key features of the hierarchy that affect downstream organization outcomes. However, I take these for granted and irl, communication and cooperation can't be taken for granted
-\begin{enumerate}
-\item Extent of communication 
-\item Degree of cooperation, overlap (clustering)
-\end{enumerate}
+These pairwise interactions are then aggregated into undirected, weighted graphs for each time period. Each node represents a unique contributor active during that window, and an undirected edge connects two contributors if at least one interaction occurred between them in either direction. The edge weight equals the total number of interactions recorded between the pair in that period, capturing the intensity of their conversational exchange. 
 
-Existing theory tells us how organizations adapt their organizational structure and strategy in response to external shocks. However, it doesn't tell us how that adaption depends on existing organizational structure. One example: communication is an integral part of how an organization solves problems, but I don't model how it occurs. Moreover, communication itself also has pros and cons - does it have a positive effect by sharing knowledge or negative effect by creating reliance and thus inhibiting learning?
-
-% See https://www.sciencedirect.com/science/article/abs/pii/S0268401217310095 for a survey of current work
-- Doesn't try to separate relationship between structure and departures
-- Does not consider the complementarity of organizational structure 
-- Research on impact of organizational structures only provides suggestive evidence on the mechanism by which organizational structures have impacts. 
-- The focus of research has been on codebase related outcomes or "organization survival" as opposed to more relevant outcomes such as usage. 
-\fi 
-\end{enumerate}
-
-\subsection{Improvements}
-\begin{enumerate}
-\item Can I implement the bin scatter with downstream outcomes such as downloads, releases and software quality. Can I also explore other OSS activities such as discussions, forks
-\item Does teamwork lead to increased specialization or exposure to a broader range of tasks?
-\item Can I implement random forest that helps with 1) discovering what mitigates departure impact, 2) Analyzing heteorgeneity in treatment effects more smoothly and 3) what differentiates collaborative and uncollaborative organizations
-\item Can I show that I'm actually only getting "one" departure by showing that organizations are close to the start of their lifetime? 
-\item Try to justify the plausibility of collaboration more by showing that organizations are observably similar to organizations with uncollaborative departed members. Example factors include organization age at departure time, Forks, stars, departure date, \textbf{think of other things as well}
-\end{enumerate}
-
-
-\begin{itemize}
-\item Appendix: How I map PyPi organizations to github repositories
-\item Appendix: How I match repo names to repo ids in cases where identity changes
-\item Appendix: How are commits measured and deal with the fact that push and PR commits can be overlapping? 
-\item Appendix: Robustness to 3 month measurements (if necessary)
-\end{itemize}
-\subsubsection{Defining the set of problems (the linking process)}
-\begin{enumerate}
-\item First construct a mapping between issues + PRs. This helps create a dataset of "problems" that organizations address
-\begin{itemize}
-\item Three problem types: unlinked issues, unlinked PRs, linked
-\item Construct linkage using the following criteria
-\begin{enumerate}
-\item Use the provided link.
-\item For each remaining unlinked issue/PR, find a counterpart that mutually references it and choose the closest number.
-\item If no mutual reference exists, find any one-way reference and choose the closest number
-\end{enumerate}
-\end{itemize}
-\item Only keep organizations that have at least two important members in all pre-treatment periods (henceforth known as pre periods)
-\end{enumerate}
-\subsection{If this comes up, define other outcomes}
-
+\section{List of todos (unordered)}
+My aim is to organize these into an ordered list of todos
 
 \begin{enumerate}
-\item Measurement of downstream outcomes - the deifne the ones that I end up using. 
-\item Describe software releases, the various types and measurement
-\item Define software quality (security measure, not user experience based)
-\item Downloads
-\end{enumerate}
-
-\todo[inline]{Should I characterize the intensive vs. extensive margin?}
-$\bar Y_{k}^{!0} $ is average outcome among only individuals whose individual outcome exceeded 0 in period $k$. Let $p_k^{!0}$ be the proportion of individuals in period $k$ whose individual outcome exceeds 0. 
-\begin{align*}
-\mathbb{E}\!\left[\frac{(\bar Y_k - \bar Y_{-1}) }{\sigma_Y} \Big| T=1\right] &= \mathbb{E}\!\left[\frac{ \bar Y_{k}^{!0}p_k^{!0} - \bar Y_{-1}^{!0} p_{-1}^{!0} }{\sigma_Y} \Big| T=1\right] \\
-&=\mathbb{E}\!\left[\frac{ \barY_{k}^{!0}p_k^{!0} - \barY_{k}^{!0} p_{-1}^{!0} +\bar Y_{k}^{!0}p_{-1}^{!0}-\bar Y_{-1}^{!0}p_{-1}^{!0} }{\sigma_Y} \Big| T=1\right] \\
-&=\mathbb{E}\!\left[\frac{ \barY_{k}^{!0} \left(p_k^{!0} -p_{-1}^{!0}\right) +\left( \barY_{k}^{!0}- \bar Y_{-1}^{!0} \right)p_{-1}^{!0}}{\sigma_Y} \Big| T=1\right] 
-\end{align*}
-
-\todo[inline]{Estimate, ideally it's mostly intensive not extensive margin}
-
-\subsection{Aspirational To Dos for data section }
-\begin{enumerate}
-\item Read this\href{https://pubs.aeaweb.org/doi/pdfplus/10.1257/jep.36.3.211}{paper} in order to understand how to motivate the paper using descriptive statistics
-\item Provide insight into what a organization is like, such as
-\begin{itemize}
-\item What are churn rates like among both hierarchies?
-\item Provide estimates of data coverage at a organization level 
-\end{itemize}
-\item Add reference to showing that results are not sensitive to changes in parameters/if they are, justify why mine is reasonable 
-\end{enumerate}
-
-\todo[inline]{\href{https://www.jonathandroth.com/assets/files/roth_pretrends_testing.pdf}{Check Roth for pretrends testing}}
-\todo[inline]{Rule out the easy confounders/explanations first before dividing into more interesting explanations}
-What I'm hoping to establish next is whether/the degree to which the decline in PRs is mechanical
-
-\textbf{Can I turn these into robustness checks?}
-\begin{enumerate}
-\item Am I confounding the effect of how collaborative the departed member is with how important/involved the departed member is? 
-\todo[inline]{Explain that because the denominator on departed member involvement is the \# of questions the departed is involved in, there's no mechanical relationship between departed member involvement and collaboration}
-\todo[inline]{Examine what happens when I split by departed member importance. I can do this by calculating departed involvement as the proportion of problems they're involved in, and comparing event study results for the more/less involved bins x collaboration. I should also examine how things vary by more/less involved bins. I expect there to be a difference based off the more/less involved bins - I don't know what I will see when I interact collaboration with the results. }
-\textcolor{blue}{Note: calculations done, called "departed\_involved\_2bin"}
-\item How does collaborative score vary by 
-\begin{enumerate}
-\item important member count \textcolor{blue}{"key\_member\_count\_2bin"}
-\item Total member count \textcolor{blue}{"total\_member\_count\_2bin"}
-\item Problem count \textcolor{blue}{"problem\_count\_2bin"}
-\end{enumerate}
-and how do each of the factors above interact with collaborative score in determining the outcome? For the last two consider how size is related to the proportion/count difference. 
-\todo[inline]{Execute the task above. Definitions should be straightforward}
-\item What is the effect of collaboration among other members (No effect). Might the presence of prior collaboration among other members have an effect depending on how collaborative the departed member was? 
-\todo[inline]{Describe in more detail results for other collaboration}
-\todo[inline]{Execute the task above. One hypothesis is that other collaboration is only helpful when the departed member was collaborative and task allocation is required. This is because other departed members now need to reallocate what tasks they are working on to account for the departed's loss, but this reallocation only happens if there's collaboration with the deprated $\iff $ responsibiltiies can easily be reallocated}
-\item Departed members can affect whether PRs are opened in two ways: By opening PRs themselves/authoring the majority of the commits involved in the PR, or by contributing to discussion that leads to PRs being opened. Can I identify how active departed members are in each and see
-\begin{enumerate}
-\item Whether the discussion mechanism has any effect on post-departure outcomes
-\item How both factors interact with collaboration (Expect collaboration to interact with discussion in more interesting ways)
-\end{enumerate}
-\todo[inline]{Execute the above. 1) Does the effect of departed involvement change when I also vary by PR opening intensity (test 2 variations of opening PRs: one that excludes non-opening/commit involvement in PRS and one that does), 2) How does collaboration interact with PR opening intensity to affect outcomes, 3) What's the best way to loop departed involvement in as well - answer will be easier after I know 1}
-\textcolor{blue}{Note: Calculated prop of PRs opened/authored by departed, out of all the author is involved in. Note that the denominator is all PRs implemented by the departed not all PRs implemented by the organization. If I had the denominator be total problems, I wouldn't be able to differentiate, holding departed involvement constant, organizations with high/low departed involvement because then the lower bound of departed PR opening would be mechanically increasing in departed PR involvement}
-\textbf{complicated}
+    \item Use microdata on OSS organizations and members to directly show how the organizational practices in the lower-dimensional rule contribute to or detract from organizational resilience. 
+    \item Incorporate a Case study on a few organizations and how they responded
+    \item Figure out how much of the data is captured by the torrent and perform a validation exercise (\href{https://GitHub.com/igrigorik/gharchive.org/issues/290\#issuecomment-1923017346}{one of a few known reported data outages}).
+    \item I still wonder if visuals of GitHub would help illuminate things. MY data is a strength but I'm not showing any of it
+    \item For each measurement and data construction piece, make sure bots are excluded in the code and make that clear in the text
+    \item See if there's a way I can leverage the fact that I know whose departing and use that to motivate organizational practices
+    \item Focus on investment in talent or communication with non-key members
+    \item Is there a way I can dynamically examine CODEOWNERS (ie: are people being removed when they should be???)
+    \item It would be nice if the organizational routines I'm considering focus more on disaster preparation as opposed to just ordinary problem solving routines. 
+    \item Autofill key numbers
+    \item What are ways I can test no anticipation???
+    \item Why do PRs decline more than releases?
+    \item Separate event studies for each subgroup in the 2... 
+    \item Test 3 treatments: neutral, low and high. 
+    \item Can I show that I'm actually only getting "one" departure by showing it's unlikely organizations were affected by departures in their pre-period?
+    \item Can I use more granular time periods
+    \item Summary statistics: average outcomes, number of periods, Average \# of members, Facts abt the departed, Picture of a graph
+    \item Read this\href{https://pubs.aeaweb.org/doi/pdfplus/10.1257/jep.36.3.211}{paper} in order to understand how to motivate the paper using descriptive statistics
+    \item \longterm[inline]{Once I get the WRDS access, see if I can incorporate the picture of the ES graph of corporate departues for my chosen specification and subset to the main subset of organizations I'm using? Highlights how many of these are corporate related}
+    \item \longterm[inline]{\textbf{Show this is true}: Abrupt departures aren't associated with changes in demand for the departed member's services - the number of issues opened, forks, stars and downloads are still increasing.  Moreover, the departure date is unrelated to the proximity to major software releases/updates}
+    \item  \longterm[inline]{Can I show that organizational characteristics that might lead to dissatisfaction/change aren't the driving reason for departure/aren't systematically changing in a way that would explain their departure? For example, I don't see declines or increases in member count prior to their departure (signalling broad organizational changes) or changes in the distribution of communication z score/important members (which also suggests changes in how people are communicating/working) or in the sentiment of their communications (are they getting burnt out?)}
+    \item knowledge redundancy table: Problem-level HHI should include opening issue/comment?
+    \item knowledge redundancy table: Average unique types should aggregate review comments and reviews — maybe all activities should.
 
 
-\item Mass departures in collaborative organizations, is there a systematic proximity to release in either
 
-\item There's a persistent (and a decrease) in PRs opened over time, so it's not just that organizations have been abandoned. What's driving this? Are people able to somewhat wrap up problems that the departed was involved in?
-\item \textbf{What is their role as a collaborator?}
+
 
 \end{enumerate}
 
-\textbf{Robustness}
-\begin{enumerate}
-\item What do development related characteristics look like prior to departure? I'm trying to see if I can provide quantitative evidence of "no anticipation" in that behavior across a wide range of measures is unchanged
-\end{enumerate}
+\section{How I map PyPi organizations to GitHub repositories}
 
-\todo[inline]{Other thought (NEED TO THINK ABOUT HOW THIS RELATES TO PAPER THEME): Are these problems still subject to the same level of review (unchanged quantity of pr review comments per PR) post-departure?}
-
-\textbf{Other ways of splitting the data}
-\begin{enumerate}
-\item How does the effect of fast vs. slow communication affect the effect of collaboration
-\end{enumerate}
-\textbf{Other outcomes to consider}
-\begin{itemize}
-\item Are they linking issues to PRs at higher rates or closing issues at lower rates?
-\item D\textbf{oes their language evolve to be more similar to the departed's?}
-\item Do they solve problems that are outside of their realm (using issue tags or language similarity)?
-\end{itemize}
+\section{How I match repo names to repo ids in cases where identity changes}
 
 \end{document}
