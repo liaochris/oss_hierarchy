@@ -123,7 +123,7 @@ main <- function() {
       
       for (practice_mode in org_practice_modes) {
         covar <- practice_mode$continuous_covariate
-        base_df <-  get(outcome_mode$data)
+        base_df <- get(outcome_mode$data)
         rolling_period <- as.numeric(str_extract(rolling_panel, "\\d+$"))
         
         if (rolling_period == 1) {
@@ -263,14 +263,14 @@ main <- function() {
         mutate(event_time = as.numeric(event_time),
                covar = ifelse(is.na(covar), "", covar),
                split_value = ifelse(is.na(split_value), "", split_value))
-      SaveData(coeffs_df, 
+      SaveData(coeffs_df,
                c("dataset","rolling",
                  "category","outcome","normalize","method","covar","split_value", "event_time"),
                file.path(outdir_dataset,  paste0("all_coefficients","_",rolling_panel,".csv")),
                file.path(outdir_dataset,  paste0("all_coefficients","_",rolling_panel,".log")),
                sortbykey = FALSE)
       
-      SaveData(df_bin_change, 
+      SaveData(df_bin_change,
                c("covar","dataset","rolling","past_periods"),
                file.path(outdir_dataset, paste0("bin_change","_",rolling_panel,".csv")),
                file.path(outdir_dataset, paste0("bin_change","_",rolling_panel,".log")),
@@ -309,7 +309,7 @@ main <- function() {
                                       point_alpha = 0.6,
                                       width = 10,
                                       height = 8)
-      
+      }
       
       #######################################
       # Combine PNGs into one PDF (per rolling period)
@@ -332,9 +332,9 @@ main <- function() {
         }
       }
       dev.off()
-    }
-  }
-}
+    } # end rolling_panel for
+  } # end dataset for
+} # end main
 
 # run main
 main()

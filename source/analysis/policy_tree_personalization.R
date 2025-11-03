@@ -151,8 +151,9 @@ RunEventStudyAndCollect <- function(base_df, df_bins, practice_mode, outcome_mod
         title_suffix <- paste0("\nSample: ", practice_mode$legend_title)
         do.call(CompareES, list(es_list,
                                 legend_labels = labels,
-                                legend_title  = practice_mode$legend_title,
-                                title = paste(outcome_mode$outcome, rolling_label, title_suffix)))
+                                legend_title  = NULL,
+                                title = "",
+                                ylim = c(-3, 1.5)))
         dev.off()
         
         png_collector <- c(png_collector, out_path)
@@ -214,7 +215,7 @@ main <- function() {
       for (rolling_panel in c("rolling5")) {
         rolling_period <- as.numeric(str_extract(rolling_panel, "\\d+$"))
         rolling_panel_imp <- ifelse(use_imp, paste0(rolling_panel, "_imp"), rolling_panel)
-        for (method in c("lm_forest", "lm_forest_nonlinear")) {
+        for (method in c("lm_forest_nonlinear", "lm_forest")) {
           message("Processing dataset: ", dataset, " (", rolling_panel, ")")
           outdir_dataset <- file.path(OUTDIR, dataset)
           dir_create(outdir_dataset, recurse = TRUE)
@@ -305,7 +306,7 @@ main <- function() {
                   continuous_covariate = paste0("policy_tree_group_", tag_val),
                   filters = list(list(col = paste0("policy_tree_group_", tag_val), vals = c(1, 0))),
                   legend_labels = c("High", "Low"),
-                  legend_title = paste0("by Policy Tree (", tag_val, ") for ", split_var, " on ", estimation_type, " estimates"),
+                  legend_title = NULL, 
                   control_group = control_group,
                   data = paste0("df_panel_", control_group),
                   folder = file.path("output/analysis/event_study_personalization", dataset, rolling_panel_imp,
@@ -347,7 +348,7 @@ main <- function() {
                   continuous_covariate = paste0("policy_tree_group_kfold_", tag_val),
                   filters = list(list(col = paste0("policy_tree_group_kfold_", tag_val), vals = c(1, 0))),
                   legend_labels = c("High", "Low"),
-                  legend_title = paste0("by Kfold policy tree (OOF, ", tag_val, ") for ", split_mode$outcome),
+                  legend_title = NULL, 
                   control_group = control_group,
                   data = paste0("df_panel_", control_group),
                   folder = file.path("output/analysis/event_study_personalization", dataset, rolling_panel_imp,

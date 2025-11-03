@@ -143,8 +143,9 @@ main <- function() {
                       title_suffix <- paste0("\nSample: ", num_qualified_label, ", What method: ", What_estimation_label)
                       do.call(CompareES, list(es_list,
                                               legend_labels = labels,
-                                              legend_title  = practice_mode$legend_title,
-                                              title = paste(outcome_mode$outcome, rolling_panel_imp, title_suffix)))
+                                              legend_title  = NULL,
+                                              title = "",
+                                              ylim = c(-4, 2)))
                       dev.off()
                       
                       # record creation order immediately (so final PDF follows this chronological order)

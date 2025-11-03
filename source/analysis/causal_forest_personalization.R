@@ -251,7 +251,8 @@ CalculateDoublyRobustHold <- function(model_fold, outcome_model_fold, treatment_
 }
 
 
-FitAndPredictBaselineFold <- function(df_data, keep_names, fold_id, time_levels, marg_dist_treatment_group, outdir_ds, method, outcome, num_trees = 200) {
+FitAndPredictBaselineFold <- function(df_data, keep_names, fold_id, time_levels, marg_dist_treatment_group, outdir_ds, 
+                                      method, outcome, num_trees = 2000) {
   df_fold <- df_data %>% filter(fold != fold_id)
   df_hold_out <- df_data %>% filter(fold == fold_id)
   x_hold_out <- df_hold_out %>% select(all_of(keep_names))
@@ -264,7 +265,8 @@ FitAndPredictBaselineFold <- function(df_data, keep_names, fold_id, time_levels,
   W_nt <- BuildTimeInvariantIndicator(df_panel_nt)
   W_hat <- BuildWHatForBaselineHeterogeneity(W_nt, df_panel_nt, marg_dist_treatment_group)
   
-  model <- lm_forest(x_nt, y_nt, W_nt, num.trees = num_trees, W.hat = W_hat, clusters = df_panel_nt$repo_id)
+  #model <- lm_forest(x_nt, y_nt, W_nt, num.trees = num_trees, W.hat = W_hat, clusters = df_panel_nt$repo_id)
+  model <- lm_forest(x_nt, y_nt, W_nt, num.trees = num_trees, clusters = df_panel_nt$repo_id)
   
   dir_baseline <- file.path(outdir_ds, "baseline_heterogeneity")
   dir_create(dir_baseline)
@@ -290,14 +292,16 @@ FitAndPredictBaselineFold <- function(df_data, keep_names, fold_id, time_levels,
   list(hold_idx = hold_idx, time_vals = pred_time_vals, quasi_vals = pred_quasi_vals)
 }
 
-RunBaselineHeterogeneityCrossFit <- function(df_data, keep_names, marg_dist_treatment_group, outdir_ds, method, outcome, n_folds = 10, num_trees = 2000) {
+RunBaselineHeterogeneityCrossFit <- function(df_data, keep_names, marg_dist_treatment_group, outdir_ds, method, outcome,
+                                             n_folds = 10, num_trees = 2000) {
   time_levels <- sort(unique(df_data$time_index))
   n_obs <- nrow(df_data)
   time_baseline_all <- numeric(n_obs)
   norm_period_baseline_all <- numeric(n_obs)
   
   for (fold_id in seq_len(n_folds)) {
-    res <- FitAndPredictBaselineFold(df_data, keep_names, fold_id, time_levels, marg_dist_treatment_group, outdir_ds, method, outcome, num_trees = num_trees)
+    res <- FitAndPredictBaselineFold(df_data, keep_names, fold_id, time_levels, marg_dist_treatment_group, outdir_ds, 
+                                     method, outcome, num_trees = num_trees)
     if (length(res$hold_idx)) {
       time_baseline_all[res$hold_idx] <- res$time_vals
       norm_period_baseline_all[res$hold_idx] <- res$quasi_vals
@@ -423,7 +427,7 @@ CalculateDoublyRobust <- function(model, df_data) {
 ########## New: CalculateDoublyRobustHold defined above (per-fold DR) ##########
 
 RunForestEventStudy_CrossFit <- function(
-    outcome, df_panel_common, org_practice_modes, outdir, outdir_ds, method, rolling_period, 
+    outcome, df_panel_common, org_practice_modes, outdir, outdir_ds, method, rolling_period, marg_dist_treatment_group,
     n_folds = 10, seed = SEED, use_existing = FALSE, use_default_What = FALSE, use_nuclear_What = FALSE,
     use_imp = FALSE) {
   message("Cross-fit (no plotting) for outcome=", outcome, " method=", method, " rolling=", rolling_period, " folds=", n_folds)
@@ -434,8 +438,8 @@ RunForestEventStudy_CrossFit <- function(
   
   df_data <- CreateDataPanel(df_panel_common, method, outcome, c(covars, covars_imp), rolling_period, n_folds, seed)
   df_repo_data <- df_data %>% select(repo_id, repo_name, quasi_treatment_group, treatment_group) %>% unique()
-  marg_dist_treatment_group <- QuasiTreatmentGroupFirstDateMarginalDistribution(df_data)
-  if (use_imp) {
+
+    if (use_imp) {
     keep_names <- c(paste0(covars, "_mean"), paste0(covars_imp, "_mean"))
   } else {
     keep_names <- paste0(covars, "_mean")
@@ -446,7 +450,7 @@ RunForestEventStudy_CrossFit <- function(
   if (method == "lm_forest_nonlinear") {
     df_data <- RunBaselineHeterogeneityCrossFit(
       df_data, keep_names, marg_dist_treatment_group, outdir_ds, method, outcome,
-      n_folds = 10, num_trees = 500)
+      n_folds = 10, num_trees = 2000)
   }
   
   y <- df_data$resid_outcome
@@ -578,7 +582,7 @@ org_practice_cfg <- yaml.load_file(file.path(INDIR_YAML, "covariate_organization
 #  "important_topk", ,"important_topk_oneQual", "important_thresh","important_thresh_oneQual"
 #  "important_thresh_exact1", "important_topk_cons5_exact1"
 for (variant in c("important_topk_exact1")) {
-  for (use_imp in c(TRUE, FALSE)) {
+  for (use_imp in c(FALSE)) {
     for (rolling_panel in c("rolling5")) {
       panel_variant <- gsub("_exact1", "", variant)
       panel_variant <- gsub("_nuclearWhat", "", panel_variant)
@@ -590,6 +594,8 @@ for (variant in c("important_topk_exact1")) {
       rolling_panel_imp <- paste0(rolling_panel, use_imp_suffix)
       outdir_ds <- file.path(OUTDIR_DATASTORE, variant, rolling_panel_imp)
       df_panel <- read_parquet(file.path(INDIR, panel_variant, paste0("panel_", rolling_panel, ".parquet")))
+      
+      marg_dist_treatment_group <- QuasiTreatmentGroupFirstDateMarginalDistribution(df_panel)
       all_outcomes <- unlist(lapply(outcome_cfg, function(x) x$main))
       
       df_panel_common <- BuildCommonSample(df_panel, all_outcomes) %>%
@@ -611,7 +617,7 @@ for (variant in c("important_topk_exact1")) {
       outcome_modes <- BuildOutcomeModes(outcome_cfg, "nevertreated", outdir_base, c(TRUE),
                                          build_dir = FALSE)
       
-      for (method in c("lm_forest")) { 
+      for (method in c("lm_forest_nonlinear","lm_forest")) { 
         outdir_for_spec <- outdir_base
         dir_create(outdir_for_spec)
         
@@ -624,6 +630,7 @@ for (variant in c("important_topk_exact1")) {
             outdir_ds,
             method = method,
             rolling_period = rolling_period,
+            marg_dist_treatment_group = marg_dist_treatment_group, 
             n_folds = 10,
             seed = SEED,
             use_existing = FALSE,
