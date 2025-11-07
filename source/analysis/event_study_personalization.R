@@ -73,108 +73,115 @@ main <- function() {
                                                 norm_options, build_dir = FALSE)
         coeffs_all <- list()
         
-        #######################################
-        # Org practice splits
+                #######################################
+        # Org practice splits (including optional _imp and optional _pc suffix)
         #######################################
         metrics    <- c("sa")
         metrics_fn <- c("Sun and Abraham 2020")
         
-        for (use_imp in c(TRUE, FALSE)) {
-          rolling_panel_imp <- ifelse(use_imp, paste0(rolling_panel, "_imp"), rolling_panel)
-          for (split_mode in outcome_modes[2]) {
-            for (estimation_type in c("observed")) {
-              split_var <- split_mode$outcome
-              control_group <- "nevertreated"
-              df_causal_forest_bins <- read_parquet(
-                file.path(INDIR_CF, dataset, rolling_panel_imp, 
-                          paste0(split_var, "_repo_att_", method, ".parquet"))) %>%
-                filter(type == estimation_type)
-              for (split_estimate in c("att_dr_group")) {
-                split_text <- ifelse(split_estimate == "att_group", "Causal Forest ATT", "Causal Forest DR ATT")
-                practice_mode <- list(
-                  continuous_covariate = split_estimate,
-                  filters = list(list(col = split_estimate, vals = c("high", "low"))),
-                  legend_labels = c("High", "Low"),
-                  legend_title = paste0("by ", split_text, " for ", split_var, " on ", estimation_type, " estimates"),
-                  control_group = control_group,
-                  data = paste0("df_panel_",control_group),
-                  folder = file.path("output/analysis/event_study_personalization", 
-                                     dataset, rolling_panel_imp, control_group)
-                )
-                covar <- practice_mode$continuous_covariate
-                for (outcome_mode in outcome_modes) {
-                  base_df <-  get(outcome_mode$data)
-                  base_df <- base_df %>%
-                    left_join(df_causal_forest_bins %>% select(repo_name, practice_mode$continuous_covariate))
-                  
-                  for (norm in norm_options) {
-                    norm_str <- ifelse(norm, "_norm", "")
+        for (use_imp in c(FALSE)) {
+          for (has_pc in c(FALSE, TRUE)) {
+            # build combined suffix: _imp and optionally _pc
+            rolling_panel_imp <- ifelse(use_imp, paste0(rolling_panel, "_imp"), rolling_panel)
+            if (has_pc) rolling_panel_imp <- paste0(rolling_panel_imp, "_pc")
+            
+            # read CF bins from the matching folder (now includes _pc when requested)
+            for (split_mode in outcome_modes[2]) {
+              for (estimation_type in c("observed")) {
+                split_var <- split_mode$outcome
+                control_group <- "nevertreated"
+                df_causal_forest_bins <- read_parquet(
+                  file.path(INDIR_CF, dataset, rolling_panel_imp, 
+                            paste0(split_var, "_repo_att_", method, ".parquet"))) %>%
+                  filter(type == estimation_type)
+                for (split_estimate in c("att_dr_group")) {
+                  split_text <- ifelse(split_estimate == "att_group", "Causal Forest ATT", "Causal Forest DR ATT")
+                  practice_mode <- list(
+                    continuous_covariate = split_estimate,
+                    filters = list(list(col = split_estimate, vals = c("high", "low"))),
+                    legend_labels = c("High", "Low"),
+                    legend_title = paste0("by ", split_text, " for ", split_var, " on ", estimation_type, " estimates"),
+                    control_group = control_group,
+                    data = paste0("df_panel_",control_group),
+                    folder = file.path("output/analysis/event_study_personalization", 
+                                       dataset, rolling_panel_imp, control_group)
+                  )
+                  covar <- practice_mode$continuous_covariate
+                  for (outcome_mode in outcome_modes) {
+                    base_df <-  get(outcome_mode$data)
+                    base_df <- base_df %>%
+                      left_join(df_causal_forest_bins %>% select(repo_name, practice_mode$continuous_covariate))
                     
-                    combo_grid <- expand.grid(lapply(practice_mode$filters, `[[`, "vals"),
-                                              KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
-                    
-                    es_list <- apply(combo_grid, 1, function(vals_row) {
-                      df_sub <- base_df
-                      for (i in seq_along(vals_row)) {
-                        col_name <- practice_mode$filters[[i]]$col
-                        df_sub <- df_sub %>% filter(.data[[col_name]] == vals_row[[i]])
-                      }
-                      tryCatch(EventStudy(df_sub,
-                                          outcome_mode$outcome,
-                                          practice_mode$control_group,
-                                          method = metrics,
-                                          title = "",
-                                          normalize = norm),
-                               error = function(e) NULL)
-                    }, simplify = FALSE)
-                    
-                    success_idx <- which(!sapply(es_list, is.null))
-                    es_list <- es_list[success_idx]
-                    labels <- practice_mode$legend_labels[success_idx]
-                    
-                    if (length(es_list) > 0) {
-                      dir.create(practice_mode$folder, recursive = TRUE, showWarnings = FALSE)
-                      out_path <- file.path(practice_mode$folder,
-                                            paste0(outcome_mode$outcome, norm_str, "_split_",
-                                                   split_mode$outcome, "_", method, "_", estimation_type, "_", split_estimate, ".png"))
+                    for (norm in norm_options) {
+                      norm_str <- ifelse(norm, "_norm", "")
                       
-                      # write PNG (this is the canonical creation point; append to png_ordered here)
-                      png(out_path)
-                      title_suffix <- paste0("\nSample: ", num_qualified_label, ", What method: ", What_estimation_label)
-                      do.call(CompareES, list(es_list,
-                                              legend_labels = labels,
-                                              legend_title  = NULL,
-                                              title = "",
-                                              ylim = c(-4, 2)))
-                      dev.off()
+                      combo_grid <- expand.grid(lapply(practice_mode$filters, `[[`, "vals"),
+                                                KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
                       
-                      # record creation order immediately (so final PDF follows this chronological order)
-                      png_ordered <- c(png_ordered, out_path)
-                      # Collect coefficients
-                      for (j in seq_along(es_list)) {
-                        res <- es_list[[j]]$results
-                        split_val <- practice_mode$filters[[1]]$vals[j]
-                        coeffs_all[[length(coeffs_all) + 1]] <- as_tibble(res, rownames = "event_time") %>%
-                          mutate(
-                            dataset = dataset,
-                            rolling = rolling_panel_imp,
-                            category = outcome_mode$category,
-                            outcome = outcome_mode$outcome,
-                            normalize = norm,
-                            method = metrics[1], 
-                            covar = covar,
-                            split_value = split_val,
-                            estimation_type = estimation_type,
-                            split_estimate = split_estimate
-                          )
+                      es_list <- apply(combo_grid, 1, function(vals_row) {
+                        df_sub <- base_df
+                        for (i in seq_along(vals_row)) {
+                          col_name <- practice_mode$filters[[i]]$col
+                          df_sub <- df_sub %>% filter(.data[[col_name]] == vals_row[[i]])
+                        }
+                        tryCatch(EventStudy(df_sub,
+                                            outcome_mode$outcome,
+                                            practice_mode$control_group,
+                                            method = metrics,
+                                            title = "",
+                                            normalize = norm),
+                                 error = function(e) NULL)
+                      }, simplify = FALSE)
+                      
+                      success_idx <- which(!sapply(es_list, is.null))
+                      es_list <- es_list[success_idx]
+                      labels <- practice_mode$legend_labels[success_idx]
+                      
+                      if (length(es_list) > 0) {
+                        dir.create(practice_mode$folder, recursive = TRUE, showWarnings = FALSE)
+                        out_path <- file.path(practice_mode$folder,
+                                              paste0(outcome_mode$outcome, norm_str, "_split_",
+                                                     split_mode$outcome, "_", method, "_", estimation_type, "_", split_estimate, ifelse(has_pc, "_pc",""), ".png"))
+                        
+                        # write PNG (this is the canonical creation point; append to png_ordered here)
+                        png(out_path)
+                        title_suffix <- paste0("\nSample: ", num_qualified_label, ", What method: ", What_estimation_label)
+                        do.call(CompareES, list(es_list,
+                                                legend_labels = labels,
+                                                legend_title  = NULL,
+                                                title = "",
+                                                ylim = c(-4, 2)))
+                        dev.off()
+                        
+                        # record creation order immediately (so final PDF follows this chronological order)
+                        png_ordered <- c(png_ordered, out_path)
+                        # Collect coefficients
+                        for (j in seq_along(es_list)) {
+                          res <- es_list[[j]]$results
+                          split_val <- practice_mode$filters[[1]]$vals[j]
+                          coeffs_all[[length(coeffs_all) + 1]] <- as_tibble(res, rownames = "event_time") %>%
+                            mutate(
+                              dataset = dataset,
+                              rolling = rolling_panel_imp,
+                              category = outcome_mode$category,
+                              outcome = outcome_mode$outcome,
+                              normalize = norm,
+                              method = metrics[1], 
+                              covar = covar,
+                              split_value = split_val,
+                              estimation_type = estimation_type,
+                              split_estimate = split_estimate,
+                              has_pc = has_pc
+                            )
+                        }
                       }
                     }
                   }
                 }
               }
             }
-          }
-        }
+          } # end has_pc loop
+        } # end use_imp loop
       }
     }
     #######################################

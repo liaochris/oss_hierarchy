@@ -26,8 +26,17 @@ library(tibble)
 library(purrr)
 library(ggplot2)
 
+# Additional packages needed for PCA/data prep
+library(reshape2)
+library(zeallot)
+library(rlang)
+library(grf)
+
 source("source/lib/helpers.R")
 source("source/analysis/event_study_helpers.R")
+# CreateDataPanel is expected in causal_forest_helpers.R; keep this if available.
+# If CreateDataPanel already lives in another helper, remove or adjust this line.
+source("source/analysis/causal_forest_helpers.R")
 
 norm_options <- c(TRUE)
 
@@ -80,7 +89,6 @@ main <- function() {
       org_practice_modes <- BuildOrgPracticeModes(org_practice_cfg, "nevertreated", outdir_dataset, build_dir = TRUE)
       
       coeffs_all <- list()
-      df_bin_change <- data.frame()
       att_diffs_all <- list()
       
       #######################################
@@ -140,13 +148,7 @@ main <- function() {
             fill(!!paste0(covar, "_2bin"), .direction = "downup") %>%
             ungroup()
         }
-        
-        df_bin_change <- rbind(df_bin_change,
-                               CompareBinsFast(base_df, covar, 5, 1) %>%
-                                 mutate(covar = covar,
-                                        dataset = dataset,
-                                        rolling = rolling_panel))
-        
+ 
         # compute ATT differences using first filter's first two vals as low/high
         if (length(practice_mode$filters) >= 1) {
           split_filter <- practice_mode$filters[[1]]
@@ -257,6 +259,193 @@ main <- function() {
       }
       
       #######################################
+      # NEW: PCA-based PC1 splits for groups + ATT diffs
+      # Use looping outcome_mode$outcome and rolling_period from the surrounding loops
+      #######################################
+      covars     <- unlist(lapply(org_practice_modes, function(x) x$continuous_covariate))
+      covars_imp <- unlist(lapply(org_practice_modes, function(x) paste0(x$continuous_covariate, "_imp")))
+      
+      # Define PCA groups (adjust as desired)
+      pc_groups <- list(
+        collaboration = c("avg_members_per_problem_mean", "pct_members_multiple_mean",
+                          "proj_hhi_discussion_comment_mean", "proj_prob_hhi_issue_comment_mean",
+                          "proj_prob_hhi_pull_request_comment_mean"),
+        shared_knowledge = c("share_issue_and_pr_mean", "avg_unique_types_mean", "text_sim_ratio_mean"),
+        discussion_vibes = c("response_rate_mean", "mean_days_to_respond_mean", "ov_sentiment_avg_mean",
+                             "pos_sentiment_avg_mean", "neg_sentiment_avg_mean"),
+        welcoming = c("has_good_first_issue_mean", "has_contributing_guide_mean", "has_code_of_conduct_mean"),
+        routines = c("mean_has_reviewer_mean", "mean_has_tag_mean", "mean_has_assignee_mean",
+                     "has_codeowners_mean", "has_issue_template_mean", "has_pr_template_mean")
+      )
+      
+      pc_outdir <- file.path(outdir_dataset, "pc_event_studies")
+      dir_create(pc_outdir, recurse = TRUE)
+      
+      coeffs_pc_all <- list()
+      att_diffs_pc_groups <- list()
+      
+      # For each outcome_mode (use the exact outcome and rolling_period currently in loop)
+      for (outcome_mode in outcome_modes) {
+        outcome_local <- outcome_mode$outcome
+        rolling_period_local <- as.numeric(str_extract(rolling_panel, "\\d+$"))
+        message("PCA: building panel for outcome=", outcome_local, " rolling=", rolling_period_local)
+        
+        # Standard event-study panel (the same data used elsewhere)
+        panel <- get(outcome_mode$data)
+        if (nrow(panel) == 0) {
+          message("  skipping outcome ", outcome_local, " because panel is empty")
+          next
+        }
+        
+        # Create df_data for this outcome + rolling_period (used only to compute repo-level covariates / PC1)
+        df_data <- CreateDataPanel(df_panel_nevertreated, "lm_forest_nonlinear", outcome_local,
+                                    c(covars, covars_imp), rolling_period_local, 10, SEED)
+        df_repo_data <- df_data %>% select(repo_id, repo_name, quasi_treatment_group, treatment_group) %>% unique()
+        
+        # Build covariate matrix for PCA (use same keep_names filtering you wanted)
+        keep_names <- intersect(paste0(covars, "_mean"), colnames(df_data))
+        x <- df_data %>% select(all_of(keep_names))
+        keep_names_nonna <- keep_names[colSums(is.na(x)) < 200]
+        keep_names_nonna <- setdiff(keep_names_nonna, c("share_issue_only_mean", "share_pr_only_mean"))
+        df_data_nonna <- df_data[complete.cases(df_data %>% select(all_of(keep_names_nonna))),]
+        x_na <- df_data_nonna %>% select(all_of(keep_names_nonna))
+        
+        # Save correlation heatmap if >1 var
+        if (ncol(x_na) > 1) {
+          cormat <- round(cor(x_na), 2)
+          melted_cormat <- reshape2::melt(cormat)
+          png(file.path(pc_outdir, paste0("covariate_cormat_", outcome_local, ".png")), width = 800, height = 800)
+          print(ggplot(data = melted_cormat, aes(x = Var1, y = Var2, fill = value)) +
+                  geom_tile() +
+                  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0, limits = c(-1, 1)) +
+                  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)))
+          dev.off()
+        }
+        
+        # Loop over PC groups and run PCA / PC1 split EventStudy using this outcome_local
+        for (group_name in names(pc_groups)) {
+          vars <- pc_groups[[group_name]]
+          vars_present <- intersect(vars, colnames(x_na))
+          message("PC group: ", group_name, " vars present: ", paste(vars_present, collapse = ", "))
+          if (length(vars_present) < 2) {
+            message("  skipping ", group_name, " (<2 vars present)")
+            next
+          }
+          
+          group_x <- x_na %>% select(all_of(vars_present))
+          # require some minimum complete rows for stable PCA
+          complete_idx <- complete.cases(group_x)
+          if (sum(complete_idx) < 50) {
+            message("  skipping ", group_name, " (only ", sum(complete_idx), " complete rows)")
+            next
+          }
+          
+          pc_res <- prcomp(group_x[complete_idx, ], center = TRUE, scale. = TRUE)
+          pc1_scores <- pc_res$x[, 1]
+          # format PC1 loadings (sign + 3 decimals) for vars_present
+          loadings_vec <- pc_res$rotation[vars_present, 1]
+          loading_labels <- paste0(vars_present, " ", sprintf("%+.3f", loadings_vec))
+
+          # break long vector into lines of ~3 vars each
+          line_size <- 3
+          loading_lines <- split(loading_labels, ceiling(seq_along(loading_labels) / line_size))
+          loading_multiline <- paste(sapply(loading_lines, paste, collapse = ", "), collapse = "\n")
+
+          legend_title_pc <- paste0("PC1 loadings:\n", loading_multiline)
+
+          df_group <- df_data_nonna %>% slice(which(complete.cases(group_x)))
+          df_group <- df_group %>% mutate(!!paste0(group_name, "_pc1") := pc1_scores)
+          median_pc1 <- median(pc1_scores, na.rm = TRUE)
+          
+          # Identify low/high repo_names from df_group
+          low_repo_names  <- df_group %>% filter((!!rlang::sym(paste0(group_name, "_pc1"))) <= median_pc1) %>% pull(repo_name) %>% unique()
+          high_repo_names <- df_group %>% filter((!!rlang::sym(paste0(group_name, "_pc1"))) >  median_pc1) %>% pull(repo_name) %>% unique()
+          message("  low n_repos=", length(low_repo_names), " high n_repos=", length(high_repo_names))
+          if (length(low_repo_names) < 10 || length(high_repo_names) < 10) {
+            message("  skipping event study for ", group_name, " due to small repo counts")
+            next
+          }
+          
+          # Filter the standard panel (time-series) to the repos in each group
+          panel_low  <- panel %>% filter(repo_name %in% low_repo_names)
+          panel_high <- panel %>% filter(repo_name %in% high_repo_names)
+          if (nrow(panel_low) < 20 || nrow(panel_high) < 20) {
+            message("  skipping event study for ", group_name, " because filtered panels are small (rows): low=", nrow(panel_low), " high=", nrow(panel_high))
+            next
+          }
+          
+          # Run event studies for each normalization option to match existing behavior
+          for (norm in norm_options) {
+            es_low <- tryCatch(EventStudy(panel_low, outcome_local, outcome_mode$control_group,
+                                          "sa", title = paste0(group_name, " PC1 <= median"), normalize = norm),
+                                error = function(e) { message("    EventStudy low error: ", e$message); NULL })
+            es_high <- tryCatch(EventStudy(panel_high, outcome_local, outcome_mode$control_group,
+                                            "sa", title = paste0(group_name, " PC1 > median"), normalize = norm),
+                                error = function(e) { message("    EventStudy high error: ", e$message); NULL })
+            
+            if (!is.null(es_low) && !is.null(es_high)) {
+              out_png <- file.path(pc_outdir, paste0(group_name, "_", outcome_local, "_pc1_split", ifelse(norm, "_norm",""), ".png"))
+              png(out_png, width = 900, height = 600)
+              # pass legend_title_pc into CompareES so the plot shows variables+loadings
+              CompareES(list(es_low, es_high),
+                        legend_labels = c("PC1 <= median", "PC1 > median"),
+                        legend_title  = legend_title_pc,
+                        title = paste0("PC1 split: ", group_name, " - ", outcome_local, ifelse(norm, " (norm)","")))
+              dev.off()
+              
+              res_low <- es_low$results
+              res_high <- es_high$results
+              coeffs_pc_all[[length(coeffs_pc_all) + 1]] <- as_tibble(res_low, rownames = "event_time") %>%
+                mutate(dataset = dataset, rolling = rolling_panel, category = outcome_mode$category,
+                        outcome = outcome_local, normalize = norm,
+                        method = "sa", covar = paste0(group_name, "_pc1"), split_value = "low")
+              coeffs_pc_all[[length(coeffs_pc_all) + 1]] <- as_tibble(res_high, rownames = "event_time") %>%
+                mutate(dataset = dataset, rolling = rolling_panel, category = outcome_mode$category,
+                        outcome = outcome_local, normalize = norm,
+                        method = "sa", covar = paste0(group_name, "_pc1"), split_value = "high")
+            } else {
+              message("    one of EventStudy runs failed (low or high) for norm=", norm)
+            }
+            
+            # ATT diffs using GetEventAtt + ComputeDiffHighLow (periods 1:5) — operate on the same filtered panels
+            att_low <- tryCatch(GetEventAtt(panel_low, outcome_local, outcome_mode$control_group, method = "sa", normalize = TRUE, periods = 1:5),
+                                error = function(e) NULL)
+            att_high <- tryCatch(GetEventAtt(panel_high, outcome_local, outcome_mode$control_group, method = "sa", normalize = TRUE, periods = 1:5),
+                                  error = function(e) NULL)
+            if (!is.null(att_low) && !is.null(att_high)) {
+              att_diff <- ComputeDiffHighLow(att_high, att_low) %>%
+                mutate(dataset = dataset,
+                        rolling = rolling_panel,
+                        category = outcome_mode$category,
+                        outcome = outcome_local,
+                        covar = paste0(group_name, "_pc1"))
+              att_diffs_pc_groups[[length(att_diffs_pc_groups) + 1]] <- att_diff
+            }
+          } # end norm loop
+        } # end pc_groups loop for this outcome
+      } # end outcome_mode loop (PCA per outcome)
+
+      # Save PC-based coefficients and att diffs (aggregate across outcomes)
+      if (length(coeffs_pc_all) > 0) {
+        coeffs_pc_df <- bind_rows(coeffs_pc_all) %>% mutate(event_time = as.numeric(event_time))
+        SaveData(coeffs_pc_df,
+                 c("dataset","rolling","category","outcome","normalize","method","covar","split_value","event_time"),
+                 file.path(pc_outdir, paste0("pc1_split_coefficients_", rolling_panel, ".csv")),
+                 file.path(pc_outdir, paste0("pc1_split_coefficients_", rolling_panel, ".log")),
+                 sortbykey = FALSE)
+        # append to main coeffs_all so they appear in all_coefficients output
+        coeffs_all <- c(coeffs_all, as.list(split(coeffs_pc_df, seq_len(nrow(coeffs_pc_df)))))
+      }
+      if (length(att_diffs_pc_groups) > 0) {
+        att_diffs_pc_df <- bind_rows(att_diffs_pc_groups) %>% mutate(period = as.numeric(period))
+        SaveData(att_diffs_pc_df,
+                 c("dataset","rolling","category","outcome","covar","period"),
+                 file.path(pc_outdir, paste0("att_diff_pc1_high_low_", rolling_panel, ".csv")),
+                 file.path(pc_outdir, paste0("att_diff_pc1_high_low_", rolling_panel, ".log")),
+                 sortbykey = FALSE)
+      }
+      
+      #######################################
       # Export results
       #######################################
       coeffs_df <- bind_rows(coeffs_all) %>%
@@ -270,11 +459,6 @@ main <- function() {
                file.path(outdir_dataset,  paste0("all_coefficients","_",rolling_panel,".log")),
                sortbykey = FALSE)
       
-      SaveData(df_bin_change,
-               c("covar","dataset","rolling","past_periods"),
-               file.path(outdir_dataset, paste0("bin_change","_",rolling_panel,".csv")),
-               file.path(outdir_dataset, paste0("bin_change","_",rolling_panel,".log")),
-               sortbykey = FALSE)
       
       if (length(att_diffs_all) > 0) {
         att_diffs_df <- bind_rows(att_diffs_all) %>% mutate(period = as.numeric(period))

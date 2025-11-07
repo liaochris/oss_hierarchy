@@ -7,9 +7,9 @@ knowledge_redundancy:
       other: []
     hhi:
       main:
-        - proj_hhi_pull_request_review_comment
         - proj_hhi_discussion_comment
       other:
+        - proj_hhi_pull_request_review_comment
         - proj_hhi_issue_closed
         - proj_hhi_issue_comment
         - proj_hhi_issue_opened
@@ -22,16 +22,16 @@ knowledge_redundancy:
       main:
         - proj_prob_hhi_issue_comment
         - proj_prob_hhi_pull_request_comment
+      other: 
         - proj_prob_hhi_pull_request_review
         - proj_prob_hhi_pull_request_review_comment
-      other: []
   broad_expertise:
     issue_pr_share:
       main:
+        - share_issue_and_pr
+      other: 
         - share_issue_only
         - share_pr_only
-        - share_issue_and_pr
-      other: []
     activity_diversity_count:
       main:
         - avg_unique_types
@@ -120,7 +120,7 @@ talent_investment:
 
   growth_opportunity:
     merge_review_pr:
-      main:
+      other:
         - pull_request_merged_rate_weighted
         - pull_request_review_rate_weighted
         - any_activity_rate_weighted

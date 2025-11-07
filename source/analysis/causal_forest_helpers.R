@@ -105,7 +105,7 @@ FilterDoublyRobustPredictions <- function(preds_all, df_data, df_repo_data) {
   for (rid in names(valid_arms)) {
     rows <- df_repo_data$repo_id == as.integer(rid)
     keep <- arm_names %in% valid_arms[[rid]]
-    preds_all[rows, !keep] <- NA
+    preds_all[rows][!keep] <- NA
   }
   
   preds_all
