@@ -29,8 +29,7 @@ main <- function() {
   
   # "important_topk_defaultWhat", "important_topk_exact1_defaultWhat","important_topk_oneQual_defaultWhat",
   # "important_topk_nuclearWhat", "important_topk_exact1_nuclearWhat","important_topk_oneQual_nuclearWhat"
-  # "important_topk", ,"important_topk_oneQual", "important_thresh","important_thresh_oneQual"
-  # "important_thresh_exact1"
+  # "important_topk", ,"important_topk_oneQual", "important_thresh","important_thresh_oneQual", "important_thresh_exact1"
   DATASETS <- c( "important_topk_exact1")
   exclude_outcomes <- c("num_downloads")
   norm_options <- c(TRUE)
@@ -40,7 +39,7 @@ main <- function() {
   for (dataset in DATASETS) {
     for (rolling_panel in c("rolling5")) {
       rolling_period <- as.numeric(str_extract(rolling_panel, "\\d+$"))
-      for (method in c("lm_forest", "lm_forest_nonlinear")) {  
+      for (method in c("lm_forest_nonlinear")) {  
         message("Processing dataset: ", dataset, " (", rolling_panel, ")")
         outdir_dataset <- file.path(OUTDIR, dataset)
         dir_create(outdir_dataset, recurse = TRUE)
@@ -92,14 +91,16 @@ main <- function() {
                 control_group <- "nevertreated"
                 df_causal_forest_bins <- read_parquet(
                   file.path(INDIR_CF, dataset, rolling_panel_imp, 
-                            paste0(split_var, "_repo_att_", method, ".parquet"))) %>%
-                  filter(type == estimation_type)
+                            paste0(split_var, "_repo_att_", method, ".parquet"))
+                ) %>%
+                  filter(type == estimation_type) 
+                
                 for (split_estimate in c("att_dr_group")) {
                   split_text <- ifelse(split_estimate == "att_group", "Causal Forest ATT", "Causal Forest DR ATT")
                   practice_mode <- list(
                     continuous_covariate = split_estimate,
-                    filters = list(list(col = split_estimate, vals = c("high", "low"))),
-                    legend_labels = c("High", "Low"),
+                    filters = list(list(col = split_estimate, vals = c("high",  "low"))),
+                    legend_labels = c("High",  "Low"),
                     legend_title = paste0("by ", split_text, " for ", split_var, " on ", estimation_type, " estimates"),
                     control_group = control_group,
                     data = paste0("df_panel_",control_group),

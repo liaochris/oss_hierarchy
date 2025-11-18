@@ -207,7 +207,7 @@ main <- function() {
         })
         png(outcome_mode$file)
         CompareES(es_list, title = "", legend_labels = NULL, add_comparison = F,
-                  ylim = c(-1.75, .75))
+                  ylim = c(-1.5, .75))
         dev.off()
         
         for (i in seq_along(es_list)) {
@@ -336,9 +336,9 @@ main <- function() {
             out_png <- file.path(pc_outdir, paste0(g, "_", outcome_local, "_pc1_split", ifelse(norm, "_norm",""), ".png"))
             png(out_png)
             CompareES(list(es_low, es_high),
-                      legend_labels = c("Below median","Above median") ,
+                      legend_labels = c("Low","High") ,
                       legend_title  = friendly_label,
-                      ylim = c(-2, 1.5))
+                      ylim = c(-2.25, 1.5))
             dev.off()
 
             coeffs_pc_all[[length(coeffs_pc_all) + 1]] <- as_tibble(es_low$results, rownames = "event_time") %>%
@@ -359,7 +359,6 @@ main <- function() {
                  file.path(pc_outdir, paste0("pc1_split_coefficients_", rolling_panel, ".csv")),
                  file.path(pc_outdir, paste0("pc1_split_coefficients_", rolling_panel, ".log")),
                  sortbykey = FALSE)
-        coeffs_all <- c(coeffs_all, as.list(split(coeffs_pc_df, seq_len(nrow(coeffs_pc_df)))))
       }
       
       #######################################
@@ -372,7 +371,7 @@ main <- function() {
       }) |> bind_rows() %>%
         mutate(event_time = as.numeric(event_time),
                covar = ifelse(is.na(covar), "", covar),
-               split_value = ifelse(is.na(split_value), "", split_value)) 
+               split_value = ifelse(is.na(split_value), "", split_value))
       SaveData(coeffs_df,
                c("rolling",
                  "category","outcome","normalize","method","covar","split_value", "event_time"),

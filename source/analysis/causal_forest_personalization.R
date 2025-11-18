@@ -8,6 +8,7 @@ library(rlang)
 
 source("source/lib/helpers.R")
 source("source/analysis/causal_forest_helpers.R")
+`%ni%` <- Negate(`%in%`)
 
 #######################################
 # 2. Global Settings
@@ -50,11 +51,17 @@ BuildWHatForBaselineHeterogeneity <- function(W_nt, df_panel_nt, marg_dist_treat
     }
   }
   
+  marg_dist_treatment_group <- marg_dist_treatment_group %>%
+    filter(quasi_treatment_group <= max(df_panel_nt$quasi_treatment_group) &
+             quasi_treatment_group >= min(df_panel_nt$quasi_treatment_group)) %>%
+    group_by(first_time) %>%
+    mutate(prob = prob/sum(prob))
+  
   first_time_by_repo <- df_panel_nt %>%
     group_by(repo_id) %>%
     summarize(first_time = min(time_index), .groups = "drop")
   repo_probs <- first_time_by_repo %>%
-    left_join(marg_dist_treatment_group, by = "first_time") %>%
+    left_join(marg_dist_treatment_group, by = "first_time", relationship = "many-to-many") %>%
     select(repo_id, first_time, quasi_treatment_group, prob)
   
   repos <- unique(repo_probs$repo_id)
@@ -259,15 +266,17 @@ FitAndPredictBaselineFold <- function(df_data, keep_names, fold_id, time_levels,
   
   df_panel_nt <- df_fold %>% filter(treatment_arm == "never-treated")
   if (nrow(df_panel_nt) == 0) return(list(hold_idx = integer(0), time_vals = numeric(0), quasi_vals = numeric(0)))
+
+  include_quasi_treatment_group <- as.numeric(names(table(df_fold$quasi_treatment_group))) -  1
+  df_panel_nt_in_quasi <- df_panel_nt %>% filter(time_index %in% include_quasi_treatment_group)
   
-  y_nt <- df_panel_nt$fd_outcome
-  x_nt <- df_panel_nt %>% select(all_of(keep_names))
-  W_nt <- BuildTimeInvariantIndicator(df_panel_nt)
-  W_hat <- BuildWHatForBaselineHeterogeneity(W_nt, df_panel_nt, marg_dist_treatment_group)
-  
-  #model <- lm_forest(x_nt, y_nt, W_nt, num.trees = num_trees, W.hat = W_hat, clusters = df_panel_nt$repo_id)
-  model <- lm_forest(x_nt, y_nt, W_nt, num.trees = num_trees, clusters = df_panel_nt$repo_id)
-  
+  # time_index in include_quasi_treatment_group 
+  y_nt <- df_panel_nt_in_quasi$fd_outcome
+  x_nt <- df_panel_nt_in_quasi %>% select(all_of(keep_names))
+  W_nt <- BuildTimeInvariantIndicator(df_panel_nt_in_quasi)
+  W_hat <- BuildWHatForBaselineHeterogeneity(W_nt, df_panel_nt_in_quasi, marg_dist_treatment_group)
+  model <- lm_forest(x_nt, y_nt, W_nt, num.trees = num_trees, W.hat = W_hat, clusters = df_panel_nt_in_quasi$repo_id)
+
   dir_baseline <- file.path(outdir_ds, "baseline_heterogeneity")
   dir_create(dir_baseline)
   saveRDS(model, file.path(dir_baseline, paste0(method, "_", outcome, "_fold", fold_id, ".rds")))
@@ -279,6 +288,19 @@ FitAndPredictBaselineFold <- function(df_data, keep_names, fold_id, time_levels,
     pred_mat <- as.matrix(pred_raw[,, "Y.1"])
   } else {
     pred_mat <- as.matrix(pred_raw)
+  }
+  
+  # time_index not in include_quasi_treatment_group 
+  non_quasi_time_index <- df_panel_nt %>% filter(time_index %ni% include_quasi_treatment_group) %>% pull(time_index) %>% unique()
+  for (time_index in sort(non_quasi_time_index)) {
+    df_panel_nt_time_index <- df_panel_nt %>% filter(time_index == !!time_index)
+    y_nt_time <- df_panel_nt_time_index %>% pull(fd_outcome)
+    x_nt_time <- df_panel_nt_time_index %>% select(all_of(keep_names))
+    model <- regression_forest(x_nt_time, y_nt_time,num.trees = num_trees,clusters = df_panel_nt_time_index$repo_id)
+    saveRDS(model, file.path(dir_baseline, paste0(method, "_", outcome, "_fold", fold_id, "_time_index", time_index, ".rds")))
+    pred_obj <- predict(model, x_hold_out)
+    pred_mat <- cbind(pred_mat, pred_obj$predictions)
+    colnames(pred_mat)[ncol(pred_mat)] <- paste0("factor.time_index.", time_index)
   }
   
   time_col_names_hold <- paste0("factor.time_index.", df_hold_out$time_index)
@@ -460,7 +482,7 @@ RunForestEventStudy_CrossFit <- function(
       collaboration = c("avg_members_per_problem_mean", "pct_members_multiple_mean",
                         "proj_hhi_discussion_comment_mean", "proj_prob_hhi_issue_comment_mean",
                         "proj_prob_hhi_pull_request_comment_mean"),
-      shared_knowledge = c("share_issue_and_pr_mean", "avg_unique_types_mean", "text_sim_ratio_mean"),
+      shared_knowledge = c("share_issue_and_pr_mean", "avg_unique_types_mean"),
       discussion_vibes = c("response_rate_mean", "mean_days_to_respond_mean", "ov_sentiment_avg_mean",
                            "pos_sentiment_avg_mean", "neg_sentiment_avg_mean"),
       welcoming = c("has_good_first_issue_mean", "has_contributing_guide_mean", "has_code_of_conduct_mean"),
@@ -473,7 +495,7 @@ RunForestEventStudy_CrossFit <- function(
       vars <- pc_groups[[group_name]]
       message("  Attempt PC group: ", group_name, " vars present: ", paste(vars, collapse = ", "))
 
-      group_x <- df_data %>% select(all_of(vars))
+      group_x <- df_data %>% select(all_of(vars)) %>% filter()
       pc_res <- prcomp(group_x, center = TRUE, scale. = TRUE)
       pc1_scores_complete <- pc_res$x[, 1]
       pc_col <- paste0(group_name, "_pc1_mean")
@@ -547,6 +569,19 @@ RunForestEventStudy_CrossFit <- function(
     }
     dr_scores_all[hold_idx, ] <- dr_hold
   }
+  
+  df_data_all <- df_data %>% group_by(repo_id) %>%
+    filter(!any(is.na(resid_outcome))) %>%
+    ungroup()
+  x_all <- df_data_all %>% select(all_of(keep_names))
+  y_all <- df_data_all$resid_outcome
+  outfile_model <- file.path(
+    outdir_ds, paste0(method, "_", outcome, "_rolling", rolling_period, ".rds"))
+  forest_model_obj <- FitForestModel(
+    df_data_all, x_all, y_all, method, outfile_model, use_existing = use_existing,
+    seed = SEED, use_default_What = use_default_What, use_nuclear_What = use_nuclear_What)
+  
+  
   outfile_dr <- file.path(outdir_ds, paste0("dr_scores_", method, "_", outcome, "_rolling", rolling_period, ".csv"))
   dr_scores_repo <- ModifyDoublyRobustTime(dr_scores_all, df_data)
   write.csv(dr_scores_repo, outfile_dr, row.names = FALSE)
@@ -660,11 +695,11 @@ for (variant in c("important_topk_exact1")) {
         outcome_modes <- BuildOutcomeModes(outcome_cfg, "nevertreated", outdir_base, c(TRUE),
                                            build_dir = FALSE)
         
-        for (method in c("lm_forest_nonlinear","lm_forest")) { 
+        for (method in c("lm_forest_nonlinear")) { 
           outdir_for_spec <- outdir_base
           dir_create(outdir_for_spec)
           
-          for (outcome_mode in outcome_modes[2]) {
+          for (outcome_mode in outcome_modes) {
             RunForestEventStudy_CrossFit(
               outcome_mode$outcome,
               df_panel_common,
@@ -676,7 +711,7 @@ for (variant in c("important_topk_exact1")) {
               marg_dist_treatment_group = marg_dist_treatment_group, 
               n_folds = 10,
               seed = SEED,
-              use_existing = FALSE,
+              use_existing = TRUE,
               use_default_What = use_default_What,
               use_nuclear_What = use_nuclear_What,
               use_imp = use_imp,

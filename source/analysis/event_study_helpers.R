@@ -173,8 +173,11 @@ CompareES <- function(es_list,
     return(invisible(NULL))
   }
   
-  par(mar = c(8, 4, 2, 2) + 0.1)
-  par(mgp = c(3, 1.5, 0))  # Added line for title spacing
+  par(oma = c(0, 0, 0, 0))
+  par(mar = c(3.2, 4, 1.2, 1.2))
+  par(xaxs = "r", yaxs = "r")
+  par(mgp  = c(3, 1.5, 0))
+  
   plot_args <- list(
     object = results,
     multi = TRUE,
@@ -197,7 +200,8 @@ CompareES <- function(es_list,
            horiz = TRUE, bty = "o", box.lwd = 0.8, box.col = "grey40",
            bg = "white", xjust = 0.5,
            col = seq_along(results), pch = 20,
-           lwd = 1, lty = seq_along(results))
+           lwd = 1, lty = seq_along(results),
+           cex = 1.2)
     par(xpd = FALSE)
   }
   
@@ -219,7 +223,7 @@ CompareES <- function(es_list,
         collapse = " | "
       )
     }
-    mtext(wald_lbl, side = 1, line = -1.6, at = x_left, adj = 0, cex = 1.2)
+    mtext(wald_lbl, side = 1, line = -2, at = x_left, adj = 0, cex = 1.2)
   }
   if (add_pretrends) {
     pre_lbl <- ""
@@ -231,9 +235,11 @@ CompareES <- function(es_list,
     if (length(results) == 1) {
       pre_lbl <- paste0("Pretrend ", pre_strs)
     }
-    mtext(pre_lbl, side = 1, line = -2.6, at = x_left, adj = 0, cex = 0.8)
+    mtext(pre_lbl, side = 1, line = -3, at = x_left, adj = 0, cex = 0.8)
   }
 }
+
+
 
 CompareEventCoefsWald <- function(tidy_list, terms = 1:5) {
   sel <- as.character(terms)
