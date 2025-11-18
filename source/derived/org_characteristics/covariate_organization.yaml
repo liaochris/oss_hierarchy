@@ -1,4 +1,4 @@
-knowledge_redundancy:
+knowledge_redundancy: # need to update this to get rid of stuff i don't need + reorganize into 5 categories
   collaboration:
     member_count:
       main:
@@ -38,20 +38,21 @@ knowledge_redundancy:
       other: []
     discussion_content:
       main: 
-       - text_sim_ratio
        - cos_sim_same_actor
        - cos_sim_diff_actor
+       - text_sim_ratio
+      other: 
        
   supervision:
     merged_with_review:
-      main:
+      main: []
+      other: 
         - pct_merged_with_approved
         - pct_merged_with_review
-      other: []
     discussion_quantity:
-      main:
-        - avg_all_disc_count
+      main: []
       other:
+        - avg_all_disc_count
         - avg_pull_request_comment_count
         - avg_pull_request_review_comment_count
         - avg_pull_request_review_count
@@ -111,9 +112,9 @@ talent_investment:
         - pull_request_review_commented_ov_sentiment_avg
         - pull_request_review_dismissed_ov_sentiment_avg
     feedback_quantity:
-      main:
-        - avg_all_disc_exclude_opener_count
+      main: []
       other:
+        - avg_all_disc_exclude_opener_count
         - avg_pull_request_comment_exclude_opener_count
         - avg_pull_request_review_comment_exclude_opener_count
         - avg_pull_request_review_exclude_opener_count
@@ -127,9 +128,10 @@ talent_investment:
 
   organizational_closeness:
     network_clustering_coefficient:
-      main:
+      main: []
+      other: 
         - clustering_coefficient
-      other: []
+
 
 organizational_routines:
   organized_assignment:
@@ -178,8 +180,8 @@ organizational_routines:
 
   pull_standards:
     merge_commit_tests:
-      main:
-        - prop_tests_passed
+      main: []
       other:
+        - prop_tests_passed
         - has_more_suites
         - has_more_runs
