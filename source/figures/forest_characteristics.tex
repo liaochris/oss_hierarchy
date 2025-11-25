@@ -1,0 +1,62 @@
+\begin{figure}[t]
+  \caption{Characteristics of the Trained Forest}
+  \label{fig:forest_characteristics}
+  \centering
+
+  % Panel 1: Tree depth distribution (table)
+  \begin{minipage}[b]{0.4\textwidth}
+    \centering
+    \subcaption{Tree depth distribution}\label{fig:tree_depth}
+    \vspace{0.1em}
+    \begin{tabular}{lc}
+      \toprule
+      Depth & Proportion \\
+      \midrule
+      1 & 0.334 \\
+      2 & 0.088 \\
+      3 & 0.265 \\
+      4 & 0.280 \\
+      5 & 0.032 \\
+      \bottomrule
+    \end{tabular}
+  \end{minipage}
+  % Panel 2: Organizational practice split frequency (table)
+  \begin{minipage}[b]{0.53\textwidth}
+    \centering
+    \subcaption{Organizational practice split frequency}\label{fig:var_imp}
+    \vspace{0.1em}
+    \begin{tabular}{lr}
+      \toprule
+      Practice & Frequency \\
+      \midrule
+      Collaboration score    & 0.21 \\
+      Knowledge redundancy score & 0.35 \\
+      Discussion quality score & 0.26 \\
+      Investment in mew talent score        & 0.02 \\
+      Problem-solving routines score         & 0.16 \\
+      \bottomrule
+    \end{tabular}
+  \end{minipage}
+
+    \par 
+      \vspace{0.5em}
+  \centering
+  \begin{minipage}[b]{0.7\textwidth}
+    \centering
+    \subcaption{Organizational practice score cross-correlations}\label{fig:practice_corr}
+    \vspace{0.1em}
+    \includegraphics[width=\textwidth]{output/analysis/event_study_personalization/important_topk_exact1/heatmap_corr.png}
+  \end{minipage}
+
+
+  % Figure notes
+  \begin{minipage}{1\textwidth}
+    \vspace{0.75em}
+    \textbf{Figure notes:}
+    Panel~\subref{fig:tree_depth} reports the distribution of tree depth across all 2000 trees in the trained forest. 
+    Panel~\subref{fig:var_imp} reports the frequency with which each organizational practice score is used to split the sample, weighted by tree depth following the variable-importance measure in GRF 2.4.0.
+    Panel~\subref{fig:practice_corr} depicts a heatmap of correlations across all organizational practice scores. 
+  \end{minipage}
+\end{figure}
+
+

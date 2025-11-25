@@ -1,32 +1,36 @@
-\begin{figure}[t]
+\begin{figure}[ht]
   \caption{Average Organizational Resilience}
     \label{fig:event_study}
     \centering
-    \begin{minipage}[b]{0.48\textwidth}
+    \begin{minipage}[b]{0.325\textwidth}
         \centering
         \subcaption{Pull requests opened} \label{fig:event_study_prs_opened}
-        \includegraphics[width=\textwidth]{output/analysis/event_study/important_topk_exact1/rolling5/nevertreated/github_outcomes/pull_request_opened_norm}
+        \includegraphics[width=\textwidth]{output/analysis/event_study/important_topk_exact1/rolling5/nevertreated/github_outcomes/pull_request_opened_norm.png}
     \end{minipage}
     \hfill
-    \begin{minipage}[b]{0.48\textwidth}
+    \begin{minipage}[b]{0.325\textwidth}
         \centering
         \subcaption{Pull requests merged} \label{fig:event_study_prs_merged}
         \includegraphics[width=\textwidth]{output/analysis/event_study/important_topk_exact1/rolling5/nevertreated/github_outcomes/pull_request_merged_norm.png}
     \end{minipage}
     \hfill
-    \begin{minipage}[b]{0.48\textwidth}
+    \begin{minipage}[b]{0.325\textwidth}
         \centering
-        \subcaption{New software releases} \label{fig:event_study_releases}
-        \includegraphics[width=\textwidth]{output/analysis/event_study/important_topk_exact1/rolling5/nevertreated/downstream_outcomes/major_minor_release_count_norm}
-    \end{minipage}
-    \begin{minipage}[b]{0.48\textwidth}
-        \centering
-        \subcaption{Major and minor software releases} \label{fig:event_study_major_releases}
+        \subcaption{New software releases}\label{fig:event_study_releases}
         \includegraphics[width=\textwidth]{output/analysis/event_study/important_topk_exact1/rolling5/nevertreated/downstream_outcomes/overall_new_release_count_norm.png}
     \end{minipage}
+\donow[inline]{Increase y axis and pretrend p-value  size?}
 
   \begin{minipage}{1\textwidth}
-    \textbf{Figure notes:} Panel~\subref{fig:event_study_prs_opened} depicts event study estimates from \cite{sun_estimating_2021} showing the impact of key member departures on the number of pull requests opened. Each outcome is standardized by the organization’s mean and standard deviation over the five pre-periods. Confidence intervals are 95\% confidence intervals calculated using asymptotic standard errors clustered at the organization level. Panel~\subref{fig:event_study_prs_merged},~\subref{fig:event_study_releases} and~\subref{fig:event_study_major_releases} replace the outcome in Panel~\subref{fig:event_study_prs_opened} with pull requests merged, new software releases, and major and minor software releases.
+  \flagforclarity[inline]{Notes are repeated many times - how can I make it more concise while keeping figures self contained?}
+    \textbf{Figure notes:} Panel~\subref{fig:event_study_prs_opened} presents event study estimates of the impact of key member departures on the number of pull requests opened. 
+    Outcomes are standardized using each organization’s mean and standard deviation over the five pre-periods, and each period spans six months. 
+    Estimates, expressed in standard-deviation units, are obtained using \cite{sun_estimating_2021}. 
+    Confidence intervals are 95\% intervals based on asymptotic standard errors clustered at the organization level. 
+    The reported pre-trend p-value is from a Wald test of the null hypothesis that all pre-period coefficients equal zero. 
+    Panels~\subref{fig:event_study_prs_merged} and~\subref{fig:event_study_releases} repeat this analysis using the number of pull requests merged and the number of new software releases as outcomes.
+
+    
 \end{minipage}
   
 

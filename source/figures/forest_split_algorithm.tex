@@ -1,0 +1,30 @@
+
+\begin{algorithm}[ht]
+\caption{Forest Split: $k$-Fold Procedure}\label{alg:forest_split_rule}
+\begin{algorithmic}[1]
+
+\State Partition organizations into $k$ folds $S_P = \{P_1,\dots,P_k\}$
+
+\For{each fold $P_j \in S_P$}  \Comment{Cross-fitting loop}
+    \State Let the $k-1$ remaining folds be denoted $P_{-j} = S_P \setminus P_j$
+    \State Estimate Equation~\ref{eq:event_study_ml} using organizations $i \in P_{-j}$ and covariates $\mathbf{F}_i$ to obtain 
+        $\{\hat{\delta}_{e,k}^{P_{-j}}(\cdot)\}_{e \in E, -5 \le k \le 5}$
+    \State For each organization $i \in P_j$, predict post-period effects 
+        $\{\hat{\delta}_{e,k}^{P_{-j}}(\mathbf{F}_i)\}_{e \in E, -5 \le k \le 5}$
+\EndFor
+
+\State For each organization $i$, compute the doubly robust average post-period treatment effect 
+    $\hat{\psi}(\mathbf{F}_i)$ following Equation~\ref{eq:doubly_robust}
+
+\State Let $m \gets \text{median}\{\hat{\psi}(\mathbf{F}_i)\}$
+
+\For{each organization $i$}
+    \If{$\hat{\psi}(\mathbf{F}_i) < m$}
+        \State Assign $i$ to the low resilience subset
+    \Else
+        \State Assign $i$ to the high resilience subset
+    \EndIf
+\EndFor
+
+\end{algorithmic}
+\end{algorithm}
