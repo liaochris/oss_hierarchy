@@ -64,6 +64,13 @@ def ProcessRepo(repo_name, rolling_periods=1):
             df_all = FilterOnImportant(df_all, df_filtered_important_members)
             if df_all.empty:
                 continue
+        
+        df_all['actor_id'] = df_all['actor_id'].astype('Int64')
+        df_all = (
+            df_all[['time_period','actor_id']].drop_duplicates().groupby(
+                'time_period')['actor_id'].count()
+                .reset_index().rename(columns={'actor_id':'num_active_members'})
+        )
 
         df_all["type_broad"] = df_all["type"].apply(
             lambda x: "pull request review"
@@ -296,6 +303,7 @@ def ExportYaml(categories, outpath):
 
 
 if __name__ == "__main__":
-    Main(rolling_periods=1)
-    Main(rolling_periods=3)
     Main(rolling_periods=5)
+    Main(rolling_periods=3)
+    Main(rolling_periods=1)
+
