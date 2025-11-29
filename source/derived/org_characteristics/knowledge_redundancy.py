@@ -66,7 +66,7 @@ def ProcessRepo(repo_name, rolling_periods=1):
                 continue
         
         df_all['actor_id'] = df_all['actor_id'].astype('Int64')
-        df_all = (
+        df_active_member_count = (
             df_all[['time_period','actor_id']].drop_duplicates().groupby(
                 'time_period')['actor_id'].count()
                 .reset_index().rename(columns={'actor_id':'num_active_members'})
@@ -93,6 +93,7 @@ def ProcessRepo(repo_name, rolling_periods=1):
             PercentPullsMergedReviewed(df_all, rolling_periods=rolling_periods),
             CalculateAvgPRDiscCounts(df_all, rolling_periods=rolling_periods),
             CalculateAvgPRDiscCounts(df_all, include_opener=False, rolling_periods=rolling_periods),
+            df_active_member_count.set_index('time_period')
         ]
 
 
