@@ -1,12 +1,11 @@
 import subprocess
-import os
 import datetime
 from pathlib import Path
 import pandas as pd
 import shutil
 import concurrent.futures
 import random
-
+from source.lib.helpers import LoadGlobals
 
 def RunGit(repo_path, args):
     result = subprocess.run(
@@ -19,8 +18,8 @@ def RunGit(repo_path, args):
     return result.stdout.strip()
 
 
-def CloneRepo(owner, repo, base_dir):
-    repo_path = Path(base_dir) / owner / repo
+def CloneRepo(owner, repo, TEMPDIR):
+    repo_path = Path(TEMPDIR) / owner / repo
     if repo_path.exists():
         return None
     repo_path.parent.mkdir(parents=True, exist_ok=True)
@@ -33,8 +32,8 @@ def CloneRepo(owner, repo, base_dir):
     return repo_path
 
 
-def GetCommitsTouchingGovernance(repo_path, start_year=2015):
-    cutoff = f"{start_year}-01-01"
+def GetCommitsTouchingGovernance(repo_path, START_DATE):
+    cutoff = START_DATE
     patterns = [
         "CODEOWNERS",
         "CONTRIBUTING.*",
@@ -114,10 +113,10 @@ def ClassifyGovernanceFile(path):
     return "other"
 
 
-def AnalyzeRepoOrgFallback(owner, repo, base_dir, out_dir):
-    out_dir = Path(out_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    outfile = out_dir / f"{owner}_{repo}.parquet"
+def RepoOrgGovernanceHistory(owner, repo, TEMPDIR, OUTDIR, START_DATE):
+    OUTDIR = Path(OUTDIR)
+    OUTDIR.mkdir(parents=True, exist_ok=True)
+    outfile = OUTDIR / f"{owner}_{repo}.parquet"
 
     if outfile.exists():
         print(f"⏩ Skipping {owner}/{repo}, output already exists: {outfile}")
@@ -125,9 +124,9 @@ def AnalyzeRepoOrgFallback(owner, repo, base_dir, out_dir):
 
     rows = []
 
-    repo_path = CloneRepo(owner, repo, base_dir)
+    repo_path = CloneRepo(owner, repo, TEMPDIR)
     if repo_path:
-        commits = GetCommitsTouchingGovernance(repo_path, start_year=2015)
+        commits = GetCommitsTouchingGovernance(repo_path, START_DATE)
         for sha, date in commits:
             files = ExtractGovernanceFiles(repo_path, sha)
             if files:
@@ -144,9 +143,9 @@ def AnalyzeRepoOrgFallback(owner, repo, base_dir, out_dir):
         shutil.rmtree(repo_path)
         repo_path.mkdir(parents=True, exist_ok=True)
 
-    org_path = CloneRepo(owner, ".github", base_dir)
+    org_path = CloneRepo(owner, ".github", TEMPDIR)
     if org_path:
-        commits = GetCommitsTouchingGovernance(org_path, start_year=2015)
+        commits = GetCommitsTouchingGovernance(org_path, START_DATE)
         for sha, date in commits:
             files = ExtractGovernanceFiles(org_path, sha)
             if files:
@@ -173,27 +172,22 @@ def AnalyzeRepoOrgFallback(owner, repo, base_dir, out_dir):
         return None
 
 
-def Worker(repo, base_dir, out_dir):
+def Worker(repo, TEMPDIR, OUTDIR, START_DATE):
     owner, repo_name = repo.split("/", 1)
-    return AnalyzeRepoOrgFallback(owner, repo_name, base_dir, out_dir)
-
+    return RepoOrgGovernanceHistory(owner, repo_name, TEMPDIR, OUTDIR, START_DATE)
 
 def Main():
-    indir_data = Path("drive/output/derived/problem_level_data/repo_actions")
-    out_dir = "drive/output/scrape/github_file_data"
-    base_dir = "drive/temp/github_file_data/repos"
+    INDIR = Path('output/scrape/extract_github_data')
+    OUTDIR = Path("drive/output/scrape/github_file_data")
+    TEMPDIR = Path("drive/temp/github_file_data/repos")
 
-    repo_list = sorted({
-        f.stem.replace("_", "/", 1)
-        for f in indir_data.glob("*.parquet")
-        if f.is_file() and "_" in f.stem
-    })
-
+    df_repo_list = pd.read_csv(INDIR / 'repo_id_history_final.csv')
+    repo_list = df_repo_list.query('latest_repo_name != "ERROR"')['repo_name'].unique().tolist()
     random.shuffle(repo_list)
-
+    START_DATE = LoadGlobals("source/lib/globals.json")['github_start_date']
     all_outputs = []
     with concurrent.futures.ProcessPoolExecutor(max_workers=12) as executor:
-        futures = [executor.submit(Worker, repo, base_dir, out_dir) for repo in repo_list]
+        futures = [executor.submit(Worker, repo, TEMPDIR, OUTDIR, START_DATE) for repo in repo_list]
         for future in concurrent.futures.as_completed(futures):
             result = future.result()
             if result:
