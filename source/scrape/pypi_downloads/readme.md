@@ -10,18 +10,18 @@ In order to access the Google Cloud BigQuery data for python downloads, I used t
    - For step 3, the BigQuery API is automatically enabled for new projects
    - For step 4, we're using `Client-Provided Authentication` so create a service account, download the `.json` file with your keys and then run `export GOOGLE_APPLICATION_CREDENTIALS=<<downloaded_json_location>>`
 2. I then installed `google-cloud-bigquery` in my virtual environment
-3. I ran the script `source/scrape/docs/query_monthly_pip_downloads.py` to obtain monthly downloads data 
 
 ### Description
-- `drive/source/scrape/pypi_monthly_downloads.csv` contains the monthly download data 
-- `docs/query_monthly_pip_downloads.py` queries Google BQ for PyPI Download data
-- `docs/get_popular_packages.py` extracts the popular python libraries (10k+ downloads in at least one month month between July 2018 and December 2024)
+- `code/query_monthly_pip_downloads.py` queries Google BQ for PyPI Download data
+- `code/get_popular_packages.py` extracts the popular python libraries 
   - See [this link](https://pypistats.org/faqs#:~:text=Why%20are%20there,dropped%20%20%20%20%20%20%20%20download%20records.) for why I consider only post July 201 downloads
 - `data/popular_python_packages.csv` contains the extracted popular lbiraries
-- `docs/pypistats_about.py` contains the about page for [pypistats.org](pypistats.org)
+- `docs/pypistats_about.pdf` contains the about page for [pypistats.org](pypistats.org)
 
 ### Terms of Use
 Official TOU cannot be found on the [website](pypistats.org) but the service is open source. 
 
-### Notes
-- `data/popular_python_packages.csv` is used by `source/scrape/pypi_site_info` 
+### Run order
+1. Set up `GOOGLE_APPLICATION_CREDENTIALS` following above
+2. Run `source/scrape/pypi_downloads/code/query_monthly_pip_downloads.py`
+3. Run `source/scrape/pypi_downloads/code/get_popular_packages.py`

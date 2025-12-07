@@ -23,5 +23,7 @@ Export('env')
 
 jms.start_log('develop', '')
 
+SConscript('source/analysis/SConscript')
 SConscript('source/derived/SConscript')
-#SConscript('source/scrape/SConscript')
+SConscript('source/figures/SConscript')
+SConscript('source/tables/SConscript')

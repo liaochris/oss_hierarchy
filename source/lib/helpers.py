@@ -1,3 +1,4 @@
+from pathlib import Path
 from collections.abc import Iterable
 import polars as pl
 import numpy as np
@@ -157,3 +158,9 @@ def ApplyRolling(df_all, rolling_periods, stat_func, **kwargs):
             df_result = df_result.assign(time_period=t)
             results.append(df_result)
     return pd.concat(results, ignore_index=True) if results else pd.DataFrame()
+
+
+def LoadGlobals(json_path):
+    path = Path(json_path)
+    with path.open("r", encoding="utf-8") as fh:
+        return json.load(fh)
