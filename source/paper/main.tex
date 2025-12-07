@@ -4,13 +4,22 @@
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage{epstopdf}
-\usepackage{pdflscape}
+\usepackage[pdftex,dvipsnames]{xcolor}
+\setlength{\marginparwidth}{2cm}
+\usepackage[colorinlistoftodos,prependcaption,textsize=small]{todonotes}
+\usepackage{ragged2e}
+\usepackage{xargs}
+\usepackage{csquotes}
 \usepackage{tabularx}
 \usepackage{longtable}
+\usepackage{arydshln}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
 \usepackage{array}
 \usepackage{dsfont}
-\usepackage{float}
 \usepackage{booktabs}
+\usepackage{xparse}
 \usepackage{tikz}
 \usepackage{marvosym}
 \usepackage{multirow}
@@ -25,6 +34,11 @@
 \usepackage{verbatim}
 \usepackage[framemethod=tikz]{mdframed}
 \usepackage{subcaption}
+\captionsetup[sub]{subrefformat=parens}
+\DeclareCaptionLabelFormat{subpanel}{Panel~(#2):}
+\captionsetup[sub]{labelformat=subpanel, labelsep=space}
+\usepackage[authoryear]{natbib}
+
 \usepackage{caption}
 \usepackage{lipsum}
 \usepackage{mathtools}
@@ -32,25 +46,19 @@
 \usepackage{stackengine}
 \usepackage{amsthm}
 \usepackage{epsfig}
-\usepackage[
-backend=bibtex,
-style=authoryear-comp,
-sorting=ynt
-]{biblatex}
+
 \usepackage[colorlinks,allcolors=blue]{hyperref}
 \usepackage[shortlabels]{enumitem}
-\usepackage{subfiles} % Best loaded last in the preamble
-
-
 \setlength{\epigraphrule}{0pt}
-\setlength\parindent{0pt}
 \renewcommand{\baselinestretch}{1.25}
 
 \setcounter{MaxMatrixCols}{10}
 
-\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
-\newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{C}[1]{>{\centering\let\newline\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\let\newline\\arraybackslash\hspace{0pt}}m{#1}}
 
+\usepackage{subfiles} % Best loaded last in the preamble
 
 
 \newcommand{\I}{\mathbb{I}}
@@ -69,9 +77,18 @@ sorting=ynt
 \newcommand{\cov}{\mathrm{cov}}
 \newcommand{\corr}{\mathrm{corr}}
 \newcommand{\MSE}{\mathrm{MSE}}
+\let\OldTodo\todo
 
-\topmargin=-1.5cm \textheight=23cm \oddsidemargin=0.5cm
-\evensidemargin=0.5cm \textwidth=15.5cm
+\definecolor{brightpink}{rgb}{1.0, 0.0, 0.5}
+
+\RenewDocumentCommand{\todo}{O{} m}{\OldTodo[#1]{\textbf{TODO}: #2}}
+\newcommandx{\thiswillnotshow}[2][1=]{\OldTodo[disable,#1]{#2}}
+\newcommandx{\askjesse}[2][1=]{\OldTodo[linecolor=Plum,backgroundcolor=Plum!25,bordercolor=Plum,#1]{\textbf{{Ask Jesse:}} #2}}
+\newcommandx{\flagforclarity}[2][1=]{\OldTodo[linecolor=brightpink,backgroundcolor=brightpink!25,bordercolor=brightpink,#1]{\textbf{{Flagging Paragraph Reread for Clarity}} #2}}
+\newcommandx{\longterm}[2][1=]{\OldTodo[linecolor=Blue,backgroundcolor=Blue!25,bordercolor=Blue,disable,#1]{\textbf{{Long-term:}} #2}}
+\newcommandx{\donow}[2][1=]{\OldTodo[linecolor=Green,backgroundcolor=Green!25,bordercolor=Green,#1]{\textbf{{Do Now:}} #2}}
+
+\usepackage[margin=.75in]{geometry}
 
 \newtheorem{theorem1}{Special Theorem}
 
@@ -92,72 +109,867 @@ sorting=ynt
 \newcommand\pconverge{\stackrel{\mathclap{\tiny \mbox{p}}}{\to}}
 \newcommand\dconverge{\stackrel{\mathclap{\tiny \mbox{d}}}{\to}}
 
-\addbibresource{source/paper/references.bib}
-
 
 \newcommand\independent{\protect\mathpalette{\protect\independenT}{\perp}}
 \def\independenT#1#2{\mathrel{\rlap{$#1#2$}\mkern2mu{#1#2}}}
 
+\newtheorem{theorem}{Theorem}
+\newtheorem{assumption}{Assumption}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{proposition}{Proposition}
 
-\hypersetup{
-	pdftitle={undergrad thesis},    % title
-	pdfauthor={Chris Liao},     % author
-	pdfnewwindow=true,      % links in new window
-	colorlinks=true,       % false: boxed links; true: colored links
-	linkcolor=blue,          % color of internal links
-	citecolor=red,        % color of links to bibliography
-	filecolor=black,      % color of file links
-	urlcolor=blue           % color of external links
-}
+\newtheorem{hyp}{Hypothesis}
+\newtheorem{subhyp}{Hypothesis}[hyp]
+\renewcommand{\thesubhyp}{\thehyp\alph{subhyp}}
 
-\allowdisplaybreaks
+\newcommand{\red}[1]{{\color{red} #1}}
+\newcommand{\blue}[1]{{\color{blue} #1}}
+
+
+% required by modelsummary
+\usepackage{tabularray}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{codehigh}
+\usepackage[normalem]{ulem}
+\UseTblrLibrary{booktabs}
+\UseTblrLibrary{siunitx}
+\newcommand{\tinytableTabularrayUnderline}[1]{\underline{#1}}
+\newcommand{\tinytableTabularrayStrikeout}[1]{\sout{#1}}
+\NewTableCommand{\tinytableDefineColor}[3]{\definecolor{#1}{#2}{#3}}
+
+\singlespacing
 
 \begin{document}
 
 \begin{titlepage}
-\begin{center}
-THE UNIVERSITY OF CHICAGO
-\\[1.5in]
-BEHIND THE GLASS DOOR\\
-UNRAVELING HIERARCHICAL STRUCTURE IN OPEN SOURCE SOFTWARE
-\\[1in]
-A BACHELOR THESIS SUBMITTED TO \\
-\bigskip
-THE FACULTY OF THE DEPARTMENT OF ECONOMICS \\
-\bigskip
-FOR HONORS WITH THE DEGREE OF \\
-\bigskip
-BACHELOR OF THE ARTS IN ECONOMICS
-\\[1.5in]
-BY CHRIS LIAO
-\\[2in]
-CHICAGO, ILLINOIS \\
-JUNE 2024
-\end{center}
-\end{titlepage}
-
-\tableofcontents
-\newpage
+\title{Organizational Resilience: Evidence from Open Source Software}
+\author{Christopher Liao\thanks{I am indebted to my advisors Jesse Shapiro and Ali Hortaçsu for their support and guidance. I also thank Matthew Lee Chen, Krishna Dasari, Jeff Gortmaker, Ruru Hoong, Scott Nelson, Anjali Pullabhotla, Jordan Rosenthal-Kay, Thomas Sargent, Emanuel Scherz,  Noah Sobel-Lewin, Ruby Zhang, and members of the Harvard Economics Predoc Workshop and JMSLab for helpful comments and discussions. I thank Colin Hudler for assistance with computing access. E-mail: chrisliao@uchicago.edu}}
+\date{\today}
+\maketitle
 
 \begin{abstract}
-   \footnote{\\
-   Advisors: Ali Hortaçsu, Jesse Shapiro\\
-   Hierarchies/OSS: Luis Garicano, Josh Lerner, Frank Nagle\\
-   Econ Friends: Jordan Rosenthal-kay, Noah Sobel-Lewin\\
-   Research Supervisors: Scott Nelson, Thomas Sargent, George Hall, James Traina \\
-   Undergrad Econ Dept: Victor Lima, Kotaro Yoshida\\
-   Friends \\
-   Family \\
-   Harvard Predoc Workshop Participants\\
-   UChicago IT: Colin Hudler \\
-   OSS contributors: Anna Woodard + various survey respondents \\
-   Jeff Gortmaker\\
-   }
+\noindent 
+I systematically examine, in a large scale empirical study of open source software organizations which organizational practices affect organizational resilience. 
+I define resilience as how much software development and release activity slow after a key member permanently leaves the organization. 
+I provide novel results showing that on average, software development and release activity can drop permanently by up to 1 standard deviation post-departure. 
+I then develop a new method using flexible machine learning models that can divide organizations into groups that differ markedly in resilience based on their organizational practices. 
+I use interpretable machine learning methods to explore what practices predict resilience and relate them to existing theories. 
+\vspace{0in}\\
 \end{abstract}
-\newpage
-\section{Introduction}
-\subfile{source/paper/sections/introduction}
+\todo[inline]{Add numbers in abstract, refine abstract + revisit everyone's feedback when working on the abstract}
 
-\section{Model}
-\subfile{source/paper/sections/model}
+\setcounter{page}{0}
+\thispagestyle{empty}
+\end{titlepage}
+\pagebreak \newpage
+
+\section{Introduction} \label{sec:intro}
+% \textbf{Paragraphs 1-2: Motivation. After reading these paragraphs a reader in any field of economics should believe that if you answer your research question your paper will make an important contribution.}
+
+% Goal: Convince people that organizational resilience is a widely discussed and important topic
+All organizations face challenges. 
+Some crumble, but the resilient ones are able to weather the storm and bounce back. 
+Understanding which practices foster resilience, enabling organizations ``to maintain or restore an acceptable level of functioning despite perturbations or failures'' \citep{robert_organizational_2009} is of great interest.
+Witness, for instance, the range of surveys or experiments,\footnote{See \cite{mallak_1998_health} for a survey of the health care provider industry, \cite{luthans_psychological_2006} for an experiment on the impact of psychological capital, \cite{danneels_organizational_2008} for a survey of U.S. Public manufacturing firms, \cite{MAKKONEN20142707} for a survey of Finnish firms post-2008 financial crisis, and \cite{PAL2014410} for a survey of Swedish textile and clothing firms during recent economic crises.} case studies,\footnote{See \cite{sheffi_supply_2005}, \cite{mcmanus_faciliated_2008}, \cite{crichton_enhancing_2009}, \cite{dutton_heart_2010}, \cite{LENGNICKHALL2011243}, \cite{carmeli_capture_2011}, \cite{suarez_building_2020}, \cite{tang_business_2025}, and \cite{atkinson_organizational_2023} for a selection of case studies and teaching cases on organizational resilience.} and consulting insights\footnote{See \cite{maor_raising_2022}, \cite{maor_foster_2023}, and \cite{kristensen_building_2025} for organizational resilience insights from McKinsey \& Company.} offering guidance on resilience based off lessons from contexts as wide-ranging as global economic crises or pandemics, to scaling Everest or governing Rome.
+Such studies have found numerous practices that strengthen resilience, such as investing in talent \citep{maor_raising_2022}, fostering positive communication \citep{luthans_psychological_2006}, building knowledge redundancy \citep{sheffi_supply_2005, rashid_systematic_2019}, and establishing problem-solving routines \citep{suarez_building_2020}.
+Yet, when taken to the data, which of the proposed practices systematically enhance resilience? 
+The context-bound nature of case studies limits the generalizability of their findings, as highlighted practices may appear effective only because they coincide with other unaccounted-for practices or setting-specific factors.
+This gap underscores the need for large-scale empirical research to identify whether, and which, organizational practices--individually or in combination--systematically enhance organizational resilience.\footnote{Unifying empirical studies are rare. \cite{duchek_organizational_2020} says that ``only a few of them [studies] provide deeper insight into specific capabilities that underlie resilience. Previous studies on resilience capabilities are extremely heterogeneous: They refer to different contexts, focus on specific problems, and use different research methods.''}
+
+There are two main challenges to systematically analyzing how organizational practices affect resilience.
+The first challenge is to clearly define and measure organizational practices and organizational resilience. 
+Evaluating an organization’s resilience requires exposing it to a disruption. 
+In a systematic study, resilience should be assessed using outcomes that are both comparable across yet still meaningful to all organizations.
+Ideally, organizations will face the same type of disruption, ensuring that differences in resilience reflect differences in practices rather than differences in the disruption's nature. 
+Separately, obtaining data that can be leveraged to provide detailed, systematic measures of resilience and practices over time and at scale is a major hurdle. 
+Even studies leveraging rich administrative data on individuals and firms offer only limited insight into the inner workings of organizations \citep{jaravel_team-specific_2018, jager_how_2024}.
+
+The second challenge is to develop an empirical framework that can propose and test meaningful hypotheses about how organizational practices affect organizational resilience. 
+The true model of how practices affect resilience may be a complex function that depends on multiple practices and their interactions; hence, the framework must flexible enough to capture these complexities. 
+The hypothesized relationships between practices and resilience should also be generalizable and interpretable, so as to provide useful insights.
+
+% \textbf{Paragraph 5: This Paper. This paragraph states in a nutshell what the paper accomplishes and how. }
+
+In this paper, I study how organizational practices affect organizational resilience in open source software (OSS) organizations.
+I identify instances where key organizational members abruptly depart and leverage their departures as disruptions to test an organization's resilience.
+Resilience is defined as the causal impact of departures on an organization's software development and release activity; more resilient organizations experience smaller declines in activity post-departure. 
+I then test how variation in the organizational adoption of five practices affects resilience: collaborativeness, knowledge redundancy, discussion quality, investment in new talent, and problem-solving routines.
+
+
+% \longterm[inline]{Paragraphs 6-7: Model. Summarize the key formal assumptions you will maintain in your analysis.
+
+% \textbf{Paragraphs 8-9: Data. Explain where you obtain your data and how you measure the concepts that are central to your study}
+% 
+Open source software is a category of software that is freely available for use and modification. 
+OSS is an interesting setting for two reasons.  First, it is economically important; 97\% of all software (including commercial types) include OSS code (\citealt{fred_bals_six_2025}). 
+Prominent examples of OSS include the operating system Linux, the operating system of choice for 96.4\% of the top one million web servers (\citealt{w3cook_os_2015})\footnote{Ubuntu, CentOS, Debian, Fedora, SUSE and Redhat are all Linux-based and categorized as Linux web servers.} and the machine learning framework PyTorch, which is used by 63\% of all organizations training machine learning models (\citealt{lawson_shaping_2024}). 
+Studying OSS can also yield valuable insights into software production, an increasingly important aspect of the global economy. 
+Second, activity-level data on the activities and outputs of many important OSS organizations is publicly available, providing researchers with an unusually detailed picture of organizational practices and outcomes over time. 
+My dataset on OSS organizations, assembled using the GitHub GraphQL API and the GitHub Archive,\footnote{GitHub is the world's largest host of OSS development repositories. The GitHub Archive is a third-party project to ``to record the public GitHub timeline, archive it, and make it easily accessible for further analysis'' (\citealt{GitHub_archive_GitHub_2025}).} enables me to identify key members, measure software development activity and characterize organizational practices. 
+
+
+% \textbf{Paragraphs 10-11: Methods. Explain how you take your model to the data and how you overcome the challenges you raised in paragraphs 3-4.}
+Since I define resilience as the causal effect of departures on organizational software development and release activity, my analysis studies how OSS organizations respond to a common disruption---abruptly losing a key member---and evaluate them along their shared goal of developing and releasing software. 
+Departures may be endogenous to unobservable organizational trends, so I subset to organizations that experience a single abrupt key member departure.
+Evidence from the literature suggests that the timing of abrupt key member departures, which occur when a key member suddenly and permanently ceases all involvement with the organization, have a substantial element of randomness.
+Such departures tend to be driven by major life events, such as a job change, as opposed to unobservable organizational trends such as dissatisfaction with organizational leadership (\citealt{miller_why_2019}).\footnote{Existing research from the OSS literature that studies departures  broadly, without considering its abruptness or permanence, find that some departures are motivated by organizational practices, such as dissatisfaction with the organization's management or disengagement from the organization's social community (\citealt{hannon_retaining_2008}, \citealt{constantinou_empirical_2017}, \citealt{miller_why_2019}). This emphasizes the importance of selecting on abrupt departures.}
+
+
+To measure collaborativeness, I assess how frequently members work on the same task and how evenly work is distributed.
+To measure knowledge redundancy, I assess how experienced members are at solving many different types of problems.
+To measure discussion quality, I assess response frequency, response speed, and discussion sentiment.
+To measure investment in new talent, I assess whether organizations have infrastructure to that makes integrating new members into the organization easier.
+To measure problem-solving routines, I assess the degree to which organizations systematize discussions, proposed code improvements, and task assignments.
+For each organization and practice, I calculate a score based on the first principal component of all corresponding measurements, with higher values indicating greater adoption of the practice within the organization.
+
+% \textbf{Paragraphs 12-13: Findings. Describe the key findings. Make sure they connect clearly to the motivation in paragraphs 1-2.}
+% \todo[inline]{It would be nice to place a number on "impacts" caused by departure (what's the headline number?)}
+
+% Try rewriting each of the four steps so that it's more clear
+% Step 1: reasonable, capture what we expect + literature shows
+% Step 2: How I adapt my hypothesis to test hypotheses from the literature, in a naive way - basically literature + data
+% Step 3: fancy analysis - but how to incorporate data? Maybe ths will become obvious from ste p3
+% Step 4: Interpretable analysis
+
+The analysis proceeds in four steps. 
+First, I measure average organizational resilience, using an event study design to estimate the effect of key member departures on organizational software development and release activity. 
+I provide the first causal evidence in the literature that the departure of key members reduces organizational software development and release activity by up to one standard deviation on average, with effects that persist over several years.
+Second, I test whether average resilience varies depending on an organization's practice scores. 
+I find that greater adoption of any single practice does not suggest greater resilience.
+Third, I use the \textit{generalized random forest event study} to develop the \textit{Forest Split}, which classifies out-of-sample organizations into equally-sized high and low resilience subsets based on partitions that are data-informed and combine all pre-departure practice scores. 
+The generalized random forest event study, which I develop separately in \cite{liao_generalized_2025}, uses the tools developed in \cite{athey_generalized_2019} to estimate dynamic heterogeneous treatment effects in event study settings with staggered treatment \citep{sun_estimating_2021}. 
+I find that the Forest Split has exceptional predictive power; on average, low resilience organizations experience declines between 0.79 and 2.15 standard deviations larger than high resilience organizations across all outcomes measuring software development and release activity. 
+\todo[inline]{Fill in the fourth step}
+
+Since the \textit{Forest Split} accurately predicts the resilience of out-of-sample organizations, I am confident that important features of the true statistical distribution of resilience, conditional on the organizational practices in this study, are captured. 
+One challenge, however, is translating these statistical relationships into causal claims. 
+The adoption of any given organizational practice is likely endogenous to unobservable factors that also affect resilience.
+Consequently, the hypotheses about the relationship between practices and resilience should be interpreted as descriptive evidence, not necessarily as causal drivers of resilience.
+Understanding the mechanisms by which organizational practices causally affect resilience remains an important direction for future research.
+
+
+The paper proceeds as follows. 
+The \hyperref[sec:literature]{Related Literature} section situates this paper within the economics, management, and software engineering literatures. 
+Section~\ref{sec:data} provides background on open-source software development, describes the dataset, and defines and measures key members and abrupt departures.
+Section~\ref{sec:org_practices} describes the organizational practices studied in this paper.
+Section~\ref{sec:org_resilience_estimate} leverages abrupt key member departures to estimate average organizational resilience and assesses how average resilience is affected by individual organizational practices. 
+Section~\ref{sec:org_resilience_forest} uses machine learning methods to discover whether more flexible hypotheses can better explain the relationship between organizational practices and organizational resilience.
+Section~\ref{sec:interp_forest} interprets the machine learning models from Section~\ref{sec:org_resilience_forest} to learn hypotheses about how  practices affect resilience. 
+Section~\ref{sec:conclusion} concludes.
+
+
+\subsection*{Related Literature} \label{sec:literature}
+% \textbf{Paragraphs 14-15: Literature. Lay out the two main ways your paper contributes to the literature. Each paragraph should center around one contribution and should explain precisely how your paper differs from the most closely related recent work.}
+
+A large literature in economics has studied how organizations and teams respond to the plausibly exogenous departure of different types of members, such as superstar research collaborators \citep{azoulay_superstar_2010, azoulay_does_2019}, co-inventors \citep{jaravel_team-specific_2018, azoulay_does_2019}, co-workers \citep{jager_how_2024}, coauthors \citep{oettl_reconceptualizing_2012, khanna_aftermath_2021}, and graduate advisors \citep{waldinger_quality_2010}. 
+However, even studies that leverage large-scale administrative data to study the effects of plausibly exogenous departures \citep{jaravel_team-specific_2018, jager_how_2024} offer limited insight into the internal workings of organizations and, consequently, into how organizational practices shape resilience.
+My paper's contribution to this literature is twofold: I show that the departure of key software developers has a large effect on OSS organizations and I leverage rich data from open source software to discover hypotheses about how organizational practices enhance organizational resilience to departures.
+
+A second contribution is to the literature on how organizational practices affect organizational outcomes. 
+Experimental evidence suggests that better management practices improves firm outcomes \citep{bloom_india_2012} and that these effects are persistent across time \citep{bloom_2020_last}. 
+My paper builds on this literature in three ways.
+Since I use observational data, my sample of organizations is much larger (681 compared to 17).
+This enables me to estimate whether and how specific combinations of practices affect outcomes, not just whether a set of practices is broadly effective on average. 
+Second, I focus on the effect of practices on organizational resilience, not organizational outcomes during ordinary periods.
+Finally, I contribute to a long-standing debate on whether there are universally ``best practices'' that organizations should adopt; I find that there are practices that systematically distinguish more resilient organizations from less resilient ones \citep{taylor1911principles}.\footnote{This contrasts with the ``contingency view'' which states that there is no best way to organize a corporation \citep{woodward1965management}.}
+A limitation of my analysis is that because I rely on observational data, the adoption of organizational practices is likely endogenous, so my hypotheses about which practices affect resilience are descriptive, unlike \cite{bloom_india_2012}, where adoption is most exogenous due to the experimental design.
+Understanding what drives the adoption of particular practices is the subject of other work in this literature \citep{bloom_measuring_2007, bloom_management_differ_2012,  bloom_india_2012, bloom_drives_2019}.
+
+My third contribution is to the economics literature on open-source software that started with \cite{lerner_open_2001, lerner_simple_2002}.
+The growing empirical literature in economics on open source software (OSS) has emphasized its intersection with the public and private sector, including the benefits firms gain from contributing to OSS \citep{nagle_open_2017,conti_beefing_2025} and the role of financial sponsorship and industrial policy in incentivizing OSS innovation \citep{conti_incentivizing_2023,gortmaker_open_2025}.
+My paper focuses on OSS organizations themselves, leveraging the visibility of their internal dynamics to study how an important problem OSS organizations face can be mitigated: the disruption caused by key member departures. 
+I build on prior work by using the detailed activity-level data on OSS organizations to characterize not only organizational outcomes but also organizational practices.
+
+A large body of conceptual and empirical research on the organizational practices\footnote{Also described as ``factors'' and ``processes'' in the literature.} that contribute to organizational resilience exists in the management literature, although most empirical work relies on case study or survey methods.\footnote{See review papers on organizational resilience by \citealt{annarelli_strategic_2016} and  \citealt{hillmann_organizational_2021}, and Table 2 of \citealt{annarelli_strategic_2016} for a breakdown of methods used in conceptual and empirical research papers on organizational resilience.} 
+Three central challenges to empirical research on organizational resilience are defining it, conceptualizing measurement, and testing how organizational practices affect resilience. 
+I define organizational resilience as the capacity of organizations to respond to disruptions or shocks.\footnote{This definition is one of several established definitions in the literature. Other work from the literature that has also used this definition include \cite{horne_iii_coming_1997}, \cite{kantur_organizational_2012}, \cite{boin_resilient_2013}, and \cite{sahebjamnia_integrated_2015}. 
+Additional definitions widely used by the literature are listed in Table 2 of \cite{hillmann_organizational_2021}.} 
+I measure organizational resilience by analyzing organizational outcomes observed \textit{ex post} the disruptive event.\footnote{Other empirical work from the literature that define and measure organizational resilience similarly include \cite{ortiz-de-mandojana_long-term_2016} and \cite{desjardine_bouncing_2019}, which examines the relationship between a company’s social and environmental practices (SEPs) and post-financial crisis performance and \cite{gittell_relationships_2006}, which examines the relationship between an airline company's financial flexibility, labor relationships and performance post 9/11. This paper differs by studying organization-specific departures, as opposed to aggregate shocks.}
+The five categories of organizational practices in my analysis are \textit{collaboration}, \textit{knowledge redundancy}, \textit{discussion quality}, \textit{investment in new talent} and \textit{problem-solving routines}.
+These categories map to common themes emphasized by the organizational resilience and have all been found to bolster resilience.\footnote{Three of the four concepts that \cite{duchek_organizational_2020} describes as ``general attributes that may facilitate an organization's resilience'' cover my categories. What  \cite{duchek_organizational_2020} terms \textit{redundancy} covers collaboration and knowledge redundancy, \textit{positive relationships} covers discussion quality and investment in new talent and \textit{specific organizational strategies} covers organizational routines. 
+The fourth type is adequate resources, which is less applicable to OSS organizations as most organizations are made up of volunteers who collaborate remotely.}
+
+My analysis differs from existing research in management, which examines individual organizational practices in isolation or the combined effects of multiple practices without considering how they interact. 
+\cite{suarez_building_2020} focus solely on problem-solving routines.
+\cite{kendra_nyc_2003} describe how knowledge redundancy, routines, and investing and incorporating new talent and resources independently contribute to redundancy but do not examine their interdependence.
+Other work, such as McKinsey’s organizational resilience insights, emphasizes building multiple capabilities simultaneously—like self-sufficient teams (that collaborate) or investing in positive relationships (termed culture) and new talent—but does not examine whether or how these practices complement one another \citep{maor_raising_2022}.
+When interactions are examined, they typically involve how financial resources enable other organizational practices, such as positive labor relationships \citep{gittell_relationships_2006}, which falls outside my focus.\footnote{Since many OSS projects are distributed for free, financial resource management is less relevant than in traditional corporate organizations.}
+More often, existing research on organizational resilience explores interactions at the outcome level--how resilience in one upstream outcome supports resilience in downstream ones \citep{duchek_organizational_2020}.
+
+% NOTE DOWN BELOW PLAN FOR COMPLEMENTARY
+% There is also a research literature on complementary organizational practices.
+
+
+
+What makes OSS organizations resilient post-departure is also an active research topic in the information systems and software engineering literature. 
+\cite{rashid_systematic_2019} provides a detailed review of that topic. 
+There has been extensive conceptual, survey and case study work on the prevalence and ways OSS organizations can mitigate either departures or their impact (\citealt{von_krogh_community_2003}, \citealt{robles_evolution_2005}, \citealt{hannon_retaining_2008}, \citealt{xu_volunteers_2010}, \citealt{yu_empirical_2012}, \citealt{rashid_exploring_2017}, \citealt{miller_why_2019}).
+\cite{rashid_systematic_2019} highlights disaster-mitigation practices that can be classified into my 5 categories of organizational practices.\footnote{See section 6.2 of \cite{rashid_systematic_2019}. 
+The collaboration practice is ``pair programming and shared code ownership.''
+The knowledge redundancy practices are ``successor[s],'' and ``uniform knowledge distribution.'' 
+The discussion quality practice is ``improving code review feedback time for non-cores.''
+The investment in new talent practice is ``removal of knowledge barriers.''
+The problem-solving routine practice is ``gamification.''
+}
+One outcome prior empirical work has used to quantify the impact of departures is ``potential damage to the codebase'' (\citealt{izquierdo-cortazar_using_2009}, \citealt{rigby_quantifying_2016}, \citealt{nassif_revisiting_2017}). 
+\citealt{rigby_quantifying_2016}, which is most closely related to this paper, finds that the presence of “successors” who worked on tasks similar to the departed member can mitigate the repercussions of departures. 
+My analysis differs in several ways.
+First, I focus on a variety of organizational practices, as opposed to just one. 
+Second, whereas \cite{rigby_quantifying_2016} analyzes all departures from just 5 organizations, my analysis includes 681 organizations.
+Finally, while \cite{rigby_quantifying_2016} considers hypothetical impacts based on potential codebase damage and possible mitigation through a successor, I quantify, using realized outcomes of organizational output, the actual impact of organizational practices. 
+
+\section{Background and Data} \label{sec:data}
+My analysis focuses on organizational resilience in OSS organizations for four reasons.
+First, detailed data on organizational activity and outcomes is available, enabling an examination of which organizational practices enable greater resilience.
+Second, OSS organizations are comparable because they have similar operational processes and pursue a common goal:—producing new and updated software.
+Third, key member departures provide a natural context for studying resilience, as developer turnover is a pervasive challenge in OSS organizations.
+Finally, open source software—and the digital economy it supports—are of major economic importance: firms would need to spend 3.5 times more on software than they currently do if OSS did not exist \citep{hoffmann_value_2024} and American software spending is over 1\% of GDP \citep{WIPO_US_GDP_software}. 
+
+Section~\ref{sec:oss_universe} describes the universe of OSS in my sample and my data sources. 
+Section~\ref{sec:oss_background} describes the OSS software development process and organizational structure of OSS organizations.
+Section~\ref{sec:key_members} describes my procedure for identifying an organization's key members. 
+Section~\ref{sec:abrupt_departures} describes how I define and measure abrupt key member departures, and discusses why they can be considered plausibly exogenous. 
+Section~\ref{sec:treatment_sample} describes the final analysis sample. 
+Section~\ref{sec:summary_stats} presents summary statistics describing activity levels of the OSS organizations in my sample. 
+
+
+
+
+\subsection{Sample Universe and Data Sources} \label{sec:oss_universe}
+I analyze an important subset of the current OSS ecosystem--widely-used Python libraries--from 2015--2024.\footnote{I define a Python library as widely-used if it had at least 10,000 downloads from pip in any month between 2015-2024, as measured by \cite{the_python_software_foundation_pypi_2025}}
+Python is the world's most popular programming language (\citealt{paul_jansen_tiobe_2025}). 
+Python libraries--collections of reusable toolkits providing prewritten code for specific tasks--are a major reason for Python’s popularity, as they provide extensive functionality across diverse domains.
+The development of most Python libraries occurs on GitHub, a cloud-based platform for software development and version control. 
+The unit of observation in my analysis is the organization, defined as the GitHub software project that handles development for one or more Python libraries. 
+
+Detailed data on OSS organizations whose development occurs on GitHub is available via the GitHub Archive \citep{GitHub_archive_GitHub_2025} from 2015 onwards.
+I supplement that with data from the GitHub GraphQL API \citep{github_graphql} and the Python Software Foundation \citep{the_python_software_foundation_pypi_2025}.
+In my data, I observe activity-level data on software development within the OSS organization, including the deanonymized identity of the member performing each activity and the date and content of their contributions. 
+I aggregate all activity counts to the six-month level. 
+
+\subsection{Background on Open Source Software Development} \label{sec:oss_background}
+On GitHub, to initiate discussion about a topic, such as a software bug or feature request, a member of the organization opens an \textit{issue} thread. 
+Members participate in the issue thread by posting \textit{issue comments}. 
+To propose a change to the codebase, such as a software bug fix, members will open a \textit{pull request} thread. 
+Members ask general questions about a pull request, such as the overarching goal, by posting \textit{pull request comments}.
+Members ask questions about specific code changes, such as whether a specific line of code can be simplified, by posting \textit{pull request review comments} and decide what action should be taken by leaving \textit{pull request reviews}. 
+If the organization's higher-ranking members believe the proposed code changes have value, typically, following some back and forth discussion, the pull request will be \textit{merged} into the codebase. 
+Changes made to the codebase are not immediately available to software users; instead, every so often, the organization will make a new \textit{software release} available for download.
+Software releases makes an updated versions of the Python library that incorporates the new code changes publicly available.
+
+I classify opening and merging pull requests as software development activity and releasing new software as software release activity. 
+Software releases are less frequent than opening or merging pull requests as they often bundle a varying number of pull requests.
+While pull request activity best captures an organization's general level of activity, OSS users are typically more interested in software releases, which deliver new features and bug fixes that directly affect them.
+
+
+\longterm[inline]{Can I characterize what \% of people account for what \% of actvity? }
+I consider anyone who participates in the aforementioned activities to be a member of the OSS organization. 
+Prior research on OSS organizations has found that a small minority of key members account for most organizational activity \citep{mockus_two_2002, crowston_hierarchy_2006}.
+Key members also interact broadly with many members to address issues relevant to any aspect of the software and make key codebase-related decisions.
+They are typically long-term, persistent contributors to the software \citep{ mockus_two_2002, bao_longtime_2021}.
+In contrast, non-key members usually participate only when facing software issues relevant to their own use, such as to report bugs they encounter or request features they want to see added.
+Their engagement is brief and limited to resolving those specific concerns \citep{hippel_open_2003}.
+
+\subsection{Identifying Key Members}\label{sec:key_members}
+
+Identifying the organization's key members requires a measure of each member’s prominence. I measure a member's prominence using the organization's social network, which I model as an undirected, weighted graph where nodes represent members and edge weights capture the number of interactions between them.\footnote{An interaction occurs when either member talks with the other.} Each graph is constructed from activity data covering a six-month period, corresponding to either the first or second half of the calendar year. Using the organization's social network to identify key members offers two advantages: it aggregates interactions across all types activities and allows me to leverage established concepts from graph theory to identify the central nodes corresponding to key members.
+%\longterm[inline]{Appendix Section~\ref{sec:app_data} provides additional detail about the social network's construction. }
+
+\input{source/figures/social_network}
+
+A member’s prominence is defined by their degree centrality: the number of unique members they interacted with during the period.
+Members ranking among the top three in degree centrality are \textit{single-period key members}; all ties are included.\footnote{More formally, members whose degree centrality equals or exceeds that of the third-ranked member are included.} 
+Members who are single-period key members for three consecutive periods are classified as \textit{key members} beginning in the third period.
+Figure~\ref{fig:boto_social_network} depicts the social network for \textit{boto/boto3}, the Amazon Web Services Software Development Kit for Python, during the first half of 2020. 
+
+My definition of an OSS organization’s social network follows \cite{crowston_hierarchy_2006}. 
+The criteria for identifying \textit{key members} reflect two established features known from the literature on OSS: key members interact with more people than others and tend to have persistent contribution patterns. 
+I capture these traits by defining key members as those who are \textit{single-period key members} for at least three consecutive periods.
+
+\subsection{Abrupt Departures} \label{sec:abrupt_departures}
+\subsubsection{Defining and Measuring Abrupt Departures} \label{sec:defining_departures}
+An abrupt key member departure occurs when a key member suddenly ends all involvement with an OSS organization. 
+A key member in a given time period is classified as having abruptly departed in the next period if they participate in any observed OSS organizational activities in all subsequent periods. 
+This measure builds on \cite{miller_why_2019}, who study abrupt key member departures using survey and empirical data. 
+My definition modifies the definition in \cite{miller_why_2019} by identifying key members based on all forms of activity, not just code contributions, and by defining departure as a complete cessation of activity rather than a reduction to low levels of activity.
+
+\subsubsection{Motivations for Abrupt Departures}\label{sec:abrupt_departure_motivation}
+My analysis focuses on abrupt departures because existing survey evidence shows that abrupt departures tend to occur because of ``some kind of transition (e.g., switching jobs or leaving academia)" or because members were ``having children or getting married" \citep{miller_why_2019}. 
+Oftentimes, the motivations behind an abrupt departure are the mechanical consequences of transitions in one's life; for example, if contributing to OSS was part of a graduate school job, graduation removes that obligation and can lead to disengagement.
+Similarly, if someone contributes to OSS as part of their job but changes companies, their new role will likely not involve contributing to their previous employer’s OSS.
+
+Abrupt departures should be distinguished from other forms of disengagement because the underlying motivations differ. 
+For example, \cite{miller_why_2019} find that
+\begin{displayquote}
+occupational reasons such as major life changes (e.g., getting a new job or leaving school) were the most cited (with 106 citations), significantly more than lacking peer support or losing interest that are more commonly discussed in the literature \citep{miller_why_2019}.
+\end{displayquote}
+Outside of \cite{miller_why_2019}, most studies analyze disengagement broadly, focusing on either reduced activity—where contributors remain involved at lower levels—or gradual withdrawal, which eventually leads to permanent departure, without considering how abruptly this process occurs.
+Commonly cited reasons include  lacking peer support, losing interest, and role changes \citep{iaffaldano_preliminary_2019}.
+
+I believe my definition of abrupt departures excludes reasons motivated by the aforementioned factors.
+Social factors are often cited as barriers to joining or becoming integral to a project (\citealt{bosu_impact_2014}; \citealt{steinmacher_let_2019}). 
+However, my analysis focuses on the departure of key members who have been integral to a project for at least 18 months.
+Role changes may lead members to reduce or cease code contributions, but since my definition requires complete disengagement, role shifts involving continued participation—such as supervisory or discussion-based roles—would not qualify as departures. 
+Finally, it is unlikely that loss of personal motivation primarily drives abrupt departures. 
+For highly involved contributors, declining interest or rising frustration would more plausibly manifest as a gradual reduction in activity rather than a sudden cessation.
+
+\subsubsection{Plausible Exogeneity of Abrupt Departures}
+\longterm[inline]{LinkedIn + job changes}
+I argue that abrupt departures are plausibly exogenous—that is, they are unrelated to unobservable organizational trends that influence organizational outcomes.
+This assumption would be violated if departures systematically reflected organizational factors such as dissatisfaction with leadership, lack of peer support, or declining project relevance.
+
+\flagforclarity[inline]{}
+However, as discussed in Section~\ref{sec:abrupt_departure_motivation}, the primary motivations for abrupt departures stem from individual life transitions—events such as graduation, job changes, or family formation—that are external to the organization.
+By construction, these transitions determine the timing of departure independently of any unobserved organizational shocks.
+For example, when an OSS member has a child, disengagement is a mechanical consequence of having less time to contribute to OSS rather than a response to organizational conditions; it seems unlikely that the timing of such major life events is driven by unobserved trends in the organization.
+Similarly, when contributors graduate or change jobs, departure follows mechanically from that transition.
+Job changes, in particular, are typically driven by personal factors—such as compensation, career progression, or relocation—that are orthogonal to the OSS organization’s trajectory.
+Contributors who use the tool produced by an OSS organization but are not employed by them may stop contributing after job changes because some firms restrict OSS participation during work hours or because they no longer use the relevant tools, neither of which are related to the the OSS organization’s unobserved trends.
+Even when the employer itself manages the OSS organization, the software itself usually represents a minor or non-revenue-generating component of firm operations as OSS is distributed for free, making it unlikely that unobservable trends in the OSS would determine the timing of a job departure.
+
+Taken together, these considerations suggest that abrupt key member departures primarily reflect idiosyncratic, individual-level shocks rather than responses to latent organizational trends.
+As such, I will treat them as plausibly exogenous with respect to the OSS organization’s unobserved trends and performance outcomes.
+
+\subsection{Defining Treatment and the Final Sample} \label{sec:treatment_sample}
+\longterm[inline]{Jesse says I can balance on ``one key member''}
+My sample spans 10 years (2015–2024), divided into semiannual time periods. 
+Treated organizations experience exactly one key member departure during this window; control organizations never do. 
+Organizations with more than one key member departure are excluded to avoid contamination caused by multiple treatments. 
+
+I define the treatment date $E_i$ for an organization $i$ as the last period  $t$ where the departing key member is present. 
+For control organizations that never experience a key member departure, $E_i = \infty$.
+Any organization where $E_i = e$ is a member of the treatment cohort $e \in E$. 
+For each control organization, I assign a \textit{quasi-treatment date} $Q_i$, drawn from the empirical distribution of treatment dates among treated units conditional on the organization's first appearance in the sample. 
+The quasi-treatment date $Q_i$ for treated units is equal to its treatment date. 
+The concept of a quasi-treatment date allows me to assign control organizations reference periods.
+Event time for all organizations can thus be defined relative to the quasi-treatment date as $k=t-Q_i$.\footnote{I abuse notation slightly not specifying that event time $k_i$ is organization-specific to maintain simplicity.}
+I define the time periods where $k<0$ as an organization's pre-period, and $k>0$ as an organization's post period. 
+
+I am interested in three organizational outcomes: the number of pull requests opened, pull requests merged, and new software releases in a time period $t$.
+Denote an arbitrary organizational outcome as $Y_{i,t}$.
+To ensure cross-organization comparability, I standardize each organization’s outcome values using the organization-level mean and standard deviation from its five most recent pre-periods ($-5 \leq k \leq -1$).
+Standardized outcomes $Y_{i,t}^{SD}$ are in units of standard deviations. 
+
+I impose the following additional sample restrictions.
+All organizations must have exactly one key member at the quasi-treatment date, so that differences between organizations that do and do not experience deapartures are not driven by differences in the organizational structure.
+Furthermore, each organization must have observed activity for at least five pre- and five post-periods.
+The sample features 681 OSS organizations and includes major GitHub projects, including \texttt{pytorch/pytorch}, the flagship deep learning framework; \texttt{googleapis/google-cloud-Python}, the Python Google Cloud software development kit (SDK); and \texttt{boto/boto3}, the Python Amazon Web Services SDK.
+
+\subsection{Summary Statistics} \label{sec:summary_stats}
+Activity-level summary statistics - across all project-time periods
+% Table of outcomes - either vertical or horizontal
+% Number of pull requests opened, merged, number of releases (Mean, SD)
+% if easy, also include amount done by each _imp org
+
+
+% Table of other activity - either vertical or horizontal
+% Number of members in period, Number of issues opened, issue comments, pull request comments, pull request review comments
+% if easy, also include amount done by each _imp org
+
+% \# of unique projects, number of project-periods (which tells us number of periods observed for)
+% average tenure by departed 
+% number/\% of periods as ``single-period key members'' by departed
+
+% Include in a separate panel, a distribution of observations over periods  + overlapping in a different color, treatment dates
+
+% How sample reduction affects sample size (10,000 downloads to exactly one key member to observed activity for 5 post-periods)
+
+\section{Organizational Practices} \label{sec:org_practices}
+\longterm[inline]{Cluster organizational practices to see if groupings by cluster match mine + autofill}
+
+\flagforclarity[inline]{}
+I investigate whether--and how--five organizational practices affect organizational resilience: collaboration, knowledge redundancy, discussion quality, investment in new talent, and problem-solving routines. 
+The choice of these five categories is motivated by prior research in the management and software engineering literature, as discussed in the \hyperref[sec:literature]{Related Literature} section. 
+Each practice includes several measures.
+I calculate each organization’s value for each measure over its five most recent pre-periods and then aggregate the standardized measures within each practice into a single composite “practice score” using the first principal component.
+Conceptually, higher values of the practice score correspond to higher adoption levels of the organizational practice. 
+The sections that follow describe the measures included in each category and the composition of the corresponding category scores.
+
+\subsection{Collaboration}
+Collaboration enhances resilience after member departures because it distributes problem-solving knowledge across multiple people.
+This ensures that the ability to complete a task may be retained even after someone leaves.
+I measure collaboration in an organization using five measures: the average number of participants per discussion, the percentage of discussions involving multiple members, and the degree to which participation is concentrated among a few individuals or dispersed across many—measured using the Herfindahl–Hirschman Index (HHI) for all discussions, issue threads, and pull request threads separately.
+The first principal component (PC) is statistically meaningful, explaining 53.8\% of the total variance across the five measures.
+
+Table~\ref{tab:collaboration_metrics} provides detailed definitions of all 5 measures and each measure's weights in the first PC. 
+Organizations with higher collaboration scores are more collaborative. 
+For instance, a higher average number of participants per discussion increases the collaboration score, whereas organizations with more discussions that are concentrated among very few individuals (i.e., those with a higher HHI value) reduce it. 
+
+\subsection{Knowledge Reundancy}
+Knowledge redundancy enhances resilience by ensuring that problem-solving knowledge is shared among multiple people; hence, the loss of one member does not mean the organization loses all the knowledge that member held. 
+I measure knowledge redundancy in an organization using two measures: the \% of members involved in both issue and pull request threads and the average \# of unique activities members engage in.
+The first PC is statistically meaningful, explaining 91.6\% of the total variance across the two measures.
+
+Table~\ref{tab:shared_knowledge_metrics} provides detailed definitions of both measures.
+Organizations with higher knowledge redundancy scores have more knowledgeable members, which suggests higher levels of knowledge redundancy in the organization.
+For example, organizations with a higher proportion of members working on both issues and pull requests have a knowledge redundancy score. 
+
+\subsection{Discussion Quality}
+I use discussion quality as an umbrella term to capture the overall sentiment of discussions and whether members are responsive to each other. 
+Higher overall sentiment can enhance organizational resilience by fostering a more positive environment, which improves member satisfaction and increases engagement. 
+Discussions where members are more responsive demonstrate increased commitment to problem-solving, which can also improve member satisfaction.
+I measure discussion quality using five measures: the percentage of discussion threads that receive responses, the average number of days required for a response, and the average overall, positive, and negative sentiment scores of all discussions, computed using the VADER algorithm \citep{hutto_vader_2014}.
+The first PC component is statistically meaningful, explaining 47.7\% of the total variance across the five measures.
+
+Table~\ref{tab:discussion_quality_metrics} provides detailed definitions of both measures.
+Higher discussion quality scores indicate that organizations have more positive discussions and address issues in a more timely manner. 
+Organizations with shorter average response times or more positive sentiment tend to have higher discussion-quality scores.
+
+\subsection{Investment in New Talent}
+Organizations can also enhance resilience by establishing processes that facilitate the onboarding of new members.
+Such processes may be particularly valuable post-departure, when experienced members have limited capacity to onboard newcomers because the key member's departure means they have to assume additional responsibilities. 
+I measure organizational investment in new talent using three measures: whether organizations have tasks explicitly labelled as ``good first issues" that are specifically tasks appropriately difficult for new members to tackle, a contributing guide that tells new members how they can contribute to the organization, and an organizational code of conduct. 
+The first PC is statistically meaningful, explaining 51.6\% of the total variance across the five measures.
+
+Table~\ref{tab:investment_new_talent_metrics} provides detailed definitions of all three measures. 
+Higher investment in new talent scores indicate that organizations have more processes to onboard and integrate new members automatically. 
+For example, organizations with ``good first issues'' and a contributing guide have higher investment in new talent scores than those who do not. 
+
+\subsection{Problem-Solving Routines}
+Problem-solving routines can enhance organizational resilience by establishing structured plans that guide action during times of crisis.
+I measure whether organizations have problem-solving routines using six measures: how frequently tasks are labeled, members are explicitly assigned to tasks, and members are explicitly assigned to review tasks; whether the organization uses templates to systematize issues and pull requests; and whether it formally designates individuals as responsible for specific parts of the codebase.
+The first PC is statistically meaningful, explaining 35.9\% of the total variance across the six measures.
+
+Table~\ref{tab:problem_solving_routines_metrics} provides detailed definitions of all six measures. 
+Higher problem-solving routine scores indicate that organizations have adopted more routines to systematize problem solving. 
+For example, organizations that assign tags or use issue templates have higher problem-solving routine scores than those who do not. 
+
+\section{Estimating Organizational Resilience} \label{sec:org_resilience_estimate}
+Section~\ref{sec:org_resilience}, estimates average organizational resilience across all organizations following a key member departure.
+I present novel evidence that key member departures have large, persistent and negative effects on software development activity in open source software organizations. 
+Section~\ref{sec:org_resilience_indiv_tests} uses a simple procedure, the \textit{Median Split}, to test the hypotheses that average resilience increases in each organizational practice score.
+I find that higher scores do not suggest increased resilience to departure.
+Section~\ref{sec:median_split_reflection} discusses the Median Split’s limitations for hypothesis discovery.
+
+\subsection{Estimating Average Organizational Resilience}\label{sec:org_resilience}
+Average organizational resilience is defined as the average causal effect of a key member departure on organizational outcomes.
+Since key member departure dates vary across organizations, I follow \cite{sun_estimating_2021} and estimate the regression:
+\begin{equation}
+    Y_{i,t}^{SD} = \alpha_i + \lambda_t + \sum_{e \neq \infty} \sum_{k \neq -1} \delta_{e, k} Z_{i,t}^{e,k}  + \epsilon_{i,t}, \label{eq:event_study}
+\end{equation}
+which is robust to treatment effect heterogeneity at the treatment dat level. 
+$Z_{i, t}^{e,k}$ equals 1 if 1) organization $i$ is at event time $k$ in period $t$ and 2) belongs to treatment cohort $e$, and 0 otherwise. 
+The outcome $Y_{i,t}^{SD}$ is one of three possible values: the standardized number of pull requests opened, pull requests merged or new software releases in organization $i$ during period $t$. 
+I include organization fixed effects $\alpha_i$ and time fixed effects $\lambda_t$.
+Standard errors are clustered at the organization level. 
+
+The estimand of interest is average organizational resilience $k$ periods after a key member departure, defined as:
+\begin{equation}\label{eq:event_time}
+    \hat{\delta}_k = \sum_{e} \hat{\delta}_{e,k} \Pr(E_i = e \mid \text{treatment cohort } e \text{ is observed at event time } k)
+\end{equation}
+Under two identifying assumptions, $\hat{\delta}_k$ is an unbiased and consistent estimator of average organizational resilience $k$ periods after a key member's departure.\footnote{Since the sample shares of each treatment cohort are unbiased and consistent estimators for the population share, $\hat{\delta}_k$ will also be unbiased and consistent.}
+
+\begin{assumption}[Parallel Trends]\label{ass:parallel_trends}
+\text{For all time periods $s \neq t$}, 
+\[
+\E[Y_{i,s}^{SD,\infty} - Y_{i,t}^{SD, \infty}\mid E_i = e] 
+\quad \text{is the same across all treatment cohorts $e$}
+\]
+\end{assumption}
+$Y_{i,s}^{SD,\infty}$ is the potential outcome for organization $i$ were it never treated. 
+The parallel trends assumption is plausible because as discussed in Section~\ref{sec:abrupt_departures}, abrupt key member departures are driven by major life changes unrelated to the OSS organization, not unobservable organizational trends.
+
+% EMPHASIZE THAT IT"S NOT THE LAST PERIOD OF DEPARTED 
+\begin{assumption}[No Anticipation]\label{ass:no_ant}
+\[
+\E[Y_{i,s}^{SD,\infty} - Y_{i,s}^{SD}\mid E_i = e]  = 0
+\quad \text{for all pre-periods periods $s < Q_i$}
+\]
+\end{assumption}
+A violation of the no-anticipation assumption would require an OSS organization to alter its behavior months before a key member’s departure. 
+Because each period in my analysis spans six months and departure only occurs during $Q_i$, the organization would need substantial advance notice for any adjustment to matter.
+This seems unlikely for most departures, such as those driven by job changes in the tech sector where the typical industry notice period is only two weeks.
+Even in cases where departures are predictable—such as graduation—the organization would still need to start adjusting several months in advance for the assumption to be violated.
+
+\input{source/figures/event_study}
+Figure~\ref{fig:event_study} depicts event study estimates of Equation~\ref{eq:event_time} for each of the three organizational outcomes -- pull requests opened, pull requests merged, and new software releases -- over 5 pre- and post-periods. 
+To my knowledge, Figure~\ref{fig:event_study} presents the first causal estimates of the average impact of key member departures on organizational software development and release outcomes. 
+The abrupt departure of key members has a significant negative effect on all organizational outcomes, consistent with evidence that departures from OSS organizations can be highly disruptive \citep{rashid_systematic_2019}.
+These declines appear immediately after the departure, persist for at least five post-periods, and remain relatively stable in magnitude.
+On average over the five post-periods, a key member’s departure reduces pull requests opened by 0.83 standard deviations, pull requests merged by 0.82 standard deviations, and software releases produced by 0.47 standard deviations.
+
+Pull requests reflect ideation and innovative activity, as each opened pull request proposes a change to the codebase. 
+The joint decline in pull requests opened and merged suggests that recovering pre-departure levels of software development requires restoring ideation and innovation, not merely clearing administrative bottlenecks in the merging process—a far more difficult task. 
+The relatively smaller decline in new software releases compared to pull requests likely reflects the need by users for periodic updates (e.g., bug fixes) even when overall development slows, implying that post-departure releases may be less substantive than pre-departure releases.
+However, the decline in new software releases—and their potential compositional change—is still consequential, as it means users directly experience the effects of the departure through less timely bug fixes and fewer new features.
+Given the widespread reliance on OSS, this indicates that low organizational resilience in OSS projects may have substantial downstream economic consequences.
+
+The bottom left of each panel reports the p-value from the Wald test of the pre-trend null hypothesis $\delta_k = 0$ for the five plotted pre-periods, following \citealt{freyaldenhoven_visualization_2021}. 
+For two of the three organizational outcomes, I fail to reject the null of no pre-trends. 
+For pull requests merged, the null is marginally rejected at the 5\% level. 
+I do not consider this especially problematic for two reasons: the estimated effects are the opposite sign of the pre-trend coefficients and the pre-trend estimates closest to the treatment date are statistically indistinguishable from zero.
+Unobserved trends most threatening to identification would likely manifest as statistically significant pre-trends in the periods immediately prior to departure—which I do not observe.
+
+\subsection{Simple Tests of Organizational Resilience} \label{sec:org_resilience_indiv_tests}
+Next, I test the hypothesis that organizations with higher organizational practice scores are more resilient.
+Each organization has a vector of 5 practice scores $X_i$, with $X_{ij}$ denoting the score for practice $j$. 
+For each practice $j$, I apply the \textit{Median Split}, classifying organizations into high and low score groups, $C_{ij} \in \{\text{high}, \text{low}\}$, depending on whether $X_{ij}$ lies above or below the cross-organizational median.
+
+\input{source/figures/event_study_collab}
+
+Figure \ref{fig:event_study_collab} depicts separate event study estimates of average organizational resilience for organizations with high and low collaboration scores, across all organizational outcomes. 
+Each event study plot reports three p-values.
+Let $\hat{\delta}_k^{high,collab}$ denote the estimates from Equations~\ref{eq:event_study}--\ref{eq:event_time} for organizations with high collaboration scores, and 
+and $\hat{\delta}_k^{low,collab}$ the corresponding estimates for organizations with low collaboration scores.
+In descending order, the first two report the p-value of the pre-trend Wald test for high and low collaboration score organizations, respectively.
+The last p-value is from a Wald test evaluating the null hypothesis that the event study estimates for high and low collaboration score organizations do not differ for all event times $1 \leq k \leq 5$.\footnote{
+The p-value is from the Wald test  $H_0:\ \hat{\delta}_k^{high,collab} - \hat{\delta}_k^{low,collab} = 0$ for all $1 \le k \le 5$.}
+Rejecting this null indicates that organizations with high collaboration scores exhibit different levels of organizational resilience than those with low scores post-departure.
+
+More collaborative organizations are not more resilient after a key member’s departure; if anything, they experience larger declines in pull requests opened and merged, and these differences persist across all post-periods.
+This pattern suggests that if collaboration does increase resilience, it must do so through its interaction with other organizational practices. 
+
+Appendix Figure~\ref{fig:event_study_practice_categories} extends the analysis in Figure~\ref{fig:event_study_collab} to the remaining organizational practice categories: knowledge redundancy, discussion quality, investment in new talent, and problem-solving routines. 
+I find that no individual organizational practice independently predicts greater resilience as its adoption increases.
+This finding contrasts sharply with findings from the management and software engineering that increased adoption of these practices strengthens resilience.
+
+Two identifying assumptions allow $\hat{\delta}_k^{high,collab}$ and $\hat{\delta}_k^{low,collab}$ (and their counterparts for other organizational practices) to be interpreted as causal effects.  
+Given an organization's multi-valued vector of all five organizational practice scores $X_i$, 
+\begin{assumption}[Conditional Parallel Trends]\label{ass:parallel_trends_cond}
+\text{For all time periods $s \neq t$ }, 
+\[
+\E[Y_{i,s}^{SD,\infty} - Y_{i,t}^{SD,\infty} \mid E_i = e, X_i = x] 
+\quad \text{is the same across all treatment cohorts $e$,}
+\]
+\end{assumption}
+\begin{assumption}[Conditional No Anticipation]\label{ass:no_ant_cond}
+\[
+\E[Y_{i,s}^{SD,\infty} - Y_{i,s}^{SD}\mid E_i = e, X_i = x]  = 0
+\quad \text{for all pre-periods periods $s < Q_i$.}
+\]
+\end{assumption}
+I argue that conditional parallel trends is plausible for two reasons. First, since the timing of abrupt key member departures is driven by major life changes unrelated to the OSS organization, conditioning on organizational practices should not differentially correlate with unobserved organizational trends.
+Second, Assumption~\ref{ass:parallel_trends_cond} holds constant organizational practices that could plausibly affect outcomes, reducing cross-organizational differences along an additional, substantively meaningful dimension.
+I also find the conditional anticipation assumption plausible because although better organized organizations might require or expect longer notice periods, it is still unlikely the notice periods would be as long as several months. 
+
+\flagforclarity[inline]{Very important discussion, must make clear}
+Assumption~\ref{ass:parallel_trends_cond} and Assumption~\ref{ass:no_ant_cond} identify $\hat{\delta}_k^{high,collab}$ as the causal estimate of how departures affect organizations with high collaboration scores.
+However, without further assumptions, $\hat{\delta}_k^{high,collab}$ cannot be interpreted as the causal effect of a high collaboration score on organizational resilience to key member departures. 
+Unless the possibility that the observed estimate of resilience is driven by  any another (potentially unobserved) organizational practice is ruled out, collaboration cannot be interpreted as a causal factor. 
+Instead, the estimate should be interpreted as descriptive evidence of the relationship a high collaboration score and resilience. 
+The difficulty of assigning causality is encountered by most empirical work; short of randomly assigning organizational practices, a practice should only be viewed as causal if it is clear that its mechanism directly induces resilience.
+Even in \cite{bloom_india_2012}, where the provisioning of management practice advice is randomized, exogenity may be threatened because organizations still choose whether to adopt the practices.
+
+\subsection{Flaws of the Median Split}\label{sec:median_split_reflection}
+\todo[inline]{
+do I want to motivate with more realistic examples?
+}
+
+Although Figure~\ref{fig:event_study_collab} and Figure~\ref{fig:event_study_practice_categories} suggest that higher organizational practice scores do not increase organizational resilience, this null result may simply reflect the limitations of the Median Split.
+The Median Split is poorly suited to discover how practices affect resilience because it imposes a restrictive model of their relationship that ignores interactive effects of practices and groups organizations without using data-driven splits.
+
+Extending the Median Split is a poor recipe for discovering how multiple organizational practices interactively affect organizational resilience. 
+Allowing for interactions is essential for understanding how multiple practices, alone or jointly, may contribute to resilience.
+Due to the curse of dimensionality, the number of possible interactions between organizational practices increases factorially in the number of variables in each interaction.
+Naively reporting covariate combinations where I observe statistically significant differences across subgroups complicates inference due to multiplicity of testing. 
+
+Second, since the Median Split does not use a data-driven approach when partitioning the space of organizational  practice scores, some subsets with heterogeneity may be omitted. 
+It is not necessarily true (and likely incorrect) to assume ex-ante that for any given organizational practice, splitting along the median and using two subsets is the best way to model heterogeneity in  resilience induced by practices. 
+For example, suppose that organizational resilience is highest for only values at the left and right tail of the adoption distribution for a particular organizational practice. 
+In this case, the Wald test may report that the coefficients for event studies from high and lwo score subsets produced by the Median Split are statistically indistinguishable.
+Assuming based off this that no heterogeneity exists is incorrect; the relationship between adoption of the organizational practice and organizational resilience is just nonlinear. 
+
+\section{Machine Learning Organizational Resilience} \label{sec:org_resilience_forest}
+To address the limitations of the Median Split Rule, I turn to machine learning methods that can flexibly model the relationship between organizational practices and organizational resilience.
+Building on recent advances in the heterogeneous treatment effects literature, I develop the \textit{generalized random forest event study} \citep{liao_generalized_2025}, which adapts the generalized random forest \citep{athey_generalized_2019} to estimate heterogeneous dynamic treatment effects in event study settings.
+Section~\ref{sec:grf_es} describes how this method can be applied to model the relationship between practices and resilience. 
+Section~\ref{sec:forest_splits} then shows how I use the forest's out-of-sample predictions to construct the \textit{Forest Split}, a data-driven classification procedure that successfully separates organizations into high and low resilience subsets based on their organizational practices.
+
+\subsection{The Generalized Random Forest Event Study} \label{sec:grf_es}
+A standard approach to estimating heterogeneous treatment effects is to use the generalized random forest \citep{athey_generalized_2019}.
+The generalized random forest estimates heterogeneous treatment effects by adaptively splitting the covariate space to group together observations with comparable treatment effects, before averaging treatment effects within these groups.
+This splitting procedure is done thousands of times, each on a different random subsample of the dataset; the set of splits associated with each random subsample is called a tree. 
+Modeling organizational resilience using the generalized random forest addresses both flaws discussed in Section~\ref{sec:median_split_reflection}, as the forest allows for interactions and adaptively splits the covariate space to group observations based off treatment effect similarity.
+
+The generalized random forest cannot be applied to my setting out-of-the-box because my estimand of interest is a conditional dynamic treatment effect $\delta_k(X_i)$.
+To address this, I develop the \textit{generalized random forest event study} in a separate note \cite{liao_generalized_2025}.
+\cite{liao_generalized_2025} shows that estimating heterogeneous treatment effects in event study settings with staggered adoption and unit-invariant covariates is equivalent to estimating a special case of the conditional linear model with binary regressors and propensity scores tailored to the panel data and staggered treatment adoption setting. 
+Because the conditional linear model is unbiased and consistent when estimated using generalized random forests \citep{athey_generalized_2019}, the heterogeneous treatment effects estimated by the generalized random forest event study inherit these properties under assumptions tailored to the panel setting.
+
+The generalized random forest event study models the standardized organizational outcome $Y_{i,t}^{SD}$ as
+\begin{equation}\label{eq:event_study_ml}
+Y_{i,t}^{SD} = \alpha_i + f_t(X_i) + \sum_{e \neq \infty} \sum_{k \neq -1} \delta_{e, k}(X_i) Z_{i,t}^{e,k} + \varepsilon_{i,t} 
+\end{equation}
+Identification of $\delta_{e, k}(X_i)$ follows based on conditional parallel trends (Assumption~\ref{ass:parallel_trends_cond}) and conditional no anticipation (Assumption~\ref{ass:parallel_trends_cond}).
+I also assume that the regularity conditions from Section 3 of \cite{athey_generalized_2019} hold. 
+
+In addition to estimating heterogeneous treatment effects, Equation~\ref{eq:event_study_ml} replaces the time fixed effects from Equation~\ref{eq:event_study} with flexible time-varying functions of covariates $f_t(X_i)$.
+$f_t(X_i)$ captures baseline heterogeneity induced by covariates across time. 
+Organizational practices affect resilience, and hence, organizational outcomes.
+Hence, allowing for organizational practice-dependent baseline heterogeneity is important because there is no fundamental reason why practices would affect organizational outcomes only during the treatment period.
+
+The estimation procedure for $\hat{\delta}_{e,k}(x)$ follows \cite{athey_generalized_2019}, with two caveats.\footnote{I use the default hyperparameters as of version 2.4.0.}
+First, as discussed in Appendix C of \cite{liao_generalized_2025}, treatment propensity scores are adapted to the panel data and staggered treatment adoption setting.\footnote{\cite{athey_generalized_2019} use a probability forest to estimate treatment propensity. }
+Second, any given organization i, $\hat{\delta}_{e, k}(X_i)$ is estimated following a $k$-fold procedure.\footnote{Instead of a k-fold estimation procedure, \cite{athey_generalized_2019} use out-of-bag predictions, which for a given observation $i$, exclude trees trained on subsamples that include $i$.}
+Using a $k-$fold procedure ensures that small biases from the outcome and propensity score models used for estimation will not affect $\hat{\delta}_{e,k}(x)$.
+
+For each organization's cohort-event time estimates $\hat{\delta}_{e,k}(X_i)$, I calculate the doubly robust equivalent $\hat{\psi}_{k}(X_i)$, using the outcome model and treatment propensity function from the trained forest.\footnote{As described in Appendix D of \cite{liao_generalized_2025}, I adapt the procedure from \cite{uysal_dr_2015}, which implements propensity scores estimation when treatments are multivalued, to my staggered treatment adoption setting.}
+For an organization $i$ with quasi-treatment cohort $e$,the doubly robust average post-period treatment effect is defined as:
+\begin{equation}\label{eq:doubly_robust}
+    \hat{\psi}(X_i) = \frac{1}{5} \sum_{k >0}^{5} \hat{\psi}_{e, k}(X_i)
+\end{equation}
+\subsection{The Forest Split}\label{sec:forest_splits}
+
+To assess whether organizational practices affect organizational resilience, I define the \textit{Forest Split}, which categorizes organizations as high (low) resilience if their doubly robust post-period average treatment effect $\hat{\psi}(X_i)$ is above (below) the organization-wide median.
+Algorithm~\ref{alg:forest_split_rule} describes each step of the Forest Split, using a $k-$fold estimation procedure.
+
+\input{source/figures/forest_split_algorithm}
+
+As discussed in Section~\ref{sec:median_split_reflection}, a limitation of the Median Split is that it imposes a restrictive model of how organizational practices affect resilience by ruling out interactions across practices. 
+The generalized random forest event study relaxes this restriction, as forests naturally capture interactions among covariates when they are statistically informative. 
+A natural question, then, is whether this more flexible model can better distinguish between high and low resilience organizations.
+I evaluate this by applying Algorithm~\ref{alg:forest_split_rule} to assign organizations to high and low resilience subsets.
+In this implementation, Equation~\ref{eq:event_study_ml} is estimated using organizational practice scores coarsened by the Median Split, $C_i$, as covariate inputs and the standardized pull requests merged outcome, $Y_{i,t}^{SD}$, as the outcome.
+
+\input{source/figures/event_study_forest_coarse}
+Figure~\ref{fig:event_study_forest_coarse} depicts separate event study estimates of average organizational resilience for organizations classified as high and low resilience, across all organizational outcomes.
+I find that the difference in average organizational resilience between the high and low resilience subsets is both statistically significant and economically large. 
+On average across the five post-periods, post-departure, organizations in the high resilience subset open 1.80 standard deviations more pull requests, merge 1.99 more pull requests, and produce 0.81 standard deviations more software releases than those in the low resilience subset.
+Since the heterogeneous treatment effects used to classify organizations into high- and low-resilience groups are hold-out predictions, the explanatory power of organizational practices reflects genuine features of the relationship between practices and resilience, not overfitting to training-sample noise. 
+That binary coarsenings of these practices are able to predict such large differences in resilience is also striking. 
+Moreover, because Equation~\ref{eq:event_study_ml} is estimated using only the pull requests merged outcome, the high and low resilience subsets are identical across all outcomes in Figure~\ref{fig:event_study_forest_coarse}.
+This indicates that the same organizational practices consistently underpin resilience.
+
+
+The second limitation of the Median Split is that it partitions organizations along a naive threshold rather than using data-driven splits of organizational practices. 
+To assess the value of allowing the model to partition organizations along a finer score space, I apply Algorithm~\ref{alg:forest_split_rule} using the continuous organizational practice scores $X_i$ as covariates to assign organizations to high and low resilience subsets.. 
+Figure~\ref{fig:event_study_forest_continuous} plots separate event study estimates for the high and low resilience subsets defined by this procedure across all organizational outcomes. 
+I find that the differences between high and low resilience organizations grows even larger when the model can partition along the full continuous distribution of practice scores. 
+On average across the five post-periods, organizations predicted to be highly resilient open 1.86 standard deviations more pull requests, merge 2.16 more pull requests, and produce 1.36 standard deviations more software releases than organizations predicted to be less resilient.
+However, the fact that the largest gains in predictive power arise from allowing multiple practices to interact and jointly affect resilience suggests that data-driven splits are a second-order modeling concern.
+
+\input{source/figures/event_study_forest_continuous}
+\longterm[inline]{See what we can learn about endogeneity}
+One concern with Figure~\ref{fig:event_study_forest_coarse} and Figure~\ref{fig:event_study_forest_continuous} is that in the panels where pull request activity is used as an outcome, I observe statistically significant pre-trends for highly resilient organizations. 
+These pre-trends are concerning because they indicate that, prior to the departure, organizations in the high-resilience subset were already more productive (relative to their reference period) compared to their never-treated counterparts. 
+Consequently, the resilience estimates for these organizations are likely biased upward, as they capture not only resilience to the departure but also the underlying upward trajectory in outcomes evident in Panels~\ref{fig:event_study_prs_merged_forest_coarse} and~\ref{fig:event_study_prs_merged_forest_continuous}.
+Although the pre-trend magnitudes are substantially smaller in magnitude than the difference in resilience across high and low resilience organizations and do not follow any perceptible upwards or downwards trend, future work should consider adopting methods from \cite{rambachan_pt_2022} to perform robust inference under potential violations of the parallel trends assumption. 
+
+
+A significant methodological contribution of the generalized random forest event study is that it models treatment \textit{dynamics}.
+One natural question is whether organizational resilience is persistent--that is, are the organizations that are most resilient immediately after following a departure also those that remain resilient in the long run?
+To test this hypothesis, I construct an early and a late resilience classification by adapting the metric used in Algorithm~\ref{alg:forest_split_rule} to subset organizations into high and low resilience subsets
+To separate organizations into the early high versus early low resilience subsets, I evaluate whether an organization's doubly robust first post-period treatment effect $\hat{\psi}_{1}(X_i)$\footnote{I simplify notation by defining, for an organization $i$ with quasi-treatment period $e$, the $k$-th doubly robust post-period treatment effect $\hat{\psi}_{k}(X_i) = \hat{\psi}_{e,k}(X_i)$} is above or below the across-organization median. 
+Analogously, organizations are separated into the late low and high resilience subsets using the doubly robust fifth post-period treatment effect $\hat{\psi}_{5}(X_i)$
+
+\input{source/figures/event_study_dynamics}
+
+Figure~\ref{fig:event_study_forest_dynamics} depicts separate event study estimates of average organizational resilience for organizations belonging to the early low, early high, late low and late high resilience subset.
+First, irrespective of whether organizations belong to the early high or late high resilience subset, they fare substantially better than their low resilience counterparts post-departure. 
+Second, organizations in the early high resilience subset in tend to be slightly less resilient several periods following departure than organizations who are most resilient in the final period post-departure. 
+This suggests that the practices that define short-term resilience also support longer-term resilience, although they may not constitute the optimal set of practices for maximizing long-term resilience. 
+
+\flagforclarity[inline]{Not obvious how to connect this to the literature...}
+Figures~\ref{fig:event_study_forest_coarse}--\ref{fig:event_study_forest_dynamics} present several takeaways.
+First, the true relationship between the five organizational practices and resilience involves multiple practices that jointly and interactively affect resilience. 
+Although adopting any individual practice cannot enhance an organization's resilience, there are combinations of practices that are associated with enhanced resilience.
+Second, I document substantial variation in average organizational resilience across OSS organizations, demonstrate that these differences are large and persistent, and show that the organizations exhibiting high resilience on average represent a meaningful fraction of the population.
+What remains unclear is which combinations of organizational practices that systematically matter and whether higher adoption actually drives resilience.
+Answering these questions is the focus of the next section. 
+
+\section{Interpreting the Random Forest} \label{sec:interp_forest}
+The Forest Split successfully separates organizations into high and low organizational resilience subsets using just 5 organizational practice scores. 
+Importantly, the Forest Split's predictions are out of sample, which suggests that the discovered relationships about how practices affect resilience are generalizable. 
+Yet, as with many machine-learning methods, the relationships used by the forest to generate resilience subsets remains a black box. 
+This section aims to unpack that black box to discover hypotheses about the relationship between practices and resilience.
+
+Section~\ref{sec:forest_chars} describes the characteristics of the trained forest.
+Section~\ref{sec:policy_tree} uses policy-learning methods to test whether simple decision rules based on the forest can still effectively categorize organizations into high and low resilience subsets; I find that they cannot. 
+Finally, Section~\ref{sec:coarsened_exploration} coarsens the  space of organizational practice scores to examine how resilience varies across all possible practice combinations.
+
+\subsection{Characteristics of the Random Forest}\label{sec:forest_chars}
+\input{source/figures/forest_characteristics}
+Figure~\ref{fig:forest_characteristics} describes characteristics of the generalized random forest event study that models $\delta_{e, k}(\cdot)$ from Equation~\ref{eq:event_study_ml}. 
+This forest is trained on the full sample of organizations and the continuous organizational practice scores $X_i$. 
+
+Panel~\ref{fig:tree_depth} of Figure~\ref{fig:forest_characteristics} describes the distribution of tree depth, among all 2000 trees in the trained forest. 
+Over half of the trees have depth three or greater, indicating that complex interactions between organizational practices play an important role in predicting resilience, since the forest relies on multi-step splits to classify organizations.
+
+
+Panel~\ref{fig:var_imp} of Figure~\ref{fig:forest_characteristics} describes how often the forest uses each organizational practice score to partition organizations into subsets with different treatment effects. 
+Most organizational practices are used frequently by the forest, except for the investment in new talent score.
+This suggests that resilience is jointly determined by several practices simultaneously. 
+There are two complementary explanations for why the forest rarely uses the investment in new talent score to partition organizations. 
+First, it may simply play a limited role in determining resilience. 
+Second, as Panel~\ref{fig:practice_corr} of Figure~\ref{fig:forest_characteristics} shows, the investment in new talent score is highly correlated with the problem-solving routines score, so the effect may be masked by the problem-solving routines score.
+Panel~\ref{fig:practice_corr} also shows that the other organizational practices are typically not strongly correlated, so downstream analyses are unlikely to confound the causal effect of one practice as being manifested by another, highly correlated practice.  
+
+\subsection{Searching for Simple Decision Rules}\label{sec:policy_tree}
+Section~\ref{sec:org_resilience_forest} shows that practice interactions matter, but the forest’s 2,000-tree structure is hard to interpret. 
+How much predictive power is lost if resilience is modeled with a single, shallow tree? 
+Using a single tree to model resilience is highly desirable, as it provides practitioners a simple decision rule to assess whether their organization is resilient.
+I find that no such 1, 2 or 3-layer tree can consistent predict whether out-of-sample organizations are resilient or not. 
+
+\subsubsection{The Policy Tree Split}
+
+In this section, I use a \textit{policy tree} \citep{athey_policy_2021} to obtain a low-dimensional summary of the trained forest. 
+For a pre-specified tree depth $k$, the policy tree selects a mapping $\pi(X_i)$ that assigns each organization to either the low- or high-resilience subset by solving
+
+\begin{equation}
+    \pi^*=\arg\max_{\pi\in\Pi_k} \frac{1}{n}\sum_{i=1}^n \Gamma_i\big(\pi(X_i)\big),
+\end{equation}
+where $\Gamma_i(\cdot)\in\mathbb{R}^2$ gives the reward for assigning organization $i$ to either subset.
+
+The policy tree searches over partitions of the continuous organizational practice score space, with the set of feasible partitions expanding as the number of features and depth $k$ increase. 
+The depth $k$ constrains the tree to at most $k$ decision layers.
+I refer to the resulting assignments $\pi^{*}(\cdot)$ as the \textit{policy tree split}. 
+I define the reward function $\Gamma_i$ so that the reward is an organization's doubly robust estimated post-period treatment effect $\hat{\psi}(X_i)$ if it is classified as high resilience, and $-\hat{\psi}(X_i)$ if classified as low resilience.
+Although the policy tree is restricted to using at most $2^{k}-1$ covariates, it has the advantage that, unlike earlier approaches that split at the median, it is not required to produce equally sized high- and low-resilience groups.
+
+
+\subsubsection{Applying the Policy Tree Split}
+\todo[inline]{Do I want to also define an Algorithm environment, like I did for the Forest Split?}
+I separate organizations into high and low resilience subsets using the policy tree split in a k-fold procedure.
+$k$ separate policy trees are trained, each using $k-$1 folds of the sample. 
+For a given fold, observations are separated into the high and low resilience subset based off the assignment function $\pi^*(\cdot)$ trained on the $k-$1 folds. 
+
+\input{source/figures/event_study_policy_depth2}
+
+\todo[inline]{NTS: rerun depth-3 tree with greater precision}
+
+Figure~\ref{fig:event_study_forest_depth2} depicts separate event study estimates of average organizational resilience for organizations classified as high and low resilience, using the \textit{policy tree split} with a tree of depth 2. 
+Economically meaningful and statistically significant differences between high and low resilience subsets cannot be identified for all outcomes. 
+
+Appendix Figure~\ref{fig:event_study_forest_depth13} reports analogous results for trees of depth 1 and depth 3. 
+Again, meaningful differences between the high and low resilience subsets do not emerge.
+The depth-1 tree also serves as an interesting hypothesis test: since interactions are shut down, does allowing a data-driven split, rather than the median-based approach in Section~\ref{sec:org_resilience_indiv_tests}, enable any single organizational practice to reliably separate resilient from non-resilient organizations? 
+Consistent with the limited improvement in resilience classification when moving from binary to continuous practice scores observed in Section~\ref{sec:forest_splits}, the data-driven split yields little additional predictive power. 
+The failure of the depth-3 tree further suggests that the relationship between organizational practices and resilience is highly complex. 
+
+Trees of depth four and higher are computationally infeasible to train without substantial regularity assumptions. 
+
+\subsection{Exploring the Coarsened Space of Organizational Practices} \label{sec:coarsened_exploration}
+Since I only have 5 organizational practices, one way to examine how resilience varies across the full space of practice scores is to coarsen the space of scores. 
+A natural coarsening is to use the Median Split rule's coarsenings $C_{ij}$ from Section~\ref{sec:org_resilience_indiv_tests} where organization $i$ has a high score for practice $j$ if $X_{ij}$ is above the across-organization median, and a low score otherwise. 
+Consequently, there are only 32 possible combinations of practice values organizations can possess across all 5 practices. 
+Although coarsening removes information, since the generalized random forest event study still successfully predicts organizational resilience using just the coarsened binary practice scores (as shown in Figure~\ref{fig:event_study_forest_coarse}), this is a small tradeoff to make relative to interpretability gains made from condensing the infinitely large continuous practice space into 32 bins. 
+
+\input{source/figures/practice_combo}
+Figure~\ref{fig:practice_combo} displays all combinations of coarsened organizational practice scores, ordered in descending order by the mean of the doubly robust average post-period treatment effects for all organizations in each combination. 
+To avoid confounding by outliers given the relatively small bin sizes, I trim organizations whose doubly robust average post-period treatment effects are above the 99th or below the 1st percentile. 
+
+\todo[inline]{I'm wondering if the discussion here is not anchored strongly enough to resilience and focuses on general benefits. }
+Recall that in Section~\ref{sec:org_resilience_indiv_tests}, higher collaboration scores did not necessarily lead to increased resilience; in some outcomes, organizations with high collaboration scores experienced decreased resilience. 
+However, high collaboration and high knowledge redundancy appear strongly complementary: six of the eight practice combinations that include both lie in the top half of the resilience distribution. 
+One possible explanation is that more knowledgeable employees may be able to better absorb knowledge via collaborative efforts. 
+Given that the returns to collaboration are largest when members are knowledge and collaboration likely involves tradeoffs via decreased individual productivity and increased time spent communicating, organizations seeking to boost resilience may want to both implement collaborative efforts and simultaneously upskill employees.
+
+Second, high collaboration and high discussion quality also appear strongly complementary: six of the eight practice combinations that include both lie in the top half of the resilience distribution. 
+One possible explanation is that collaborative efforts require coordination, and if collaborators are negative or slow to respond, collaboration may hinder rather than enhance performance. 
+This finding builds on existing research emphasizing that effective collaboration depends on overcoming coordination and communication challenges \citep{cross_2020, DIETRICHSON2022257}. 
+
+A third observation is that the joint presence of high collaboration, high knowledge redundancy, and high discussion quality in an organization increases resilience——but only when paired with either investment in new talent or established problem-solving routines.
+One explanation is that problem-solving routines impose costs but generate value by systematizing and simplifying workflows; these benefits are likely greatest when organizations engage in intensive collaborative efforts that require rapid coordination among highly knowledgeable members. 
+In contrast, organizations lacking such routines may instead struggle under the weight of managing unorganized discussions. 
+A similar logic applies to investment in new talent. 
+Such processes may help organizations onboard new members effectively, and in their absence, the heavy flow of information—understandable only to deeply knowledgeable and highly engaged incumbents—may make it difficult for newcomers to get up to speed.
+
+\todo[inline]{Have some cites to look into
+%https://tuan.tuck.dartmouth.edu/files/66381/Nelson_and_Winter_1982_Chapter_5.pdf 
+%https://socialecology.uci.edu/sites/socialecology.uci.edu/files/users/feldmanm/Pentland_and_Feldman2005.pdf 
+}
+
+\flagforclarity[inline]{It's too late for me to be writing paragraphs, here's the bullet point summary}
+\begin{enumerate}
+    \item The adoption of organizational practices championed by the literature does matter. 
+    \item How do they matter? Collaboration matters when it operates in conjunction with higher knowledge redundancy or discussion quality. 
+    I also see that the benefits of routines or investment in new talent is higher only in certain settings - when there's lots of information flowing from different people that requires some form of systematization.
+    \item My work showing interactions matter contributes to the literature on how organizational practices are complementary.
+\end{enumerate}
+\donow[inline]{ 
+Look into the literature below, commented
+%The Effects of Human Resource Management Practices on Productivity: A Study of Steel Finishing Lines\\
+%Complementarities and fit strategy, structure, and organizational change in manufacturing\\
+%Complementarities, Momentum, and the Evolution of Modern Manufacturing\\
+%INFORMATION TECHNOLOGY, WORKPLACE ORGANIZATION, AND THE DEMAND FOR SKILLED LABOR: FIRM-LEVEL EVIDENCE\\
+%The Whole Is More Than the Sum of Its Parts— Or Is It? A Review of the Empirical Literature on Complementarities in Organizations
+}
+
+\section{Conclusion} \label{sec:conclusion}
+\flagforclarity[inline]{Yeah conclusion needs to be revised heavily}
+I develop measures of organizational resilience and practice using detailed activity-level data on open source software projects.
+I show, via a novel method combining event study and heterogeneous treatment effect estimation, that differences in organizational practices explain substantial variation in organizational resilience. 
+I find that although being collaborative does not necessarily make an organization more resilient, collaboration is a practice that benefits tremendously from complementarities.
+Collaborative organizations are more resilient when they have also high quality discussions, or high skilled members. 
+% what are my hypotheses
+
+There are several promising directions for future research. 
+First, studying how the composition of software releases changes as a consequence of key member departures can improve our understanding of the importance of OSS organizational resilience to downstream software users. 
+Second, adopting organizational practices involves meaningful tradeoffs, and incorporating these tradeoffs into the analytical framework would deepen our understanding of the relationship between practices and resilience.
+Finally, to better understand the causal drivers of resilience, it would be valuable to examine the mechanisms through which organizations maintain resilience and assess whether these mechanisms align with the hypotheses uncovered here.
+
+\newpage
+\input{source/tables/collaboration}
+\input{source/tables/shared_knowledge}
+\input{source/tables/discussion_quality}
+\input{source/tables/investment_new_talent}
+\input{source/tables/problem_solving_routines}
+\newpage
+
+\clearpage
+\bibliographystyle{source/paper/aea}
+\bibliography{source/paper/references}
+
+
+\clearpage
+
+
+\appendix
+
+
+
+
+\renewcommand{\thesection}{\Alph{section}}
+\renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
+\setcounter{figure}{0}
+\renewcommand{\thefigure}{A\arabic{figure}}
+
+\section{Additional Empirical Analysis}\label{sec:app_analysis}
+
+\input{source/figures/event_study_other_practices}
+\newpage
+\input{source/figures/event_study_policy_depth13}
+\newpage
+
+\section{Additional Details on Data Construction}\label{sec:app_data}
+\todo[inline]{I really don't like the wording here but fine to leave as is}
+The social network for each organization in a given time period is constructed from all discussion threads that occurred within that six month period. Each discussion thread corresponds to a distinct conversational space on GitHub. There are three types of discussion threads: an *issue thread* (an issue post and its comments), a *pull request thread* (a pull request post and subsequent pull request comments), or a *pull request review thread* (a pull request post and the review comments attached to specific code lines). Within each thread, comments are ordered chronologically, with the first comment representing the opening post that initiates the discussion. For every subsequent comment, I identify the most recent prior comment made by a different contributor and treat this as a directed interaction from the current commenter (sender) to that prior participant (receiver). If the comment occurs in a review thread and is the first review comment, it is treated as a reply to the pull request opener. This procedure ensures that interactions represent meaningful exchanges between distinct contributors rather than self-replies or system events. Actor identifiers are standardized by converting all numeric and string IDs to a canonical string format, and duplicate comment records are removed to avoid inflating edge counts.
+
+These pairwise interactions are then aggregated into undirected, weighted graphs for each time period. Each node represents a unique contributor active during that window, and an undirected edge connects two contributors if at least one interaction occurred between them in either direction. The edge weight equals the total number of interactions recorded between the pair in that period, capturing the intensity of their conversational exchange. 
+
+\section{List of todos (unordered)}
+My aim is to organize these into an ordered list of todos
+
+\begin{enumerate}
+    \item Use microdata on OSS organizations and members to directly show how the organizational practices in the lower-dimensional rule contribute to or detract from organizational resilience. 
+    \item Incorporate a Case study on a few organizations and how they responded
+    \item Figure out how much of the data is captured by the torrent and perform a validation exercise (\href{https://GitHub.com/igrigorik/gharchive.org/issues/290\#issuecomment-1923017346}{one of a few known reported data outages}).
+    \item I still wonder if visuals of GitHub would help illuminate things. MY data is a strength but I'm not showing any of it
+    \item For each measurement and data construction piece, make sure bots are excluded in the code and make that clear in the text
+    \item See if there's a way I can leverage the fact that I know whose departing and use that to motivate organizational practices
+    \item Focus on investment in talent or communication with non-key members
+    \item Is there a way I can dynamically examine CODEOWNERS (ie: are people being removed when they should be???)
+    \item It would be nice if the organizational routines I'm considering focus more on disaster preparation as opposed to just ordinary problem solving routines. 
+    \item Autofill key numbers
+    \item What are ways I can test no anticipation???
+    \item Why do PRs decline more than releases?
+    \item Separate event studies for each subgroup in the 2... 
+    \item Test 3 treatments: neutral, low and high. 
+    \item Can I show that I'm actually only getting "one" departure by showing it's unlikely organizations were affected by departures in their pre-period?
+    \item Can I use more granular time periods
+    \item Read this\href{https://pubs.aeaweb.org/doi/pdfplus/10.1257/jep.36.3.211}{paper} in order to understand how to motivate the paper using descriptive statistics
+    \item \longterm[inline]{Once I get the WRDS access, see if I can incorporate the picture of the ES graph of corporate departues for my chosen specification and subset to the main subset of organizations I'm using? Highlights how many of these are corporate related}
+    \item \longterm[inline]{\textbf{Show this is true}: Abrupt departures aren't associated with changes in demand for the departed member's services - the number of issues opened, forks, stars and downloads are still increasing.  Moreover, the departure date is unrelated to the proximity to major software releases/updates}
+    \item  \longterm[inline]{Can I show that organizational practices that might lead to dissatisfaction/change aren't the driving reason for departure/aren't systematically changing in a way that would explain their departure? For example, I don't see declines or increases in member count prior to their departure (signalling broad organizational changes) or changes in the distribution of communication z score/important members (which also suggests changes in how people are communicating/working) or in the sentiment of their communications (are they getting burnt out?)}
+    \item knowledge redundancy table: Problem-level HHI should include opening issue/comment?
+    \item knowledge redundancy table: Average unique types should aggregate review comments and reviews — maybe all activities should.
+    \item \textbf{can i add insights for why departures >> aggregate shocks?} - Because departures are more common events for organizations than large aggregate shocks, my findings will be more generalizable.  This is especially true for OSS organizations, which depend on volunteers and thus face frequent turnover issues. Moreover, aggregate shocks will affect all organizations operating in the same market, so quantifying how much an organization's resilience is attributable to its individual practices versus declines in its market competitiveness is difficult. 
+
+\end{enumerate}
+
+\section{How I map PyPi organizations to GitHub repositories}
+
+\section{How I match repo names to repo ids in cases where identity changes}
+
 \end{document}

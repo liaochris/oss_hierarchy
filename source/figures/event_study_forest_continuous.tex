@@ -1,0 +1,37 @@
+\begin{figure}[t]
+    \caption{Average Organizational Resilience Using the Forest Split and Continuous Practice Scores}
+    \label{fig:event_study_forest_continuous}
+    \centering
+    \begin{minipage}[b]{0.325\textwidth}
+        \centering
+        \subcaption{Pull requests opened} \label{fig:event_study_prs_opened_forest_continuous}
+        \includegraphics[width=\textwidth]{output/analysis/event_study_personalization/important_topk_exact1/rolling5_pc/nevertreated/pull_request_opened_norm_split_pull_request_merged_lm_forest_nonlinear_observed_att_dr_group_pc.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[b]{0.325\textwidth}
+        \centering
+        \subcaption{Pull requests merged} \label{fig:event_study_prs_merged_forest_continuous}
+        \includegraphics[width=\textwidth]{output/analysis/event_study_personalization/important_topk_exact1/rolling5_pc/nevertreated/pull_request_merged_norm_split_pull_request_merged_lm_forest_nonlinear_observed_att_dr_group_pc.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[b]{0.325\textwidth}
+        \centering
+        \subcaption{New software releases} \label{fig:event_study_releases_forest_continuous}
+        \includegraphics[width=\textwidth]{output/analysis/event_study_personalization/important_topk_exact1/rolling5_pc/nevertreated/overall_new_release_count_norm_split_pull_request_merged_lm_forest_nonlinear_observed_att_dr_group_pc.png}
+    \end{minipage}
+  \begin{minipage}{1\textwidth}
+    \textbf{Figure notes:}  
+    Panel~\subref{fig:event_study_prs_opened_forest_continuous} presents event study estimates of the impact of key member departures on the number of pull requests opened for organizations in the high and low resilience subset.
+    Organizations are assigned to the high resilience subset when their estimated doubly robust average post-period treatment effect--computed using continuous organizational practice scores--exceeds the cross-organizational median.
+    Organizations with below-median effects belong to the low resilience subset. 
+    Outcomes are standardized using each organization’s mean and standard deviation over the five pre-periods, and each period spans six months. 
+    Estimates, expressed in standard-deviation units, are obtained using \cite{sun_estimating_2021}. 
+    Confidence intervals are 95\% intervals based on asymptotic standard errors clustered at the organization level. 
+    The two reported pre-trend p-values are Wald tests of the null that all pre-period coefficients equal zero for the high- and low-collaboration subsets.
+    The final p-value is from a Wald test of the null that post-period event-study coefficients do not differ between the two subsets.
+    Panels~\subref{fig:event_study_prs_merged_forest_continuous} and~\subref{fig:event_study_releases_forest_continuous} repeat this analysis using the number of pull requests merged and the number of new software releases as outcomes.
+    \end{minipage}
+  
+  
+
+\end{figure}

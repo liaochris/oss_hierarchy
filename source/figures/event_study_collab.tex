@@ -1,0 +1,38 @@
+\begin{figure}[ht]
+  \caption{Average Organizational Resilience by Collaboration Score}
+    \label{fig:event_study_collab}
+    \centering
+    \begin{minipage}[b]{0.325\textwidth}
+        \centering
+        \subcaption{Pull requests opened} 
+        \label{fig:event_study_prs_opened_collab}
+        \includegraphics[width=\textwidth]{output/analysis/event_study/important_topk_exact1/rolling5/pc_event_studies/collaboration_pull_request_opened_pc1_split_norm.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[b]{0.325\textwidth}
+        \centering
+        \subcaption{Pull requests merged} 
+        \label{fig:event_study_prs_merged_collab}
+        \includegraphics[width=\textwidth]{output/analysis/event_study/important_topk_exact1/rolling5/pc_event_studies/collaboration_pull_request_merged_pc1_split_norm.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[b]{0.325\textwidth}
+        \centering
+        \subcaption{New software releases} 
+        \label{fig:event_study_releases_collab}
+        \includegraphics[width=\textwidth]{output/analysis/event_study/important_topk_exact1/rolling5/pc_event_studies/collaboration_overall_new_release_count_pc1_split_norm.png}
+    \end{minipage}
+
+  \begin{minipage}{1\textwidth}
+    \textbf{Figure notes:} 
+    Panel~\subref{fig:event_study_prs_opened_collab} presents separate event study estimates of the impact of key member departures on the number of pull requests opened for organizations with high and low collaboration scores. 
+    Organizations are classified as having high collaboration scores if their collaboration score is above the cross-organization median, and low otherwise.
+    Outcomes are standardized using each organization’s mean and standard deviation over the five pre-periods, and each period spans six months. 
+    Estimates, expressed in standard-deviation units, are obtained using \cite{sun_estimating_2021}. 
+    Confidence intervals are 95\% intervals based on asymptotic standard errors clustered at the organization level. 
+    The two reported pre-trend p-values are Wald tests of the null that all pre-period coefficients equal zero for the high- and low-collaboration subsets.
+    The final p-value is from a Wald test of the null that post-period event-study coefficients do not differ between the two subsets.
+    Panels~\subref{fig:event_study_prs_merged_collab} and~\subref{fig:event_study_releases_collab} repeat this analysis using the number of pull requests merged and the number of new software releases as outcomes.
+    
+  \end{minipage}
+\end{figure}
