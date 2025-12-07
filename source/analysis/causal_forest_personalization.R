@@ -476,7 +476,7 @@ RunForestEventStudy_CrossFit <- function(
     
   # At this point df_data is filtered for observations/columns. If requested, compute PC1s
   # from these filtered rows and **replace** keep_names with the PC1 columns.
-  if (use_pc) {
+  if (use_pc == TRUE | use_pc == "median") {
     # define pc groups (same as event-study)
     pc_groups <- list(
       collaboration = c("avg_members_per_problem_mean", "pct_members_multiple_mean",
@@ -498,7 +498,12 @@ RunForestEventStudy_CrossFit <- function(
       group_x <- df_data %>% select(all_of(vars)) %>% filter()
       pc_res <- prcomp(group_x, center = TRUE, scale. = TRUE)
       pc1_scores_complete <- pc_res$x[, 1]
+      if (group_name == "shared_knowledge") pc1_scores_complete <- -pc1_scores_complete
       pc_col <- paste0(group_name, "_pc1_mean")
+      if (use_pc == "median") {
+        med_score <- median(pc1_scores_complete)
+        pc1_scores_complete <- ifelse(pc1_scores_complete>med_score, 1, 0)
+      }
       df_data[[pc_col]] <- pc1_scores_complete
       pc_colnames <- c(pc_colnames, pc_col)
       # log loadings
@@ -587,6 +592,8 @@ RunForestEventStudy_CrossFit <- function(
   write.csv(dr_scores_repo, outfile_dr, row.names = FALSE)
   
   dr_scores_repo_filt <- FilterDoublyRobustPredictions(dr_scores_repo, df_data, df_repo_data)
+  dr_scores_repo_filt <- data.frame(dr_scores_repo_filt)
+  dr_scores_repo_filt$repo_id <- unlist(as.numeric(row.names(dr_scores_repo_filt)))
   
   if (is.null(preds_all) || any(is.na(preds_all))) {
     message("Warning: some observations have missing predicted CATEs (preds_all contains NA). These will propagate to repo-level averages.")
@@ -643,8 +650,11 @@ RunForestEventStudy_CrossFit <- function(
     ) %>%
     ungroup() %>%
     select(outcome, repo_name, repo_id, type, att, att_group, att_dr, att_dr_group, everything())
+  
+  df_full_robust_covar <- repo_level %>% left_join(dr_scores_repo_filt) %>% left_join(df_data %>% select(keep_names, repo_name) %>% unique())
+  
   out_file <- file.path(outdir, paste0(outcome, "_repo_att_", method, ".parquet"))
-  write_parquet(repo_level, out_file)
+  write_parquet(df_full_robust_covar, out_file)
   
   invisible(list(cohort_time = cohort_time_repo_long, repo_level = repo_level))
 }
@@ -659,7 +669,7 @@ org_practice_cfg <- yaml.load_file(file.path(INDIR_YAML, "covariate_organization
 # loop variants
 for (variant in c("important_topk_exact1")) {
   for (use_imp in c(FALSE)) {
-    for (use_pc in c(TRUE, FALSE)) {
+    for (use_pc in list("median", TRUE, FALSE)) {
       for (rolling_panel in c("rolling5")) {
         panel_variant <- gsub("_exact1", "", variant)
         panel_variant <- gsub("_nuclearWhat", "", panel_variant)
@@ -668,7 +678,7 @@ for (variant in c("important_topk_exact1")) {
         
         rolling_period <- as.numeric(str_extract(rolling_panel, "\\d+$"))
         use_imp_suffix <- ifelse(use_imp, "_imp", "")
-        use_pc_suffix  <- ifelse(use_pc, "_pc", "")
+        use_pc_suffix  <- ifelse(use_pc == TRUE, "_pc", ifelse(use_pc == "median", "_pc_median", ""))
         rolling_panel_imp <- paste0(rolling_panel, use_imp_suffix, use_pc_suffix)
         outdir_ds <- file.path(OUTDIR_DATASTORE, variant, rolling_panel_imp)
         df_panel <- read_parquet(file.path(INDIR, panel_variant, paste0("panel_", rolling_panel, ".parquet")))
@@ -699,7 +709,7 @@ for (variant in c("important_topk_exact1")) {
           outdir_for_spec <- outdir_base
           dir_create(outdir_for_spec)
           
-          for (outcome_mode in outcome_modes) {
+          for (outcome_mode in outcome_modes[2]) {
             RunForestEventStudy_CrossFit(
               outcome_mode$outcome,
               df_panel_common,

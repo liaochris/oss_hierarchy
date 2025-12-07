@@ -20,7 +20,7 @@ source("source/analysis/causal_forest_helpers.R")
 # 1. Major helpers (unchanged signatures)
 #######################################
 TrainPolicyTree <- function(x_matrix, gamma_matrix, depth = 2, split_step = 1, verbose = FALSE) {
-  policy_tree(x_matrix, gamma_matrix, depth = depth, split.step = split_step, verbose = verbose, min.node.size=30)
+  policy_tree(x_matrix, gamma_matrix, depth = depth, split.step = split_step, verbose = verbose)
 }
 
 RunFullSamplePolicyTree <- function(x_matrix, gamma_matrix, depth = 2, split_step = 1, verbose = FALSE,
@@ -56,7 +56,7 @@ RunKFoldPredictAndAggregate <- function(df_bins,
   
   gamma_vec <- df_bins %>% pull(att_dr)
   gamma_clean <- ifelse(is.na(gamma_vec), 0, gamma_vec)
-  gamma_mat <- data.frame(control = 0, treated = gamma_clean)
+  gamma_mat <- data.frame(control = -gamma_clean, treated = gamma_clean)
   
   unique_folds <- sort(unique(repo_map$fold))
   for (fold in unique_folds) {
@@ -66,7 +66,7 @@ RunKFoldPredictAndAggregate <- function(df_bins,
     train_idx <- which(repo_names_all %in% train_repo_names)
     held_idx  <- which(repo_names_all %in% held_repo_names)
     
-
+    
     x_train <- x_complete[train_idx, , drop = FALSE]
     x_held  <- x_complete[held_idx,  , drop = FALSE]
     gamma_train <- gamma_mat[train_idx, , drop = FALSE]
@@ -95,70 +95,75 @@ RunKFoldPredictAndAggregate <- function(df_bins,
   df_bins
 }
 
+
 RunEventStudyAndCollect <- function(base_df, df_bins, practice_mode, outcome_modes, norm_options,
                                     rolling_label, method_label, estimation_type,
                                     png_collector, coeffs_collector, split_mode) {
-  outcome_mode <- split_mode
-  df_with_split <- base_df %>%
-    left_join(df_bins %>% select(repo_name, all_of(practice_mode$continuous_covariate)),
-              by = "repo_name")
-  
-  for (norm in norm_options) {
-    norm_str <- ifelse(norm, "_norm", "")
-    combo_grid <- expand.grid(lapply(practice_mode$filters, `[[`, "vals"),
-                              KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
+  for (outcome_mode in outcome_modes) {
     
-    es_list <- apply(combo_grid, 1, function(vals_row) {
-      df_sub <- df_with_split
-      for (i in seq_along(vals_row)) {
-        col_name <- practice_mode$filters[[i]]$col
-        df_sub <- df_sub %>% filter(.data[[col_name]] == vals_row[[i]])
-      }
-      tryCatch(EventStudy(df_sub,
-                          outcome_mode$outcome,
-                          practice_mode$control_group,
-                          method = c("sa"),
-                          title = "",
-                          normalize = norm),
-               error = function(e) NULL)
-    }, simplify = FALSE)
+    df_with_split <- base_df %>%
+      left_join(df_bins %>% select(repo_name, all_of(practice_mode$continuous_covariate)),
+                by = "repo_name")
     
-    success_idx <- which(!sapply(es_list, is.null))
-    es_list <- es_list[success_idx]
-    labels <- practice_mode$legend_labels[success_idx]
-    
-    if (length(es_list) > 0) {
-      dir_create(practice_mode$folder, recurse = TRUE)
-      out_path <- file.path(practice_mode$folder,
-                            paste0(outcome_mode$outcome, norm_str, "_", rolling_label, "_",
-                                   method_label, "_", estimation_type, ".png"))
+    for (norm in norm_options) {
+      norm_str <- ifelse(norm, "_norm", "")
+      combo_grid <- expand.grid(lapply(practice_mode$filters, `[[`, "vals"),
+                                KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE)
       
-      png(out_path)
-      title_suffix <- paste0("\nSample: ", practice_mode$legend_title)
-      do.call(CompareES, list(es_list,
-                              legend_labels = labels,
-                              legend_title  = NULL,
-                              title = "",
-                              ylim = c(-3, 1.5)))
-      dev.off()
+      es_list <- apply(combo_grid, 1, function(vals_row) {
+        df_sub <- df_with_split
+        for (i in seq_along(vals_row)) {
+          col_name <- practice_mode$filters[[i]]$col
+          df_sub <- df_sub %>% filter(.data[[col_name]] == vals_row[[i]])
+        }
+        tryCatch(EventStudy(df_sub,
+                            outcome_mode$outcome,
+                            practice_mode$control_group,
+                            method = c("sa"),
+                            title = "",
+                            normalize = norm),
+                 error = function(e) NULL)
+      }, simplify = FALSE)
       
-      png_collector <- c(png_collector, out_path)
-      for (j in seq_along(es_list)) {
-        res <- es_list[[j]]$results
-        split_val <- practice_mode$filters[[1]]$vals[j]
-        coeffs_collector[[length(coeffs_collector) + 1]] <- as_tibble(res, rownames = "event_time") %>%
-          mutate(dataset = NA,
-                 rolling = rolling_label,
-                 category = outcome_mode$category,
-                 outcome = outcome_mode$outcome,
-                 normalize = norm,
-                 method = "sa",
-                 covar = practice_mode$continuous_covariate,
-                 split_value = split_val,
-                 estimation_type = estimation_type)
+      success_idx <- which(!sapply(es_list, is.null))
+      es_list <- es_list[success_idx]
+      labels <- practice_mode$legend_labels[success_idx]
+      
+      if (length(es_list) > 0) {
+        dir_create(practice_mode$folder, recurse = TRUE)
+        out_path <- file.path(practice_mode$folder,
+                              paste0(outcome_mode$outcome, norm_str, "_", rolling_label, "_",
+                                     method_label, "_", estimation_type, ".png"))
+        
+        png(out_path)
+        title_suffix <- paste0("\nSample: ", practice_mode$legend_title)
+        do.call(CompareES, list(es_list,
+                                legend_labels = labels,
+                                legend_title  = "Resilience Subset",
+                                title = "",
+                                ylim = c(-3, 1.5)))
+        dev.off()
+        
+        png_collector <- c(png_collector, out_path)
+        for (j in seq_along(es_list)) {
+          res <- es_list[[j]]$results
+          split_val <- practice_mode$filters[[1]]$vals[j]
+          coeffs_collector[[length(coeffs_collector) + 1]] <- as_tibble(res, rownames = "event_time") %>%
+            mutate(dataset = NA,
+                   rolling = rolling_label,
+                   category = outcome_mode$category,
+                   outcome = outcome_mode$outcome,
+                   normalize = norm,
+                   method = "sa",
+                   covar = practice_mode$continuous_covariate,
+                   split_value = split_val,
+                   estimation_type = estimation_type)
+        }
       }
     }
   }
+  
+  # Return the updated collectors after processing all outcome_modes
   list(pngs = png_collector, coeffs = coeffs_collector)
 }
 
@@ -294,6 +299,7 @@ dir_create(OUTDIR)
 DATASETS <- c("important_topk_exact1")
 ESTIMATION_TYPES <- c("observed")
 exclude_outcomes <- c("num_downloads")
+
 norm_options <- c(TRUE)
 outcome_cfg <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
 org_practice_cfg <- yaml.load_file(file.path(INDIR_YAML, "covariate_organization.yaml"))
@@ -304,7 +310,7 @@ coeffs_all <- list()
 tree_configs <- list(
   list(depth = 1, split_step = 1, tag = "depth1"),
   list(depth = 2, split_step = 1, tag = "depth2"),
-  list(depth = 3, split_step = 50, tag = "depth3_split50")
+  list(depth = 3, split_step = 10, tag = "depth3_split10")
 )
 
 for (dataset in DATASETS) {
@@ -345,7 +351,7 @@ for (dataset in DATASETS) {
         org_practice_modes <- org_practice_modes[
           unlist(lapply(org_practice_modes, function(x) x$continuous_covariate != "prop_tests_passed"))]
         
-        for (split_mode in outcome_modes) {
+        for (split_mode in outcome_modes[2]) {
           split_var <- split_mode$outcome
           control_group <- "nevertreated"
           
@@ -410,8 +416,13 @@ for (dataset in DATASETS) {
           df_repo_data <- df_data %>% select(repo_id, repo_name, quasi_treatment_group, treatment_group, fold) %>% distinct()
           
           for (estimation_type in ESTIMATION_TYPES) {
-            for (has_pc in c(FALSE, TRUE)) {
-              rolling_panel_imp2 <- paste0(rolling_panel_imp, ifelse(has_pc, "_pc", ""))
+            for (has_pc in list(TRUE,  "median")) {
+              
+              input_choice <- ifelse(identical(has_pc, "median"),
+                                     "pc_median",
+                                     ifelse(isTRUE(has_pc), "pc", ""))
+              
+              rolling_panel_imp2 <- paste0(rolling_panel_imp, ifelse(input_choice == "", input_choice, paste0("_",input_choice)))
               
               df_causal_forest_bins <- read_parquet(
                 file.path(INDIR_CF, dataset, rolling_panel_imp2,
@@ -423,10 +434,17 @@ for (dataset in DATASETS) {
                 split_step_val <- tc$split_step
                 tag_val <- tc$tag
                 
-                # map has_pc -> input_choice (ONLY one choice per has_pc)
-                input_choice <- if (has_pc) "pc" else "default"
-                x_for_tree <- if (input_choice == "pc") x_policy_mat else x_default_mat
+                x_for_tree <- if (input_choice == "pc") {
+                  x_policy_mat
+                } else if (input_choice == "pc_median") {
+                  apply(x_policy_mat, 2, \(v) as.integer(v > median(v, na.rm = TRUE)))
+                } else {
+                  x_default_mat
+                }
+                print(dim(x_for_tree))
+                
                 tag_input <- paste0(tag_val, "_", input_choice)
+                
                 
                 x_for_tree <- x_for_tree[x_repo$repo_id %in% df_causal_forest_bins$repo_id,]
                 tmp_res <- ProcessTreeCombo(x_for_tree = x_for_tree,

@@ -50,6 +50,8 @@ def ProcessRepo(repo_name, rolling_periods=1):
         df_all = ImputeTimePeriod(df_all, TIME_PERIOD)
 
         outfile_agg = OUTDIR_AGG / contributor_subset / f"rolling{rolling_periods}" / f"{repo_name}.parquet"  
+        outfile_members = OUTDIR_AGG / contributor_subset / f"rolling{rolling_periods}" / f"{repo_name}_members.parquet"  
+
         (OUTDIR_AGG / contributor_subset /  f"rolling{rolling_periods}" ).mkdir(parents=True, exist_ok=True)
         if outfile_agg.exists():
             print(f"Skipping {repo_name}, outputs already exist.")
@@ -66,11 +68,12 @@ def ProcessRepo(repo_name, rolling_periods=1):
                 continue
         
         df_all['actor_id'] = df_all['actor_id'].astype('Int64')
+        df_all_members = df_all[['time_period','actor_id']].drop_duplicates()
         df_active_member_count = (
-            df_all[['time_period','actor_id']].drop_duplicates().groupby(
-                'time_period')['actor_id'].count()
-                .reset_index().rename(columns={'actor_id':'num_active_members'})
+            df_all_members.groupby('time_period')['actor_id'].count()
+            .reset_index().rename(columns={'actor_id':'num_active_members'})
         )
+        df_all_members.to_parquet(outfile_members)
 
         df_all["type_broad"] = df_all["type"].apply(
             lambda x: "pull request review"
@@ -93,7 +96,7 @@ def ProcessRepo(repo_name, rolling_periods=1):
             PercentPullsMergedReviewed(df_all, rolling_periods=rolling_periods),
             CalculateAvgPRDiscCounts(df_all, rolling_periods=rolling_periods),
             CalculateAvgPRDiscCounts(df_all, include_opener=False, rolling_periods=rolling_periods),
-            df_active_member_count.set_index('time_period')
+            df_active_member_count
         ]
 
 

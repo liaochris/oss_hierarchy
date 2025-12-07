@@ -136,6 +136,7 @@ main <- function() {
       org_practice_modes <- BuildOrgPracticeModes(org_practice_cfg, "nevertreated", outdir_dataset, build_dir = TRUE)
       
       coeffs_all <- list()
+      coeffs_pc_all <- list()
       
       covars     <- unlist(lapply(org_practice_modes, function(x) x$continuous_covariate))
       covars_imp <- unlist(lapply(org_practice_modes, function(x) paste0(x$continuous_covariate, "_imp")))
@@ -154,7 +155,7 @@ main <- function() {
       
       score_name_map <- list(
         "collaboration" = "Collaboration score",
-        "shared_knowledge" = "Shared knowledge score",
+        "shared_knowledge" = "Knowledge level score",
         "discussion_quality" = "Discussion quality score",
         "investment_in_new_talent" = "Investment in new talent score",
         "problem_solving_routines" = "Problem-solving routines score"
@@ -167,8 +168,8 @@ main <- function() {
       pca_prep <- PreparePCAFilter(df_data_raw_pca, covars, na_threshold = 200)
       df_data_filtered <- pca_prep$df_data_filtered
       pc_group_results <- BuildPCAGroups(df_data_filtered, pc_groups, score_name_map)
-    
-
+      
+      
       pc_outdir <- file.path(outdir_dataset, "pc_event_studies")
       dir_create(pc_outdir, recurse = TRUE)
       pc_summary_list <- list()
@@ -225,6 +226,30 @@ main <- function() {
             )
         }
       }
+      
+      FormatLabel <- function(x) {
+        x <- gsub("_", " ", x)
+        paste0(toupper(substr(x, 1, 1)), substr(x, 2, nchar(x)))
+      }
+      
+      pairs <- list(c(1, 2), c(3, 4))
+      for (p in pairs) {
+        oms <- outcome_modes[p]
+        
+        es_list <- lapply(oms, function(item) {
+          panel <- get(item$data) %>% filter(repo_name %in% df_data_filtered$repo_name)
+          EventStudy(panel, item$outcome, item$control_group, metrics,
+                     title = "", normalize = item$normalize)
+        })
+        
+        legend_labels <- sapply(oms, function(item) FormatLabel(item$outcome))
+        
+        png(paste0(tools::file_path_sans_ext(oms[[1]]$file), "_vs_", basename(oms[[2]]$file)))
+        CompareES(es_list, title = "", legend_labels = legend_labels,
+                  add_comparison = FALSE, ylim = c(-1.5, .75))
+        dev.off()
+      }
+      
       
       #######################################
       # Org practice splits (unchanged)
@@ -340,7 +365,7 @@ main <- function() {
                       legend_title  = friendly_label,
                       ylim = c(-2.25, 1.5))
             dev.off()
-
+            
             coeffs_pc_all[[length(coeffs_pc_all) + 1]] <- as_tibble(es_low$results, rownames = "event_time") %>%
               mutate(dataset = dataset, rolling = rolling_panel, category = outcome_mode$category,
                      outcome = outcome_local, normalize = norm, method = "sa", covar = paste0(g, "_score"), split_value = "low")
@@ -350,7 +375,7 @@ main <- function() {
           } # norm
         } # groups
       } # outcomes
-
+      
       # Save PC-based coefficients (aggregate across outcomes)
       if (length(coeffs_pc_all) > 0) {
         coeffs_pc_df <- bind_rows(coeffs_pc_all) %>% mutate(event_time = as.numeric(event_time)) %>% unique()
