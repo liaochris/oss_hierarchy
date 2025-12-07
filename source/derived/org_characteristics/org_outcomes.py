@@ -63,7 +63,7 @@ def ProcessRepo(repo, time_period, indir, indir_monthly_downloads, indir_pypi_gi
 
 
 def LoadRepoMappings(indir_github_map, indir_pypi_github, repo):
-    df_github_map = pd.read_csv(indir_github_map / "repo_id_history_latest.csv")
+    df_github_map = pd.read_csv(indir_github_map / "repo_id_history_final.csv")
     repo_names = df_github_map.query("latest_repo_name == @repo")["repo_name"].unique().tolist()
     df_pypi_github_map = pd.read_csv(indir_pypi_github / "linked_pypi_github.csv")
     if repo_names:
