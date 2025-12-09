@@ -27,23 +27,19 @@ def _FetchIssuePage(session, repo, issue_number):
     text = resp.text if hasattr(resp, "text") else ""
     is_not_found = (resp.status_code == 404) or ("This is not the webpage you are looking for" in text)
     is_rate_limited = ("Please wait a few minutes before you try again" in text) or ("You Are Not Connected" in text)
-    return url, resp, text, is_not_found, is_rate_limited
+    return resp, is_not_found, is_rate_limited
 
-def GrabIssueData(repo_name, issue_number, repo_name_latest=None):
+def GrabIssueData(repo_name, issue_number):
     try:
         product = SoupStrainer('a')
         sesh = requests.Session()
 
-        url, resp, page_text, is_not_found, is_rate_limited = _FetchIssuePage(sesh, repo_name, issue_number)
+        resp, is_not_found, is_rate_limited = _FetchIssuePage(sesh, repo_name, issue_number)
+        if is_not_found:
+            return {'pr_links': [], 'github_links': []}
         if is_rate_limited:
             time.sleep(120)
-            url, resp, page_text, is_not_found, is_rate_limited = _FetchIssuePage(sesh, repo_name, issue_number)
-
-        if is_not_found and repo_name_latest and repo_name_latest != repo_name:
-            url, resp, page_text, is_not_found, is_rate_limited = _FetchIssuePage(sesh, repo_name_latest, issue_number)
-            if is_rate_limited:
-                time.sleep(120)
-                url, resp, page_text, is_not_found, is_rate_limited = _FetchIssuePage(sesh, repo_name_latest, issue_number)
+            resp, is_not_found, is_rate_limited = _FetchIssuePage(sesh, repo_name, issue_number)
 
         soup = BeautifulSoup(resp.content, parse_only=product, features="html.parser")
 
@@ -68,40 +64,35 @@ def Main():
     pandarallel.initialize(progress_bar=True)
     warnings.filterwarnings("ignore")
 
-    indir_repo_match = Path("output/scrape/extract_github_data")
-    issue_dir = Path('drive/output/derived/problem_level_data/issue')
-    pr_dir = Path('drive/output/derived/problem_level_data/pr')
-    linked_outdir = Path('drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request')
-    linked_outdir.mkdir(parents=True, exist_ok=True)
+    INDIR = Path('drive/output/scrape/extract_github_data/repo_level_data/issue')
+    OUTDIR = Path('drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request')
+    OUTDIR.mkdir(parents=True, exist_ok=True)
 
-    repo_df = pd.read_csv(indir_repo_match / "repo_id_history_filtered.csv")
-
-    parquet_files = glob.glob(str(issue_dir / '*.parquet'))
+    parquet_files = glob.glob(str(INDIR / '*.parquet'))
     np.random.shuffle(parquet_files)
-    len(parquet_files)
 
     for parquet_file in parquet_files:
-        df_library = ReadIssueParquet(parquet_file)
-        if df_library.empty:
+        df_issue = ReadIssueParquet(parquet_file)
+        if df_issue.empty:
             continue
 
-        repo_name = df_library['repo_name'].dropna().unique().tolist()[0]
-        safe_repo = repo_name.replace('/', '_')
+        repo_name = df_issue['repo_name'].dropna().unique().tolist()[0]
+        safe_repo = repo_name.replace('/', '___')
 
-        repo_file = linked_outdir / f"{safe_repo}.parquet"
+        assert(len(df_issue['repo_name'].dropna().unique().tolist()) == 1)
+
+        repo_file = OUTDIR / f"{safe_repo}.parquet"
         if repo_file.exists():
             continue
         
-        print(parquet_file)
-        # scrape links
-        df_library['linked_pull_request'] = df_library.parallel_apply(
+        df_issue['linked_pull_request'] = df_issue.parallel_apply(
             lambda x: GrabIssueData(
                 x['repo_name'],
                 int(float(x['issue_number']))
             ),
             axis=1
         )
-        df_library['linked_pull_request'] = df_library.parallel_apply(
+        df_issue['linked_pull_request'] = df_issue.parallel_apply(
             lambda x: GrabIssueData(
                 x['repo_name'],
                 int(float(x['issue_number']))
@@ -109,7 +100,7 @@ def Main():
             axis=1
         )
 
-        df_library.to_parquet(repo_file)
+        df_issue.to_parquet(repo_file)
         print(parquet_file + " done")
 
 if __name__ == '__main__':

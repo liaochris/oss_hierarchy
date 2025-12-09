@@ -7,7 +7,6 @@ import requests
 import time
 from pathlib import Path
 import re
-import os
 import warnings
 
 def ReadPRParquet(path):
@@ -25,7 +24,7 @@ def _FetchPullPage(session, repo, pr_number):
     text = resp.text if hasattr(resp, "text") else ""
     is_not_found = (resp.status_code == 404) or ("This is not the webpage you are looking for" in text)
     is_rate_limited = ("Please wait a few minutes before you try again" in text) or ("You Are Not Connected" in text)
-    return url, resp, text, is_not_found, is_rate_limited
+    return resp, is_not_found, is_rate_limited
 
 def GrabPullRequestData(repo_name, pr_number):
     try:
@@ -34,10 +33,12 @@ def GrabPullRequestData(repo_name, pr_number):
         product_text = SoupStrainer('div')
         sesh = requests.Session()
 
-        url, resp, page_text, is_not_found, is_rate_limited = _FetchPullPage(sesh, repo_name, pr_number)
+        resp, is_not_found, is_rate_limited = _FetchPullPage(sesh, repo_name, pr_number)
+        if is_not_found:
+            return [[], [], 'missing', 'missing']
         if is_rate_limited:
             time.sleep(120)
-            url, resp, page_text, is_not_found, is_rate_limited = _FetchPullPage(sesh, repo_name, pr_number)
+            resp, is_not_found, is_rate_limited = _FetchPullPage(sesh, repo_name, pr_number)
 
         soup_all = BeautifulSoup(resp.content, features="html.parser")
         p = soup_all.find("p", string=lambda t: t and "Successfully merging this pull request may close these issues." in t)
@@ -67,40 +68,35 @@ def Main():
     pandarallel.initialize(progress_bar=True)
     warnings.filterwarnings("ignore")
 
-    indir_repo_match = Path("output/scrape/extract_github_data")
-    pr_dir = Path('drive/output/derived/problem_level_data/pr')
-    linked_outdir = Path('drive/output/scrape/link_issue_pull_request/linked_pull_request_to_issue')
-    linked_outdir.mkdir(parents=True, exist_ok=True)
-    repo_df = pd.read_csv(indir_repo_match / "repo_id_history_filtered.csv")
+    INDIR = Path('drive/output/scrape/extract_github_data/repo_level_data/pr')
+    OUTDIR = Path('drive/output/scrape/link_issue_pull_request/linked_pull_request_to_issue')
+    OUTDIR.mkdir(parents=True, exist_ok=True)
 
-    parquet_files = glob.glob(str(pr_dir / '*.parquet'))
+    parquet_files = glob.glob(str(INDIR / '*.parquet'))
     np.random.shuffle(parquet_files)
 
     for parquet_file in parquet_files:
-        print(parquet_file)
         df_pr = ReadPRParquet(parquet_file)
         if df_pr.empty:
             continue
         
         repo_name = df_pr['repo_name'].dropna().unique().tolist()[0]
-        safe_repo = repo_name.replace('/', '_')
+        safe_repo = repo_name.replace('/', '___')
 
-        repo_file = linked_outdir / f"{safe_repo}.parquet"
+        assert(len(df_pr['repo_name'].dropna().unique().tolist()) == 1)
+
+        repo_file = OUTDIR / f"{safe_repo}.parquet"
         if repo_file.exists():
             continue
 
-        df_library = df_pr[df_pr['repo_name'] == repo_name].copy()
-        if df_library.empty:
-            continue
-
-        df_library['linked_issue'] = df_library.parallel_apply(
+        df_pr['linked_issue'] = df_pr.parallel_apply(
             lambda x: GrabPullRequestData(
                 x['repo_name'],
                 int(x['pr_number'])
             ),
             axis=1
         )
-        df_library['linked_issue'] = df_library.parallel_apply(
+        df_pr['linked_issue'] = df_pr.parallel_apply(
             lambda x: GrabPullRequestData(
                 x['repo_name'],
                 int(x['pr_number'])
@@ -108,12 +104,12 @@ def Main():
             axis=1
         )
 
-        df_library['issue_link'] = df_library['linked_issue'].apply(lambda x: x[0] if isinstance(x, list) else x)
-        df_library['other_links'] = df_library['linked_issue'].apply(lambda x: x[1] if isinstance(x, list) else x)
-        df_library['pull_request_title'] = df_library['linked_issue'].apply(lambda x: x[2] if isinstance(x, list) else x)
-        df_library['pull_request_text'] = df_library['linked_issue'].apply(lambda x: x[3] if isinstance(x, list) else x)
+        df_pr['issue_link'] = df_pr['linked_issue'].apply(lambda x: x[0] if isinstance(x, list) else x)
+        df_pr['other_links'] = df_pr['linked_issue'].apply(lambda x: x[1] if isinstance(x, list) else x)
+        df_pr['pull_request_title'] = df_pr['linked_issue'].apply(lambda x: x[2] if isinstance(x, list) else x)
+        df_pr['pull_request_text'] = df_pr['linked_issue'].apply(lambda x: x[3] if isinstance(x, list) else x)
 
-        df_library.drop(columns=['linked_issue']).to_parquet(repo_file, index=False, engine="pyarrow")
+        df_pr.drop(columns=['linked_issue']).to_parquet(repo_file)
         print(parquet_file + " done")
 
 if __name__ == '__main__':

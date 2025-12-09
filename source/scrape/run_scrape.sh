@@ -14,5 +14,9 @@ python source/scrape/pypi_site_info/code/link_pypi_github.py
 python source/scrape/extract_github_data/code/query_all_repo_identities.py
 python source/scrape/extract_github_data/code/group_repo_identities.py
 python source/scrape/extract_github_data/code/query_github_data.py
+python source/scrape/extract_github_data/code/transform_event_to_repo_level.py
+
+python source/scrape/link_issue_pull_request/code/link_using_issue.py
+python source/scrape/link_issue_pull_request/code/link_using_pull_request.py
 
 python source/scrape/extract_governance_data/code/collect_governance_data.py

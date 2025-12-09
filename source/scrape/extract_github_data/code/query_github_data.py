@@ -16,9 +16,9 @@ def CreateDataset(client, dataset_name):
     dataset = client.create_dataset(dataset, timeout=30)
     print(f"Created dataset {client.project}.{dataset.dataset_id}")
 
-def LoadTableToDataset(client, dataset_name, table_name, indir_github_projects):
+def LoadTableToDataset(client, dataset_name, table_name, INDIR):
     df_github_projects = pd.read_csv(
-        Path(indir_github_projects) / "repo_id_history_final.csv", index_col=False
+        INDIR / "repo_id_history_final.csv", index_col=False
     ).query('repo_name_latest != "ERROR" & is_fork == 0')
     df_github_projects = df_github_projects[["repo_name"]].drop_duplicates()
     github_project_ref = client.dataset(dataset_name).table(table_name)
@@ -447,10 +447,10 @@ def GetCreateData(client, project_id, dataset_name, github_data_name, github_sta
     GetSubsetData(client, project_id, dataset_name, "create_data", github_start_date, github_end_date)
 
 def GetSubsetData(client, project_id, dataset_name, subset_data_name, github_start_date, github_end_date):
-    outdir = f"drive/output/scrape/extract_github_data/{subset_data_name}"
-    outdir_log = f"output/scrape/extract_github_data"
-    os.makedirs(outdir, exist_ok=True)
-    os.makedirs(outdir_log, exist_ok=True)
+    `OUTDIR` = Path("drive/output/scrape/extract_github_data/event_level_data") / subset_data_name
+    OUTDIR_LOG = Path("output/scrape/extract_github_data")
+    OUTDIR.makedirs(parents=True, exist_ok=True)
+    OUTDIR_LOG.makedirs(parents=True, exist_ok=True)
 
     file_counter = 0
     for year, month in IterateYearMonths(github_start_date, github_end_date):
@@ -464,8 +464,8 @@ def GetSubsetData(client, project_id, dataset_name, subset_data_name, github_sta
         SaveData(
             df_subset.reset_index(),
             ["index"],
-            f"{outdir}/{subset_data_name.replace('_data','')}_{year}_{month}.csv",
-            f"{outdir_log}/{subset_data_name}.log",
+            f"{OUTDIR}/{subset_data_name.replace('_data','')}_{year}_{month}.csv",
+            f"{OUTDIR_LOG}/{subset_data_name}.log",
             append=file_counter != 0,
         )
         file_counter += 1
@@ -476,7 +476,7 @@ def Main():
         return
 
     globals_data = LoadGlobals("source/lib/globals.json")
-    indir_github_projects = "output/scrape/extract_github_data"
+    INDIR = Path("output/scrape/extract_github_data")
     project_id = globals_data.get("project_id")
     dataset_name = "source"
     github_projects_name = "github_repositories"
@@ -487,7 +487,7 @@ def Main():
 
     client = bigquery.Client(project=project_id)
     CreateDataset(client, dataset_name)
-    LoadTableToDataset(client, dataset_name, github_projects_name, indir_github_projects)
+    LoadTableToDataset(client, dataset_name, github_projects_name, INDIR)
     GetRawGitHubData(client, github_projects_name, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
 
     GetWatchData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
