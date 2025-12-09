@@ -39,14 +39,14 @@ def Main():
 
 
 def ProcessRepo(repo, time_period, indir, indir_monthly_downloads, indir_pypi_github, indir_github_map, indir_project_downloads, outdir):
-    outfile_agg = outdir / f"{repo.replace('/', '_')}.parquet"
+    outfile_agg = outdir / f"{repo.replace('/', '___')}.parquet"
     if outfile_agg.exists():
         print(f"⏭️ Skipping {repo}, already processed.")
         return
 
     pypi_names = LoadRepoMappings(indir_github_map, indir_pypi_github, repo)
     df_downloads = LoadFilteredDownloads(indir_monthly_downloads / "pypi_monthly_downloads.parquet", pypi_names)
-    df_all = pd.read_parquet(indir / f"{repo.replace('/', '_')}.parquet")
+    df_all = pd.read_parquet(indir / f"{repo.replace('/', '___')}.parquet")
 
     stats = [GetOutcomeEventCounts(df_all, time_period)]
     if not df_downloads.empty:

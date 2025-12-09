@@ -16,7 +16,6 @@ def main():
     ]
     outdir = Path('output/derived/create_bot_list')
     outdir.mkdir(parents=True, exist_ok=True)
-    outfile = outdir / 'bot_list.parquet'
 
     files = []
     for d in input_dirs:
@@ -28,8 +27,8 @@ def main():
     all_df = pd.concat(results, ignore_index=True).drop_duplicates()
     bots_df = all_df[all_df['actor_login'].str.endswith('[bot]')]
 
-    bots_df.to_parquet(outfile, index=False)
-    print(f"Saved bot list with {len(bots_df)} rows to {outfile}")
+    bots_df.to_parquet( outdir / 'bot_list.parquet', index=False)
+    print(f"Saved bot list with {len(bots_df)} bots")
 
 if __name__ == "__main__":
     main()
