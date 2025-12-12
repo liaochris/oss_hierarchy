@@ -47,10 +47,8 @@ def AssignLatestNamesAndGroups(df):
     df["forked_from"] = df["repo_name"].map(cache_fork)
     df["is_fork"] = df["repo_name"].map(cache_flag)
 
-    # group on latest_repo_name
     unique_latest = {name: i for i, name in enumerate(df["latest_repo_name"].unique())}
     df["repo_group"] = df["latest_repo_name"].map(unique_latest)
-
     return df
 
 
@@ -62,7 +60,7 @@ def Main():
     
     SaveData(
         df_full,
-        ["repo_group", "repo_id", "repo_name", "latest_repo_name", "forked_from", "is_fork"],
+        ["repo_group", "repo_id", "repo_name", "latest_repo_name"],
         indir / "repo_id_history_final.csv",
         indir / "repo_id_history_final.log",
     )

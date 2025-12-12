@@ -482,8 +482,8 @@ def Main():
     github_projects_name = "github_repositories"
     github_data_name = "github_data"
 
-    github_start_date = globals_data.get("github_start_date", "2015-01-01")
-    github_end_date = globals_data.get("github_end_date", "2025-12-31")
+    github_start_date = globals_data['github_start_date']
+    github_end_date = globals_data['github_end_date']
 
     client = bigquery.Client(project=project_id)
     CreateDataset(client, dataset_name)
