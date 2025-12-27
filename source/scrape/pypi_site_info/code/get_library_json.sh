@@ -4,7 +4,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-PACKAGES="$(cat "output/scrape/pypi_monthly_downloads/popular_python_packages.csv" | cut -d"," -f2)"
+PACKAGES="$(cat "output/scrape/pypi_downloads/popular_python_packages.csv" | cut -d"," -f2)"
 
 for p in $PACKAGES; do 
     if [ -f "drive/output/scrape/pypi_site_info/$p.json" ]; then

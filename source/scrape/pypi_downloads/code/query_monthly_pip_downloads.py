@@ -6,8 +6,8 @@ from google.cloud import bigquery
 from source.lib.JMSLab.SaveData import SaveData
 from source.lib.helpers import LoadGlobals
 
-def ExecuteQuery(query):
-    client = bigquery.Client()
+def ExecuteQuery(query, project_id):
+    client = bigquery.Client(project = project_id)
     query_job = client.query(query)
     results_df = query_job.to_dataframe()
     return results_df
@@ -18,7 +18,9 @@ def ExportToCsv(dataframe):
 
     output_folder = Path("drive/output/scrape/pypi_downloads")
     log_folder = Path("output/scrape/pypi_downloads")
-
+    log_folder.mkdir(parents=True, exist_ok=True)
+    output_folder.mkdir(parents=True, exist_ok=True)
+    
     SaveData(
         dataframe,
         ["project", "month"],
@@ -46,7 +48,7 @@ def Main():
     GROUP BY month, project
     ORDER BY month DESC
     """
-    results_monthly_downloads = ExecuteQuery(query_monthly_downloads)
+    results_monthly_downloads = ExecuteQuery(query_monthly_downloads, project_id=globals_data["project_id"])
 
     ExportToCsv(results_monthly_downloads)
 

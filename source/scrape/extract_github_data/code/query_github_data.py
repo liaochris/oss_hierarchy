@@ -3,23 +3,25 @@ import os
 from google.cloud import bigquery
 from pathlib import Path
 import pandas as pd
-import pyarrow as pa
-import numpy as np
 from source.lib.JMSLab.SaveData import SaveData
 from source.lib.helpers import LoadGlobals
 from datetime import datetime
 
 def CreateDataset(client, dataset_name):
     dataset_id = f"{client.project}.{dataset_name}"
-    dataset = bigquery.Dataset(dataset_id)
-    dataset.location = "US"
-    dataset = client.create_dataset(dataset, timeout=30)
-    print(f"Created dataset {client.project}.{dataset.dataset_id}")
-
+    try:
+        existing_dataset = client.get_dataset(dataset_id)
+        print(f"Dataset already exists: {existing_dataset.full_dataset_id}")
+    except:
+        dataset = bigquery.Dataset(dataset_id)
+        dataset.location = "US"
+        created_dataset = client.create_dataset(dataset, timeout=30)
+        print(f"Created dataset {client.project}.{created_dataset.dataset_id}")
+    
 def LoadTableToDataset(client, dataset_name, table_name, INDIR):
     df_github_projects = pd.read_csv(
         INDIR / "repo_id_history_final.csv", index_col=False
-    ).query('repo_name_latest != "ERROR" & is_fork == 0')
+    ).query('latest_repo_name != "ERROR" & is_fork == 0')
     df_github_projects = df_github_projects[["repo_name"]].drop_duplicates()
     github_project_ref = client.dataset(dataset_name).table(table_name)
     load_data_job = client.load_table_from_dataframe(df_github_projects, github_project_ref)
@@ -59,78 +61,6 @@ def GetRawGitHubData(client, github_projects_name, project_id, dataset_name, git
     github_data_query.result()
     print(f"Exported raw github data to {project_id}.{dataset_name}.{github_data_name} for tables {start_suffix}..{end_suffix}")
 
-def GetWatchData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date):
-    watch_data_name = "watch_data"
-    watch_data_config = bigquery.QueryJobConfig(destination=f"{project_id}.{dataset_name}.{watch_data_name}")
-    watch_data_sql = f"""
-    SELECT
-      `type`,
-      `created_at`,
-      repo.id AS `repo_id`,
-      repo.name AS `repo_name`,
-      actor.id AS `actor_id`,
-      actor.login AS `actor_login`,
-      org.id AS `org_id`,
-      org.login AS `org_login`
-    FROM `{project_id}.{dataset_name}.{github_data_name}`
-    WHERE type = "WatchEvent"
-    """
-    watch_data_query = client.query(watch_data_sql, job_config=watch_data_config)
-    watch_data_query.result()
-    GetSubsetData(client, project_id, dataset_name, "watch_data", github_start_date, github_end_date)
-
-def GetReleaseData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date):
-    release_data_name = "release_data"
-    release_data_config = bigquery.QueryJobConfig(destination=f"{project_id}.{dataset_name}.{release_data_name}")
-    release_data_sql = f"""
-    SELECT
-      `type`,
-      `created_at`,
-      repo.id AS `repo_id`,
-      repo.name AS `repo_name`,
-      actor.id AS `actor_id`,
-      actor.login AS `actor_login`,
-      org.id AS `org_id`,
-      org.login AS `org_login`,
-      JSON_VALUE(`payload`, '$.action') AS `release_action`,
-      JSON_VALUE(`payload`, '$.release.tag_name') AS `release_tag_name`,
-      JSON_VALUE(`payload`, '$.release.name') AS `release_name`,
-      JSON_VALUE(`payload`, '$.release.body') AS `release_body`
-    FROM `{project_id}.{dataset_name}.{github_data_name}`
-    WHERE type = "ReleaseEvent"
-    """
-    release_data_query = client.query(release_data_sql, job_config=release_data_config)
-    release_data_query.result()
-    GetSubsetData(client, project_id, dataset_name, "release_data", github_start_date, github_end_date)
-
-def GetPushData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date):
-    push_data_name = "push_data"
-    push_data_config = bigquery.QueryJobConfig(destination=f"{project_id}.{dataset_name}.{push_data_name}")
-    push_data_sql = f"""
-    SELECT
-      `type`,
-      `created_at`,
-      repo.id AS `repo_id`,
-      repo.name AS `repo_name`,
-      actor.id AS `actor_id`,
-      actor.login AS `actor_login`,
-      org.id AS `org_id`,
-      org.login AS `org_login`,
-      JSON_VALUE(`payload`, '$.push_id') AS `push_id`,
-      JSON_VALUE(`payload`, '$.size') AS `push_size`,
-      JSON_VALUE(`payload`, '$.distinct_size') AS `push_size_distinct`,
-      JSON_VALUE(`payload`, '$.before') AS `push_before`,
-      JSON_VALUE(`payload`, '$.head') AS `push_head`,
-      JSON_VALUE(`payload`, '$.ref') AS `push_ref`,
-      COALESCE( ARRAY(
-        SELECT JSON_VALUE(ele, '$.url') FROM UNNEST(JSON_QUERY_ARRAY(`payload`, '$.commits')) AS `ele`
-      ), ARRAY() ) AS `commit_urls`
-    FROM `{project_id}.{dataset_name}.{github_data_name}`
-    WHERE type = "PushEvent"
-    """
-    push_data_query = client.query(push_data_sql, job_config=push_data_config)
-    push_data_query.result()
-    GetSubsetData(client, project_id, dataset_name, "push_data", github_start_date, github_end_date)
 
 def GetPullRequestReviewData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date):
     pull_request_review_name = "pull_request_review_data"
@@ -331,8 +261,8 @@ def GetIssueData(client, project_id, dataset_name, github_data_name, github_star
     FROM `{project_id}.{dataset_name}.{github_data_name}`
     WHERE type = "IssuesEvent"
     """
-    issue_query = client.query(issue_sql, job_config=issue_config)
-    issue_query.result()
+    #issue_query = client.query(issue_sql, job_config=issue_config)
+    #issue_query.result()
     GetSubsetData(client, project_id, dataset_name, "issue_data", github_start_date, github_end_date)
 
 def GetIssueCommentData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date):
@@ -375,82 +305,16 @@ def GetIssueCommentData(client, project_id, dataset_name, github_data_name, gith
     FROM `{project_id}.{dataset_name}.{github_data_name}`
     WHERE type = "IssueCommentEvent"
     """
-    issue_comment_query = client.query(issue_comment_sql, job_config=issue_comment_config)
-    issue_comment_query.result()
+    #issue_comment_query = client.query(issue_comment_sql, job_config=issue_comment_config)
+    #issue_comment_query.result()
     GetSubsetData(client, project_id, dataset_name, "issue_comment_data", github_start_date, github_end_date)
 
-def GetForkData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date):
-    fork_name = "fork_data"
-    fork_config = bigquery.QueryJobConfig(destination=f"{project_id}.{dataset_name}.{fork_name}")
-    fork_sql = f"""
-    SELECT
-      `type`,
-      `created_at`,
-      repo.id AS `repo_id`,
-      repo.name AS `repo_name`,
-      actor.id AS `actor_id`,
-      actor.login AS `actor_login`,
-      org.id AS `org_id`,
-      org.login AS `org_login`
-    FROM `{project_id}.{dataset_name}.{github_data_name}`
-    WHERE type = "ForkEvent"
-    """
-    fork_query = client.query(fork_sql, job_config=fork_config)
-    fork_query.result()
-    GetSubsetData(client, project_id, dataset_name, "fork_data", github_start_date, github_end_date)
-
-def GetDeleteData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date):
-    delete_name = "delete_data"
-    delete_config = bigquery.QueryJobConfig(destination=f"{project_id}.{dataset_name}.{delete_name}")
-    delete_sql = f"""
-    SELECT
-      `type`,
-      `created_at`,
-      repo.id AS `repo_id`,
-      repo.name AS `repo_name`,
-      actor.id AS `actor_id`,
-      actor.login AS `actor_login`,
-      org.id AS `org_id`,
-      org.login AS `org_login`,
-      JSON_VALUE(`payload`, '$.ref_type') AS `event_type`,
-      JSON_VALUE(`payload`, '$.ref') AS `event_ref`,
-      JSON_VALUE(`payload`, '$.pusher_type') AS `event_pusher_type`
-    FROM `{project_id}.{dataset_name}.{github_data_name}`
-    WHERE type = "DeleteEvent"
-    """
-    delete_query = client.query(delete_sql, job_config=delete_config)
-    delete_query.result()
-    GetSubsetData(client, project_id, dataset_name, "delete_data", github_start_date, github_end_date)
-
-def GetCreateData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date):
-    create_name = "create_data"
-    create_config = bigquery.QueryJobConfig(destination=f"{project_id}.{dataset_name}.{create_name}")
-    create_sql = f"""
-    SELECT
-      `type`,
-      `created_at`,
-      repo.id AS `repo_id`,
-      repo.name AS `repo_name`,
-      actor.id AS `actor_id`,
-      actor.login AS `actor_login`,
-      org.id AS `org_id`,
-      org.login AS `org_login`,
-      JSON_VALUE(`payload`, '$.ref_type') AS `event_type`,
-      COALESCE(JSON_VALUE(`payload`, '$.ref'), JSON_VALUE(`payload`, '$.object_name')) AS `event_ref`,
-      JSON_VALUE(`payload`, '$.master_branch') AS `repo_master_branch`,
-      JSON_VALUE(`payload`, '$.pusher_type') AS `event_pusher_type`
-    FROM `{project_id}.{dataset_name}.{github_data_name}`
-    WHERE type = "CreateEvent"
-    """
-    create_query = client.query(create_sql, job_config=create_config)
-    create_query.result()
-    GetSubsetData(client, project_id, dataset_name, "create_data", github_start_date, github_end_date)
 
 def GetSubsetData(client, project_id, dataset_name, subset_data_name, github_start_date, github_end_date):
-    `OUTDIR` = Path("drive/output/scrape/extract_github_data/event_level_data") / subset_data_name
+    OUTDIR = Path("drive/output/scrape/extract_github_data/event_level_data") / subset_data_name
     OUTDIR_LOG = Path("output/scrape/extract_github_data")
-    OUTDIR.makedirs(parents=True, exist_ok=True)
-    OUTDIR_LOG.makedirs(parents=True, exist_ok=True)
+    OUTDIR.mkdir(parents=True, exist_ok=True)
+    OUTDIR_LOG.mkdir(parents=True, exist_ok=True)
 
     file_counter = 0
     for year, month in IterateYearMonths(github_start_date, github_end_date):
@@ -486,21 +350,17 @@ def Main():
     github_end_date = globals_data['github_end_date']
 
     client = bigquery.Client(project=project_id)
-    CreateDataset(client, dataset_name)
-    LoadTableToDataset(client, dataset_name, github_projects_name, INDIR)
-    GetRawGitHubData(client, github_projects_name, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
+    #CreateDataset(client, dataset_name)
+    #LoadTableToDataset(client, dataset_name, github_projects_name, INDIR)
+    #GetRawGitHubData(client, github_projects_name, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
 
-    GetWatchData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
-    GetReleaseData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
-    GetPushData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
-    GetPullRequestReviewData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
-    GetPullRequestReviewCommentData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
-    GetPullRequestData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
+    #GetPullRequestReviewData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
+    #GetPullRequestReviewCommentData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
+    #GetPullRequestData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
     GetIssueData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
     GetIssueCommentData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
-    GetForkData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
-    GetDeleteData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
-    GetCreateData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
 
 if __name__ == "__main__":
     Main()
+
+

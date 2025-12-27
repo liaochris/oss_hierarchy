@@ -12,9 +12,7 @@ In order to access the Google Cloud BigQuery data for python downloads, I used t
 2. I then installed `google-cloud-bigquery` in my virtual environment
 
 ### Description
-- `code/query_monthly_pip_downloads.py` queries Google BQ for PyPI Download data
-- `code/get_popular_packages.py` extracts the popular python libraries 
-  - See [this link](https://pypistats.org/faqs#:~:text=Why%20are%20there,dropped%20%20%20%20%20%20%20%20download%20records.) for why I consider only post July 201 downloads
+- `code/query_daily_pip_version_downloads.py` queries downloads for python libraries at the library version and monthly level
 - `docs/pypistats_about.pdf` contains the about page for [pypistats.org](pypistats.org)
 
 ### Terms of Use
@@ -22,5 +20,4 @@ Official TOU cannot be found on the [website](pypistats.org) but the service is 
 
 ### Run order
 1. Set up `GOOGLE_APPLICATION_CREDENTIALS` following above
-2. Run `source/scrape/pypi_downloads/code/query_monthly_pip_downloads.py`
-3. Run `source/scrape/pypi_downloads/code/get_popular_packages.py`
+2. Run `query_daily_pip_version_downloads.py`

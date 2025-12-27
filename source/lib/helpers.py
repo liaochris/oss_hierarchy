@@ -1,6 +1,5 @@
 from pathlib import Path
 from collections.abc import Iterable
-import polars as pl
 import numpy as np
 import pandas as pd
 import json
@@ -57,16 +56,6 @@ def ImputeTimePeriod(df: pd.DataFrame, time_period_months: int) -> pd.DataFrame:
 
     return df
 
-def ImputeTimePeriodPL(lf: pl.LazyFrame, ts_col: str, months: int) -> pl.LazyFrame:
-    col = pl.col(ts_col)
-    year = col.dt.year()
-    month = col.dt.month()
-    # which bucket this month belongs to (1-based)
-    bucket = ((month - 1) // months) + 1
-    start_month = (bucket - 1) * months + 1
-    return lf.with_columns(
-        pl.datetime(year, start_month, 1).alias("time_period")
-    )
 
 def GetLatestRepoName(repo_name, repo_df):
     df_repo_group = repo_df[repo_df['repo_name'] == repo_name]

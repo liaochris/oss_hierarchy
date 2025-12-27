@@ -18,9 +18,8 @@ def Main():
     lower_bound = datetime.fromisoformat(globals_data["pip_downloads_start_date"])
     upper_bound = datetime.fromisoformat(globals_data["pip_downloads_end_date"])
 
-    results_monthly_downloads = pd.read_parquet(
-        "drive/output/scrape/pypi_downloads/pypi_monthly_downloads.parquet"
-    )
+    results_monthly_downloads = pd.read_parquet("drive/output/scrape/pypi_downloads/pypi_monthly_downloads.parquet", dtype_backend = 'pyarrow')
+    
     results_monthly_downloads["month"] = pd.to_datetime(
         results_monthly_downloads["month"]
     )
