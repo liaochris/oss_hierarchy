@@ -178,11 +178,13 @@ def Worker(repo, TEMPDIR, OUTDIR, START_DATE):
 
 def Main():
     INDIR = Path('output/scrape/extract_github_data')
-    OUTDIR = Path("drive/output/scrape/github_file_data")
-    TEMPDIR = Path("drive/temp/github_file_data/repos")
+    OUTDIR = Path("drive/output/scrape/governance_data")
+    TEMPDIR = Path("drive/temp/governance_data/repos")
+    TEMPDIR.mkdir(exist_ok = True, parents = True)
 
     df_repo_list = pd.read_csv(INDIR / 'repo_id_history_final.csv')
     repo_list = df_repo_list.query('latest_repo_name != "ERROR"')['repo_name'].unique().tolist()
+    
     random.shuffle(repo_list)
     START_DATE = LoadGlobals("source/lib/globals.json")['github_start_date']
     all_outputs = []

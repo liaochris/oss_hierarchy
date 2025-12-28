@@ -62,8 +62,8 @@ def ProcessCategory(globs_list, repo_lookup, OUTDIR, category_name, keep_cols):
             WriteParquetAppend(df_group, out_path, keep_cols)
 
 def Main():
-    INDIR = Path("output/scrape/extract_github_data/event_level_data")
-    OUTDIR = Path("drive/output/extract_github_data/repo_level_data")
+    INDIR = Path("output/scrape/extract_github_data")
+    OUTDIR = Path("drive/output/scrape/extract_github_data/repo_level_data")
     OUTDIR.mkdir(parents=True, exist_ok=True)
 
     repo_lookup_path = INDIR / "repo_id_history_final.csv"
@@ -73,9 +73,9 @@ def Main():
         {
             "name": "pr",
             "globs": [
-                "drive/output/scrape/extract_github_data/pull_request_data/*.csv",
-                "drive/output/scrape/extract_github_data/pull_request_review_data/*.csv",
-                "drive/output/scrape/extract_github_data/pull_request_review_comment_data/*.csv",
+                "drive/output/scrape/extract_github_data/event_level_data/pull_request_data/*.csv",
+                "drive/output/scrape/extract_github_data/event_level_data/pull_request_review_data/*.csv",
+                "drive/output/scrape/extract_github_data/event_level_data/pull_request_review_comment_data/*.csv",
             ],
             "keep": [
                 "type", "created_at", "repo_id", "repo_name", "actor_id", "actor_login",
@@ -92,8 +92,8 @@ def Main():
         {
             "name": "issue",
             "globs": [
-                "drive/output/scrape/extract_github_data/issue_data/*.csv",
-                "drive/output/scrape/extract_github_data/issue_comment_data/*.csv",
+                "drive/output/scrape/extract_github_data/event_level_data/issue_data/*.csv",
+                "drive/output/scrape/extract_github_data/event_level_data/issue_comment_data/*.csv",
             ],
             "keep": [
                 "type", "created_at", "repo_id", "repo_name", "actor_id", "actor_login",
