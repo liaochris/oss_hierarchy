@@ -22,17 +22,18 @@ Use **only the provided CSV**. Do not infer or assume information.
   * a **commit**, or
   * a **pull request**
     → that **closing commit / PR is the solution**, even if similar ideas appeared earlier in discussion.
+This will be indicated by event_type == "ClosedEvent" and ref_type either being a commit or pull request
 * **Do NOT include precursor discussion, speculation, or partial ideas** that occur before the resolving commit/PR unless they are the *only* resolution.
 
 ---
 
 ### **Full Fidelity Extraction Requirement**
 
-* All URLs **must be complete, full GitHub URLs** (no truncation, no ellipses).
-* `solution_text` **must contain the full verbatim solution content**, not summaries.
+* All URLs **must be complete, full GitHub URLs** (no truncation, no ellipses) from the url column. 
+* `solution_text` **must contain the full verbatim solution content**, not summarie from the text column. 
 
-  * For commits / PRs: include the **exact commit message or PR description text** that explains the fix.
-  * For discussion solutions: include the **exact text of the comment(s)** that provide the actionable solution.
+  * For commits / PRs: include the **exact commit message or PR title text** that explains the fix from the text column.
+  * For discussion solutions: include the **exact text of the comment(s)** that provide the actionable solution, from the text column. 
 
 ---
 
@@ -57,7 +58,6 @@ Return **one JSON object** with **exactly four fields**:
 
 * `"yes"` → the inquiry was resolved
 * `"no"` → the inquiry was not resolved
-
 ---
 
 ### **2. `solution_status_reason`**
@@ -76,12 +76,12 @@ If `solution_status` is `"no"`, choose **one**:
 
 ### **3. `solvers`**
 
-A list of **GitHub profile URLs of all individuals who substantively contributed to the resolution**.
+A list of people from the url column who have solved a problem. 
 
 Include a person **if and only if** they:
 
-* authored a **resolving commit or pull request**, or
-* authored a **discussion comment that contributes substantial solution value**
+* were the person responsible for a ClosedEvent **resolving commit or pull request**, or
+* authored a **discussion comment that contributes substantial solution value** 
 
 **Substantial solution value means**:
 
