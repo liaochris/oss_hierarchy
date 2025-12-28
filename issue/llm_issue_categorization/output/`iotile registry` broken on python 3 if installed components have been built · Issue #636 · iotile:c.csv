@@ -1,0 +1,38 @@
+event_type,text,date,person,url,label,close_reason,assignee,assigner,ref_type,ref_url,ref_title,ref_number,milestone,target_name,mentioned_by_type,mentioned_by_url
+Comment,"```
+(dev3) PS C:\Arch\production_devices> iotile registry add_component C:\Arch\tiles\tile_accelerometer\firm_accelerometer\
+Traceback (most recent call last):
+  File ""c:\arch\coretools\iotilecore\iotile\core\scripts\iotile_script.py"", line 208, in main
+    finished = shell.invoke(line)
+  File ""c:\arch\production_devices\workspace\dev3\lib\site-packages\typedargs\shell.py"", line 494, in invoke
+    val, line, finished = self.invoke_one(line)
+  File ""c:\arch\production_devices\workspace\dev3\lib\site-packages\typedargs\shell.py"", line 457, in invoke_one
+    val = func(*posargs, **kwargs)
+  File ""<decorator-gen-30>"", line 2, in add_component
+  File ""c:\arch\production_devices\workspace\dev3\lib\site-packages\typedargs\utils.py"", line 34, in _check_and_execute
+    retval = func(*convargs, **convkw)
+  File ""c:\arch\coretools\iotilecore\iotile\core\dev\annotated_registry.py"", line 38, in add_component
+    self.reg.add_component(component)
+  File ""c:\arch\coretools\iotilecore\iotile\core\dev\registry.py"", line 324, in add_component
+    tile = IOTile(component)
+  File ""c:\arch\coretools\iotilecore\iotile\core\dev\iotileobj.py"", line 122, in __init__
+    self._load_settings(info)
+  File ""c:\arch\coretools\iotilecore\iotile\core\dev\iotileobj.py"", line 246, in _load_settings
+    release_dict = json.load(infile)
+  File ""C:\Python35\lib\json\__init__.py"", line 268, in load
+    parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File ""C:\Python35\lib\json\__init__.py"", line 312, in loads
+    s.__class__.__name__))
+TypeError: the JSON object must be str, not 'bytes'
+```
+",2019-01-17T17:19:27Z,timburke,https://github.com/iotile/coretools/issues/636,,,,,,,,,,,,
+LabelAdded,label added: type:bug,2019-01-17T17:19:27Z,timburke,,type:bug,,,,,,,,,,,
+LabelAdded,label added: iotile-core,2019-01-17T17:19:27Z,timburke,,iotile-core,,,,,,,,,,,
+LabelAdded,label added: class:self-contained,2019-01-17T17:19:27Z,timburke,,class:self-contained,,,,,,,,,,,
+LabelAdded,label added: type:py3,2019-01-17T17:19:27Z,timburke,,type:py3,,,,,,,,,,,
+MentionedByCommit,"Fix loading components that have been built before on python 3.
+
+Closes #636",2019-01-17T18:00:48Z,timburke,https://github.com/iotile/coretools/commit/dad0fc462b9463c25bc60aba69241d256e121622,,,,,commit,https://github.com/iotile/coretools/commit/dad0fc462b9463c25bc60aba69241d256e121622,"Fix loading components that have been built before on python 3.
+
+Closes #636",,,,,
+ClosedEvent,,2019-01-18T02:46:31Z,timburke,,,,,,commit,https://github.com/iotile/coretools/commit/440156c044f11b7a08945409fb1be5d25efdc456,,,,,,

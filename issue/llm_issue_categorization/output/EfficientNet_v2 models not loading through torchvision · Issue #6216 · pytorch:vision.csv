@@ -1,0 +1,102 @@
+event_type,text,date,person,url,label,close_reason,assignee,assigner,ref_type,ref_url,ref_title,ref_number,milestone,target_name,mentioned_by_type,mentioned_by_url
+Comment,"### 🐛 Describe the bug
+
+I am trying to train efficient_v2 classification models on custom dataset  using 
+[this script](https://github.com/pytorch/vision/tree/f75272fa704452a1d9405126c3a09e2d7432d489/references/classification)
+I used following command 
+```
+python3 train.py --model efficientnet_v2 --batch-size 128 --lr 0.5 --lr-scheduler cosineanne
+alinglr --lr-warmup-epochs 5 --lr-warmup-method linear --auto-augment ta_wide --epochs 600 --random-erase 0.1 --label-smoothing 0.1 --mixup-alpha 0.2 --cutmix-alpha 1.0 --w
+eight-decay 0.00002 --norm-weight-decay 0.0 --train-crop-size 384 --model-ema --val-crop-size 480 --val-resize-size 480
+```
+
+I get following error
+```
+Traceback (most recent call last):
+  File ""train.py"", line 501, in <module>
+    main(args)
+  File ""train.py"", line 224, in main
+    model = torchvision.models.__dict__[args.model](weights=args.weights, num_classes=num_classes)
+KeyError: 'efficientnet_v2'
+```
+
+
+
+### Versions
+
+Collecting environment information...
+PyTorch version: 1.10.0+cu102
+Is debug build: False
+CUDA used to build PyTorch: 10.2
+ROCM used to build PyTorch: N/A
+
+OS: Ubuntu 20.04.3 LTS (x86_64)
+GCC version: (Ubuntu 9.4.0-1ubuntu1~20.04.1) 9.4.0
+Clang version: 10.0.0-4ubuntu1 
+CMake version: version 3.19.4
+Libc version: glibc-2.31
+
+Python version: 3.8.10 (default, Mar 15 2022, 12:22:08)  [GCC 9.4.0] (64-bit runtime)
+Python platform: Linux-5.4.0-1030-aws-x86_64-with-glibc2.29
+Is CUDA available: True
+CUDA runtime version: 11.5.119
+GPU models and configuration: GPU 0: Tesla T4
+Nvidia driver version: 510.73.05
+cuDNN version: Probably one of the following:
+/usr/lib/x86_64-linux-gnu/libcudnn.so.8.3.2
+/usr/lib/x86_64-linux-gnu/libcudnn_adv_infer.so.8.3.2
+/usr/lib/x86_64-linux-gnu/libcudnn_adv_train.so.8.3.2
+/usr/lib/x86_64-linux-gnu/libcudnn_cnn_infer.so.8.3.2
+/usr/lib/x86_64-linux-gnu/libcudnn_cnn_train.so.8.3.2
+/usr/lib/x86_64-linux-gnu/libcudnn_ops_infer.so.8.3.2
+/usr/lib/x86_64-linux-gnu/libcudnn_ops_train.so.8.3.2
+/usr/local/cuda-11.5/targets/x86_64-linux/lib/libcudnn.so.8.3.1
+/usr/local/cuda-11.5/targets/x86_64-linux/lib/libcudnn_adv_infer.so.8.3.1
+/usr/local/cuda-11.5/targets/x86_64-linux/lib/libcudnn_adv_train.so.8.3.1
+/usr/local/cuda-11.5/targets/x86_64-linux/lib/libcudnn_cnn_infer.so.8.3.1
+/usr/local/cuda-11.5/targets/x86_64-linux/lib/libcudnn_cnn_train.so.8.3.1
+/usr/local/cuda-11.5/targets/x86_64-linux/lib/libcudnn_ops_infer.so.8.3.1
+/usr/local/cuda-11.5/targets/x86_64-linux/lib/libcudnn_ops_train.so.8.3.1
+/usr/local/cuda/targets/x86_64-linux/lib/libcudnn.so.8.3.1
+/usr/local/cuda/targets/x86_64-linux/lib/libcudnn_adv_infer.so.8.3.1
+/usr/local/cuda/targets/x86_64-linux/lib/libcudnn_adv_train.so.8.3.1
+/usr/local/cuda/targets/x86_64-linux/lib/libcudnn_cnn_infer.so.8.3.1
+/usr/local/cuda/targets/x86_64-linux/lib/libcudnn_cnn_train.so.8.3.1
+/usr/local/cuda/targets/x86_64-linux/lib/libcudnn_ops_infer.so.8.3.1
+/usr/local/cuda/targets/x86_64-linux/lib/libcudnn_ops_train.so.8.3.1
+HIP runtime version: N/A
+MIOpen runtime version: N/A
+Is XNNPACK available: True
+
+Versions of relevant libraries:
+[pip3] mypy-extensions==0.4.3
+[pip3] numpy==1.20.0
+[pip3] torch==1.10.0
+[pip3] torchaudio==0.8.0
+[pip3] torchvision==0.11.1
+[conda] Could not collect
+
+cc @datumbox",2022-06-29T09:12:09Z,suyashhchougule,https://github.com/pytorch/vision/issues/6216,,,,,,,,,,,,
+Comment,"Hi @suyashhchougule , the model API that you use:
+```
+model = torchvision.models.__dict__[args.model](weights=args.weights, num_classes=num_classes)
+```
+is introduced on the new release of torchvision (version 0.13.0) that have just been released yesterday.
+Could you try install new `torchvision` and `torch` library in your computer?
+The new version should be `torchvision==0.13.0` and `torch==1.12.0`",2022-06-29T09:29:27Z,YosuaMichael,https://github.com/pytorch/vision/issues/6216#issuecomment-1169752192,,,,,,,,,,,,
+Comment,"In addition to what @YosuaMichael said, there is no `efficientnet_v2` model. There is `efficientnet_v2_s`, `efficientnet_v2_m` and `efficientnet_v2_l`. If you install the above versions and change your invocation to pass one of the above variants, it should work fine. I'll close the issue as I believe we answered the question but feel free to reopen if you continue facing issues!",2022-06-29T10:01:46Z,datumbox,https://github.com/pytorch/vision/issues/6216#issuecomment-1169785468,,,,,,,,,,,,
+ClosedEvent,,2022-06-29T10:01:46Z,datumbox,,,,,,,,,,,,,
+Comment,"> Hi @suyashhchougule , the model API that you use:
+> 
+> ```
+> model = torchvision.models.__dict__[args.model](weights=args.weights, num_classes=num_classes)
+> ```
+> 
+> is introduced on the new release of torchvision (version 0.13.0) that have just been released yesterday. Could you try install new `torchvision` and `torch` library in your computer? The new version should be `torchvision==0.13.0` and `torch==1.12.0`
+
+Yes, That worked , Thanks",2022-06-29T10:30:53Z,suyashhchougule,https://github.com/pytorch/vision/issues/6216#issuecomment-1169814357,,,,,,,,,,,,
+Comment,"> In addition to what @YosuaMichael said, there is no `efficientnet_v2` model. There is `efficientnet_v2_s`, `efficientnet_v2_m` and `efficientnet_v2_l`. If you install the above versions and change your invocation to pass one of the above variants, it should work fine. I'll close the issue as I believe we answered the question but feel free to reopen if you continue facing issues!
+
+Yes, I meant any of the efficientnet_v2 models. but thanks",2022-06-29T10:32:21Z,suyashhchougule,https://github.com/pytorch/vision/issues/6216#issuecomment-1169815544,,,,,,,,,,,,
+LabelAdded,label added: question,2022-06-29T11:09:23Z,datumbox,,question,,,,,,,,,,,
+LabelAdded,label added: module: models,2022-06-29T11:09:23Z,datumbox,,module: models,,,,,,,,,,,
