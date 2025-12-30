@@ -1,5 +1,5 @@
-event_type,text,date,person,url,label,close_reason,assignee,assigner,ref_type,ref_url,ref_title,ref_number,milestone,target_name,mentioned_by_type,mentioned_by_url
-Comment,"The `cusip` module's `is_valid` function returns false for a CUSIP that I would expect would pass, as I found it on a real Fidelity statement (see screenshot of document sample). 
+event_type,text,date,person,url,label,close_reason,assignee,assigner,ref_type,ref_url,ref_title,milestone,target_name
+IssueOpened,"The `cusip` module's `is_valid` function returns false for a CUSIP that I would expect would pass, as I found it on a real Fidelity statement (see screenshot of document sample).
 
 ```
 cusip.is_valid(`FDIC99425`)
@@ -7,29 +7,16 @@ cusip.is_valid(`FDIC99425`)
 ```
 
 I believe this is because `cusip._alphabet` does not permit ""I"" or ""O"":
+
 ```
 cusip._alphabet
 >> '0123456789ABCDEFGH JKLMN PQRSTUVWXYZ*@#'
 ```
 
-<img width=""492"" alt=""Screen Shot 2022-10-16 at 11 50 45 AM"" src=""https://user-images.githubusercontent.com/29004842/196052775-cd61943e-43f9-437e-aabb-8038f13bf472.png"">
+[![Screen Shot 2022-10-16 at 11 50 45 AM](https://user-images.githubusercontent.com/29004842/196052775-cd61943e-43f9-437e-aabb-8038f13bf472.png)](https://user-images.githubusercontent.com/29004842/196052775-cd61943e-43f9-437e-aabb-8038f13bf472.png)
 
-I checked [cusip.com](https://www.cusip.com/identifiers.html#/CUSIP) and I didn't find anything indicating that those two characters were not allowed.",2022-10-16T19:01:41Z,thomkav,https://github.com/arthurdejong/python-stdnum/issues/337,,,,,,,,,,,,
-ClosedEvent,,2022-11-12T15:18:22Z,arthurdejong,,,,,,commit,https://github.com/arthurdejong/python-stdnum/commit/1364e1917750b1515cb1b1662c24bc1080c4ecbf,,,,,,
-Comment,Thanks for pointing this out. It's been fixed in 1364e19,2022-11-12T15:18:50Z,arthurdejong,https://github.com/arthurdejong/python-stdnum/issues/337#issuecomment-1312503991,,,,,,,,,,,,
-Comment,A long awaited thanks @arthurdejong !,2023-02-03T17:17:39Z,thomkav,https://github.com/arthurdejong/python-stdnum/issues/337#issuecomment-1416168507,,,,,,,,,,,,
-MentionedByCommit,"Support ""I"" and ""O"" in CUSIP number
-
-It is unclear why these letters were considered invalid at the time of
-the implementation.
-
-This also reduces the test set a bit while still covering most cases.
-
-Closes https://github.com/arthurdejong/python-stdnum/issues/337",2025-02-27T05:56:12Z,dotbit1,https://github.com/dotbit1/python-stdnum/commit/1364e1917750b1515cb1b1662c24bc1080c4ecbf,,,,,commit,https://github.com/dotbit1/python-stdnum/commit/1364e1917750b1515cb1b1662c24bc1080c4ecbf,"Support ""I"" and ""O"" in CUSIP number
-
-It is unclear why these letters were considered invalid at the time of
-the implementation.
-
-This also reduces the test set a bit while still covering most cases.
-
-Closes https://github.com/arthurdejong/python-stdnum/issues/337",,,,,
+I checked [cusip.com](https://www.cusip.com/identifiers.html#/CUSIP) and I didn't find anything indicating that those two characters were not allowed.",2022-10-16T19:01:41Z,thomkav,https://github.com/arthurdejong/python-stdnum/issues/337,,,,,,,,,
+ClosedEvent,,2022-11-12T15:18:22Z,arthurdejong,,,,,,commit,https://github.com/arthurdejong/python-stdnum/commit/1364e1917750b1515cb1b1662c24bc1080c4ecbf,,,
+IssueComment,Thanks for pointing this out. It's been fixed in [1364e19](https://github.com/arthurdejong/python-stdnum/commit/1364e1917750b1515cb1b1662c24bc1080c4ecbf),2022-11-12T15:18:50Z,arthurdejong,https://github.com/arthurdejong/python-stdnum/issues/337#issuecomment-1312503991,,,,,,,,,
+IssueComment,A long awaited thanks [@arthurdejong](https://github.com/arthurdejong) !,2023-02-03T17:17:39Z,thomkav,https://github.com/arthurdejong/python-stdnum/issues/337#issuecomment-1416168507,,,,,,,,,
+MentionedByCommit,"Support ""I"" and ""O"" in CUSIP number",2025-02-27T05:56:12Z,dotbit1,,,,,,commit,https://github.com/dotbit1/python-stdnum/commit/1364e1917750b1515cb1b1662c24bc1080c4ecbf,"Support ""I"" and ""O"" in CUSIP number",,
