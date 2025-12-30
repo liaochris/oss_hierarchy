@@ -1,17 +1,21 @@
-event_type,text,date,person,url,label,close_reason,assignee,assigner,ref_type,ref_url,ref_title,ref_number,milestone,target_name,mentioned_by_type,mentioned_by_url
-Comment,"
+event_type,text,date,person,url,label,close_reason,assignee,assigner,ref_type,ref_url,ref_title,milestone,target_name
+IssueOpened,"---
 
-----------------------------------------------------------------------------------------------------
 
-| Required Info                         |                                                                |
-|---------------------------------|------------------------------------------- |
-| Camera Model                       | D435i / T265 | 
-| Operating System & Version | Linux (Ubuntu 18) | 
-| Platform                                 | Intel NUC |
-| Segment			| Robot | 
+
+| Required Info |  |
+| --- | --- |
+| Camera Model | D435i / T265 |
+| Operating System & Version | Linux (Ubuntu 18) |
+| Platform | Intel NUC |
+| Segment | Robot |
+
 ### Issue Description
-Hi, I want to use t265 camera as odometry source for cartographer and d435i camera as point cloud source. I am facing a global SLAM problem. As far as I understand, the distance of the points perceived by the algorithm, set by me, is small for the successful compilation of a submap, therefore, the map is stitched incorrectly. But the fact is that when I set the distance too large, I get a lot of noise, which does not make the situation better. Has anyone had any experience with the d435i camera as a point cloud source for a cartographer? 
+
+Hi, I want to use t265 camera as odometry source for cartographer and d435i camera as point cloud source. I am facing a global SLAM problem. As far as I understand, the distance of the points perceived by the algorithm, set by me, is small for the successful compilation of a submap, therefore, the map is stitched incorrectly. But the fact is that when I set the distance too large, I get a lot of noise, which does not make the situation better. Has anyone had any experience with the d435i camera as a point cloud source for a cartographer?
+
 ### my cartographer launch file
+
 ```
 <launch>
   <!-- Arguments -->
@@ -50,7 +54,9 @@ Hi, I want to use t265 camera as odometry source for cartographer and d435i came
 
 </launch>
 ```
+
 ### my config lua file
+
 ```
 include ""map_builder.lua""
 include ""trajectory_builder.lua""
@@ -152,5 +158,6 @@ TRAJECTORY_BUILDER_2D.adaptive_voxel_filter.max_length = 0.2
 
 return options
 ```
------",2021-05-05T15:37:43Z,Splinter1984,https://github.com/realsenseai/librealsense/issues/8974,,,,,,,,,,,,
-ClosedEvent,,2024-10-24T14:31:23Z,Splinter1984,,,,,,,,,,,,,
+
+---",2021-05-05T15:37:43Z,Splinter1984,https://github.com/realsenseai/librealsense/issues/8974,,,,,,,,,
+ClosedEvent,,2024-10-24T14:31:23Z,Splinter1984,,,,,,,,,,

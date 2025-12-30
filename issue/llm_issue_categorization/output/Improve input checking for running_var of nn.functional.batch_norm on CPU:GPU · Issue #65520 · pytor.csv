@@ -1,8 +1,10 @@
-event_type,text,date,person,url,label,close_reason,assignee,assigner,ref_type,ref_url,ref_title,ref_number,milestone,target_name,mentioned_by_type,mentioned_by_url
-Comment,"## 🐛 Bug
-All the input parameters for the `torch.nn.functional.batch_norm` API are the same, but their behaviors on GPU and CPU are different. CPU runs successfully silently while GPU throws an internal assertion failure. I guess it is because the input validation of `running_var` of `batch_norm`(https://pytorch.org/docs/stable/generated/torch.nn.functional.batch_norm.html) is not consistent on CPU and GPU backends.
+event_type,text,date,person,url,label,close_reason,assignee,assigner,ref_type,ref_url,ref_title,milestone,target_name
+IssueOpened,"## 🐛 Bug
+
+All the input parameters for the `torch.nn.functional.batch_norm` API are the same, but their behaviors on GPU and CPU are different. CPU runs successfully silently while GPU throws an internal assertion failure. I guess it is because the input validation of `running_var` of `batch_norm`(<https://pytorch.org/docs/stable/generated/torch.nn.functional.batch_norm.html>) is not consistent on CPU and GPU backends.
 
 ## To Reproduce
+
 ```
 import torch
 def cpu():
@@ -21,7 +23,9 @@ cpu()
 print(""CPU pass"")
 gpu()
 ```
+
 The output of the above script is the following:
+
 ```
 CPU pass
 ---------------------------------------------------------------------------
@@ -44,22 +48,19 @@ please report a bug to PyTorch. Found type undefined input tensor!
 ```
 
 ## Expected behavior
+
 On CPU, the script silently runs without throwing any warning message. I think it should raise some exception like invalid argument instead. On GPU, the failure message is quite confusing (because it does not give much information actually). It would be nice if this could be improved.
 
-
 ## Environment
-- PyTorch Version (e.g., 1.0): 1.9.0
-- OS (e.g., Linux): Ubuntu
-- Python version: 3.6.9
-- CUDA/cuDNN version: cuDNN 11.1
-- GPU models and configuration: RTX3090
 
+* PyTorch Version (e.g., 1.0): 1.9.0
+* OS (e.g., Linux): Ubuntu
+* Python version: 3.6.9
+* CUDA/cuDNN version: cuDNN 11.1
+* GPU models and configuration: RTX3090
 
 ## Additional context
 
-<!-- Add any other context about the problem here. -->
-
-
-cc @albanD @mruberry @jbschlosser @walterddr",2021-09-23T05:41:38Z,ilovepytorch,https://github.com/pytorch/pytorch/issues/65520,,,,,,,,,,,,
-LabelAdded,label added: module: nn,2021-09-23T20:48:41Z,H-Huang,,module: nn,,,,,,,,,,,
-LabelAdded,label added: triaged,2021-09-23T20:48:41Z,H-Huang,,triaged,,,,,,,,,,,
+cc [@albanD](https://github.com/albanD) [@mruberry](https://github.com/mruberry) [@jbschlosser](https://github.com/jbschlosser) [@walterddr](https://github.com/walterddr)",2021-09-23T05:41:38Z,ilovepytorch,https://github.com/pytorch/pytorch/issues/65520,,,,,,,,,
+LabeledEvent,module: nn,2021-09-23T20:48:41Z,H-Huang,,,,,,,,,,
+LabeledEvent,triaged,2021-09-23T20:48:41Z,H-Huang,,,,,,,,,,
