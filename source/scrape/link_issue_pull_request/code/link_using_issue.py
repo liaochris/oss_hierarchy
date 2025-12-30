@@ -15,7 +15,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 
-from source.scrape.link_issue_pull_request.code.create_issue_timeline import HtmlTextToTimelineDf
+from source.scrape.link_issue_pull_request.code.create_issue_timeline_json import HtmlTextToTimelineJSON
+from source.scrape.link_issue_pull_request.code.create_issue_timeline_dom import HtmlTextToTimelineDOM
 
 
 def ReadIssueParquet(path):
@@ -26,6 +27,8 @@ def ReadIssueParquet(path):
     except Exception as e:
         warnings.warn(f"Failed to read {path!r}: {e}")
         return pd.DataFrame(columns=cols)
+
+
 
 
 def _FetchIssuePage(session, repo, issue_number):
@@ -39,29 +42,50 @@ def _FetchIssuePage(session, repo, issue_number):
 
 def _ExpandAllWithSelenium(issue_url):
     chrome_options = Options()
-    chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--window-size=1920,1080")
 
-    driver = webdriver.Chrome(options=chrome_options)
-    driver.get(issue_url)
+    for _ in range(5):
+        driver = webdriver.Chrome(options=chrome_options)
+        driver.get(issue_url)
+        wait = WebDriverWait(driver, 10)
 
-    wait = WebDriverWait(driver, 10)
+        finished_naturally = False
 
-    while True:
         try:
-            load_more = wait.until(EC.element_to_be_clickable(
-                (By.CSS_SELECTOR, "div[class^='LoadMore-module__buttonChildrenWrapper']")))
-            driver.execute_script("arguments[0].scrollIntoView(true);", load_more)
-            time.sleep(2)
-            load_more.click()
-            time.sleep(4)
-        except (TimeoutException, StaleElementReferenceException):
-            break
+            while True:
+                btn = wait.until(
+                    EC.element_to_be_clickable(
+                        (By.CSS_SELECTOR, 'button[data-testid^="issue-timeline-load-more-load-top"]')
+                    )
+                )
 
-    html = driver.page_source
-    driver.quit()
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(3)
+                driver.execute_script("arguments[0].scrollIntoView({block:'center'});", btn)
+                time.sleep(3)
+                btn.click()
+                time.sleep(10)
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                time.sleep(5)
+
+        except TimeoutException:
+            finished_naturally = True
+
+        except StaleElementReferenceException:
+            pass
+        
+        time.sleep(3)
+        driver.execute_script("return document.documentElement.outerHTML;")
+        time.sleep(10)
+        html = driver.page_source
+        driver.quit()
+
+        if finished_naturally:
+            print("FINISHED")
+            return html
+
     return html
 
 
@@ -78,13 +102,15 @@ def GrabIssueData(repo_name, issue_number):
         if is_rate_limited:
             time.sleep(120)
             resp, is_not_found, is_rate_limited = _FetchIssuePage(sesh, repo_name, issue_number)
-
+    
         html_text = resp.text if hasattr(resp, "text") else ""
 
         if re.search(r"LoadMore-module__buttonChildrenWrapper", html_text):
             html_text = _ExpandAllWithSelenium(issue_url)
-
-        timeline_df = HtmlTextToTimelineDf(html_text)
+            timeline_df = HtmlTextToTimelineJSON(html_text)
+        else:
+            timeline_df = HtmlTextToTimelineDOM(html_text)
+            
         if not timeline_df.empty:
             timeline_df["repo_name"] = repo_name
             timeline_df["issue_number"] = issue_number
@@ -180,3 +206,4 @@ def Main():
 
 if __name__ == "__main__":
     Main()
+
