@@ -91,25 +91,13 @@ def MentionContextFromUrl(u):
     return ("", u if u.startswith("http") else "")
 
 
-def BuildEvent(evtype, text, date, person, url,
-               label="", close_reason="", assignee="", assigner="",
-               ref_type="", ref_url="", ref_title="", 
-               milestone="", target_name=""):
+def BuildEvent(evtype, text, date, author, url):
     return {
-        "event_type": evtype,
+        "type": evtype,
         "text": text,
         "date": date,
-        "person": person,
-        "url": url,
-        "label": label,
-        "close_reason": close_reason,
-        "assignee": assignee,
-        "assigner": assigner,
-        "ref_type": ref_type,
-        "ref_url": ref_url,
-        "ref_title": ref_title,
-        "milestone": milestone,
-        "target_name": target_name,
+        "author": author,
+        "url": url
     }
 
 
@@ -133,78 +121,76 @@ def ExtractTimelineNodes(j):
 
         actor_node = timeline_node.get("actor") or timeline_node.get("author") or {}
         actor_login = actor_node.get("login") if isinstance(actor_node, dict) else ""
-        node_url = timeline_node.get("url") or timeline_node.get("resourcePath") or ""
+        url = None
 
         if typename == "IssueComment":
             text_md = HtmlToMarkdown(timeline_node['bodyHTML'])
-            events.append(BuildEvent(typename, text_md, created_at, actor_login, node_url))
+            events.append(BuildEvent(typename, text_md, created_at, actor_login, url))
             continue
 
         if typename == "AssignedEvent":
             assignee_node = timeline_node.get("assignee") or {}
             assignee_login = assignee_node.get("login") if isinstance(assignee_node, dict) else ""
-            events.append(BuildEvent(typename, "", created_at, actor_login, node_url, assignee=assignee_login, assigner=actor_login))
+            events.append(BuildEvent(typename, f"{actor_login} assigned {assignee_login}", created_at, actor_login, url))
+            continue
+
+        if typename == "UnassignedEvent":
+            assignee_node = timeline_node.get("assignee") or {}
+            assignee_login = assignee_node.get("login") if isinstance(assignee_node, dict) else ""
+            events.append(BuildEvent(typename, f"{actor_login} unassigned {assignee_login}", created_at, actor_login, url))
             continue
 
         if typename == "MilestonedEvent":
             milestone_title = timeline_node.get("milestoneTitle") or ""
-            events.append(BuildEvent(typename, f"added to milestone: {milestone_title}", created_at, actor_login, node_url, milestone=milestone_title))
+            events.append(BuildEvent(typename, f"added to milestone: {milestone_title}", created_at, actor_login, url))
             continue
 
         if typename == "DemilestonedEvent":
             milestone_title = timeline_node.get("milestoneTitle") or ""
-            events.append(BuildEvent(typename, f"removed from milestone: {milestone_title}", created_at, actor_login, node_url,
-                milestone=milestone_title))
+            events.append(BuildEvent(typename, f"removed from milestone: {milestone_title}", created_at, actor_login, url))
             continue
 
         if typename in ("ReferencedEvent", "CrossReferencedEvent"):
             subject_node = timeline_node.get("innerSource")  or timeline_node.get("commit") or timeline_node.get("subject") or {}
             ref_type, ref_url, ref_title = ExtractRefFromNode(subject_node)
 
-            event_type = (
+            evtype = (
                 "MentionedByCommit" if ref_type == "commit"
                 else "MentionedByIssue" if ref_type == "issue"
                 else "MentionedByPR" if ref_type == "pr" 
                 else "ReferencedEvent"
             )
-
-            text_md = ref_title or ref_url or ""
-
-            events.append(BuildEvent(event_type, text_md, created_at, actor_login, node_url,
-                ref_type=ref_type, ref_url=ref_url, ref_title=ref_title))
+            text = ref_title  
+            events.append(BuildEvent(evtype, text, created_at, actor_login, url = ref_url))
             continue
 
         if typename == "ClosedEvent":
             closer_node = timeline_node.get("closer") or {}
             ref_type, ref_url, ref_title = ExtractRefFromNode(closer_node)
+            
+            close_reason = closer_node.get("stateReason", "")
+            close_suffix = f" as {close_reason}" if close_reason != "" else ""
 
-            events.append(BuildEvent(typename, "", created_at, actor_login, node_url, 
-                ref_type=ref_type, ref_url=ref_url, ref_title=ref_title,))
+
+            is_pr = "#" if "/pulls/" in ref_url else ""
+            pr_commit_number = ref_url.split("/")[-1]
+            pr_commit_number = pr_commit_number[-6:] if is_pr != "#" else pr_commit_number
+            closing_suffix = f" in {is_pr}{pr_commit_number}"
+            text = f"Closed by {actor_login}" + close_suffix + closing_suffix
+
+            events.append(BuildEvent(typename, text, created_at, actor_login, url = ref_url))
             continue
 
         if typename == "LabeledEvent":
             label = timeline_node['label']['name']
-            events.append(BuildEvent(typename, label, created_at, actor_login, node_url))
+            events.append(BuildEvent(typename, label, created_at, actor_login, url))
             continue
 
     return events
 
 
-def HtmlTextToTimeline(html_text):
+def HtmlTextToTimelineJSON(html_text):
     events = []
     for j in FindTimelineEvents(html_text):
         events.extend(ExtractTimelineNodes(j))
     return pd.DataFrame(events)
-
-input_dir = Path("issue/llm_issue_categorization/raw")
-output_dir = Path("issue/llm_issue_categorization/output")
-output_dir.mkdir(parents=True, exist_ok=True)
-
-for html_file in input_dir.glob("*.html"):
-    with html_file.open("r", encoding="utf-8") as f:
-        html_text = f.read()
-
-    df_timeline = HtmlTextToTimeline(html_text)
-
-    out_path = output_dir / f"{html_file.stem}.csv"
-    df_timeline.to_csv(out_path, index=False)
