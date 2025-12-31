@@ -25,7 +25,6 @@ def HtmlTextToTimelineDOM(html_text):
         timeline_entries = list(timeline_container.find_all(recursive=False))
 
     for entry in timeline_entries:
-        # only consider divs whose class starts with LayoutHelpers-module__timelineElement
         classes = entry.get("class") or []
         if entry.name == "div" and any(re.compile(r"^LayoutHelpers-module__timelineElement").search(c or "") for c in classes):
             event_type = "IssueComment"
