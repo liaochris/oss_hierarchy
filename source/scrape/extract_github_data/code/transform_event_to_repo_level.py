@@ -6,12 +6,18 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 def WriteParquetAppend(df_group, out_path, keep_cols):
-    table = pa.Table.from_pandas(df_group[keep_cols], preserve_index=False)
+    new_df = df_group[keep_cols]
+    for int_col in ['actor_id', 'repo_id', 'pr_number']:
+        if int_col in new_df.columns:
+            new_df[int_col] = pd.to_numeric(new_df[int_col],errors = 'coerce')
+
     if out_path.exists():
-        with pq.ParquetWriter(str(out_path), table.schema, use_dictionary=True) as writer:
-            writer.write_table(table)
+        existing_df = pd.read_parquet(out_path)
+        combined_df = pd.concat([existing_df, new_df], ignore_index=True)
     else:
-        pq.write_table(table, out_path)
+        combined_df = new_df
+
+    combined_df.to_parquet(out_path, engine="pyarrow", index=False)
 
 
 def ReadRawGitHubData(path, keep_cols):
@@ -25,13 +31,14 @@ def ReadRawGitHubData(path, keep_cols):
 def SanitizeRepoName(repo_name):
     if repo_name is None or pd.isna(repo_name):
         return "unknown_repo"
+
+    s = str(repo_name).strip()
     try:
         pd.to_datetime(s, utc=True)
         return "unknown_repo"
     except Exception:
-        s = str(repo_name).strip()
-        s = s.replace("/", "___")
-        return s
+        return s.replace("/", "___")
+
     
 def BuildRepoLookup(repo_lookup_path):
     df = pd.read_csv(repo_lookup_path).query('repo_name != "ERROR"')

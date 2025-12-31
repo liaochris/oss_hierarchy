@@ -37,6 +37,7 @@ def GrabPullRequestData(repo_name, pr_number):
         if is_not_found:
             return [[], [], 'missing', 'missing']
         if is_rate_limited:
+            print("RATE LIMITED")
             time.sleep(120)
             resp, is_not_found, is_rate_limited = _FetchPullPage(sesh, repo_name, pr_number)
 

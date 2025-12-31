@@ -37,11 +37,14 @@ def _FetchIssuePage(session, repo, issue_number):
     text = resp.text if hasattr(resp, "text") else ""
     is_not_found = (resp.status_code == 404) or ("This is not the webpage you are looking for" in text)
     is_rate_limited = ("Please wait a few minutes before you try again" in text) or ("You Are Not Connected" in text)
-    return resp, is_not_found, is_rate_limited
+
+    is_pull = "/pull/" in resp.url
+    return resp, is_not_found, is_rate_limited, is_pull
 
 
 def _ExpandAllWithSelenium(issue_url):
     chrome_options = Options()
+    chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--window-size=1920,1080")
@@ -96,24 +99,33 @@ def GrabIssueData(repo_name, issue_number):
 
         issue_url = f"https://github.com/{repo_name}/issues/{issue_number}"
 
-        resp, is_not_found, is_rate_limited = _FetchIssuePage(sesh, repo_name, issue_number)
+        resp, is_not_found, is_rate_limited, is_pull = _FetchIssuePage(sesh, repo_name, issue_number)
         if is_not_found:
             return {"pr_links": [], "github_links": [], "timeline_df": None}
         if is_rate_limited:
             time.sleep(120)
-            resp, is_not_found, is_rate_limited = _FetchIssuePage(sesh, repo_name, issue_number)
+            resp, is_not_found, is_rate_limited, is_pull = _FetchIssuePage(sesh, repo_name, issue_number)
     
         html_text = resp.text if hasattr(resp, "text") else ""
 
-        if re.search(r"LoadMore-module__buttonChildrenWrapper", html_text):
-            html_text = _ExpandAllWithSelenium(issue_url)
-            timeline_df = HtmlTextToTimelineJSON(html_text)
+        if is_pull:
+            timeline_df = pd.DataFrame()
         else:
-            timeline_df = HtmlTextToTimelineDOM(html_text)
-            
-        if not timeline_df.empty:
-            timeline_df["repo_name"] = repo_name
-            timeline_df["issue_number"] = issue_number
+            timeline_df = HtmlTextToTimelineJSON(html_text)
+            if re.search(r'"hasNextPage":true', html_text):
+                html_text = _ExpandAllWithSelenium(issue_url)
+                opening_issue_df = pd.DataFrame(
+                    [["IssueOpened", timeline_df.loc[0, "person"], timeline_df.loc[0, "date"], timeline_df.loc[0, "text"], None]],
+                    columns=["type", "author", "date", "text", "url"],
+                )
+
+                timeline_df = pd.concat([opening_issue_df, HtmlTextToTimelineDOM(html_text)], ignore_index=True).reset_index(drop = True)
+
+            if not timeline_df.empty:
+                timeline_df["repo_name"] = repo_name
+                timeline_df["issue_number"] = issue_number
+
+
 
         soup = BeautifulSoup(html_text, parse_only=product, features="html.parser")
 
@@ -133,7 +145,8 @@ def GrabIssueData(repo_name, issue_number):
         return {
             "pr_links": pr_links,
             "github_links": github_links,
-            "timeline_df": timeline_df
+            "timeline_df": timeline_df,
+            "is_pull": is_pull
         }
 
     except Exception as e:
@@ -195,7 +208,8 @@ def Main():
         df_issue["linked_pull_request"] = df_issue["linked_pull_request"].apply(
             lambda d: {
                 "pr_links": d.get("pr_links", []),
-                "github_links": d.get("github_links", [])
+                "github_links": d.get("github_links", []),
+                "is_pr": d.get("is_pr", False)
             } if isinstance(d, dict) else d
         )
 
