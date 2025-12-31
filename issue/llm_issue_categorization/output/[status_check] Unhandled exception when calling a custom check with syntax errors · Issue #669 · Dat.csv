@@ -1,4 +1,4 @@
-event_type,text,date,person,url,label,close_reason,assignee,assigner,ref_type,ref_url,ref_title,milestone,target_name
+type,text,date,author,url
 IssueOpened,"\*\*Output of the [info page](https://help.datadoghq.com/hc/en-us/articles/203764635-Agent-Status-and-Information) \*\*
 
 ```
@@ -127,18 +127,18 @@ A handled exception with meaningful output that stipulates there is a syntax err
 Ideally it either raises the root-cause custom check exception that shows the responsible line of code, or provides information which custom check triggered the exception to allow separate debugging.
 
 **Additional information you deem important (e.g. issue happens only occasionally):**  
-While this should be encountered with all types of syntax errors, in some specific cases where checking with Python for syntax errors on one host succeeds, but it fails on another, can result in confusion about what has caused the issue, leading to many hours of ""black-box"" debugging that can be avoided with an indication of the custom check having a syntax error when ran by the agent.",2017-08-10T18:21:46Z,insideClaw,https://github.com/DataDog/integrations-core/issues/669,,,,,,,,,
-AssignedEvent,,2017-08-11T13:13:12Z,truthbk,,,,truthbk,truthbk,,,,,
+While this should be encountered with all types of syntax errors, in some specific cases where checking with Python for syntax errors on one host succeeds, but it fails on another, can result in confusion about what has caused the issue, leading to many hours of ""black-box"" debugging that can be avoided with an indication of the custom check having a syntax error when ran by the agent.",2017-08-10T18:21:46Z,insideClaw,https://github.com/DataDog/integrations-core/issues/669
+AssignedEvent,truthbk assigned truthbk,2017-08-11T13:13:12Z,truthbk,
 IssueComment,"[@insideClaw](https://github.com/insideClaw) man, that was one awesome issue description. Thank you so much for the breakdown and investigation 🙇
 
-All we have to do know is fix it. I'll make sure we do so - should be a small quick fix - and ship in the next release.",2017-08-11T13:15:07Z,truthbk,https://github.com/DataDog/integrations-core/issues/669#issuecomment-321809041,,,,,,,,,
-MilestonedEvent,added to milestone: 5.17,2017-08-11T13:15:12Z,truthbk,,,,,,,,,5.17,
+All we have to do know is fix it. I'll make sure we do so - should be a small quick fix - and ship in the next release.",2017-08-11T13:15:07Z,truthbk,
+MilestonedEvent,added to milestone: 5.17,2017-08-11T13:15:12Z,truthbk,
 IssueComment,"Excellent, I'm glad you found it well put.  
 Also that I'm not misguided of it being an issue - the Datadog support person who I spoke to was originally convincing me that's normal Python behaviour :)
 
-Good luck with the fix and I'll be looking forward to your release.",2017-08-11T13:22:07Z,insideClaw,https://github.com/DataDog/integrations-core/issues/669#issuecomment-321810522,,,,,,,,,
-ReferencedEvent,"[info] `unknown` ver if failed module load, `custom` if custom check.",2017-08-23T11:31:23Z,truthbk,,,,,,pull,https://github.com/DataDog/dd-agent/pull/3488,"[info] `unknown` ver if failed module load, `custom` if custom check.",,
-IssueComment,"[@insideClaw](https://github.com/insideClaw) a fix was merged, should be available in the upcoming release, due very soon. Thanks again! 👍",2017-08-23T13:14:36Z,truthbk,https://github.com/DataDog/integrations-core/issues/669#issuecomment-324326735,,,,,,,,,
-ClosedEvent,,2017-08-23T13:14:36Z,truthbk,,,,,,,,,,
-IssueComment,"[![](https://camo.githubusercontent.com/68d5c7417a6dfbb78ab671b0548c6fa28ec3506ca987d2c3aa597fb4b820d686/68747470733a2f2f6769746875622e7472656c6c6f2e73657276696365732f696d616765732f6d696e692d7472656c6c6f2d69636f6e2e706e67)](https://camo.githubusercontent.com/68d5c7417a6dfbb78ab671b0548c6fa28ec3506ca987d2c3aa597fb4b820d686/68747470733a2f2f6769746875622e7472656c6c6f2e73657276696365732f696d616765732f6d696e692d7472656c6c6f2d69636f6e2e706e67) [[info] `unknown` ver if failed module load, `custom` if custom check.](https://trello.com/c/oJrKE2aa/778-info-unknown-ver-if-failed-module-load-custom-if-custom-check)",2017-08-23T13:16:46Z,truthbk,https://github.com/DataDog/integrations-core/issues/669#issuecomment-324327409,,,,,,,,,
-MentionedByCommit,Merge pull request [#669](https://github.com/DataDog/integrations-core/issues/669) from DataDog/kbogtob/prepare-release-3-5,2020-05-14T19:04:04Z,gml3ff,,,,,,commit,https://github.com/DataDog/integrations-core/commit/20d95f3f6f226141e2a947e0c3f43721ad406936,Merge pull request [#669](https://github.com/DataDog/integrations-core/issues/669) from DataDog/kbogtob/prepare-release-3-5,,
+Good luck with the fix and I'll be looking forward to your release.",2017-08-11T13:22:07Z,insideClaw,
+ReferencedEvent,"[info] `unknown` ver if failed module load, `custom` if custom check.",2017-08-23T11:31:23Z,truthbk,https://github.com/DataDog/dd-agent/pull/3488
+IssueComment,"[@insideClaw](https://github.com/insideClaw) a fix was merged, should be available in the upcoming release, due very soon. Thanks again! 👍",2017-08-23T13:14:36Z,truthbk,
+ClosedEvent,Closed by truthbk in ,2017-08-23T13:14:36Z,truthbk,
+IssueComment,"[![](https://camo.githubusercontent.com/68d5c7417a6dfbb78ab671b0548c6fa28ec3506ca987d2c3aa597fb4b820d686/68747470733a2f2f6769746875622e7472656c6c6f2e73657276696365732f696d616765732f6d696e692d7472656c6c6f2d69636f6e2e706e67)](https://camo.githubusercontent.com/68d5c7417a6dfbb78ab671b0548c6fa28ec3506ca987d2c3aa597fb4b820d686/68747470733a2f2f6769746875622e7472656c6c6f2e73657276696365732f696d616765732f6d696e692d7472656c6c6f2d69636f6e2e706e67) [[info] `unknown` ver if failed module load, `custom` if custom check.](https://trello.com/c/oJrKE2aa/778-info-unknown-ver-if-failed-module-load-custom-if-custom-check)",2017-08-23T13:16:46Z,truthbk,
+MentionedByCommit,Merge pull request [#669](https://github.com/DataDog/integrations-core/issues/669) from DataDog/kbogtob/prepare-release-3-5,2020-05-14T19:04:04Z,gml3ff,https://github.com/DataDog/integrations-core/commit/20d95f3f6f226141e2a947e0c3f43721ad406936

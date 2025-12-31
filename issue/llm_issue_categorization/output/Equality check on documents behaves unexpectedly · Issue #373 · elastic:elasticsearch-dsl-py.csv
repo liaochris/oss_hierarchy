@@ -1,4 +1,4 @@
-event_type,text,date,person,url,label,close_reason,assignee,assigner,ref_type,ref_url,ref_title,milestone,target_name
+type,text,date,author,url
 IssueOpened,"```
 In [1]: from elasticsearch_dsl import DocType, String
 
@@ -18,7 +18,7 @@ Out[6]: True
 ```
 
 Am I holding it wrong?  
-dtk",2016-03-21T17:19:22Z,0x64746b,https://github.com/elastic/elasticsearch-dsl-py/issues/373,,,,,,,,,
-LabeledEvent,Category: Bug,2016-03-21T17:23:54Z,honzakral,,,,,,,,,,
-IssueComment,"No, you are not - it's just that we have defined `__eq__` but not `__ne__`, my bad.",2016-03-21T17:23:59Z,honzakral,https://github.com/elastic/elasticsearch-dsl-py/issues/373#issuecomment-199387013,,,,,,,,,
-ClosedEvent,,2016-03-21T17:45:11Z,honzakral,,,,,,commit,https://github.com/elastic/elasticsearch-dsl-py/commit/b97ed033e7676069ff8f933ae433246e8aa903a1,,,
+dtk",2016-03-21T17:19:22Z,0x64746b,https://github.com/elastic/elasticsearch-dsl-py/issues/373
+LabeledEvent,Category: Bug,2016-03-21T17:23:54Z,honzakral,
+IssueComment,"No, you are not - it's just that we have defined `__eq__` but not `__ne__`, my bad.",2016-03-21T17:23:59Z,honzakral,
+ClosedEvent,Closed by honzakral in a903a1,2016-03-21T17:45:11Z,honzakral,https://github.com/elastic/elasticsearch-dsl-py/commit/b97ed033e7676069ff8f933ae433246e8aa903a1

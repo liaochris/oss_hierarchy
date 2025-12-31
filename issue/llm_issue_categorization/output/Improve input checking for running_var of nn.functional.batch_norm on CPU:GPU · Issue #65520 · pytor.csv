@@ -1,4 +1,4 @@
-event_type,text,date,person,url,label,close_reason,assignee,assigner,ref_type,ref_url,ref_title,milestone,target_name
+type,text,date,author,url
 IssueOpened,"## 🐛 Bug
 
 All the input parameters for the `torch.nn.functional.batch_norm` API are the same, but their behaviors on GPU and CPU are different. CPU runs successfully silently while GPU throws an internal assertion failure. I guess it is because the input validation of `running_var` of `batch_norm`(<https://pytorch.org/docs/stable/generated/torch.nn.functional.batch_norm.html>) is not consistent on CPU and GPU backends.
@@ -61,6 +61,6 @@ On CPU, the script silently runs without throwing any warning message. I think i
 
 ## Additional context
 
-cc [@albanD](https://github.com/albanD) [@mruberry](https://github.com/mruberry) [@jbschlosser](https://github.com/jbschlosser) [@walterddr](https://github.com/walterddr)",2021-09-23T05:41:38Z,ilovepytorch,https://github.com/pytorch/pytorch/issues/65520,,,,,,,,,
-LabeledEvent,module: nn,2021-09-23T20:48:41Z,H-Huang,,,,,,,,,,
-LabeledEvent,triaged,2021-09-23T20:48:41Z,H-Huang,,,,,,,,,,
+cc [@albanD](https://github.com/albanD) [@mruberry](https://github.com/mruberry) [@jbschlosser](https://github.com/jbschlosser) [@walterddr](https://github.com/walterddr)",2021-09-23T05:41:38Z,ilovepytorch,https://github.com/pytorch/pytorch/issues/65520
+LabeledEvent,module: nn,2021-09-23T20:48:41Z,H-Huang,
+LabeledEvent,triaged,2021-09-23T20:48:41Z,H-Huang,

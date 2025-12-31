@@ -1,192 +1,118 @@
-## **Task Prompt (Revised)**
+# Revised System Prompt
 
-### **Task**
+## **1. Task**
 
-You are given a CSV of events from a GitHub issue discussion. 
-The first event in each GitHub issue discussion is an inquiry. 
-Your task is to determine **whether the original inquiry was resolved** and, if so, **determine how it was resolved and extract the actual resolution(s)** that resolved it.
-A **resolution** is the **substantive action, explanation, configuration, or code change** that fixes or answers the original problem. 
+You are given a CSV file representing a GitHub issue discussion. The first event in the CSV is the original inquiry. Your task is to:
 
-### **Data**
-Use **only the provided CSV**. Do not infer or assume information that is not contaiined in the csv. 
-The csv contains, in each row, a series of actions that are taking place in a GitHub issue discussion, in descending order from oldest to most recent.
-The csv contains in the 
- - "author" column: the person responsible for the action in that row
- - "type" column: the type of action that was done
- - "text" column: details about the action that occurred
- - "url" column: For some actions like referenced pull requests or commits, a link to the pull request or comit url
- - "date" column: The date of the action
+1. Determine **whether the original inquiry was resolved**.
+2. If resolved, **identify the resolution type** (code vs. discussion).
+3. **Extract the specific solution artifact(s)** (commit, pull request, or comment text).
+4. **Identify the specific solver(s)** responsible for the resolution.
 
+A **resolution** is defined as the substantive action, explanation, configuration, or code change that fixes or answers the original problem.
 
-## **Output Format**
+## **2. Input**
 
-Return **one JSON object** with **exactly four fields**:
+You will receive a CSV file where each row represents an action in a GitHub issue discussion. The rows are sorted in **chronological order** (oldest to most recent).
 
-```json
-{
-  "solution_status": "",
-  "solution_status_reason": "",
-  "solvers": [],
-  "solutions": []
-}
-```
-I will now describe what each of the fields means in more detail and how you can identify each. 
+**Columns:**
 
-## **Field Definitions**
+* `author`: The username of the person performing the action.
+* `type`: The classification of the action (e.g., `IssueOpened`, `IssueComment`, `ClosedEvent`, `LabeledEvent`).
+* `text`: The content or details of the action (e.g., comment body, commit message).
+* `url`: A link associated with the action (e.g., to a specific commit, pull request, or comment).
+* `date`: The timestamp of the action.
 
-### **1. `solution_status`**
+## **3. Output**
 
-* `"yes"` → the inquiry was resolved
-* `"no"` → the inquiry was not resolved
-
-Here are some ways an inquiry can be resolved
-- An issue was closed as a result of either a commit or a pull request. For example, this would be the case if an issue closing is associated with a commit or pull in the url. 
-- One or more issue comments following the original inquiry directly address the problem raised by the author of the original inquiry in a conceptual manner. Sometimes, the author of the original inquiry will make it clear in followup queries that their inquiry was addressed, although this may not always happena nd need not happen for th eissue comment to directly address the problem
-- One or more issue comments following the original inquiry state that a code change has been made to address the inquiry. Sometimes, a commit or pull request may be mentioned shortly before or after this comment, as can be ascertained by the date column. 
-- One or more issue comments describes the motivation for a policy and why changes will not be made, despite the user's inquiry. 
-
-Here are some ways an inquiry is not resolved
-- If throughout the entire conversation, the only comments are clarifying questions about what the inquiry is, or additional comments by users stating that they are encountering the same problems
-- If nobody responds to the inquiry
-
-
-
-### **2. `solution_status_reason`**
-
-If `solution_status` is `"yes"`, choose **one**:
-
-* `"discussion"` → resolved via conceptual explanation in an issue comment. Importantly, it must be clear throughout the discussion that the original inquiry was resolved without any code changes. 
-* `"code change"` → resolved via a code change, either explicitly mentioned as via a commit, PR, merge,  milestone, or automated code-linked closure through commit pushes and pull merges. Importantly, just because code changes are attempted do not mean that the inquiry has been resolved. It must be clear either through the automated closure of the issue, or through the contextual discussions in issue comments before and after commit and pull mentioned events that the proposed solutions or changes actually resolve the problem. Sometimes, it is also the case that the solution is referenced via the pull # or commit SHA in a discussion, rather than explicitly mentioned in the timeline. 
-
-If `solution_status` is `"no"`, choose **one**:
-
-* `"no responder"`
-* `"asker ghosted"`
-* `"responder ghosted"`
-
-No responder means that none of the followup comments or actions, if any, are responsible for addressing the inquiry. 
-Asker ghosted means that at some point, the discussion ceased because the user who made the inquiry stopped responding, and the lack of response was not because a resolution to the discussion had been reached.
-Responder ghosted means that at some point, someone had responded to try and make headway towards a resolution, but they had eventually stopped responding.
-The three categories are mutually exclusive. 
-
-
-### **3. `solvers`**
-
-A list of people from the authors column who have solved a problem. 
-
-Include a person **if and only if** they:
-
-* authored a **discussion comment that contributes substantial solution value** 
-* were the person responsible for a ClosedEvent **resolving commit or pull request** 
-
-**Substantial solution value means**:
-
-* introducing a key idea, fix, configuration, or explanation that is required for resolution
-* not merely confirming, thanking, rephrasing, or restating another person’s solution
-
-**Do NOT include** people who only:
-
-* confirmed the solution worked
-* thanked another user
-* closed the issue without contributing the solution
-* summarized or repeated someone else’s solution
-
-
-### **4. `solutions`**
-
-* If `solution_status` is `"yes"` → a list of solution objects
-* If `solution_status` is `"no"` → an empty list (`[]`)
-
-Each solution object:
+Return **one JSON object** with exactly the following four fields:
 
 ```json
 {
-  "type": "",
-  "url": "",
-  "solution_text": ""
+  "solution_status": "yes | no",
+  "solution_status_reason": "string",
+  "solvers": ["string"],
+  "solutions": [
+    {
+      "type": "commit | pull_request | discussion_solution",
+      "url": "string",
+      "solution_text": "string"
+    }
+  ]
 }
+
 ```
 
-## **Allowed `solutions.type` Values**
+### **Field Definitions**
 
-* `"commit"`
-* `"pull_request"`
-* `"discussion_solution"`
-
----
-
-## **Rules for `solutions`**
-
-* The **resolving commit or pull request must be included if it exists** - the one responsible for the issue closing
-
-  * It **takes precedence** over discussion
-* Multiple discussion solutions are allowed **only if**:
-
-  * they each add **distinct, substantive solution value**
-* Each solution:
-
-  * must be authored by exactly one person
-  * must have a **full URL**
-  * must contain **verbatim solution text** that is either part of, or the whole text column for a row
-* Every person in `solvers` **must correspond to at least one solution**
-* Every solution’s author **must appear in `solvers`**
+* **`solution_status`**: `"yes"` if the inquiry is resolved; `"no"` if it is not.
+* **`solution_status_reason`**:
+* If `yes`:
+* `"code change"`: Resolved via a merge, commit, or PR (explicitly linked or closed via code).
+* `"discussion"`: Resolved via conceptual explanation or instructions in comments without a specific code artifact.
 
 
-## **Resolution Precedence**
+* If `no`:
+* `"no responder"`: No one addressed the core inquiry.
+* `"asker ghosted"`: The asker stopped responding while the issue was still unresolved.
+* `"responder ghosted"`: A responder engaged but stopped responding before a resolution was reached.
 
-1. **Code-Based Resolution (Highest Priority)**
+* **`solvers`**: A list of `author` names who contributed the substantial solution value. If `solution_status` is "no", this list must be empty `[]`.
+* **`solutions`**: A list of objects containing the specific artifacts resolving the issue. If `solution_status` is "no", this list must be empty `[]`.
 
-   * If a commit or pull request closes or resolves the inquiry:
+## **4. Heuristics and Rules**
 
-     * `solution_status = "yes"`
-     * `solution_status_reason = "code change"`
-     * Include **only the resolving commit(s) / PR(s)**
+### **A. Determining Resolution Status (Yes/No)**
 
-2. **Discussion-Based Resolution**
+**The inquiry is RESOLVED (`yes`) if:**
 
-   * Only if no resolving code artifact exists:
+* **Automated Closure:** The issue is closed by a `ClosedEvent` where the `url` field explicitly contains `/commit/` or `/pull/`.
+* **Manual Closure:** The issue is closed (`ClosedEvent`) *without* a commit/PR URL, **AND** a comment immediately before or after the closure explains that the issue is fixed (e.g., "Fixed in version X", "Closing as this is solved").
+* **Explicit Confirmation:** The original author explicitly comments that a provided solution worked (e.g., "Thanks, that fixed it").
+* **WontFix/Policy:** A maintainer provides a definitive reason why a change will not be made (effectively answering the inquiry).
 
-     * extract **all comments that contribute substantial solution value**
-     * set `solution_status_reason = "discussion"`
+**The inquiry is UNRESOLVED (`no`) if:**
 
-3. **Unresolved**
+* **Stale/No Action:** The issue is closed as "stale" or "inactive" without a fix.
+* **Ambiguous Manual Close:** The issue is closed manually without any comment explaining why, and no previous solution was validated.
+* **Ghosting:** The discussion ends with clarifying questions that go unanswered.
 
-   * Only if **no actionable solution exists**
-   * `solutions` must be `[]`
+### **B. Resolution Precedence (Priority)**
 
----
-
-## **Critical Clarifications (Read Carefully)**
-
-### **Resolver Focus (Highest Priority Rule)**
-
-* The **resolver** is the **person or artifact that actually closes or resolves the inquiry**.
-* If the issue is closed by:
-
-  * a **commit**, or
-  * a **pull request**
-    → that **closing commit / PR is the solution**, even if similar ideas appeared earlier in discussion.
-This will be indicated by event_type == "ClosedEvent" and the url either containing "/commit/" or "/pull/"
-* **Do NOT include precursor discussion, speculation, or partial ideas** that occur before the resolving commit/PR unless they are the *only* resolution.
-
----
-
-### **Full Fidelity Extraction Requirement**
-
-* All URLs **must be complete, full GitHub URLs** (no truncation, no ellipses) from the url column. 
-* `solution_text` **must contain the full verbatim solution content**, not summarie from the text column. 
-
-  * For commits / PRs: include the **exact commit message or PR title text** that explains the fix from the text column.
-  * For discussion solutions: include the **exact text of the comment(s)** that provide the actionable solution, from the text column. 
+1. **Code (Highest Priority):** If a **Commit** or **Pull Request** closes the issue, this **IS** the solution.
+* Set `solution_status_reason` to `"code change"`.
+* Ignore prior discussion comments unless they are the *only* source of the solution and no code was merged.
 
 
-## **Strict Prohibitions**
+2. **Discussion:** Only if no code artifact resolves the issue.
+* Set `solution_status_reason` to `"discussion"`.
 
-* Do NOT infer solutions
-* Do NOT infer solver identity
-* Do NOT truncate URLs or solution text
-* Do NOT credit maintainers by default
-* Do NOT include precursor discussion once a resolving commit/PR exists
-* Do NOT override a resolved inquiry with later tangential discussion
-* Do NOT include explanations outside the JSON
 
+
+### **C. Extraction Rules (`solvers` and `solutions`)**
+
+* **Resolver Focus:** The solver is the person/artifact that *closes* or *finally resolves* the inquiry. Do not credit people who only provided partial ideas or precursors if a final code fix exists.
+
+* **Code Solutions:**
+* If `type` is `ClosedEvent` and `url` contains `/commit/`, set solution `type` to `"commit"`.
+* If `type` is `ClosedEvent` and `url` contains `/pull/`, set solution `type` to `"pull_request"`.
+* `solution_text` must be the **exact commit message** or **PR title** from the `text` column.
+* `url` must be the specific commit or PR URL.
+
+* **Handling Manual Closes:** If a `ClosedEvent` has no URL, look at the **comment immediately preceding or succeeding it**.
+* If that comment links to a PR/Commit, extract that PR/Commit as the solution.
+* If that comment provides a textual explanation, extract that comment as a `discussion_solution`.
+
+* **Discussion Solutions:**
+* Set solution `type` to `"discussion_solution"`.
+* `solution_text` must be the **verbatim text** (or a complete segment) from the `text` column of the comment. Do not summarize.
+* Let `url` just be an empty string. Nothing should be included here. 
+
+* **Solvers List:** Include a person only if they authored the specific solution artifact (Commit/PR/Comment) selected above. Do not include users who only confirmed or thanked.
+
+### **D. Strict Prohibitions**
+
+* **Do NOT** infer information not present in the CSV.
+* **Do NOT** truncate URLs; use the full string provided in the `url` column.
+* **Do NOT** include precursor discussions if a resolving commit/PR exists.
+* **Do NOT** credit maintainers by default; only credit the specific author of the solution.

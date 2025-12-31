@@ -1,4 +1,4 @@
-event_type,text,date,person,url,label,close_reason,assignee,assigner,ref_type,ref_url,ref_title,milestone,target_name
+type,text,date,author,url
 IssueOpened,"### 🐛 Describe the bug
 
 I am trying to train efficient\_v2 classification models on custom dataset using  
@@ -76,7 +76,7 @@ Versions of relevant libraries:
 [pip3] torchvision==0.11.1  
 [conda] Could not collect
 
-cc [@datumbox](https://github.com/datumbox)",2022-06-29T09:12:09Z,suyashhchougule,https://github.com/pytorch/vision/issues/6216,,,,,,,,,
+cc [@datumbox](https://github.com/datumbox)",2022-06-29T09:12:09Z,suyashhchougule,https://github.com/pytorch/vision/issues/6216
 IssueComment,"Hi [@suyashhchougule](https://github.com/suyashhchougule) , the model API that you use:
 
 ```
@@ -85,9 +85,9 @@ model = torchvision.models.__dict__[args.model](weights=args.weights, num_classe
 
 is introduced on the new release of torchvision (version 0.13.0) that have just been released yesterday.  
 Could you try install new `torchvision` and `torch` library in your computer?  
-The new version should be `torchvision==0.13.0` and `torch==1.12.0`",2022-06-29T09:29:27Z,YosuaMichael,https://github.com/pytorch/vision/issues/6216#issuecomment-1169752192,,,,,,,,,
-IssueComment,"In addition to what [@YosuaMichael](https://github.com/YosuaMichael) said, there is no `efficientnet_v2` model. There is `efficientnet_v2_s`, `efficientnet_v2_m` and `efficientnet_v2_l`. If you install the above versions and change your invocation to pass one of the above variants, it should work fine. I'll close the issue as I believe we answered the question but feel free to reopen if you continue facing issues!",2022-06-29T10:01:46Z,datumbox,https://github.com/pytorch/vision/issues/6216#issuecomment-1169785468,,,,,,,,,
-ClosedEvent,,2022-06-29T10:01:46Z,datumbox,,,,,,,,,,
+The new version should be `torchvision==0.13.0` and `torch==1.12.0`",2022-06-29T09:29:27Z,YosuaMichael,
+IssueComment,"In addition to what [@YosuaMichael](https://github.com/YosuaMichael) said, there is no `efficientnet_v2` model. There is `efficientnet_v2_s`, `efficientnet_v2_m` and `efficientnet_v2_l`. If you install the above versions and change your invocation to pass one of the above variants, it should work fine. I'll close the issue as I believe we answered the question but feel free to reopen if you continue facing issues!",2022-06-29T10:01:46Z,datumbox,
+ClosedEvent,Closed by datumbox in ,2022-06-29T10:01:46Z,datumbox,
 IssueComment,"> Hi [@suyashhchougule](https://github.com/suyashhchougule) , the model API that you use:
 >
 > ```
@@ -96,9 +96,9 @@ IssueComment,"> Hi [@suyashhchougule](https://github.com/suyashhchougule) , the 
 >
 > is introduced on the new release of torchvision (version 0.13.0) that have just been released yesterday. Could you try install new `torchvision` and `torch` library in your computer? The new version should be `torchvision==0.13.0` and `torch==1.12.0`
 
-Yes, That worked , Thanks",2022-06-29T10:30:53Z,suyashhchougule,https://github.com/pytorch/vision/issues/6216#issuecomment-1169814357,,,,,,,,,
+Yes, That worked , Thanks",2022-06-29T10:30:53Z,suyashhchougule,
 IssueComment,"> In addition to what [@YosuaMichael](https://github.com/YosuaMichael) said, there is no `efficientnet_v2` model. There is `efficientnet_v2_s`, `efficientnet_v2_m` and `efficientnet_v2_l`. If you install the above versions and change your invocation to pass one of the above variants, it should work fine. I'll close the issue as I believe we answered the question but feel free to reopen if you continue facing issues!
 
-Yes, I meant any of the efficientnet\_v2 models. but thanks",2022-06-29T10:32:21Z,suyashhchougule,https://github.com/pytorch/vision/issues/6216#issuecomment-1169815544,,,,,,,,,
-LabeledEvent,question,2022-06-29T11:09:23Z,datumbox,,,,,,,,,,
-LabeledEvent,module: models,2022-06-29T11:09:23Z,datumbox,,,,,,,,,,
+Yes, I meant any of the efficientnet\_v2 models. but thanks",2022-06-29T10:32:21Z,suyashhchougule,
+LabeledEvent,question,2022-06-29T11:09:23Z,datumbox,
+LabeledEvent,module: models,2022-06-29T11:09:23Z,datumbox,
