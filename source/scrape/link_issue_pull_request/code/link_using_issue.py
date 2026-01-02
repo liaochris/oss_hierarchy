@@ -107,24 +107,32 @@ def GrabIssueData(repo_name, issue_number):
             resp, is_not_found, is_rate_limited, is_pull = _FetchIssuePage(sesh, repo_name, issue_number)
     
         html_text = resp.text if hasattr(resp, "text") else ""
+        issue_title = BeautifulSoup(html_text, "html.parser").find(attrs={"data-testid": "issue-title"}).text
 
+        timeline_cols = ["type", "author", "date", "text", "url"]
         if is_pull:
             timeline_df = pd.DataFrame()
         else:
             timeline_df = HtmlTextToTimelineJSON(html_text)
             if re.search(r'"hasNextPage":true', html_text):
                 html_text = _ExpandAllWithSelenium(issue_url)
+                opening_issue_row = timeline_df.loc[0]
                 opening_issue_df = pd.DataFrame(
-                    [["IssueOpened", timeline_df.loc[0, "person"], timeline_df.loc[0, "date"], timeline_df.loc[0, "text"], None]],
-                    columns=["type", "author", "date", "text", "url"],
+                    [["IssueOpened", opening_issue_row["author"], opening_issue_row["date"], opening_issue_row["text"], None]],
+                    columns=timeline_cols,
                 )
-
                 timeline_df = pd.concat([opening_issue_df, HtmlTextToTimelineDOM(html_text)], ignore_index=True).reset_index(drop = True)
+
+            opening_issue_row = timeline_df.loc[0]
+            issue_title_df = pd.DataFrame(
+                [["IssueTitle", opening_issue_row["author"], opening_issue_row["date"], issue_title, issue_url]],
+                columns=timeline_cols
+            )
+            timeline_df = pd.concat([issue_title_df, timeline_df], ignore_index=True).reset_index(drop = True)
 
             if not timeline_df.empty:
                 timeline_df["repo_name"] = repo_name
                 timeline_df["issue_number"] = issue_number
-
 
 
         soup = BeautifulSoup(html_text, parse_only=product, features="html.parser")
