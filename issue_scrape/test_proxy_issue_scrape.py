@@ -14,13 +14,11 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
-from wakepy import keep
-import os
 
 from source.scrape.link_issue_pull_request.code.create_issue_timeline_json import HtmlTextToTimelineJSON
 from source.scrape.link_issue_pull_request.code.create_issue_timeline_dom import HtmlTextToTimelineDOM
-                                                                             
-PROXY_NUM = 0
+
+PROXY_NUM = 1
 PROXY_FILE = Path("source/lib/proxies.txt")
 
 def ReadIssueParquet(path):
@@ -63,7 +61,7 @@ def _FetchIssuePage(sesh, repo_name, issue_number):
         sesh.proxies = {}
     resp = sesh.get(url, allow_redirects=True)
     text = resp.text if hasattr(resp, "text") else ""
-    is_not_found = (resp.status_code == 404) or ("This is not the webpage you are looking for" in text) or ("Not Found" in text)
+    is_not_found = (resp.status_code == 404) or ("This is not the webpage you are looking for" in text)
     is_rate_limited = ("Please wait a few minutes before you try again" in text) or ("You Are Not Connected" in text)
     is_pull = "/pull/" in resp.url
     return resp, is_not_found, is_rate_limited, is_pull
@@ -113,6 +111,7 @@ def _ExpandAllWithSelenium(issue_url):
         driver.quit()
 
         if finished_naturally:
+            print("FINISHED")
             return html
 
     return html
@@ -132,9 +131,9 @@ def GrabIssueData(repo_name, issue_number):
             print("RATE LIMITED")
             time.sleep(120)
             resp, is_not_found, is_rate_limited, is_pull = _FetchIssuePage(sesh, repo_name, issue_number)
-        if is_not_found:
-            return {"pr_links": [], "github_links": [], "timeline_df": None}
-        
+            if is_not_found:
+                return {"pr_links": [], "github_links": [], "timeline_df": None}
+
         html_text = resp.text if hasattr(resp, "text") else ""
         bs = BeautifulSoup(html_text, "html.parser")
         bs_text = bs.find(attrs={"data-testid": "issue-title"})
@@ -166,7 +165,7 @@ def GrabIssueData(repo_name, issue_number):
 
             if not timeline_df.empty:
                 opening_issue_row = timeline_df.loc[0]
-                author = opening_issue_row.get("author", None)
+                author = opening_issue_row.get("author") if isinstance(opening_issue_row, dict) or hasattr(opening_issue_row, "get") else opening_issue_row.get("author") if hasattr(opening_issue_row, "get") else None
                 date = opening_issue_row.get("date") if isinstance(opening_issue_row, dict) or hasattr(opening_issue_row, "get") else None
                 issue_title_df = pd.DataFrame(
                     [["IssueTitle", author, date, issue_title, issue_url]],
@@ -208,7 +207,6 @@ def Main():
     pandarallel.initialize(nb_workers=4, progress_bar=True)
     warnings.filterwarnings("ignore")
 
-    os.chdir('/Users/chrisliao/Documents/research_temp')
     INDIR = Path("drive/output/scrape/extract_github_data/repo_level_data/issue")
     OUTDIR = Path("drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request")
     TIMELINE_DIR = Path("drive/output/scrape/link_issue_pull_request/timeline")
@@ -218,60 +216,56 @@ def Main():
 
     parquet_files = glob.glob(str(INDIR / "*.parquet"))
     np.random.shuffle(parquet_files)
-    with keep.running():
-        for parquet_file in parquet_files:
-            print(parquet_file)
-            df_issue = ReadIssueParquet(parquet_file)
-            if df_issue.empty:
-                continue
 
-            repo_name = df_issue["repo_name"].iloc[0]
-            safe_repo = repo_name.replace("/", "___")
+    for parquet_file in parquet_files:
+        df_issue = ReadIssueParquet(parquet_file)
+        if df_issue.empty:
+            continue
 
-            assert df_issue["repo_name"].nunique() == 1
+        repo_name = df_issue["repo_name"].iloc[0]
+        safe_repo = repo_name.replace("/", "___")
 
-            repo_file = OUTDIR / f"{safe_repo}.parquet"
-            timeline_file = TIMELINE_DIR / f"{safe_repo}_issue_timeline.parquet"
+        assert df_issue["repo_name"].nunique() == 1
 
-            if repo_file.exists() and timeline_file.exists():
-                continue
+        repo_file = OUTDIR / f"{safe_repo}.parquet"
+        timeline_file = TIMELINE_DIR / f"{safe_repo}_issue_timeline.parquet"
 
-            df_issue["linked_pull_request"] = df_issue.parallel_apply(
-                lambda x: GrabIssueData(x["repo_name"], int(float(x["issue_number"]))),
-                axis=1
-            )
-        
-            for _ in range(10):
-                df_issue["linked_pull_request"] = df_issue.parallel_apply(
-                    lambda x: GrabIssueData(x["repo_name"], int(float(x["issue_number"])))
-                    if isinstance(x["linked_pull_request"], str)
-                    else x["linked_pull_request"],
-                    axis=1
-                )
-                if df_issue[df_issue['linked_pull_request'].apply(lambda x: type(x) == str)].empty:
-                    break
-                time.sleep(5)
+        if repo_file.exists() and timeline_file.exists():
+            continue
 
-            timeline_dfs = [
-                d["timeline_df"]
-                for d in df_issue["linked_pull_request"]
-                if isinstance(d, dict) and isinstance(d.get("timeline_df"), pd.DataFrame)
-            ]
+        df_issue["linked_pull_request"] = df_issue.parallel_apply(
+            lambda x: GrabIssueData(x["repo_name"], int(float(x["issue_number"]))),
+            axis=1
+        )
 
-            if timeline_dfs:
-                repo_timeline_df = pd.concat(timeline_dfs, ignore_index=True)
-                repo_timeline_df.to_parquet(timeline_file, engine="pyarrow", index=False)
+        df_issue["linked_pull_request"] = df_issue.parallel_apply(
+            lambda x: GrabIssueData(x["repo_name"], int(float(x["issue_number"])))
+            if isinstance(x["linked_pull_request"], str)
+            else x["linked_pull_request"],
+            axis=1
+        )
 
-            df_issue["linked_pull_request"] = df_issue["linked_pull_request"].apply(
-                lambda d: {
-                    "pr_links": d.get("pr_links", []),
-                    "github_links": d.get("github_links", []),
-                    "is_pull": d.get("is_pull", False)
-                } if isinstance(d, dict) else d
-            )
+        timeline_dfs = [
+            d["timeline_df"]
+            for d in df_issue["linked_pull_request"]
+            if isinstance(d, dict) and isinstance(d.get("timeline_df"), pd.DataFrame)
+        ]
 
-            df_issue.to_parquet(repo_file, engine="pyarrow")
-            
+        if timeline_dfs:
+            repo_timeline_df = pd.concat(timeline_dfs, ignore_index=True)
+            repo_timeline_df.to_parquet(timeline_file, engine="pyarrow", index=False)
+
+        df_issue["linked_pull_request"] = df_issue["linked_pull_request"].apply(
+            lambda d: {
+                "pr_links": d.get("pr_links", []),
+                "github_links": d.get("github_links", []),
+                "is_pull": d.get("is_pull", False)
+            } if isinstance(d, dict) else d
+        )
+
+        df_issue.to_parquet(repo_file, engine="pyarrow")
+
+        print(parquet_file + " done")
 
 
 if __name__ == "__main__":

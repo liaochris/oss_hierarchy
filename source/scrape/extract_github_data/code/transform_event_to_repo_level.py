@@ -5,9 +5,12 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+BATCH_SIZE = 10
+
 def WriteParquetAppend(df_group, out_path, keep_cols):
     new_df = df_group[keep_cols]
-    for int_col in ['actor_id', 'repo_id', 'pr_number']:
+    for int_col in ['actor_id', 'repo_id', 'pr_number', 'issue_number', 
+                    'issue_user_id', 'issue_comment_id']:
         if int_col in new_df.columns:
             new_df[int_col] = pd.to_numeric(new_df[int_col],errors = 'coerce')
 
@@ -48,24 +51,35 @@ def ProcessCategory(globs_list, repo_lookup, OUTDIR, category_name, keep_cols):
     paths = [p for g in globs_list for p in glob.glob(g)]
     paths = sorted([p for p in paths if Path(p).exists() and Path(p).stat().st_size > 0])
 
-    OUTDIR = Path(OUTDIR) / category_name
-    OUTDIR.mkdir(parents=True, exist_ok=True)
+    outdir = Path(OUTDIR) / category_name
+    outdir.mkdir(parents=True, exist_ok=True)
 
-    for p in paths:
-        print(f"[{category_name}] Handling {p}")
-        try:
-            df = ReadRawGitHubData(p, keep_cols)
-        except Exception as e:
-            print(f"[{category_name}] Failed to read {p}: {e}")
+    for i in range(0, len(paths), BATCH_SIZE):
+        batch_paths = paths[i : i + BATCH_SIZE]
+        print(batch_paths)
+        dfs = []
+
+        for p in batch_paths:
+            try:
+                df = ReadRawGitHubData(p, keep_cols)
+            except Exception as e:
+                print(f"[{category_name}] Failed to read {p}: {e}")
+                continue
+            if df is None or df.empty:
+                continue
+            dfs.append(df)
+
+        if not dfs:
             continue
 
+        df = pd.concat(dfs, ignore_index=True, copy=False)
         df["repo_name"] = df["repo_name"].map(repo_lookup).fillna("unknown_repo").astype("string")
+
         for repo_name_latest, df_group in df.groupby("repo_name"):
             safe_repo_name = SanitizeRepoName(repo_name_latest)
-            print(safe_repo_name)
             if safe_repo_name == "unknown_repo":
                 continue
-            out_path = OUTDIR / f"{safe_repo_name}.parquet"
+            out_path = outdir / f"{safe_repo_name}.parquet"
             WriteParquetAppend(df_group, out_path, keep_cols)
 
 def Main():

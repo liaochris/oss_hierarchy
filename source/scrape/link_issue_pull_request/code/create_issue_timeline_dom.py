@@ -34,8 +34,6 @@ def HtmlTextToTimelineDOM(html_text):
                 author = author_tag_list[0].get_text(strip=True)
 
             date = GetDate(entry)
-
-
             p_tags = entry.find_all("p")
             combined_p_html = "\n".join(str(p) for p in p_tags)
             text_md = HtmlToMarkdown(combined_p_html) if combined_p_html else ""
@@ -48,18 +46,20 @@ def HtmlTextToTimelineDOM(html_text):
                 if author_tag_list:
                     author = author_tag_list[0].get_text(strip=True)
                 
-                text = subentry.find(class_ = re.compile(r"timelineBodyContent")).text
+                text_element = subentry.find(class_=re.compile(r"timelineBodyContent"))
+                text = text_element.text if text_element is not None else ""
                 url = None
-                relative_times = subentry.find_all("relative-time")
-
                 date = GetDate(subentry)
+                event_type = "UnclassifiedEventType"
+                text_md = text
+                
                 if "mentioned this" in text:
                     text_md = text.replace("mentioned this", f" mentioned this")
                     mentioned_url_attr = subentry.find_all("section", attrs={"aria-label": re.compile(r"Issues mentioned")})[0].find_all("a")
 
                     for i, mentioned_url in enumerate(mentioned_url_attr):
                         url = mentioned_url.get("href")
-                        event_type = "MentionedByIssue" if "issues" in url else "MentionedByPR"
+                        event_type = "MentionedByIssue" if "issue" in url else "MentionedByPR"
                         timeline.append({"type": event_type, "author": author, "date": date, 
                                          "text": text_md + f"\n{mentioned_url.text}", "url": url})
 
@@ -72,7 +72,7 @@ def HtmlTextToTimelineDOM(html_text):
                     if url_list:
                         url = url_list[0].get("href")
                 elif " commit that references" in text:
-                    text.replace("mentioned this", " mentioned this")
+                    text_md = text.replace("mentioned this", " mentioned this")
                     commit_url_list = subentry.find_all("a", href=True, attrs={"class": re.compile(r"ReferencedEventInner-module__commitHashLink")})
 
                     for i, commit_url in enumerate(commit_url_list):

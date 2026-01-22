@@ -108,9 +108,11 @@ def ExtractTimelineNodes(j):
             timeline_edges = (q.get("result", {}).get("data", {}).get("repository", {})\
                 .get("issue", {}).get("frontTimelineItems", {}).get("edges", [])
             )
-    issue_data = q.get("result", {}).get("data", {}).get("repository", {}).get("issue", {})
+            issue_data = q.get("result", {}).get("data", {}).get("repository", {}).get("issue", {})
+
     events = [BuildEvent("IssueOpened", HtmlToMarkdown(issue_data.get("bodyHTML") or ""), issue_data.get("createdAt", ""),
-                         issue_data.get("author", {}).get("login", ""), issue_data.get("url"))]
+                         (issue_data.get("author") or {}).get("login", "ghost"), issue_data.get("url"))]
+    
     for edge in timeline_edges:
         timeline_node = edge.get("node")
         if not isinstance(timeline_node, dict):
@@ -157,7 +159,7 @@ def ExtractTimelineNodes(j):
             evtype = (
                 "MentionedByCommit" if ref_type == "commit"
                 else "MentionedByIssue" if ref_type == "issue"
-                else "MentionedByPR" if ref_type == "pr" 
+                else "MentionedByPR" if ref_type == "pull" 
                 else "ReferencedEvent"
             )
             text = ref_title  
@@ -172,7 +174,7 @@ def ExtractTimelineNodes(j):
             close_suffix = f" as {close_reason}" if close_reason != "" else ""
 
 
-            is_pr = "#" if "/pulls/" in ref_url else ""
+            is_pr = "#" if ("/pull/" in ref_url or "/pulls/" in ref_url) else ""
             pr_commit_number = ref_url.split("/")[-1]
             pr_commit_number = pr_commit_number[-6:] if is_pr != "#" else pr_commit_number
             closing_suffix = f" in {is_pr}{pr_commit_number}"
