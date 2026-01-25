@@ -20,7 +20,7 @@ import os
 from source.scrape.link_issue_pull_request.code.create_issue_timeline_json import HtmlTextToTimelineJSON
 from source.scrape.link_issue_pull_request.code.create_issue_timeline_dom import HtmlTextToTimelineDOM
                                                                              
-PROXY_NUM = 0
+PROXY_NUM = 1
 PROXY_FILE = Path("source/lib/proxies.txt")
 
 def ReadIssueParquet(path):
@@ -62,6 +62,9 @@ def _FetchIssuePage(sesh, repo_name, issue_number):
     else:
         sesh.proxies = {}
     resp = sesh.get(url, allow_redirects=True)
+    if resp.status_code == 404:
+        time.sleep(5)
+        resp = sesh.get(url, allow_redirects=True)
     text = resp.text if hasattr(resp, "text") else ""
     is_not_found = (resp.status_code == 404) or ("This is not the webpage you are looking for" in text) or ("Not Found" in text)
     is_rate_limited = ("Please wait a few minutes before you try again" in text) or ("You Are Not Connected" in text)
@@ -240,7 +243,7 @@ def Main():
                 lambda x: GrabIssueData(x["repo_name"], int(float(x["issue_number"]))),
                 axis=1
             )
-        
+
             for _ in range(10):
                 df_issue["linked_pull_request"] = df_issue.parallel_apply(
                     lambda x: GrabIssueData(x["repo_name"], int(float(x["issue_number"])))

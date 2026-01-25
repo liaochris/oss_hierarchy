@@ -350,13 +350,13 @@ def Main():
     github_end_date = globals_data['github_end_date']
 
     client = bigquery.Client(project=project_id)
-    #CreateDataset(client, dataset_name)
-    #LoadTableToDataset(client, dataset_name, github_projects_name, INDIR)
-    #GetRawGitHubData(client, github_projects_name, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
+    CreateDataset(client, dataset_name)
+    LoadTableToDataset(client, dataset_name, github_projects_name, INDIR)
+    GetRawGitHubData(client, github_projects_name, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
 
-    #GetPullRequestReviewData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
-    #GetPullRequestReviewCommentData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
-    #GetPullRequestData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
+    GetPullRequestReviewData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
+    GetPullRequestReviewCommentData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
+    GetPullRequestData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
     GetIssueData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
     GetIssueCommentData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date)
 
