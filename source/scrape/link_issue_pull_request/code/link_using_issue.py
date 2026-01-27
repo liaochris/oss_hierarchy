@@ -1,6 +1,6 @@
 import pandas as pd
 import glob
-from pandarallel import pandarallel
+from tqdm import tqdm
 from bs4 import BeautifulSoup, SoupStrainer
 import requests
 import time
@@ -79,44 +79,44 @@ def _ExpandAllWithSelenium(issue_url):
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--window-size=1920,1080")
 
+    html = ""
     for _ in range(5):
         driver = webdriver.Chrome(options=chrome_options)
-        driver.get(issue_url)
-        wait = WebDriverWait(driver, 10)
-
-        finished_naturally = False
-
         try:
-            while True:
-                btn = wait.until(
-                    EC.element_to_be_clickable(
-                        (By.CSS_SELECTOR, 'button[data-testid^="issue-timeline-load-more-load-top"]')
+            driver.get(issue_url)
+            wait = WebDriverWait(driver, 10)
+            finished_naturally = False
+
+            try:
+                while True:
+                    btn = wait.until(
+                        EC.element_to_be_clickable(
+                            (By.CSS_SELECTOR, 'button[data-testid^="issue-timeline-load-more-load-top"]')
+                        )
                     )
-                )
+                    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                    time.sleep(3)
+                    driver.execute_script("arguments[0].scrollIntoView({block:'center'});", btn)
+                    time.sleep(3)
+                    btn.click()
+                    time.sleep(10)
+                    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                    time.sleep(5)
 
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(3)
-                driver.execute_script("arguments[0].scrollIntoView({block:'center'});", btn)
-                time.sleep(3)
-                btn.click()
-                time.sleep(10)
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(5)
+            except TimeoutException:
+                finished_naturally = True
+            except StaleElementReferenceException:
+                pass
 
-        except TimeoutException:
-            finished_naturally = True
+            time.sleep(3)
+            driver.execute_script("return document.documentElement.outerHTML;")
+            time.sleep(10)
+            html = driver.page_source
 
-        except StaleElementReferenceException:
-            pass
-
-        time.sleep(3)
-        driver.execute_script("return document.documentElement.outerHTML;")
-        time.sleep(10)
-        html = driver.page_source
-        driver.quit()
-
-        if finished_naturally:
-            return html
+            if finished_naturally:
+                return html
+        finally:
+            driver.quit()
 
     return html
 
@@ -208,7 +208,6 @@ def GrabIssueData(repo_name, issue_number):
 
 
 def Main():
-    pandarallel.initialize(nb_workers=4, progress_bar=True)
     warnings.filterwarnings("ignore")
 
     os.chdir('/Users/chrisliao/Documents/research_temp')
@@ -232,27 +231,28 @@ def Main():
             safe_repo = repo_name.replace("/", "___")
 
             assert df_issue["repo_name"].nunique() == 1
-
+    
             repo_file = OUTDIR / f"{safe_repo}.parquet"
             timeline_file = TIMELINE_DIR / f"{safe_repo}_issue_timeline.parquet"
 
             if repo_file.exists() and timeline_file.exists():
                 continue
 
-            df_issue["linked_pull_request"] = df_issue.parallel_apply(
-                lambda x: GrabIssueData(x["repo_name"], int(float(x["issue_number"]))),
-                axis=1
-            )
+            results = []
+            for idx, row in tqdm(df_issue.iterrows(), total=len(df_issue), desc="Fetching issues"):
+                results.append(GrabIssueData(row["repo_name"], int(float(row["issue_number"]))))
+            df_issue["linked_pull_request"] = results
 
-            for _ in range(10):
-                df_issue["linked_pull_request"] = df_issue.parallel_apply(
-                    lambda x: GrabIssueData(x["repo_name"], int(float(x["issue_number"])))
-                    if isinstance(x["linked_pull_request"], str)
-                    else x["linked_pull_request"],
-                    axis=1
-                )
-                if df_issue[df_issue['linked_pull_request'].apply(lambda x: type(x) == str)].empty:
+            for retry in range(10):
+                error_mask = df_issue['linked_pull_request'].apply(lambda x: isinstance(x, str))
+                if not error_mask.any():
                     break
+                error_indices = df_issue[error_mask].index.tolist()
+                for idx in tqdm(error_indices, desc=f"Retry {retry + 1}"):
+                    row = df_issue.loc[idx]
+                    df_issue.at[idx, "linked_pull_request"] = GrabIssueData(
+                        row["repo_name"], int(float(row["issue_number"]))
+                    )
                 time.sleep(5)
 
             timeline_dfs = [
