@@ -20,6 +20,7 @@ import os
 from source.scrape.link_issue_pull_request.code.create_issue_timeline_json import HtmlTextToTimelineJSON
 from source.scrape.link_issue_pull_request.code.create_issue_timeline_dom import HtmlTextToTimelineDOM
 from source.scrape.link_issue_pull_request.code.fetch_helpers import FetchGitHubPage
+from source.lib.helpers import MakeRepoNameSafe
 
 PROXY_NUM = 3
 
@@ -197,7 +198,7 @@ def Main():
                 continue
 
             repo_name = df_issue["repo_name"].iloc[0]
-            safe_repo = repo_name.replace("/", "___")
+            safe_repo = MakeRepoNameSafe(repo_name)
 
             assert df_issue["repo_name"].nunique() == 1
     

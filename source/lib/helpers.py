@@ -153,3 +153,6 @@ def LoadGlobals(json_path):
     path = Path(json_path)
     with path.open("r", encoding="utf-8") as fh:
         return json.load(fh)
+
+def MakeRepoNameSafe(repo_name):
+    return repo_name.replace("/", "___")

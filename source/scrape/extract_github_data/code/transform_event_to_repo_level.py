@@ -4,6 +4,7 @@ from pathlib import Path
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+from source.lib.helpers import MakeRepoNameSafe
 
 BATCH_SIZE = 10
 
@@ -40,7 +41,7 @@ def SanitizeRepoName(repo_name):
         pd.to_datetime(s, utc=True)
         return "unknown_repo"
     except Exception:
-        return s.replace("/", "___")
+        return MakeRepoNameSafe(s)
 
     
 def BuildRepoLookup(repo_lookup_path):

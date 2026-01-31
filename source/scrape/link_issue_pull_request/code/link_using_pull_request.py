@@ -10,6 +10,7 @@ import re
 import warnings
 
 from source.scrape.link_issue_pull_request.code.fetch_helpers import FetchGitHubPage
+from source.lib.helpers import MakeRepoNameSafe
 
 PROXY_NUM = 3
 
@@ -83,7 +84,7 @@ def Main():
             continue
         
         repo_name = df_pr['repo_name'].dropna().unique().tolist()[0]
-        safe_repo = repo_name.replace('/', '___')
+        safe_repo = MakeRepoNameSafe(repo_name)
 
         assert(len(df_pr['repo_name'].dropna().unique().tolist()) == 1)
 

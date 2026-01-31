@@ -1,11 +1,11 @@
 Import('*')
 
-from source.lib.helpers import LoadGlobals
+from source.lib.helpers import LoadGlobals, MakeRepoNameSafe
 import pandas as pd
 
 globals_data = LoadGlobals("source/lib/globals.json")
 reference_repo = globals_data['reference_github_repo']
-reference_repo_safe_name = reference_repo.replace("/", "__")
+reference_repo_safe_name = MakeRepoNameSafe(reference_repo)
 reference_date = globals_data['github_end_date']
 reference_year = pd.to_datetime(reference_date).year
 reference_month = pd.to_datetime(reference_date).month
@@ -13,4 +13,3 @@ reference_month = pd.to_datetime(reference_date).month
 
 # source/derived/problem_level_data/combine_action_data.py
 # source/derived/problem_level_data/clean_text.py
-# source/derived/problem_level_data/text_variance.py

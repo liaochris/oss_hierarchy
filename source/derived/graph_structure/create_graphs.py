@@ -114,14 +114,14 @@ def ExportData(repo, graphs, interaction_df, outdir):
         yearmonth = f"{period.year}{str(period.month).zfill(2)}"
         output_dir = outdir / "graphs" / yearmonth
         os.makedirs(output_dir, exist_ok=True)
-        output_base = output_dir / repo.replace('/', '___')
+        output_base = output_dir / MakeRepoNameSafe(repo)
 
         nx.write_gexf(G, f"{output_base}.gexf")
         log_entry["per_period_exported"][period] = str(output_base) + ".gexf"
 
     # Export interaction_df (still one parquet per repo)
     os.makedirs(outdir / "interactions", exist_ok=True)
-    parquet_path = outdir / "interactions" / f"{repo.replace('/', '___')}.parquet"
+    parquet_path = outdir / "interactions" / f"{MakeRepoNameSafe(repo)}.parquet"
     if interaction_df.shape[0]>0:
         interaction_df.to_parquet(parquet_path, index=False)
 
@@ -132,7 +132,7 @@ def ExportData(repo, graphs, interaction_df, outdir):
 # ----------- MAIN FLOW ------------
 #####################################
 def CreateGraph(repo, time_periods, time_period, exported_graphs_log, outdir, indir_data):
-    parquet_path = outdir / "interactions" / f"{repo.replace('/', '___')}.parquet"
+    parquet_path = outdir / "interactions" / f"{MakeRepoNameSafe(repo)}.parquet"
 
     # Skip if interaction_df already exists
     if parquet_path.exists():
@@ -140,7 +140,7 @@ def CreateGraph(repo, time_periods, time_period, exported_graphs_log, outdir, in
         return exported_graphs_log
 
     try:
-        df_actions = pd.read_parquet(indir_data / f"{repo.replace('/', '___')}.parquet")
+        df_actions = pd.read_parquet(indir_data / f"{MakeRepoNameSafe(repo)}.parquet")
         df_actions = ImputeTimePeriod(df_actions, time_period).reset_index()
         pr_comments = df_actions[df_actions['type'].isin(['pull request comment','pull request opened'])]
         issue_comments = df_actions[df_actions['type'].isin(['issue opened','issue comment'])]
