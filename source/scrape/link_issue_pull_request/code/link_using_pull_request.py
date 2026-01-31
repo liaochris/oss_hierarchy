@@ -9,6 +9,11 @@ from pathlib import Path
 import re
 import warnings
 
+from source.scrape.link_issue_pull_request.code.fetch_helpers import FetchGitHubPage
+
+PROXY_NUM = 3
+
+
 def ReadPRParquet(path):
     cols = ['repo_name', 'pr_number']
     try:
@@ -20,11 +25,7 @@ def ReadPRParquet(path):
 
 def _FetchPullPage(session, repo, pr_number):
     url = f"https://github.com/{repo}/pull/{pr_number}"
-    resp = session.get(url, allow_redirects=True)
-    text = resp.text if hasattr(resp, "text") else ""
-    is_not_found = (resp.status_code == 404) or ("This is not the webpage you are looking for" in text)
-    is_rate_limited = ("Please wait a few minutes before you try again" in text) or ("You Are Not Connected" in text)
-    return resp, is_not_found, is_rate_limited
+    return FetchGitHubPage(session, url, PROXY_NUM)
 
 def GrabPullRequestData(repo_name, pr_number):
     try:
