@@ -1,34 +1,28 @@
-import pandas as pd
+import polars as pl
 from pathlib import Path
-from concurrent.futures import ProcessPoolExecutor
+from source.lib.JMSLab.SaveData import SaveData
 
-def ReadParquetSubset(filepath):
-    try:
-        return pd.read_parquet(filepath, columns=['actor_id','actor_login']).drop_duplicates()
-    except Exception as e:
-        print(f"Error reading {filepath}: {e}")
-        return pd.DataFrame(columns=['actor_id','actor_login'])
+INDIR_ISSUE = Path('drive/output/scrape/extract_github_data/repo_level_data/issue')
+INDIR_PR = Path('drive/output/scrape/extract_github_data/repo_level_data/pr')
+OUTDIR = Path('output/derived/create_bot_list')
 
-def main():
-    input_dirs = [
-        Path('drive/output/derived/problem_level_data/issue'),
-        Path('drive/output/derived/problem_level_data/pr')
-    ]
-    outdir = Path('output/derived/create_bot_list')
-    outdir.mkdir(parents=True, exist_ok=True)
+def Main():
+    OUTDIR.mkdir(parents=True, exist_ok=True)
 
-    files = []
-    for d in input_dirs:
-        files.extend(d.glob("*.parquet"))
+    files = list(INDIR_ISSUE.glob("*.parquet")) + list(INDIR_PR.glob("*.parquet"))
 
-    with ProcessPoolExecutor() as executor:
-        results = list(executor.map(ReadParquetSubset, files))
+    if not files:
+        print("No parquet files found")
+        return
 
-    all_df = pd.concat(results, ignore_index=True).drop_duplicates()
-    bots_df = all_df[all_df['actor_login'].str.endswith('[bot]')]
+    df = pl.scan_parquet(files).select(['actor_id', 'actor_login']).unique().collect()
 
-    bots_df.to_parquet( outdir / 'bot_list.parquet', index=False)
-    print(f"Saved bot list with {len(bots_df)} bots")
+    bots_df = df.filter(
+        df['actor_login'].str.ends_with('[bot]') |
+        df['actor_login'].str.ends_with('bot')
+    ).to_pandas()
+
+    SaveData(bots_df, ['actor_id'], OUTDIR / 'bot_list.parquet', OUTDIR / 'bot_list.log')
 
 if __name__ == "__main__":
-    main()
+    Main()

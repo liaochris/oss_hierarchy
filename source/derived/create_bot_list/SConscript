@@ -1,0 +1,20 @@
+Import('*')
+
+from source.lib.helpers import LoadGlobals, MakeRepoNameSafe
+
+globals_data = LoadGlobals("source/lib/globals.json")
+reference_repo = globals_data['reference_github_repo']
+reference_repo_safe_name = MakeRepoNameSafe(reference_repo)
+
+source = [
+    '#source/derived/create_bot_list/create_bot_list.py',
+    f'#drive/output/scrape/extract_github_data/repo_level_data/issue/{reference_repo_safe_name}.parquet',
+    f'#drive/output/scrape/extract_github_data/repo_level_data/pr/{reference_repo_safe_name}.parquet'
+]
+
+target = [
+    '#output/derived/create_bot_list/bot_list.parquet',
+    '#output/derived/create_bot_list/bot_list.log'
+]
+
+env.Python(target, source)
