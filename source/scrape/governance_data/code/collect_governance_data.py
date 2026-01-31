@@ -183,7 +183,7 @@ def Main():
     TEMPDIR.mkdir(exist_ok = True, parents = True)
 
     df_repo_list = pd.read_csv(INDIR / 'repo_id_history_final.csv')
-    repo_list = df_repo_list.query('latest_repo_name != "ERROR"')['repo_name'].unique().tolist()
+    repo_list = df_repo_list.query('latest_repo_name != "ERROR" & is_fork == 0')['repo_name'].unique().tolist()
     
     random.shuffle(repo_list)
     START_DATE = LoadGlobals("source/lib/globals.json")['github_start_date']
