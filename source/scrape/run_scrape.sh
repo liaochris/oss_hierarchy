@@ -22,5 +22,4 @@ python source/scrape/pypi_package_downloads/code/query_daily_pip_version_downloa
 python source/scrape/link_issue_pull_request/code/link_using_pull_request.py # good to go
 python source/scrape/link_issue_pull_request/code/link_using_issue.py # currently running
 
-
 python source/scrape/governance_data/code/collect_governance_data.py

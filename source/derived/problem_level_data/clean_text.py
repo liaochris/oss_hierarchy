@@ -4,6 +4,7 @@ import pandas as pd
 from pandarallel import pandarallel
 from pathlib import Path
 from source.lib.helpers import ImputeTimePeriod
+from source.lib.JMSLab.SaveData import SaveData
 import random
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 pandarallel.initialize(progress_bar = True)
@@ -53,8 +54,43 @@ RE_PATTERNS = [
 ]
 
 
-def NormalizeTokens(text: str) -> str:
-    # Fix dangling half-tokens
+def Main():
+
+    INDIR = Path("drive/output/derived/problem_level_data/repo_actions")
+    OUTDIR = Path("drive/output/derived/problem_level_data/cleaned_text")
+    OUTDIR.mkdir(parents=True, exist_ok=True)
+
+    projects = [f for f in os.listdir(INDIR) if f.endswith(".parquet")]
+    random.shuffle(projects)
+    for project_file in projects:
+        project = Path(project_file).stem
+        print(f"\n=== Processing project: {project} ===")
+        parquet_file = INDIR / project_file
+
+        if not parquet_file.exists():
+            print(f"Skipping {project}, file not found: {parquet_file}")
+            continue
+
+        if (OUTDIR / f"{project}.parquet").exists():
+            print(f"Skipping {project}, already exists")
+            continue
+
+        df_all = pd.read_parquet(parquet_file)
+        df_all = ImputeTimePeriod(df_all, 6)
+
+        df_text = (
+            df_all.sort_values(["thread_number", "created_at"])
+            [["thread_number", "time_period", "actor_id", "text","action_id","labels","assignees","type"]]
+            .query('~text.isna()')
+        )
+        print(f"Cleaning text for {project}...")
+        df_text_cleaned = CleanTextColumn(df_text, "text")
+        df_text_cleaned = AddVaderSentiment(df_text_cleaned)
+
+        SaveData(df_text_cleaned, ['action_id'], OUTDIR / f"{project}.parquet")
+
+
+def NormalizeTokens(text):
     token_map = {
         "URL": "[URL]",
         "VERSION": "[VERSION]",
@@ -77,7 +113,7 @@ def CleanTextColumn(df, text_column, parallel_threshold=100_000):
     df = df.copy()
     df[text_column] = df[text_column].fillna("").astype(str)
 
-    def clean_text(text: str) -> str:
+    def clean_text(text):
         for pattern, repl in RE_PATTERNS:
             text = pattern.sub(repl, text)
         text = "\n".join(
@@ -101,14 +137,14 @@ def AddVaderSentiment(df_text, text_col='cleaned_text', parallel_threshold=10000
 
     def analyze_text(text):
         if not isinstance(text, str) or not text.strip():
-            return {"pos": 0.0, "neu": 0.0, "neg": 0.0, "compound": 0.0}
+            return {}
 
         sentences = [s.strip() for s in re.split(r"[.!?]+", text) if s.strip()]
         scores = [sia.polarity_scores(s) for s in sentences]
 
         n = len(scores)
         if n == 0:
-            return {"pos": 0.0, "neu": 0.0, "neg": 0.0, "compound": 0.0}
+            return {}
 
         return {
             "pos": sum(s['pos'] for s in scores) / n,
@@ -126,42 +162,6 @@ def AddVaderSentiment(df_text, text_col='cleaned_text', parallel_threshold=10000
 
     sentiment_df = pd.DataFrame(results.tolist(), index=df_text.index)
     return pd.concat([df_text, sentiment_df], axis=1)
-
-
-def Main():
-
-    INPUT_INDIR = Path("drive/output/derived/problem_level_data/repo_actions")
-    OUTPUT_DIR = Path("drive/output/derived/problem_level_data/cleaned_text")
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    projects = [f for f in os.listdir(INPUT_INDIR) if f.endswith(".parquet")]
-    random.shuffle(projects)
-    for project_file in projects:
-        project = Path(project_file).stem
-        print(f"\n=== Processing project: {project} ===")
-        parquet_file = INPUT_INDIR / project_file
-
-        if not parquet_file.exists():
-            print(f"⚠️ Skipping {project}, file not found: {parquet_file}")
-            continue
-
-        if (OUTPUT_DIR / f"{project}.parquet").exists():
-            print(f"⚠️ Skipping {project}, already exists")
-            continue
-            
-        df_all = pd.read_parquet(parquet_file)
-        df_all = ImputeTimePeriod(df_all, 6)
-
-        df_text = (
-            df_all.sort_values(["thread_number", "created_at"])
-            [["thread_number", "time_period", "actor_id", "text","action_id","labels","assignees","type"]]
-            .query('~text.isna()')
-        )
-        print(f"🧹 Cleaning text for {project}...")
-        df_text_cleaned = CleanTextColumn(df_text, "text")
-        df_text_cleaned = AddVaderSentiment(df_text_cleaned)
-
-        df_text_cleaned.to_parquet(OUTPUT_DIR / f"{project}.parquet")
 
 
 if __name__ == "__main__":
