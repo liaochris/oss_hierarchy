@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 from google.cloud import bigquery
 from source.lib.helpers import LoadGlobals
-import pyarrow.parquet as pq
+from source.lib.JMSLab.SaveData import SaveData
 from dateutil.relativedelta import relativedelta
 
 
@@ -48,7 +48,7 @@ def DropTempDataset(client, project_id, dataset_id):
     print(f"Dropped temp dataset {project_id}.{dataset_id}")
 
 
-def RunQueryToParquet(client, sql, python_projects, start_date, end_date, outfile):
+def RunQueryToParquet(client, sql, python_projects, start_date, end_date, outfile, logfile):
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
             bigquery.ArrayQueryParameter("projects", "STRING", python_projects),
@@ -58,33 +58,42 @@ def RunQueryToParquet(client, sql, python_projects, start_date, end_date, outfil
     )
     query_job = client.query(sql, job_config=job_config)
     results_df = query_job.to_dataframe()
-    results_df.to_parquet(outfile)
+    if results_df.empty:
+        return False
+    SaveData(
+        results_df,
+        ["project", "year", "month", "library_version"],
+        outfile,
+        logfile
+    )
     return True
 
 
-def ExportAllProjectsChunked(client, python_projects, OUTDIR, start_date, end_date):
+def ExportAllProjectsChunked(client, python_projects, OUTDIR, LOG_DIR, start_date, end_date):
     pypi_downloads_sql = """
     SELECT
         file.project AS project,
-        DATE_TRUNC(DATE(timestamp), MONTH) AS month,
+        EXTRACT(YEAR FROM DATE(timestamp)) AS year,
+        EXTRACT(MONTH FROM DATE(timestamp)) AS month,
         file.version AS library_version,
         COUNT(*) AS num_downloads
-    FROM `bigquery-public-data.pypi.file_downloads` 
+    FROM `bigquery-public-data.pypi.file_downloads`
     WHERE project IN UNNEST(@projects)
     AND DATE(timestamp) BETWEEN @start_date AND @end_date
-    GROUP BY project, month, library_version
+    GROUP BY project, year, month, library_version
     """
     pypi_downloads_sql_join = """
     SELECT
         file.project AS project,
-        DATE_TRUNC(DATE(timestamp), MONTH) AS month,
+        EXTRACT(YEAR FROM DATE(timestamp)) AS year,
+        EXTRACT(MONTH FROM DATE(timestamp)) AS month,
         file.version AS library_version,
         COUNT(*) AS num_downloads
     FROM `bigquery-public-data.pypi.file_downloads`
     JOIN `{projects_table}` AS p
       ON p.project = file.project
     WHERE DATE(timestamp) BETWEEN @start_date AND @end_date
-    GROUP BY project, month, library_version
+    GROUP BY project, year, month, library_version
     """
 
     project_id = client.project
@@ -94,6 +103,7 @@ def ExportAllProjectsChunked(client, python_projects, OUTDIR, start_date, end_da
 
     for win_start, win_end in windows:
         outfile = OUTDIR / f"pypi_downloads_{win_start.isoformat()}_{win_end.isoformat()}.parquet"
+        logfile = LOG_DIR / f"pypi_downloads_{win_start.isoformat()}_{win_end.isoformat()}.log"
         if temp_table:
             sql = pypi_downloads_sql_join.format(projects_table=temp_table)
             job_config = bigquery.QueryJobConfig(
@@ -105,15 +115,17 @@ def ExportAllProjectsChunked(client, python_projects, OUTDIR, start_date, end_da
             query_job = client.query(sql, job_config=job_config)
             results_df = query_job.to_dataframe()
             if not results_df.empty:
-                results_df.to_parquet(outfile)
-                print(f"Wrote {outfile}")
+                SaveData(
+                    results_df,
+                    ["project", "year", "month", "library_version"],
+                    outfile,
+                    logfile
+                )
             else:
                 print(f"No rows for {win_start}–{win_end}, skipped write")
         else:
-            did_write = RunQueryToParquet(client, pypi_downloads_sql, python_projects, win_start, win_end, outfile)
-            if did_write:
-                print(f"Wrote {outfile}")
-            else:
+            did_write = RunQueryToParquet(client, pypi_downloads_sql, python_projects, win_start, win_end, outfile, logfile)
+            if not did_write:
                 print(f"No rows for {win_start}–{win_end}, skipped write")
 
     if temp_dataset_id:
@@ -132,7 +144,9 @@ def Main():
     client = bigquery.Client(project=project_id)
     INDIR = Path("output/scrape/pypi_site_info")
     OUTDIR = Path("drive/output/scrape/pypi_version_downloads")
+    LOG_DIR = Path("output/scrape/pypi_version_downloads")
     OUTDIR.mkdir(parents=True, exist_ok=True)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
 
     python_projects = GetProjectList(INDIR)
 
@@ -140,7 +154,7 @@ def Main():
     python_downloads_end_date = pd.to_datetime(globals_data['pip_downloads_end_date']).date()
 
     ExportAllProjectsChunked(
-        client, python_projects, OUTDIR,
+        client, python_projects, OUTDIR, LOG_DIR,
         start_date=python_downloads_start_date, end_date=python_downloads_end_date
     )
 
