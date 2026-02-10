@@ -53,6 +53,15 @@ I then scrape each repository's GitHub page to (1) detect whether it is a fork b
 
 Using all historical repository names from Step 1.3 (not just current names), I query GitHub Archive via BigQuery to extract all issue and pull request events. This ensures I capture events that occurred when a repository had an older name. The transformation step then maps each event's historical repository name to its current canonical name (using the lookup table from Step 1.3) and organizes the data into one parquet file per repository.
 
+**Duplicate handling in repo-level transformation**: When combining events into repo-level parquet files, I apply event-type-specific deduplication using the key columns `[issue_number|pr_number, type, created_at, actor_id]`:
+
+- **Missing keys**: Rows with null values in any key column are dropped and logged to `{category}/flagged/missing_keys.csv`
+- **IssueCommentEvent duplicates**: When multiple rows share the same keys, I keep only the row with the highest `issue_comment_id` (representing the most recent version)
+- **Other event types** (IssuesEvent, PullRequestEvent, PullRequestReviewEvent, PullRequestReviewCommentEvent): I first drop rows where ALL columns are identical (true duplicates). For remaining duplicates with different values in non-key columns, I perturb the `created_at` timestamp by adding 1ms, 2ms, etc. to preserve all distinct records while maintaining key uniqueness
+- **Perturbation rationale**: GitHub timestamps have second-level granularity (.000 milliseconds). Adding milliseconds ensures perturbed timestamps never collide with original timestamps
+
+Dropped and perturbed rows are logged to `{category}/flagged/duplicates.csv` for audit purposes.
+
 ### Step 1.5: Link Issues to Pull Requests (`source/scrape/link_issue_pull_request/`)
 
 | Script | Output | Description |

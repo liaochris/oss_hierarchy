@@ -18,6 +18,10 @@
 - `output/` - Smaller output files and logs
 - `issue_scrape/` - Issue scraping utilities
 
+## Environment
+
+- Activate conda environment: `source activate org_resilience`
+
 ## Key Conventions
 
 ### Repo Name Handling
