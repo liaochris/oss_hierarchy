@@ -1,0 +1,22 @@
+Import('*')
+
+from source.lib.helpers import LoadGlobals, MakeRepoNameSafe
+
+globals_data = LoadGlobals("source/lib/globals.json")
+reference_repo = globals_data['reference_github_repo']
+reference_repo_safe_name = MakeRepoNameSafe(reference_repo)
+
+summary_source = [
+    '#source/analysis/summ_stats/create_project_summary.py',
+    '#output/scrape/pypi_downloads/popular_python_packages.csv',
+    '#output/scrape/pypi_site_info/linked_pypi_github.csv',
+    '#output/scrape/extract_github_data/repo_id_history_final.csv',
+    f'#drive/output/scrape/extract_github_data/repo_level_data/issue/{reference_repo_safe_name}.parquet',
+    f'#drive/output/scrape/extract_github_data/repo_level_data/pr/{reference_repo_safe_name}.parquet',
+]
+summary_target = [
+    '#output/analysis/summ_stats/project_summary.parquet',
+    '#output/analysis/summ_stats/project_summary.log',
+    '#output/analysis/summ_stats/summary_table.txt',
+]
+env.Python(summary_target, summary_source)
