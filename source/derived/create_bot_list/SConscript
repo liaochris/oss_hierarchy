@@ -2,7 +2,7 @@ Import('*')
 
 from source.lib.helpers import LoadGlobals, MakeRepoNameSafe
 
-globals_data = LoadGlobals("source/lib/globals.json")
+globals_data = LoadGlobals("../../../source/lib/globals.json")
 reference_repo = globals_data['reference_github_repo']
 reference_repo_safe_name = MakeRepoNameSafe(reference_repo)
 
@@ -14,7 +14,6 @@ source = [
 
 target = [
     '#output/derived/create_bot_list/bot_list.parquet',
-    '#output/derived/create_bot_list/bot_list.log'
 ]
 
 env.Python(target, source)

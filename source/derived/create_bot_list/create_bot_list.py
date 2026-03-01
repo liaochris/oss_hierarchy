@@ -9,20 +9,23 @@ OUTDIR = Path('output/derived/create_bot_list')
 def Main():
     OUTDIR.mkdir(parents=True, exist_ok=True)
 
-    files = list(INDIR_ISSUE.glob("*.parquet")) + list(INDIR_PR.glob("*.parquet"))
+    files = [f for f in INDIR_ISSUE.glob("*.parquet") if not f.name.startswith('._')] + \
+            [f for f in INDIR_PR.glob("*.parquet") if not f.name.startswith('._')]
 
-    if not files:
-        print("No parquet files found")
-        return
+    dfs = []
+    for f in files:
+        df = pl.read_parquet(f, columns=['actor_id', 'actor_login'])
+        df = df.with_columns(pl.col('actor_id').cast(pl.Int64, strict=False))
+        dfs.append(df)
 
-    df = pl.scan_parquet(files).select(['actor_id', 'actor_login']).unique().collect()
+    df = pl.concat(dfs, how='vertical').unique(subset=['actor_id', 'actor_login'])
 
     bots_df = df.filter(
-        df['actor_login'].str.ends_with('[bot]') |
-        df['actor_login'].str.ends_with('bot')
-    ).to_pandas()
+        pl.col('actor_login').str.ends_with('[bot]') |
+        pl.col('actor_login').str.ends_with('bot')
+    ).to_pandas().drop_duplicates()
 
-    SaveData(bots_df, ['actor_id'], OUTDIR / 'bot_list.parquet', OUTDIR / 'bot_list.log')
+    SaveData(bots_df, ['actor_id', 'actor_login'], OUTDIR / 'bot_list.parquet', OUTDIR / 'bot_list.log')
 
 if __name__ == "__main__":
     Main()
