@@ -6,12 +6,21 @@ from source.lib.JMSLab.SaveData import SaveData
 import numpy as np
 
 FORK_REGEX = re.compile(r'forked from\s+<[^>]*>([^<]+)</a>', re.IGNORECASE)
+ARCHIVE_REGEX = re.compile(r'archived by the owner on\s+([A-Za-z]+ \d+, \d{4})', re.IGNORECASE)
+
 
 def DetectForkSource(html_text):
     match = FORK_REGEX.search(html_text)
     if match:
         return match.group(1).strip(), 1
     return np.nan, 0
+
+
+def DetectArchiveDate(html_text):
+    match = ARCHIVE_REGEX.search(html_text)
+    if match:
+        return match.group(1).strip()
+    return ""
 
 
 def ResolveRepoDetails(repo_name):
@@ -22,12 +31,13 @@ def ResolveRepoDetails(repo_name):
         if r.status_code == 200:
             latest = r.url.replace("https://github.com/", "").rstrip("/")
             forked_from, is_fork = DetectForkSource(r.text)
+            archive_date = DetectArchiveDate(r.text)
         else:
-            latest, forked_from, is_fork = "ERROR", np.nan, 0
+            latest, forked_from, is_fork, archive_date = "ERROR", np.nan, 0, ""
     except Exception:
-        latest, forked_from, is_fork = "ERROR", np.nan, 0
+        latest, forked_from, is_fork, archive_date = "ERROR", np.nan, 0, ""
 
-    return latest, forked_from, is_fork
+    return latest, forked_from, is_fork, archive_date
 
 
 def AssignLatestNamesAndGroups(df):
@@ -36,16 +46,19 @@ def AssignLatestNamesAndGroups(df):
     cache_latest = {}
     cache_fork = {}
     cache_flag = {}
+    cache_archive = {}
 
     for repo_name in repos:
-        latest, forked_from, is_fork = ResolveRepoDetails(repo_name)
+        latest, forked_from, is_fork, archive_date = ResolveRepoDetails(repo_name)
         cache_latest[repo_name] = latest if latest == "ERROR" else latest.lower()
         cache_fork[repo_name] = forked_from
         cache_flag[repo_name] = is_fork
+        cache_archive[repo_name] = archive_date
 
     df["latest_repo_name"] = df["repo_name"].map(cache_latest)
     df["forked_from"] = df["repo_name"].map(cache_fork)
     df["is_fork"] = df["repo_name"].map(cache_flag)
+    df["archive_date"] = df["repo_name"].map(cache_archive)
 
     unique_latest = {name: i for i, name in enumerate(df["latest_repo_name"].unique())}
     df["repo_group"] = df["latest_repo_name"].map(unique_latest)
@@ -53,16 +66,16 @@ def AssignLatestNamesAndGroups(df):
 
 
 def Main():
-    indir = Path("output/scrape/extract_github_data")
-    df_full = pd.read_csv(indir / "repo_id_history.csv")
+    INDIR = Path("output/scrape/extract_github_data")
+    df_full = pd.read_csv(INDIR / "repo_id_history.csv")
 
     df_full = AssignLatestNamesAndGroups(df_full)
     
     SaveData(
         df_full,
         ["repo_group", "repo_id", "repo_name", "latest_repo_name"],
-        indir / "repo_id_history_final.csv",
-        indir / "repo_id_history_final.log",
+        INDIR / "repo_id_history_final.csv",
+        INDIR / "repo_id_history_final.log",
     )
 
 

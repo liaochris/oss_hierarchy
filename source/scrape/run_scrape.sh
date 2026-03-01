@@ -19,7 +19,8 @@ python source/scrape/extract_github_data/code/transform_event_to_repo_level.py
 
 python source/scrape/pypi_package_downloads/code/query_daily_pip_version_downloads.py
 
-python source/scrape/link_issue_pull_request/code/link_using_pull_request.py # good to go
+python source/scrape/link_issue_pull_request/code/link_using_pull_request.py # currently running
 python source/scrape/link_issue_pull_request/code/link_using_issue.py # currently running
+# TEMP MESSAGE: find time to rerun source/scrape/extract_github_data/code/group_repo_identities.py
 
 python source/scrape/governance_data/code/collect_governance_data.py

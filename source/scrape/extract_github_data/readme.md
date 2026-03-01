@@ -13,7 +13,7 @@ In order to access the Google Cloud BigQuery data for python downloads, I used t
 
 ### Description
 - `code/query_all_repo_identities.py` queries Google BQ to select all repo name and ID pairs associated with top Python projects
-- `code/group_repo_identities.py` groups repo name and ID pairs into GitHub repos and identifies forks
+- `code/group_repo_identities.py` groups repo name and ID pairs into GitHub repos. It also identifies forks and archived data (if applicable)
 - `code/query_github_data.py` queries Google BQ for GitHub data
 - `code/transform_event_to_repo_level.py` transforms GitHub event-level data into repo-level data for issue and pull request events
 - `docs/github_archive_readme.md` contains the README.md of the gharchive.org repository
