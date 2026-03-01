@@ -2,7 +2,7 @@ Import('*')
 
 from source.lib.helpers import LoadGlobals, MakeRepoNameSafe
 
-globals_data = LoadGlobals("source/lib/globals.json")
+globals_data = LoadGlobals("../../../source/lib/globals.json")
 reference_repo = globals_data['reference_github_repo']
 reference_repo_safe_name = MakeRepoNameSafe(reference_repo)
 
