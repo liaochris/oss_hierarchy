@@ -12,7 +12,8 @@ def Main():
     INDIR_REPO = Path("output/scrape/extract_github_data")
     INDIR_ISSUE = Path("drive/output/scrape/extract_github_data/repo_level_data/issue")
     INDIR_PR = Path("drive/output/scrape/extract_github_data/repo_level_data/pr")
-    INDIR_LINKED = Path("drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request")
+    INDIR_ISSUE_LINKED = Path("drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request")
+    INDIR_PR_LINKED = Path("drive/output/scrape/link_issue_pull_request/linked_pull_request_to_issue")
     OUTDIR = Path("output/analysis/summ_stats")
 
     OUTDIR.mkdir(parents=True, exist_ok=True)
@@ -23,10 +24,11 @@ def Main():
 
     issue_files = set(Path(f).stem.lower() for f in glob.glob(str(INDIR_ISSUE / "*.parquet")))
     pr_files = set(Path(f).stem.lower() for f in glob.glob(str(INDIR_PR / "*.parquet")))
-    linked_files = set(Path(f).stem.lower() for f in glob.glob(str(INDIR_LINKED / "*.parquet")))
+    issue_linked_files = set(Path(f).stem.lower() for f in glob.glob(str(INDIR_ISSUE_LINKED / "*.parquet")))
+    pr_linked_files = set(Path(f).stem.lower() for f in glob.glob(str(INDIR_PR_LINKED / "*.parquet")))
 
     df_summary = BuildSummary(df_popular, df_linked, df_repo_history, issue_files, pr_files,
-                              linked_files)
+                              issue_linked_files, pr_linked_files)
 
     SaveData(
         df_summary,
@@ -39,7 +41,7 @@ def Main():
 
 
 def BuildSummary(df_popular, df_linked, df_repo_history, issue_files, pr_files,
-                 linked_files):
+                 issue_linked_files, pr_linked_files):
     df = df_popular.rename(columns={"project": "package"}).copy()
     df = df.dropna(subset=["package"])
 
@@ -66,10 +68,11 @@ def BuildSummary(df_popular, df_linked, df_repo_history, issue_files, pr_files,
     df["has_issues"] = safe_repo.isin(issue_files)
     df["has_prs"] = safe_repo.isin(pr_files)
     df["has_both"] = df["has_issues"] & df["has_prs"]
-    df["has_linked"] = safe_repo.isin(linked_files)
+    df["has_issue_linked"] = safe_repo.isin(issue_linked_files)
+    df["has_pr_linked"] = safe_repo.isin(pr_linked_files)
 
     return df[["package", "pypi_github_link", "pypi_has_github_link", "unique_repo", "in_archive",
-               "has_issues", "has_prs", "has_both", "has_linked"]]
+               "has_issues", "has_prs", "has_both", "has_issue_linked", "has_pr_linked"]]
 
 
 def ExportSummaryTable(df, outfile):
@@ -82,7 +85,8 @@ def ExportSummaryTable(df, outfile):
         ("  with issues", df_repos["has_issues"].sum()),
         ("  with PRs", df_repos["has_prs"].sum()),
         ("  with both", df_repos["has_both"].sum()),
-        ("  with linked", df_repos["has_linked"].sum()),
+        ("  with issue linked", df_repos["has_issue_linked"].sum()),
+        ("  with PR linked", df_repos["has_pr_linked"].sum()),
     ]
     lines = []
     for label, count in summary_rows:
