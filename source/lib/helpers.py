@@ -156,3 +156,18 @@ def LoadGlobals(json_path):
 
 def MakeRepoNameSafe(repo_name):
     return repo_name.replace("/", "___")
+
+
+def JsonSerialize(x):
+    if isinstance(x, (dict, list, np.ndarray)):
+        return json.dumps(x, default=lambda o: o.tolist() if isinstance(o, np.ndarray) else str(o))
+    return x
+
+
+def JsonDeserialize(x, default=None):
+    if isinstance(x, str):
+        try:
+            return json.loads(x)
+        except (json.JSONDecodeError, TypeError):
+            return default
+    return x

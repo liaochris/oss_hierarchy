@@ -76,8 +76,6 @@ def ProcessCategory(globs_list, repo_lookup, OUTDIR, LOG_OUTDIR, category_name, 
     log_dir.mkdir(parents=True, exist_ok=True)
     flag_dir.mkdir(parents=True, exist_ok=True)
 
-    log_file = log_dir / "combined.log"
-
     for i in range(0, len(paths), BATCH_SIZE):
         batch_paths = paths[i : i + BATCH_SIZE]
         print(batch_paths)
@@ -97,14 +95,17 @@ def ProcessCategory(globs_list, repo_lookup, OUTDIR, LOG_OUTDIR, category_name, 
             continue
 
         df = pd.concat(dfs, ignore_index=True, copy=False)
-        df["repo_name"] = df["repo_name"].map(repo_lookup).fillna("unknown_repo").astype("string")
+        df["repo_name"] = df["repo_name"].str.lower().map(repo_lookup).fillna("unknown_repo").astype("string")
 
         for repo_name_latest, df_group in df.groupby("repo_name"):
             safe_repo_name = SanitizeRepoName(repo_name_latest)
             if safe_repo_name == "unknown_repo":
                 continue
+            first_char = safe_repo_name[0]
+            file_prefix = first_char if first_char.isalpha() else "numeric"
+            log_file = log_dir / f"{file_prefix}.log"
             out_path = outdir / f"{safe_repo_name}.parquet"
-            WriteParquetAppend(df_group, out_path, keep_cols, keys, log_file, flag_dir)
+            WriteParquetAppend(df_group, out_path, keep_cols, keys, log_file, flag_dir, file_prefix)
 
 
 def ReadRawGitHubData(path, keep_cols):
@@ -128,7 +129,7 @@ def SanitizeRepoName(repo_name):
         return MakeRepoNameSafe(s)
 
 
-def WriteParquetAppend(df_group, out_path, keep_cols, keys, log_file, flag_dir):
+def WriteParquetAppend(df_group, out_path, keep_cols, keys, log_file, flag_dir, file_prefix):
     new_df = df_group[keep_cols].copy()
     for int_col in ['actor_id', 'repo_id', 'pr_number', 'issue_number',
                     'issue_user_id', 'issue_comment_id']:
@@ -143,29 +144,32 @@ def WriteParquetAppend(df_group, out_path, keep_cols, keys, log_file, flag_dir):
 
     filename = out_path.name
 
-    missing_count = DropMissingKeys(combined_df, keys, filename, flag_dir)
+    missing_count = DropMissingKeys(combined_df, keys, filename, flag_dir, file_prefix)
     if missing_count > 0:
         combined_df = combined_df[~combined_df[keys].isna().any(axis=1)].copy()
 
-    HandleDuplicates(combined_df, keys, filename, flag_dir)
+    HandleDuplicates(combined_df, keys, filename, flag_dir, file_prefix)
+
+    # Drop any remaining exact-duplicate rows before key uniqueness check
+    combined_df = combined_df.drop_duplicates().reset_index(drop=True)
 
     SaveData(combined_df, keys, out_path, log_file, append=True)
 
 
-def DropMissingKeys(df, keys, filename, flag_dir):
+def DropMissingKeys(df, keys, filename, flag_dir, file_prefix):
     missing_mask = df[keys].isna().any(axis=1)
     missing_count = missing_mask.sum()
 
     if missing_count > 0:
         missing_df = df[missing_mask].copy()
         missing_df['source_file'] = filename
-        missing_csv = flag_dir / "missing_keys.csv"
+        missing_csv = flag_dir / f"{file_prefix}_missing_keys.csv"
         missing_df.to_csv(missing_csv, mode='a', header=not missing_csv.exists(), index=False)
 
     return missing_count
 
 
-def HandleDuplicates(df, keys, filename, flag_dir):
+def HandleDuplicates(df, keys, filename, flag_dir, file_prefix):
     dup_mask = df.duplicated(subset=keys, keep=False)
 
     if not dup_mask.any():
@@ -181,13 +185,13 @@ def HandleDuplicates(df, keys, filename, flag_dir):
         event_dups = df[event_mask]
 
         if event_type == 'IssueCommentEvent':
-            HandleIssueCommentDuplicates(df, keys, event_dups, filename, flag_dir)
+            HandleIssueCommentDuplicates(df, keys, event_dups, filename, flag_dir, file_prefix)
 
         elif event_type in ['IssuesEvent', 'PullRequestEvent', 'PullRequestReviewEvent', 'PullRequestReviewCommentEvent']:
-            HandleDropAndPerturbDuplicates(df, keys, event_dups, event_type, filename, flag_dir)
+            HandleDropAndPerturbDuplicates(df, keys, event_dups, event_type, filename, flag_dir, file_prefix)
 
 
-def HandleIssueCommentDuplicates(df, keys, event_dups, filename, flag_dir):
+def HandleIssueCommentDuplicates(df, keys, event_dups, filename, flag_dir, file_prefix):
     if 'issue_comment_id' not in df.columns:
         return
 
@@ -201,12 +205,12 @@ def HandleIssueCommentDuplicates(df, keys, event_dups, filename, flag_dir):
             rows_to_drop.extend(drop_idx)
 
     if rows_to_drop:
-        RecordDroppedRows(df, rows_to_drop, filename, flag_dir,
+        RecordDroppedRows(df, rows_to_drop, filename, flag_dir, file_prefix,
                          'IssueCommentEvent duplicate - kept latest issue_comment_id')
         df.drop(rows_to_drop, inplace=True)
 
 
-def HandleDropAndPerturbDuplicates(df, keys, event_dups, event_type, filename, flag_dir):
+def HandleDropAndPerturbDuplicates(df, keys, event_dups, event_type, filename, flag_dir, file_prefix):
     dup_groups = event_dups.groupby(keys, dropna=False)
 
     for _, group in dup_groups:
@@ -217,7 +221,7 @@ def HandleDropAndPerturbDuplicates(df, keys, event_dups, event_type, filename, f
 
         if len(unique_group) < len(group):
             rows_to_drop = group.index[~group.index.isin(unique_group.index)]
-            RecordDroppedRows(df, rows_to_drop, filename, flag_dir,
+            RecordDroppedRows(df, rows_to_drop, filename, flag_dir, file_prefix,
                             f'{event_type} duplicate - all columns identical')
             df.drop(rows_to_drop, inplace=True)
 
@@ -230,11 +234,11 @@ def HandleDropAndPerturbDuplicates(df, keys, event_dups, event_type, filename, f
                     df.loc[row_idx, 'created_at'] = str(new_time)
 
 
-def RecordDroppedRows(df, rows_to_drop, filename, flag_dir, reason):
+def RecordDroppedRows(df, rows_to_drop, filename, flag_dir, file_prefix, reason):
     dropped_df = df.loc[rows_to_drop].copy()
     dropped_df['source_file'] = filename
     dropped_df['reason'] = reason
-    dup_csv = flag_dir / "duplicates.csv"
+    dup_csv = flag_dir / f"{file_prefix}_duplicates.csv"
     dropped_df.to_csv(dup_csv, mode='a', header=not dup_csv.exists(), index=False)
 
 
