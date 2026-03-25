@@ -1,0 +1,32 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,woyin,2019-03-27T06:24:59Z,KCP 多端口配置错误,https://github.com/Jrohy/multi-v2ray/issues/178,Jrohy/multi-v2ray,178
+IssueOpened,woyin,2019-03-27T06:24:59Z,"脚本自带的增加动态端口时，生成的代码如下：
+
+> ```
+>   {
+>   	""port"": ""10000-20000"",
+>   	""tag"": ""dynamicPortdf52504"",
+>   	""protocol"": ""vmess"",
+>   	""allocate"": {
+>   		""strategy"": ""random"",
+>   		""concurrency"": 3,
+>   		""refresh"": 5
+>   	},
+>   	""settings"": {
+>   		""default"": {
+>   			""alterId"": 32
+>   		}
+>   	}
+>   }
+> ```
+
+但如果原始的结点使用了KCP方式的类型时，这种动态端口不能用。需要在动态端口中增加StreamSettings 与原始结点对应。  
+自行修改StreamSettings 后可正常使用。",https://github.com/Jrohy/multi-v2ray/issues/178,Jrohy/multi-v2ray,178
+IssueComment,woyin,2019-03-27T06:32:48Z,"换言之，当生成动态端口的时候，可能需要将其上层端口的streamSettings 全部拷贝下来，否则可能会出问题。  
+测试环境
+
+1. Windows 下 V2rayN
+2. iOS下Kitsunebi（系统和软件均升级到最新版）",,Jrohy/multi-v2ray,178
+IssueComment,Jrohy,2019-03-31T14:03:28Z,测试了没问题，开动态端口,,Jrohy/multi-v2ray,178
+ClosedEvent,Jrohy,2019-04-03T15:07:08Z,Closed by Jrohy in ,,Jrohy/multi-v2ray,178
+IssueComment,woyin,2019-04-05T15:39:22Z,我将配置重新生成了一份后发现，如果只有一个动态端口没有问题，但是如果开多个（我只开到第2个的时候）就会出错。我在出错的json 文件基础上，见streamSettings 全部拷贝下来放到对应的动态端口后就可以正常使用，否则就会报错。,,Jrohy/multi-v2ray,178

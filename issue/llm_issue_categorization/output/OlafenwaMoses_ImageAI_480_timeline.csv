@@ -1,0 +1,15 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,chang4869,2020-02-17T05:20:36Z,OverflowError: Python int too large to convert to C long,https://github.com/OlafenwaMoses/ImageAI/issues/480,OlafenwaMoses/ImageAI,480
+IssueOpened,chang4869,2020-02-17T05:20:36Z,"I am confused, as long as I use the model I trained, the following problems will occur 815 if extract\_detected\_objects:
+
+~/anaconda3/lib/python3.6/site-packages/imageai/Detection/Custom/**init**.py in draw\_boxes\_and\_caption(self, image\_frame, v\_boxes, v\_labels, v\_scores, show\_names, show\_percentage)  
+1364 class\_color = self.label\_color(self.\_\_labels.index(v\_labels[i]))  
+1365  
+-> 1366 image\_frame = cv2.rectangle(image\_frame, (x1, y1), (x2, y2), class\_color, 2)  
+1367  
+1368 label = """"
+
+OverflowError: Python int too large to convert to C long",https://github.com/OlafenwaMoses/ImageAI/issues/480,OlafenwaMoses/ImageAI,480
+IssueComment,AbimbolaOO,2020-08-02T19:09:05Z,"Hello [@chang4869](https://github.com/chang4869),  
+Kindly, share the entire stack trace here, so we can work through it together.",,OlafenwaMoses/ImageAI,480
+ClosedEvent,OlafenwaMoses,2020-09-13T12:36:39Z,Closed by OlafenwaMoses in ,,OlafenwaMoses/ImageAI,480

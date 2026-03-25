@@ -1,0 +1,198 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,grovduck,2017-02-10T22:59:21Z,Windows executable path support,https://github.com/scikit-video/scikit-video/issues/21,scikit-video/scikit-video,21
+IssueOpened,grovduck,2017-02-10T22:59:21Z,"Great package - it's very useful for my research. Unfortunately, I'm using Windows and initially had problems with skvideo bonking when calling 'ffmpeg' and associated executables. I did an ugly hack like this:
+
+```
+# get the correct exe name based on OS
+ffprobe_exe = ""ffprobe""
+ffmpeg_exe = ""ffmpeg""
+avprobe_exe = ""avprobe""
+avconv_exe = ""avconv""
+mediainfo_exe = ""mediainfo""
+if os.name == ""nt"":
+    ffprobe_exe += "".exe""
+    ffmpeg_exe += "".exe""
+    avprobe_exe += "".exe""
+    avconv_exe += "".exe""
+    mediainfo_exe += "".exe""
+```
+
+in `skvideo\__init__.py` and then change calls like this:
+
+```
+version = check_output([_FFMPEG_PATH + ""/ffmpeg"", ""-version""])
+```
+
+to this:
+
+```
+version = check_output([_FFMPEG_PATH + ""/"" + ffmpeg_exe, ""-version""])
+```
+
+It looks like there is a nice little cross-platform [where package](https://github.com/hweickert/where) that will correctly identify exe paths and may be useful in switching out the logic in the `which` function. In fact, it looks like the only thing you're using `_FFMPEG_PATH`, `_AVCONV_PATH`, and `_MEDIAINFO_PATH` for are to concatenate to the exe name when issuing commands? I think you could just use the output of the where command as the first argument to many of these calls, e.g.
+
+```
+import where
+from skvideo.utils import check_output
+ffmpeg_exe = where.where('ffmpeg')[0]
+version = check_output([ffmpeg_exe, '-version'])
+```
+
+I'd be happy to write a PR, but thought you might have an idea of how you wanted to implement this.",,scikit-video/scikit-video,21
+IssueComment,beyondmetis,2017-02-13T17:36:13.000Z,"Thank you for taking the time to bring this to my attention!
+
+I'd like to make this package more compatible with Windows. The only thing I'd change specifically is minimizing external package dependencies. The where package you linked looks like it uses the MIT license, which allows direct incorporation into scikit-video.
+
+I'm not sure if you have time, but I noticed that you have experience with appveyor? Scikit-video would benefit from this, so that Windows gets tested prior to packaged releases.",,scikit-video/scikit-video,21
+MentionedByIssue,beyondmetis,2017-02-18T17:32:39.000Z,"beyondmetis mentioned this on Feb 18, 2017
+AssertionError: Cannot find installation of ffmpeg, windows 7 #22",https://github.com/scikit-video/scikit-video/issues/22,scikit-video/scikit-video,21
+IssueComment,beyondmetis,2017-03-05T22:31:43.000Z,"Windows should be supported now, based on the information you provided. Let me know if you have problems.",,scikit-video/scikit-video,21
+IssueComment,grovduck,2017-03-08T19:07:37.000Z,"[@beyondmetis](https://github.com/beyondmetis), sorry for just dropping this. I just tested against [87089a9](https://github.com/scikit-video/scikit-video/commit/87089a9788f0f8ee1913f7e16e2c0c9d0657d4f0) and it works like a charm. I also ran tests and had to make a couple of edits based on being on python 2.7. These were one of two things:
+
+Thanks for making this change. My ""experience"" with appveyor is really just toying around with it, so I'm probably not the right person to pick that up. But I'm happy to write up notes on what I needed to do to make it work with Windows if that's helpful.",,scikit-video/scikit-video,21
+IssueComment,AndersonReyes,2017-03-10T17:40:49.000Z,"[@beyondmetis](https://github.com/beyondmetis) [@grovduck](https://github.com/grovduck)  
+I still get the error on windows 10
+
+but",,scikit-video/scikit-video,21
+IssueComment,AndersonReyes,2017-03-10T18:35:12.000Z,[@beyondmetis](https://github.com/beyondmetis) actually nvm I use the pip version and I doubt it has been updated to reflect github I'll install github version,,scikit-video/scikit-video,21
+IssueComment,grovduck,2017-03-10T18:36:49.000Z,"[@AndersonReyes](https://github.com/AndersonReyes), yep that was the trick for me.",,scikit-video/scikit-video,21
+IssueComment,beyondmetis,2017-03-14T09:34:47.000Z,"[@AndersonReyes](https://github.com/AndersonReyes) That is correct. The pip version hasn't been updated in roughly a month. It'll be updated soon after the next round of bug fixes.
+
+[@grovduck](https://github.com/grovduck) Thanks for testing! I'll see if I can figure out those precision issues. Since this is often due to an out-of-date numpy/scipy package, what version of numpy/scipy are you using?",,scikit-video/scikit-video,21
+IssueComment,grovduck,2017-03-14T15:12:19.000Z,"[@beyondmetis](https://github.com/beyondmetis), here is my setup. I'm pulling wheels for numpy/scipy from the [Christoph Golhke site](http://www.lfd.uci.edu/~gohlke/pythonlibs/), maybe something with the addition of the Intel Math Kernel Library is affecting precision issues?",,scikit-video/scikit-video,21
+IssueComment,sanaullahmanzoor1988,2017-04-26T13:51:20.000Z,"[@grovduck](https://github.com/grovduck) kindly help me..
+
+I am gettiung this for windows 10  
+File ""C:\Users\bismil\AppData\Local\Programs\Python\Python35\lib\site-packages\skvideo\io\io.py"", line 240, in vreader  
+assert \_HAS\_FFMPEG, ""Cannot find installation of ffmpeg.""  
+AssertionError: Cannot find installation of ffmpeg.",,scikit-video/scikit-video,21
+IssueComment,AndersonReyes,2017-04-26T13:53:36.000Z,[@grovduck](https://github.com/grovduck) you installed it using pip or fr,,scikit-video/scikit-video,21
+IssueComment,AndersonReyes,2017-04-26T13:53:57.000Z,or from github?\*,,scikit-video/scikit-video,21
+IssueComment,sanaullahmanzoor1988,2017-04-26T13:58:57.000Z,using pip,,scikit-video/scikit-video,21
+IssueComment,AndersonReyes,2017-04-26T14:02:22.000Z,"[@sanaullahmanzoor1988](https://github.com/sanaullahmanzoor1988) use the github version scroll up he explains why. Although I don't know if he haz updated pip version yet.
+
+Note I tagged wrong person ealier lol",,scikit-video/scikit-video,21
+IssueComment,sanaullahmanzoor1988,2017-04-26T15:37:27.000Z,"Detailed error view)  
+C:\Users\bismil\Documents\Python Scripts\LipNet-master\evaluation>python predict.py models/weights04.h5 samples/id2\_vcd\_swwp2s.mpg  
+Using TensorFlow backend.
+
+Loading data from disk...  
+Traceback (most recent call last):  
+File ""predict.py"", line 46, in  
+video, result = predict(sys.argv[1], sys.argv[2])  
+File ""predict.py"", line 20, in predict  
+video.from\_video(video\_path)  
+File ""c:\users\bismil\documents\python scripts\lipnet-master\lipnet\lipreading\videos.py"", line 119, in from\_video  
+frames = self.get\_video\_frames(path)  
+File ""c:\users\bismil\documents\python scripts\lipnet-master\lipnet\lipreading\videos.py"", line 172, in get\_video\_frames  
+frames = np.array([frame for frame in videogen])  
+File ""c:\users\bismil\documents\python scripts\lipnet-master\lipnet\lipreading\videos.py"", line 172, in  
+frames = np.array([frame for frame in videogen])  
+File ""C:\Users\bismil\AppData\Local\Programs\Python\Python35\lib\site-packages\skvideo\io\io.py"", line 240, in vreader  
+assert \_HAS\_FFMPEG, ""Cannot find installation of ffmpeg.""  
+AssertionError: Cannot find installation of ffmpeg.",,scikit-video/scikit-video,21
+IssueComment,sanaullahmanzoor1988,2017-04-26T15:43:01.000Z,"ffmpeg is working
+
+(detail view)  
+C:\Users\bismil\Documents\Python Scripts\LipNet-master\evaluation>ffmpeg  
+ffmpeg version N-85653-gb4330a0 Copyright (c) 2000-2017 the FFmpeg developers  
+built with gcc 6.3.0 (GCC)  
+configuration: --enable-gpl --enable-version3 --enable-cuda --enable-cuvid --enable-d3d11va --enable-dxva2 --enable-libmfx --enable-nvenc --enable-avisynth --enable-bzlib --enable-fontconfig --enable-frei0r --enable-gnutls --enable-iconv --enable-libass --enable-libbluray --enable-libbs2b --enable-libcaca --enable-libfreetype --enable-libgme --enable-libgsm --enable-libilbc --enable-libmodplug --enable-libmp3lame --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenh264 --enable-libopenjpeg --enable-libopus --enable-librtmp --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvo-amrwbenc --enable-libvorbis --enable-libvpx --enable-libwavpack --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxavs --enable-libxvid --enable-libzimg --enable-lzma --enable-zlib  
+libavutil 55. 61.100 / 55. 61.100  
+libavcodec 57. 93.100 / 57. 93.100  
+libavformat 57. 72.101 / 57. 72.101  
+libavdevice 57. 7.100 / 57. 7.100  
+libavfilter 6. 87.100 / 6. 87.100  
+libswscale 4. 7.101 / 4. 7.101  
+libswresample 2. 8.100 / 2. 8.100  
+libpostproc 54. 6.100 / 54. 6.100  
+Hyper fast Audio and Video encoder  
+usage: ffmpeg [options] [[infile options] -i infile]... {[outfile options] outfile}...
+
+Use -h to get full help or, even better, run 'man ffmpeg'",,scikit-video/scikit-video,21
+IssueComment,beyondmetis,2017-04-26T15:59:14.000Z,The pip version has not been updated yet. Try github version of scikit video and see if that fixes your problem.,,scikit-video/scikit-video,21
+IssueComment,sanaullahmanzoor1988,2017-04-26T16:46:55.000Z,"after installing scikit video  
+from <https://github.com/scikit-video/scikit-video>  
+I executed
+
+import skvideo  
+print(skvideo.**file**)  
+C:\Users\bismil\AppData\Local\Programs\Python\Python35\lib\site-packages\skvideo\_*init*\_.py
+
+means now scikit-video is working but still got
+
+Error:
+
+File ""C:\Users\bismil\AppData\Local\Programs\Python\Python35\lib\site-packages\skvideo\io\io.py"", line 240, in vreader  
+assert \_HAS\_FFMPEG, ""Cannot find installation of ffmpeg.""  
+AssertionError: Cannot find installation of ffmpeg.",,scikit-video/scikit-video,21
+IssueComment,sanaullahmanzoor1988,2017-04-26T17:06:33.000Z,"Above error is resolved but got  
+New error:
+
+videogen = skvideo.io.vreader(path)  
+AttributeError: module 'skvideo.io' has no attribute 'vreader'",,scikit-video/scikit-video,21
+IssueComment,beyondmetis,2017-04-26T17:31:36.000Z,,,scikit-video/scikit-video,21
+IssueComment,sanaullahmanzoor1988,2017-04-26T18:02:42.000Z,"After removing sk-video in python 3.5  
+my code working ...
+
+because scikit-video is getting conflict with sk-video
+
+for python 3 remove sk-video
+
+[@AndersonReyes](https://github.com/AndersonReyes) [@beyondmetis](https://github.com/beyondmetis) [@grovduck](https://github.com/grovduck) thanks all <3 :)",,scikit-video/scikit-video,21
+MentionedByIssue,tmatthias29,2017-05-26T01:18:26.000Z,"tmatthias29 mentioned this on May 25, 2017
+setFFmpegPath on Windows requires running twice. #38",https://github.com/scikit-video/scikit-video/issues/38,scikit-video/scikit-video,21
+IssueComment,nitingulati7,2017-05-26T04:53:54.000Z,"I am getting the similar error can you please suggest the alternative or work around.
+
+File ""C:\ProgramData\Anaconda3\lib\site-packages\skvideo\io\io.py"", line 133, in vread  
+assert \_HAS\_FFMPEG, ""Cannot find installation of real FFmpeg (which comes with ffprobe).""",,scikit-video/scikit-video,21
+IssueComment,beyondmetis,2017-05-26T06:31:27.000Z,I do suggest the alternative. Install from github and also delete all mention of your current scikit-video install.,,scikit-video/scikit-video,21
+IssueComment,nitingulati7,2017-05-26T13:36:01.000Z,,,scikit-video/scikit-video,21
+IssueComment,AndersonReyes,2017-05-26T14:32:26.000Z,"[@nitingulati7](https://github.com/nitingulati7) <https://github.com/scikit-video/scikit-video/blob/master/README.rst>
+
+Under installation and dependecies the github part its relative straight forward. Install dependencies using pip install",,scikit-video/scikit-video,21
+IssueComment,nitingulati7,2017-05-27T04:56:58.000Z,"[@AndersonReyes](https://github.com/AndersonReyes) I followed the steps but I still getting the same error, There some issue where \_HAS\_FFMPEG is setting to O or null  
+here is my code snippet  
+import skvideo.io
+
+skvideo.setFFmpegPath(""D:/ffmpeg/bin"")
+
+vid = skvideo.io.vread(""D:/scikit-video-master/scikit-video-master/doc/examples/vid\_luma\_frame1.png"")  
+T, M, N, C = vid.shape
+
+print(""Number of frames: %d"" % (T,))  
+print(""Number of rows: %d"" % (M,))  
+print(""Number of cols: %d"" % (N,))  
+print(""Number of channels: %d"" % (C,))",,scikit-video/scikit-video,21
+IssueComment,AndersonReyes,2017-05-27T05:17:13.000Z,"[@nitingulati7](https://github.com/nitingulati7) what's in your bin folder? I can take a look, unless [@beyondmetis](https://github.com/beyondmetis) already on it",,scikit-video/scikit-video,21
+IssueComment,beyondmetis,2017-05-27T06:21:37.000Z,"[@nitingulati7](https://github.com/nitingulati7) does it matter that you are using forward slashes on a windows computer? Also, have you tried running the setFFmpegPath function two times in a row, as in [#38](https://github.com/scikit-video/scikit-video/issues/38) ?",,scikit-video/scikit-video,21
+IssueComment,nitingulati7,2017-05-27T16:08:07.000Z,"[@AndersonReyes](https://github.com/AndersonReyes) : in the bin folder i have exe for ffmpeg, ffprobe & ffplay which i had downloaded from ffmpeg.org
+
+[@beyondmetis](https://github.com/beyondmetis): SetFFmpegpath command works fine after changing code in skvideo\_*init*\_.py line no: 308  
+if os.path.isfile(\_FFMPEG\_PATH + ""/ffmpeg\*\*.exe\*\*"") and os.path.isfile(\_FFMPEG\_PATH + ""/ffprobe.**exe**""):  
+\_HAS\_FFMPEG = 1
+
+But it failed when I am trying to use the reader, some where in the code \_HAS\_FFMPEG get reset to false
+
+I also tried to run ""test\_ffmpeg.py"" but it doesn't find \_HAS\_FFMPEG as true and skips the function execution",,scikit-video/scikit-video,21
+IssueComment,nitingulati7,2017-05-27T16:12:42.000Z,and I am using python 3.6,,scikit-video/scikit-video,21
+IssueComment,tmatthias29,2017-05-30T18:12:29.000Z,"Just a note, a way to solve/avoid the forward slashes on window would be to use `os.path.normpath()` and/or the rawstring character in front of the string.",,scikit-video/scikit-video,21
+IssueComment,beyondmetis,2017-06-01T05:40:46.000Z,[@nitingulati7](https://github.com/nitingulati7) this may have been fixed just recently. Let me know if you are still having issues.,,scikit-video/scikit-video,21
+IssueComment,nitingulati7,2017-06-07T04:53:52.000Z,[@beyondmetis](https://github.com/beyondmetis) No it didn't work for me.,,scikit-video/scikit-video,21
+IssueComment,beyondmetis,2017-06-07T06:14:07.000Z,[@nitingulati7](https://github.com/nitingulati7) I will need to inspect using python3.6 and possibly also a Windows 10 machine to understand what's missing.,,scikit-video/scikit-video,21
+IssueComment,gregnordin,2017-11-09T17:39:33.000Z,"Just a note that I ran into the same problem of sk-video not being able to find ffmpeg, but on Mac OS 10.12.4. I uninstalled sk-video and then followed the directions on the README page and installed sk-video from github and now it works.",,scikit-video/scikit-video,21
+IssueComment,beyondmetis,2017-11-09T20:04:47.000Z,Thanks. It might be getting close to time for a new release.,,scikit-video/scikit-video,21
+IssueComment,gregnordin,2017-11-09T20:28:15.000Z,"Yeah, I would definitely say that if `pip install...` results in this error on Mac OS and Windows, it would be really good to update the code `pip install...` creates a working package. If I weren't so motivated to get it working, and didn't know to look in the issues, I would have given up and tried an alternative. This is not to be critical, just realistic. I really appreciate what you've done in creating this package.",,scikit-video/scikit-video,21
+IssueComment,beyondmetis,2017-11-09T22:20:14.000Z,"I don't have access to a mac right now, so I haven't been able to test pip on that platform. I have tested that pip install sk-video works great on Windows and several Linux flavors. I'm not sure why your system has this issue, but I'm glad you were able to get it working in the end.",,scikit-video/scikit-video,21
+IssueComment,gregnordin,2017-11-10T00:02:11.000Z,"I wish I could point to a concrete reason for the problem, but am glad that this issue was open to direct me toward doing a direct install from the github repository. I probably should have thought of that myself... :)",,scikit-video/scikit-video,21
+IssueComment,carlodri,2017-12-11T08:26:04.000Z,"installed with `pip install sk-video` on Windows 10x64 with python 3.6, no problems at all
+
+UPDATE: no problems with `pip install` also on macOS 10.13.1, python 3.6",,scikit-video/scikit-video,21
+IssueComment,deweysia,2018-03-31T05:03:42.000Z,"[@carlodri](https://github.com/carlodri) I'm getting the same error:  
+assert \_HAS\_FFMPEG, ""Cannot find installation of ffmpeg.""  
+AssertionError: Cannot find installation of ffmpeg.  
+I'm using Windows 10 and did what you suggested.
+
+When I do `where.where('ffmpeg')`  
+It returns: `[]`",,scikit-video/scikit-video,21
+ClosedEvent,beyondmetis,2018-04-22T16:21:41.000Z,"[beyondmetis closed this as completed on Apr 22, 2018",,scikit-video/scikit-video,21

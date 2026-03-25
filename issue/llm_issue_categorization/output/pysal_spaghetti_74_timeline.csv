@@ -1,0 +1,27 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,jGaboardi,2018-08-17T01:08:46Z,network.PointPatterns condense code chunk,https://github.com/pysal/spaghetti/issues/74,pysal/spaghetti,74
+IssueOpened,jGaboardi,2018-08-17T01:08:46Z,"Once [`libpysal`101](https://github.com/pysal/libpysal/pull/101) has be merged the following code chunk in `network.PointPatterns` can be condensed from this:
+
+```
+if idvariable and from_shp:
+    ids = weights.util.get_ids(in_data, idvariable)
+elif idvariable and not from_shp:
+    ids = list(in_data[idvariable])
+else:
+    ids = None
+```
+
+to this:
+
+```
+if idvariable
+    ids = weights.util.get_ids(in_data, idvariable)
+else:
+    ids = None
+```",https://github.com/pysal/spaghetti/issues/74,pysal/spaghetti,74
+LabeledEvent,jGaboardi,2018-08-17T01:08:46Z,package maintenance,,pysal/spaghetti,74
+LabeledEvent,jGaboardi,2018-08-17T01:08:46Z,network allocation,,pysal/spaghetti,74
+AssignedEvent,jGaboardi,2018-08-17T01:08:47Z,jGaboardi assigned jGaboardi,,pysal/spaghetti,74
+MentionedByPR,jGaboardi,2018-09-18T01:01:29Z,condensing idvariable code chunk,https://github.com/pysal/spaghetti/pull/119,pysal/spaghetti,74
+IssueComment,jGaboardi,2018-09-18T01:25:26Z,resolved in [#119](https://github.com/pysal/spaghetti/pull/119),,pysal/spaghetti,74
+ClosedEvent,jGaboardi,2018-09-18T01:25:26Z,Closed by jGaboardi in ,,pysal/spaghetti,74

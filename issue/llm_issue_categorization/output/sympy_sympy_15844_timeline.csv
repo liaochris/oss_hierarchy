@@ -1,0 +1,57 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,oscarbenjamin,2019-01-25T12:54:51Z,Implicitly converting floats to Rational in SymPy APIs,https://github.com/sympy/sympy/issues/15844,sympy/sympy,15844
+IssueOpened,oscarbenjamin,2019-01-25T12:54:51Z,"Does SymPy have any policy on implicit conversion of `float` to `Rational` at API entry points?
+
+It seems to me like there are many functions that work a lot better if you pass in Rationals even for simple numbers like 0.1. I would consider that important advice to users: pass in exact inputs where possible.
+
+On the other hand there are lots of users who really want to be able to write `0.1` instead of `S(1)/10` etc and have SymPy treat it the same. I see this come up often in issues/questions so I think the current behaviour breaks common user expectations.
+
+OTOH I might prefer `0.1` to be treated as exactly `S('0.1000000000000000055511151231257827021181583404541015625')` but I suspect I would be in the minority among users.
+
+I'm asking this because `Point` auto-converts float to Rational (inexactly using `nsimplify`). `Circle` passes some arguments to `Point` but keeps the radius itself so
+
+```
+In [38]: Circle([0.1,0.1],0.1)                                                                                                                 
+Out[38]: Circle(Point2D(1/10, 1/10), 0.100000000000000)
+```
+
+The fix proposed in [#15816](https://github.com/sympy/sympy/pull/15816) is to convert the radius as well but actually I wonder if the mistake is the fact that `Point` does auto-conversion.
+
+This then leads on to questions like what should `is_tangent` do in the presence of floats. Normally a floating point routine for a question like that would be based on some tolerance `return abs(dist) < tol`. Maybe the answer should be put back to users: don't use floats or don't use functions like is\_tangent with floats etc.
+
+See also [#11484](https://github.com/sympy/sympy/issues/11484).",https://github.com/sympy/sympy/issues/15844,sympy/sympy,15844
+IssueComment,oscargus,2019-01-25T16:35:49Z,"What about having a method (maybe that method is `nsimplify`, I do not know), which can guess what a floating point number really is and that is easy/short enough for the users to apply frequently? For example, 3.141593 will be good enough to convert to `pi`. I think that there is something similar in at least Maple.
+
+Very relevant question though!
+
+Also, I think that it can be OK to convert 0.1 to 1/10 given that there is a way to get and use the ""exact"" floating-point representation. Despite being a minority of users, there are some that would like that to happen. Despite being a generally evil idea, can one have two global modes? One where it is OK to convert things like that, maybe default, one where it isn't?",,sympy/sympy,15844
+IssueComment,asmeurer,2019-01-25T19:49:37Z,"`solve` has a `rational` flag which has been quite contentious in the past.
+
+> What about having a method (maybe that method is nsimplify, I do not know), which can guess what a floating point number really is and that is easy/short enough for the users to apply frequently?
+
+There is already some code that does this (yes, from nsimplify), but it is bad IMO. It leads to a lot of problems. See [#12045](https://github.com/sympy/sympy/issues/12045). Also see [#12534](https://github.com/sympy/sympy/issues/12534) and the dozens of linked issues if you want to get a better handle on this stuff.
+
+There is no way for SymPy to distinguish between `0.1`, `1/10`, and `3602879701896397/36028797018963968`. They all produce the exact same floating point number.
+
+On the other hand, treating floats as equal to things that they are only approximately equal to can lead to a lot of issues ([#11707](https://github.com/sympy/sympy/issues/11707)).",,sympy/sympy,15844
+IssueComment,sylee957,2019-01-26T02:36:07Z,"I also think that overdetermination can make the system too much sensitive and make too much undecidable cases.
+
+Once some digits of an expression are floating numbers, I don't think there should be theoritical accuracy to be concerned because a same floating number can be arrived in many ways, from rational and irrational numbers truncated, to aggrevated errors due to multiplications.
+
+I think sympy supports floating points and exact numbers unevaluated in a single expression like
+
+[![](https://user-images.githubusercontent.com/34944973/51781531-1173fd00-215d-11e9-81e8-0641acb01bb9.png)](https://user-images.githubusercontent.com/34944973/51781531-1173fd00-215d-11e9-81e8-0641acb01bb9.png)
+
+But in Mathematica, I think they are automatically absorbed by floating points  
+[![](https://user-images.githubusercontent.com/34944973/51781602-2f8e2d00-215e-11e9-97cd-bc78b90240dc.png)](https://user-images.githubusercontent.com/34944973/51781602-2f8e2d00-215e-11e9-97cd-bc78b90240dc.png)  
+and numerical approximation routines are being used once any floating number is found inside the expression.",,sympy/sympy,15844
+IssueComment,asmeurer,2019-01-26T04:16:59Z,"0.3\*sqrt(3) is left unevaluated only because it could be too expensive in general to evaluate the rest of the expression in a Mul. Imagine it was `0.3*some_large_expression`. And in practice evalf can be slow, especially on things like Sum or Integral.
+
+Function calls like `sqrt` or `sin` will evaluate on floats because that only requires evaluating the function on one float.",,sympy/sympy,15844
+LabeledEvent,oscarbenjamin,2019-01-26T19:17:22Z,core,,sympy/sympy,15844
+MentionedByIssue,sylee957,2019-01-29T00:19:52Z,,https://github.com/sympy/sympy/issues/15872,sympy/sympy,15844
+MentionedByIssue,oscarbenjamin,2019-02-24T21:42:19Z,,https://github.com/sympy/sympy/issues/16045,sympy/sympy,15844
+MentionedByIssue,smichr,2019-04-26T19:47:28Z,,https://github.com/sympy/sympy/issues/4748,sympy/sympy,15844
+IssueComment,smichr,2019-05-29T21:45:49Z,"> OTOH I might prefer `0.1` to be treated as exactly [as high-precision fraction]
+
+This can be handled at instantiation with `Rational(.1)` vs `Rational(str(.1))`",,sympy/sympy,15844

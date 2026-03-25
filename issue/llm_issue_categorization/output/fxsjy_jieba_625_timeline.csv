@@ -1,0 +1,26 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,tukeyone,2018-04-26T10:48:39Z,停词如何添加,https://github.com/fxsjy/jieba/issues/625,fxsjy/jieba,625
+IssueOpened,tukeyone,2018-04-26T10:48:39Z,您好，如何添加停用词，常见的停词表在哪里可以下载呢,https://github.com/fxsjy/jieba/issues/625,fxsjy/jieba,625
+IssueComment,zhbzhbzhbz,2018-07-19T08:23:18Z,停用词表推荐这个：<https://github.com/dongxiexidian/Chinese/blob/master/stopwords.dat>,,fxsjy/jieba,625
+IssueComment,tukeyone,2018-07-23T02:40:34Z,多谢！,,fxsjy/jieba,625
+IssueComment,JimCurryWang,2018-08-27T08:49:54Z,"[@tukeyone](https://github.com/tukeyone) , here is the example for adding the stop words
+
+```
+# build stop word list
+def stopwordslist(filepath):
+    stopwords = [line.strip() for line in open(filepath, 'r').readlines()]
+    return stopwords
+
+def seg_sentence(sentence):
+    sentence_seged = jieba.cut(sentence.strip())
+    # loading stop word list
+    stopwords = stopwordslist(""your_stop_word_txt_file"")  
+    outstr = ''
+    for word in sentence_seged:
+        if word not in stopwords:
+            if word != '\t':
+                outstr += word
+                outstr += "" ""
+    return outstr
+```",,fxsjy/jieba,625
+IssueComment,tukeyone,2018-08-27T09:54:45Z,Thank you ！ this problem has been solved .,,fxsjy/jieba,625

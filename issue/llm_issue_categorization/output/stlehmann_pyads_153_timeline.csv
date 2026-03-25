@@ -1,0 +1,82 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,amarco,2020-08-09T22:11:41Z,read string,https://github.com/stlehmann/pyads/issues/153,stlehmann/pyads,153
+IssueOpened,amarco,2020-08-09T22:11:41Z,"when I do a read\_by\_name and set the type to PLCTYPE\_STRING i get back the first character, if I purposely tell it to read PLCTYPE\_STRING \*9999 something extremely I get back the characters in string plus a boat load of \x0.  
+I am wondering is there a method that can just return and arbitrary length string, or am I required to know the length?
+
+Thanks",https://github.com/stlehmann/pyads/issues/153,stlehmann/pyads,153
+IssueComment,stlehmann,2020-08-17T15:57:23Z,"You don't need to know the length of a string. Just pass PLCTYPE\_STRING and you should be fine. For further questions I kindly ask you to add a minimal reproducable code sample that demonstrates your problem.
+
+Kind Regards  
+Stefan",,stlehmann/pyads,153
+ClosedEvent,stlehmann,2020-08-17T15:57:23Z,Closed by stlehmann in ,,stlehmann/pyads,153
+IssueComment,amarco,2020-08-17T16:19:14Z,"I have a string in twincat defined as
+VAR\_GLOBAL
+MagicID: WSTRING := ""BRIDGERIG"";
+END\_VAR
+In my python code of I do
+currentState=self.plc.read\_by\_name(""GVL\_ExcitAxis.MagicID"", pyads.PLCTYPE\_STRING)
+currentState contains the letter ‘B’ only
+Name
+Value
+Type
+currentState
+'B'
+str
+If I adjust python code to read 10 character
+currentState=self.plc.read\_by\_name(""GVL\_ExcitAxis.MagicID"", pyads.PLCTYPE\_STRING \*10 )
+I get an array of letters where each letter is separated the \x0 for instance
+Name
+Value
+Type
+▶
+currentState
+[b'B', b'\x00', b'R', b'\x00', b'I', b'\x00', b'D', b'\x00', b'G', b'\x00']
+list
+So it appears the in one case it returns a list where every other item in list is the character and the other case it returns a type string of one character.
+So my question still remains on how to read strings from a plc variable without know the length of the string?
+Marco
+From: Stefan Lehmann <notifications@github.com>
+Sent: Monday, August 17, 2020 11:58 AM
+To: stlehmann/pyads <pyads@noreply.github.com>
+Cc: Marco Accardo <Marco.Accardo@RWDI.com>; Author <author@noreply.github.com>
+Subject: Re: [stlehmann/pyads] read string ([#153](https://github.com/stlehmann/pyads/issues/153))
+You don't need to know the length of a string. Just pass PLCTYPE\_STRING and you should be fine. For further questions I kindly ask you to add a minimal reproducable code sample that demonstrates your problem.
+Kind Regards
+Stefan
+—
+You are receiving this because you authored the thread.
+Reply to this email directly, view it on GitHub<[#153 (comment)](https://github.com/stlehmann/pyads/issues/153#issuecomment-674964627)>, or unsubscribe<<https://github.com/notifications/unsubscribe-auth/AAP7VX3NELJL2Z5WS7WEPYTSBFHPHANCNFSM4PZMW2JQ>>.
+
+[…](#)
+
+\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+RWDI - A Platinum Member of Canada's 50 Best Managed Companies
+This communication is intended for the sole use of the party to whom it was addressed and may contain information that is privileged and/or confidential. Any other distribution, copying or disclosure is strictly prohibited. If you received this email in error, please notify us immediately by replying to this email and delete the message without retaining any hard or electronic copies of same. Outgoing emails are scanned for viruses, but no warranty is made to their absence in this email or attachments. If you require any information supplied by RWDI in a different format to facilitate accessibility, contact the sender of the email, email solutions@rwdi.com or call +1.519.823.1311.
+Please be aware that when you contact us with a business query we may collect and use your details for future communications.
+
+\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_",,stlehmann/pyads,153
+IssueComment,amarco,2020-08-17T16:38:06Z,"Ok your comment made me think..
+In Twincat there is a type STRING and a type WSTRING.
+I was using twincat type WSTRING when I changed it to type STRING then python got back what I was expecting and it was of type string.
+So looks like the library could use a PLCTYPE\_WSTRING.
+Marco
+From: Stefan Lehmann <notifications@github.com>
+Sent: Monday, August 17, 2020 11:58 AM
+To: stlehmann/pyads <pyads@noreply.github.com>
+Cc: Marco Accardo <Marco.Accardo@RWDI.com>; Author <author@noreply.github.com>
+Subject: Re: [stlehmann/pyads] read string ([#153](https://github.com/stlehmann/pyads/issues/153))
+You don't need to know the length of a string. Just pass PLCTYPE\_STRING and you should be fine. For further questions I kindly ask you to add a minimal reproducable code sample that demonstrates your problem.
+Kind Regards
+Stefan
+—
+You are receiving this because you authored the thread.
+Reply to this email directly, view it on GitHub<[#153 (comment)](https://github.com/stlehmann/pyads/issues/153#issuecomment-674964627)>, or unsubscribe<<https://github.com/notifications/unsubscribe-auth/AAP7VX3NELJL2Z5WS7WEPYTSBFHPHANCNFSM4PZMW2JQ>>.
+
+[…](#)
+
+\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_
+RWDI - A Platinum Member of Canada's 50 Best Managed Companies
+This communication is intended for the sole use of the party to whom it was addressed and may contain information that is privileged and/or confidential. Any other distribution, copying or disclosure is strictly prohibited. If you received this email in error, please notify us immediately by replying to this email and delete the message without retaining any hard or electronic copies of same. Outgoing emails are scanned for viruses, but no warranty is made to their absence in this email or attachments. If you require any information supplied by RWDI in a different format to facilitate accessibility, contact the sender of the email, email solutions@rwdi.com or call +1.519.823.1311.
+Please be aware that when you contact us with a business query we may collect and use your details for future communications.
+
+\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_\_",,stlehmann/pyads,153

@@ -1,0 +1,40 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,rotten,2015-12-17T17:52:31Z,Invalid table names lead to corrupted files,https://github.com/jmcnamara/XlsxWriter/issues/319,jmcnamara/XlsxWriter,319
+IssueOpened,rotten,2015-12-17T17:52:31Z,"Since you explicitly asked for examples that end up with corrupted (but reparable) xlsx files, here is an easy one to reproduce:
+
+If you start with your example file: <http://xlsxwriter.readthedocs.org/example_tables.html>
+
+And then name the empty data table on line 53 like this:
+
+```
+    worksheet1.add_table('B3:F7', {'name': 'test/broken'})
+```
+
+If you have a ""**/**"" in the name, as I do above, it will cause Excel to complain the file is corrupted.
+
+[I'm using Excel for Mac version 15.16.]",https://github.com/jmcnamara/XlsxWriter/issues/319,jmcnamara/XlsxWriter,319
+IssueComment,rotten,2015-12-17T21:03:09Z,"Another, similar way to corrupt the xlsx is to give two of the tables (even though they are on different sheets) the same name:
+
+```
+worksheet1.add_table('B3:F7', {'name': 'test'})
+```
+
+```
+worksheet2.add_table('B3:F7', {'data': data, 'name': 'test'})
+```
+
+Apparently names have to be globally unique - not just within a sheet.",,jmcnamara/XlsxWriter,319
+IssueComment,jmcnamara,2015-12-18T00:29:14Z,"Excel is very fussy about the allowable table names.
+
+I'll put in some checks to make sure these types of error don't occur in future.
+
+In the meantime point the gun a bit further away from your foot. `;-)`",,jmcnamara/XlsxWriter,319
+LabeledEvent,jmcnamara,2015-12-18T00:29:24Z,bug,,jmcnamara/XlsxWriter,319
+LabeledEvent,jmcnamara,2015-12-18T00:29:24Z,short term,,jmcnamara/XlsxWriter,319
+AssignedEvent,jmcnamara,2015-12-18T00:29:25Z,jmcnamara assigned jmcnamara,,jmcnamara/XlsxWriter,319
+MentionedByCommit,jmcnamara,2016-01-05T23:47:34Z,Added checks for valid worksheet table names.,https://github.com/jmcnamara/XlsxWriter/commit/7ca803a7efc06abbfba2ae7270638af0b3b99a57,jmcnamara/XlsxWriter,319
+MentionedByCommit,jmcnamara,2016-01-06T00:30:23Z,Added checks for duplicate table names.,https://github.com/jmcnamara/XlsxWriter/commit/0fa87094a42c4ca4cba2884e6d5acab334c3c09b,jmcnamara/XlsxWriter,319
+IssueComment,jmcnamara,2016-01-06T01:40:51Z,"Both issues fixes in version 0.7.8, now on PyPi.
+
+Thanks for the report.",,jmcnamara/XlsxWriter,319
+ClosedEvent,jmcnamara,2016-01-06T01:40:51Z,Closed by jmcnamara in ,,jmcnamara/XlsxWriter,319

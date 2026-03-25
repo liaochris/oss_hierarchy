@@ -1,0 +1,15 @@
+diff --git a/docs/source/developer/tests.rst b/docs/source/developer/tests.rst
+index 345eae1db7f..6d002582965 100644
+--- a/docs/source/developer/tests.rst
++++ b/docs/source/developer/tests.rst
+@@ -18,6 +18,10 @@ Linting can be run with:
+ 
+   $ make lint
+ 
++To run tests directly with pytest, or to integrate into your IDE, you can reference
++``tox.ini`` for the appropriate commands and environment variable configuration.
++Testing done without ``C7N_TEST_RUN`` and ``C7N_VALIDATE`` may not match ``tox`` results.
++
+ Operating System Compatibility
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 

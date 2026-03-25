@@ -1,0 +1,57 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,thatch,2021-05-12T16:44:44Z,http_proxy support can issue non-compliant CONNECT requests,https://github.com/grpc/grpc/issues/26227,grpc/grpc,26227
+IssueOpened,thatch,2021-05-12T16:44:44Z,"### What version of gRPC and what language are you using?
+
+grpcio==1.37.1 via python
+
+### What operating system (Linux, Windows,...) and version?
+
+Linux (but built from source using pip)
+
+### What runtime / compiler are you using (e.g. python version or version of gcc)
+
+Python 3.8 and likely clang
+
+### What did you do?
+
+Following up on [googleads/google-ads-python#423](https://github.com/googleads/google-ads-python/issues/423) it appears that with a http proxy set, grpc is can issue CONNECT requests that lack a port number. This was triggered by a change in google-ads in release 10.0.0 that I assume works in the non-proxy case.
+
+### What did you expect to see?
+
+I would expect that either grpc validates that port is present, or grpc adds a default port.
+
+The port is required as part of the ""authority form"", per
+
+<https://datatracker.ietf.org/doc/html/rfc7231#section-4.3.6>  
+<https://datatracker.ietf.org/doc/html/rfc7230#section-5.3.3>
+
+In google-ads==9.0.0, it provides the full form to grpc, and this works.
+
+```
+CONNECT googleads.googleapis.com:443 HTTP/1.0
+```
+
+### What did you see instead?
+
+```
+CONNECT googleads.googleapis.com HTTP/1.0
+```
+
+In google-ads==10.0.0, it omits the port, and grpc passes this along to the proxy which then rejects it as invalid.  
+This shows as ""failed to connect to all addresses"" with no further information unless you enable `GRPC_TRACE`.
+
+More logs are in the linked google-ads issue.
+
+### Anything else we should know about your project / environment?",https://github.com/grpc/grpc/issues/26227,grpc/grpc,26227
+LabeledEvent,thatch,2021-05-12T16:44:44Z,kind/bug,,grpc/grpc,26227
+LabeledEvent,thatch,2021-05-12T16:44:44Z,priority/P2,,grpc/grpc,26227
+AssignedEvent,thatch,2021-05-12T16:44:44Z,thatch assigned nicolasnoble,,grpc/grpc,26227
+IssueComment,ejona86,2021-05-13T18:37:29Z,CC [@yashykt](https://github.com/yashykt),,grpc/grpc,26227
+MentionedByIssue,ejona86,2021-05-13T18:41:21Z,,https://github.com/googleads/google-ads-python/issues/423,grpc/grpc,26227
+MentionedByPR,yashykt,2021-05-21T03:52:55Z,Use default port 443 in HTTP CONNECT request,https://github.com/grpc/grpc/pull/26331,grpc/grpc,26227
+LabeledEvent,yashykt,2021-05-21T03:53:03Z,lang/core,,grpc/grpc,26227
+UnassignedEvent,yashykt,2021-05-21T03:53:08Z,yashykt unassigned nicolasnoble,,grpc/grpc,26227
+AssignedEvent,yashykt,2021-05-21T03:53:09Z,yashykt assigned yashykt,,grpc/grpc,26227
+IssueComment,yashykt,2021-05-21T03:56:34Z,Thanks for pointing it out!,,grpc/grpc,26227
+ClosedEvent,yashykt,2021-06-09T05:44:50Z,Closed by yashykt in #26331,https://github.com/grpc/grpc/pull/26331,grpc/grpc,26227
+MentionedByIssue,dgnemo,2025-09-25T04:53:30Z,,https://github.com/grpc/grpc-go/issues/8607,grpc/grpc,26227

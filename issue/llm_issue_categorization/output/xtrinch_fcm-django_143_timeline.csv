@@ -1,0 +1,43 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,tasawar-hussain,2021-02-02T10:36:29Z,Delete device not working with overriding urls in FCMDeviceAuthorizedViewSet,https://github.com/xtrinch/fcm-django/issues/143,xtrinch/fcm-django,143
+IssueOpened,tasawar-hussain,2021-02-02T10:36:29Z,"explicit URLs Binding to ViewSets does not work for delete method to delete a device, throws 404, but works fine for creating a new device
+
+```
+notification_url_patterns = [
+    path('register_device',
+         FCMDeviceAuthorizedViewSet.as_view({'post': 'create'}), name='create_fcm_device'),
+         
+    path('remove_device/{registration_id}', FCMDeviceAuthorizedViewSet.as_view(
+        {'delete': 'destroy'}), name='delete_fcm_device'), # this does not work
+```
+
+And using a router, it works fine
+
+```
+router = DefaultRouter(trailing_slash=False)
+router.register('devices', FCMDeviceAuthorizedViewSet)
+
+notification_url_patterns = [
+    path('', include(router.urls))
+]
+```
+
+Anything I am missing? as I need to have custom URLs!",https://github.com/xtrinch/fcm-django/issues/143,xtrinch/fcm-django,143
+IssueComment,Arham-Aalam,2021-03-05T07:57:43Z,"I'm searching for the same, seems like they do not have any option for destroy/delete, see:
+
+[fcm-django/fcm\_django/api/rest\_framework.py](https://github.com/xtrinch/fcm-django/blob/d7298d893150882461ef3def9c5ef1691ed70f09/fcm_django/api/rest_framework.py#L106)
+
+Line 106
+in
+[d7298d8](/xtrinch/fcm-django/commit/d7298d893150882461ef3def9c5ef1691ed70f09)
+
+|  |  |
+| --- | --- |
+|  | class DeviceViewSetMixin(object): |
+
+The other approach would be to create a custom view to delete the device ID.  
+Let me know if you found anything?",,xtrinch/fcm-django,143
+IssueComment,tasawar-hussain,2021-03-05T10:44:37Z,[@xtrinch](https://github.com/xtrinch)!,,xtrinch/fcm-django,143
+IssueComment,xtrinch,2021-03-26T21:34:06Z,"I accept pull requests at all times, otherwise it may take a while for me to get to an issue",,xtrinch/fcm-django,143
+LabeledEvent,xtrinch,2021-03-26T21:34:25Z,enhancement,,xtrinch/fcm-django,143
+LabeledEvent,xtrinch,2021-07-21T13:18:16Z,help wanted,,xtrinch/fcm-django,143

@@ -1,0 +1,27 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,OldWorldBoa,2015-05-25T18:42:08Z,Tags cannot be added to a history,https://github.com/galaxyproject/bioblend/issues/145,galaxyproject/bioblend,145
+IssueOpened,OldWorldBoa,2015-05-25T18:42:08Z,"Galaxy commit bit: 32edb07930b17a868ed4088080b8d7fc577d1ce7
+
+This is how I'm calling it:  
+\_historyClient.create\_history\_tag(history.get('id'), ""processed"")  
+such that history is a history object and \_historyClient is the GalaxyInstance.histories wrapper
+
+It looks like it's dying on the server side, but I'm not sure.
+
+Stack Trace and Error Message:  
+Traceback (most recent call last):  
+File ""get\_stats.py"", line 64, in   
+\_historyClient.create\_history\_tag(history.get('id'), ""processed"")  
+File ""/usr/local/lib/python2.7/dist-packages/bioblend/galaxy/histories/**init**.py"", line 314, in create\_history\_tag  
+return Client.\_post(self, payload, url=url)  
+File ""/usr/local/lib/python2.7/dist-packages/bioblend/galaxy/client.py"", line 171, in \_post  
+files\_attached=files\_attached)  
+File ""/usr/local/lib/python2.7/dist-packages/bioblend/galaxyclient.py"", line 104, in make\_post\_request  
+r.status\_code, body=r.text)  
+bioblend.galaxy.client.ConnectionError: Unexpected response from galaxy: 500: {""traceback"": ""Traceback (most recent call last):\n File ""/Warehouse/Users/dbouchard/galaxy/lib/galaxy/web/framework/decorators.py"", line 251, in decorator\n rval = func( self, trans, \_args, \*\_kwargs)\n File ""/Warehouse/Users/dbouchard/galaxy/lib/galaxy/webapps/galaxy/api/item\_tags.py"", line 39, in create\n tag = self.\_apply\_item\_tag( trans, self.tagged\_item\_class, kwd[ self.tagged\_item\_id ], tag\_name, value )\n File ""/Warehouse/Users/dbouchard/galaxy/lib/galaxy/web/base/controller.py"", line 2043, in \_apply\_item\_tag\n tag\_assoc = self.get\_tag\_handler( trans ).apply\_item\_tag( trans, user, tagged\_item, tag\_name, tag\_value )\nTypeError: apply\_item\_tag() takes at most 5 arguments (6 given)\n"", ""err\_msg"": ""Uncaught exception in exposed API method:"", ""err\_code"": 0}",https://github.com/galaxyproject/bioblend/issues/145,galaxyproject/bioblend,145
+MentionedByCommit,jmchilton,2015-05-26T02:32:17Z,Fix tag creation via /tags API endpoints.,https://github.com/jmchilton/galaxy/commit/44c8e74c29293a5827cd526c41b4a5f9f3ece705,galaxyproject/bioblend,145
+MentionedByPR,jmchilton,2015-05-26T02:35:06Z,[15.05] Fix tag creation via /tags API endpoints.,https://github.com/galaxyproject/galaxy/pull/288,galaxyproject/bioblend,145
+IssueComment,jmchilton,2015-05-26T02:36:48Z,Thanks for the report @Airistotal - opened a Galaxy PR with a fix.,,galaxyproject/bioblend,145
+MentionedByCommit,jmchilton,2015-05-27T16:52:26Z,Fix tag creation via /tags API endpoints.,https://github.com/jmchilton/galaxy/commit/2ca8f7665bc1621d8d5ce38dd920ae7ad4eb1680,galaxyproject/bioblend,145
+IssueComment,nsoranzo,2015-05-27T17:01:19Z,"As mentioned by [@jmchilton](https://github.com/jmchilton) this was a Galaxy bug, which is already fixed in `release_15.05`. I've added a specific test in commit [7e24521](https://github.com/galaxyproject/bioblend/commit/7e245216970d32317b5871465b3c6a6f0545ce64) . Thanks again for reporting!",,galaxyproject/bioblend,145
+ClosedEvent,nsoranzo,2015-05-27T17:01:19Z,Closed by nsoranzo in ,,galaxyproject/bioblend,145

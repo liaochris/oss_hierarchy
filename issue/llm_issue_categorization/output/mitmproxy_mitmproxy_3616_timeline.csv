@@ -1,0 +1,120 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,hibari0614,2019-08-14T06:38:33Z,mitmdump is hanging on TLS connect with upstream proxy mode,https://github.com/mitmproxy/mitmproxy/issues/3616,mitmproxy/mitmproxy,3616
+IssueOpened,hibari0614,2019-08-14T06:38:33Z,"I try to use mitmdump to connect SSL website with upstream proxy mode, but it hanging on TLS handshake. mitidump seems did not sent handshake request to website. Below is the step that i running.
+
+Execute mitmdump with below command  
+`mitmdump -s indject_js.py --listen-port 8080 --mode upstream:https://<upstream proxy URL>:443/ --upstream-auth <username>:<password> --ssl-insecure --set upstream_cert=false`
+
+Content of *indject\_js.py*
+
+```
+from mitmproxy.http import HTTPFlow
+from mitmproxy import ctx
+
+inject_js = '''
+Object.defineProperty(navigator, 'plugins', {
+  get: () => [1, 2, 3, 4, 5],
+});
+
+Object.defineProperty(navigator, 'webdriver', {
+  get: () => false,
+});
+'''
+def response(flow: HTTPFlow):
+    if not flow.response.status_code == 200:
+      return
+
+    html = flow.response.text
+    html = html.replace('<head>', '<head>\n    <script>%s</script>' % inject_js)
+    flow.response.text = str(html)
+    ctx.log.info('Inject script success')`
+```
+
+Try using cURL command to check mitmdump whether is work or not, but it hanging on TLS *Client hello* step.
+
+cURL command that i execute as below  
+`curl -x https://localhost:8080/ https://tw.yahoo.com/ -v`
+
+Below is the cURL output of test.
+
+```
+*   Trying 127.0.0.1...
+* TCP_NODELAY set
+* Connected to localhost (127.0.0.1) port 21163 (#0)
+* ALPN, offering http/1.1
+* successfully set certificate verify locations:
+*   CAfile: /etc/ssl/certs/ca-certificates.crt
+  CApath: /etc/ssl/certs
+* (304) (OUT), TLS handshake, Client hello (1):
+* (304) (IN), TLS handshake, Server hello (2):
+* TLSv1.2 (IN), TLS handshake, Certificate (11):
+* TLSv1.2 (IN), TLS handshake, Server key exchange (12):
+* TLSv1.2 (IN), TLS handshake, Server finished (14):
+* TLSv1.2 (OUT), TLS handshake, Client key exchange (16):
+* TLSv1.2 (OUT), TLS change cipher, Client hello (1):
+* TLSv1.2 (OUT), TLS handshake, Finished (20):
+* TLSv1.2 (IN), TLS handshake, Finished (20):
+* SSL connection using TLSv1.2 / ECDHE-RSA-AES128-GCM-SHA256
+* ALPN, server accepted to use http/1.1
+* Proxy certificate:
+*  subject: CN=us-east-027.whiskergalaxy.com
+*  start date: Aug 12 06:28:14 2019 GMT
+*  expire date: Aug 13 06:28:14 2021 GMT
+*  subjectAltName: host ""localhost"" matched cert's ""localhost""
+*  issuer: CN=mitmproxy; O=mitmproxy
+*  SSL certificate verify ok.
+* allocate connect buffer!
+* Establish HTTP proxy tunnel to tw.yahoo.com:443
+> CONNECT tw.yahoo.com:443 HTTP/1.1
+> Host: tw.yahoo.com:443
+> User-Agent: curl/7.58.0
+> Proxy-Connection: Keep-Alive
+> 
+< HTTP/1.1 200 OK
+< Server: nghttpx
+< 
+* Proxy replied 200 to CONNECT request
+* CONNECT phase completed!
+* ALPN, offering h2
+* ALPN, offering http/1.1
+* successfully set certificate verify locations:
+*   CAfile: /etc/ssl/certs/ca-certificates.crt
+  CApath: /etc/ssl/certs
+* (304) (OUT), TLS handshake, Client hello (1):
+* CONNECT phase completed!
+* CONNECT phase completed!
+```
+
+The connect just stop on TLS handshake *Client hello*, no *Server hello* response and mitmdump seems also stuck.
+
+Below is mitmdump output.
+
+```
+Loading script indject_js.py
+Proxy server listening at http://*:8080
+127.0.0.1:60998: clientconnect
+::ffff:127.0.0.1:60998: Establish TLS with client
+::ffff:127.0.0.1:60998: ALPN for client: b'http/1.1'
+::ffff:127.0.0.1:60998: serverconnect
+  -> ('<upstream proxy URL>', 443)
+::ffff:127.0.0.1:60998: Establish TLS with server
+::ffff:127.0.0.1:60998: Certificate verification error for localhost: unable to get local issuer certificate (errno: 20, depth: 1)
+::ffff:127.0.0.1:60998: Ignoring server verification error, continuing with connection
+::ffff:127.0.0.1:60998: ALPN selected by server: http/1.1
+::ffff:127.0.0.1:60998: Establish TLS with server
+::ffff:127.0.0.1:60998: Establish TLS with client
+```
+
+#### System information
+
+Mitmproxy: 5.0.0.dev  
+Python: 3.6.8  
+OpenSSL: OpenSSL 1.1.0i 14 Aug 2018  
+Platform: Linux-4.9.184-linuxkit-x86\_64-with-Ubuntu-18.04-bionic
+
+#### To author: Thank your kindly help",https://github.com/mitmproxy/mitmproxy/issues/3616,mitmproxy/mitmproxy,3616
+IssueComment,mhils,2020-01-03T12:04:39Z,"Sorry for the slow reply, but I can't reproduce this. Any hints?",,mitmproxy/mitmproxy,3616
+IssueComment,hibari0614,2020-01-05T01:53:51Z,"HI  
+For some privacy reasons (My test cases include some proxy authentication and I cannot make it public), would you mind allow me to send email to your for explaining this issues ?",,mitmproxy/mitmproxy,3616
+IssueComment,mhils,2020-12-19T10:04:05Z,"This should be fixed on master. If that's not the case, please open a new issue!",,mitmproxy/mitmproxy,3616
+ClosedEvent,mhils,2020-12-19T10:04:05Z,Closed by mhils in ,,mitmproxy/mitmproxy,3616

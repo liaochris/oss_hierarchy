@@ -1,0 +1,40 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,chlndh,2023-01-17T10:29:29Z,False-positive unsupported-delete-operation,https://github.com/pylint-dev/pylint/issues/8068,pylint-dev/pylint,8068
+IssueOpened,chlndh,2023-01-17T10:29:29Z,"Here a scenario were a false-positive warning is generated with Pylint 2.13.7
+
+test.py
+
+```
+class A:
+    def __init__(self, b=False): 
+        self._m = [] if b else None
+
+    def reset(self):
+        if self._m:
+            del self._m[:]
+```
+
+output:
+
+```
+|test.py|7|16|error|E1138|unsupported-delete-operation|A.reset|test|'self._m' does not support item deletion|
+```",https://github.com/pylint-dev/pylint/issues/8068,pylint-dev/pylint,8068
+LabeledEvent,Pierre-Sassoulas,2023-01-17T12:19:37Z,Control flow,,pylint-dev/pylint,8068
+LabeledEvent,Pierre-Sassoulas,2023-01-17T12:19:45Z,False Positive 🦟,,pylint-dev/pylint,8068
+IssueComment,Pierre-Sassoulas,2023-01-17T12:22:09Z,"I can reproduce in pylint 2.16.0 with the latest astroid supporting is None constraint.
+
+Though if the code was:
+
+```
+class A:
+
+    def __init__(self, b=False): 
+        self._m = [] if b else None
+
+    def reset(self):
+        if self._m is not None:
+            del self._m[:]
+```
+
+Then the error would not be raised.",,pylint-dev/pylint,8068
+MentionedByIssue,liaochris,2026-01-26T05:39:12Z,,https://github.com/liaochris/oss_hierarchy/issues/29,pylint-dev/pylint,8068

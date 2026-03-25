@@ -1,0 +1,26 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,gboutry,2024-06-27T21:27:59Z,Code failure when relation is a peer relation,https://github.com/juju/python-libjuju/issues/1066,juju/python-libjuju,1066
+IssueOpened,gboutry,2024-06-27T21:27:59Z,"juju 3.4.3  
+libjuju 3.5.0.0
+
+Cannot call `app.related_applications()` because it fails when there is a peer relationship:
+
+The following line throws: `ValueError: not enough values to unpack (expected 2, got 1)`.  
+This only happens when the relation is a peer relation.
+
+[python-libjuju/juju/application.py](https://github.com/juju/python-libjuju/blob/b56963442a6deffe46ce1fb5cb41970344263649/juju/application.py#L72)
+
+Line 72
+in
+[b569634](/juju/python-libjuju/commit/b56963442a6deffe46ce1fb5cb41970344263649)
+
+|  |  |
+| --- | --- |
+|  | local\_ep, remote\_ep = rel.endpoints |",https://github.com/juju/python-libjuju/issues/1066,juju/python-libjuju,1066
+LabeledEvent,cderici,2024-07-18T15:53:36Z,hint/3.x,,juju/python-libjuju,1066
+LabeledEvent,cderici,2024-07-18T15:54:25Z,area/relation,,juju/python-libjuju,1066
+IssueComment,github-actions,2024-08-18T02:23:25Z,This issue is marked as incomplete because it has been open 30 days with no activity. Please remove incomplete label or comment or this will be closed in 5 days.,,juju/python-libjuju,1066
+LabeledEvent,github-actions,2024-08-18T02:23:25Z,incomplete,,juju/python-libjuju,1066
+IssueComment,github-actions,2024-08-24T02:20:32Z,This issue was closed because it has been stalled for 5 days with no activity.,,juju/python-libjuju,1066
+ClosedEvent,github-actions,2024-08-24T02:20:33Z,Closed by github-actions in ,,juju/python-libjuju,1066
+IssueComment,hmlanigan,2024-08-27T13:33:17Z,Closed prematurely by the bot.,,juju/python-libjuju,1066

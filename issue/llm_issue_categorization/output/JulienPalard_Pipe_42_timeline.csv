@@ -1,0 +1,24 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,heckad,2019-06-29T20:58:46Z,How to apply function to each element?,https://github.com/JulienPalard/Pipe/issues/42,JulienPalard/Pipe,42
+IssueOpened,heckad,2019-06-29T20:58:46Z,"I want to convert elements to int. It's like `map(int, [1,2,3])`. How to do it?",https://github.com/JulienPalard/Pipe/issues/42,JulienPalard/Pipe,42
+IssueComment,JulienPalard,2019-06-30T09:52:13Z,"We're using the name `select` for this:
+
+```
+>>> ""123"" | select(int) | add
+6
+```
+
+I choose `select` for its similarity with SQL select, and I were having a where:
+
+```
+>>> range(10) | where(lambda x: x % 2 == 0) | select(lambda x: x ** 2) | concat
+'0, 4, 16, 36, 64'
+```
+
+being the equivalent of:
+
+```
+>>> [x ** 2 for x in range(10) if x % 2 == 0]
+[0, 4, 16, 36, 64]
+```",,JulienPalard/Pipe,42
+ClosedEvent,JulienPalard,2019-06-30T09:52:13Z,Closed by JulienPalard in ,,JulienPalard/Pipe,42

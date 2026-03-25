@@ -1,0 +1,48 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,BookGin,2019-10-27T14:59:12Z,Incorrect empty FQDN when no subdomain and domain ,https://github.com/john-kurkowski/tldextract/issues/178,john-kurkowski/tldextract,178
+IssueOpened,BookGin,2019-10-27T14:59:12Z,"When the extract result's subdomain and domain are both empty, it will return an incorrect empty FQDN.
+
+```
+Python 3.6.7 (default, Oct 22 2018, 11:32:17) 
+[GCC 8.2.0] on linux
+Type ""help"", ""copyright"", ""credits"" or ""license"" for more information.
+>>> import tldextract
+>>> tldextract.__version__
+'2.2.0'
+>>> tldextract.extract('http://s3.amazonaws.com/')
+ExtractResult(subdomain='', domain='', suffix='s3.amazonaws.com')
+>>> tldextract.extract('http://s3.amazonaws.com/').fqdn
+''
+>>> tldextract.extract('http://blogspot.com/')
+ExtractResult(subdomain='', domain='', suffix='blogspot.com')
+>>> tldextract.extract('http://blogspot.com/').fqdn
+''
+```
+
+[#174](https://github.com/john-kurkowski/tldextract/issues/174) would be a related issue but it's not the same.
+
+Is this check really necessary?
+
+[tldextract/tldextract/tldextract.py](https://github.com/john-kurkowski/tldextract/blob/d6574145f76d916ce978eeb898c9e022cf31b87f/tldextract/tldextract.py#L121-L124)
+
+Lines 121 to 124
+in
+[d657414](/john-kurkowski/tldextract/commit/d6574145f76d916ce978eeb898c9e022cf31b87f)
+
+|  |  |
+| --- | --- |
+|  | if self.domain and self.suffix: |
+|  | # self is the namedtuple (subdomain domain suffix) |
+|  | return '.'.join(i for i in self if i) |
+|  | return '' |",https://github.com/john-kurkowski/tldextract/issues/178,john-kurkowski/tldextract,178
+IssueComment,john-kurkowski,2019-11-27T19:54:30Z,"Ugh, that is unintuitive. [Private domains](https://github.com/john-kurkowski/tldextract/tree/2.2.2#public-vs-private-domains) strike again. The check was originally for e.g. `tldextract.extract('localhost')`, where there is no FQDN to reconstruct. It didn't consider private domains.
+
+Like [this comment](https://github.com/john-kurkowski/tldextract/issues/138#issuecomment-332085482) in [#138](https://github.com/john-kurkowski/tldextract/issues/138), if we add a way for each suffix to know whether it is private or not, we could change the check to something like this.
+
+```
+if self.suffix and (self.domain or self.is_private):
+```",,john-kurkowski/tldextract,178
+LabeledEvent,floer32,2020-03-23T20:34:07Z,low priority: caller can pre/post-process,,john-kurkowski/tldextract,178
+MentionedByPR,elliotwutingfeng,2023-07-12T04:43:02Z,fqdn() to always include suffix if private suffix enabled and private suffix exists,https://github.com/john-kurkowski/tldextract/pull/300,john-kurkowski/tldextract,178
+ClosedEvent,john-kurkowski,2023-09-13T23:30:14Z,Closed by john-kurkowski in #300,https://github.com/john-kurkowski/tldextract/pull/300,john-kurkowski/tldextract,178
+MentionedByCommit,john-kurkowski,2023-09-13T23:30:14Z,Always include suffix if private suffix enabled and private suffix ex…,https://github.com/john-kurkowski/tldextract/commit/789f6efff5250e0d49456451bf8ad73537ba862c,john-kurkowski/tldextract,178

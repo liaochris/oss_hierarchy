@@ -1,0 +1,230 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,DayalStrub,2021-08-24T18:09:38Z,A question on keyphrases that are subsets of others and overlapping Spans,https://github.com/DerwenAI/pytextrank/issues/193,DerwenAI/pytextrank,193
+IssueOpened,DayalStrub,2021-08-24T18:09:38Z,"I think the current implementation returns keyphrases that are potential subsets of each other, that this is due to the use of `noun_chunks` and `ents`, and that this is not the desired output. Specifically, if a document has an entity that is a superset (as far as span start and end is concerned) of a noun chunk (or vice-versa), and both contain a key token, then both will be returned as keyphrases.
+
+While also/possibly linked to the issue of entity linkage (which I'd love to know more about!), this can simply be a matter of defining ""entity"" boundaries and a ""duplication"" issue, as the example below with ""Seouls Four Seasons hotel"" and ""Four Seasons"", where I believe one keyphrase is enough and having both is confusing, demonstrates.
+
+*Am I missing something? Is this the desired logic?*
+
+### Example:
+
+```
+from spacy.util import filter_spans
+import pytextrank
+import en_core_web_sm
+
+nlp = en_core_web_sm.load()
+nlp.add_pipe(""textrank"", last=True);
+
+# from dat/lee.txt
+text = """"""
+After more than four hours of tight play and a rapid-fire endgame, Google's artificially intelligent Go-playing computer system has won a second contest against grandmaster Lee Sedol, taking a two-games-to-none lead in their historic best-of-five match in downtown Seoul.  The surprisingly skillful Google machine, known as AlphaGo, now needs only one more win to claim victory in the match. The Korean-born Lee Sedol will go down in defeat unless he takes each of the match's last three games. Though machines have beaten the best humans at chess, checkers, Othello, Scrabble, Jeopardy!, and so many other games considered tests of human intellect, they have never beaten the very best at Go. Game Three is set for Saturday afternoon inside Seoul's Four Seasons hotel.  The match is a way of judging the suddenly rapid progress of artificial intelligence. One of the machine-learning techniques at the heart of AlphaGo has already reinvented myriad online services inside Google and other big-name Internet companies, helping to identify images, recognize commands spoken into smartphones, improve search engine results, and more. Meanwhile, another AlphaGo technique is now driving experimental robotics at Google and places like the University of California at Berkeley. This week's match can show how far these technologies have come - and perhaps how far they will go.  Created in Asia over 2,500 year ago, Go is exponentially more complex than chess, and at least among humans, it requires an added degree of intuition. Lee Sedol is widely-regarded as the top Go player of the last decade, after winning more international titles than all but one other player. He is currently ranked number five in the world, and according to Demis Hassabis, who leads DeepMind, the Google AI lab that created AlphaGo, his team chose the Korean for this all-important match because they wanted an opponent who would be remembered as one of history's great players.  Although AlphaGo topped Lee Sedol in the match's first game on Wednesday afternoon, the outcome of Game Two was no easier to predict. In his 1996 match with IBM's Deep Blue supercomputer, world chess champion Gary Kasparov lost the first game but then came back to win the second game and, eventually, the match as a whole. It wasn't until the following year that Deep Blue topped Kasparov over the course of a six-game contest. The thing to realize is that, after playing AlphaGo for the first time on Wednesday, Lee Sedol could adjust his style of play - just as Kasparov did back in 1996. But AlphaGo could not. Because this Google creation relies so heavily on machine learning techniques, the DeepMind team needs a good four to six weeks to train a new incarnation of the system. And that means they can't really change things during this eight-day match.  ""This is about teaching and learning,"" Hassabis told us just before Game Two. ""One game is not enough data to learn from - for a machine - and training takes an awful lot of time.""
+""""""
+
+doc = nlp(text)
+
+key_spans = []
+for phrase in doc._.phrases:
+    for chunk in phrase.chunks:
+        key_spans.append(chunk)
+
+print(len(key_spans))
+
+full_set = set([p.text for p in doc._.phrases])
+
+print(full_set)
+
+print(len(filter_spans(key_spans)))
+
+sub_set = set([pytextrank.util.default_scrubber(p) for p in filter_spans(key_spans)])
+
+print(sub_set)
+
+print(full_set - sub_set)
+
+print(sub_set - full_set)
+```
+
+### Possible solution?:
+
+```
+all_spans = list(self.doc.noun_chunks) + list(self.doc.ents)
+filtered_spans = filter_spans(all_spans)
+filtered_phrases = self._collect_phrases(filtered_spans, self.ranks) # replacing all_phrases
+```
+
+instead of
+
+```
+nc_phrases: typing.Dict[Span, float] = self._collect_phrases(self.doc.noun_chunks, self.ranks)
+ent_phrases: typing.Dict[Span, float] = self._collect_phrases(self.doc.ents, self.ranks)
+all_phrases: typing.Dict[Span, float] = { **nc_phrases, **ent_phrases }
+```
+
+see
+
+[pytextrank/pytextrank/base.py](https://github.com/DerwenAI/pytextrank/blob/29339027b905844af0064ed9a0326e2578f21bf6/pytextrank/base.py#L362)
+
+Line 362
+in
+[2933902](/DerwenAI/pytextrank/commit/29339027b905844af0064ed9a0326e2578f21bf6)
+
+|  |  |
+| --- | --- |
+|  | all\_phrases: typing.Dict[Span, float] = { \*\*nc\_phrases, \*\*ent\_phrases } |
+
+Note:
+
+* My understanding is that `self._get_min_phrases` is doing something else.
+* [`spacy.util.filter_spans`](https://github.com/explosion/spaCy/blob/d94ddd568691cfa9d56b353173237afe1f328b43/spacy/util.py#L1118) simply looks for the (first) longest span, which might not be the best solution.",https://github.com/DerwenAI/pytextrank/issues/193,DerwenAI/pytextrank,193
+IssueComment,Ankush-Chander,2021-08-29T05:20:22Z,"Hi [@DayalStrub](https://github.com/DayalStrub),  
+Thanks for the detailed analysis.  
+As you rightly pointed out there is an overlap between the output phrases that we get as textrank output. Overlapping phrases introduces redundancy which is problematic during *presentation*.
+
+Here are few pointers that might be helpful.
+
+1. ""Seouls Four Seasons hotel"" and ""Four Seasons"" are two valid phrases that characterises the document under consideration. Let""s say we want to index all the key phrases in the document so that we can do a keyword lookup on the corpus later on. In that case we will be interested in all the variations not just the most specific one. So applying filter\_span inside might lead to loss of information.
+2. `filter_spans` is helpful when the variations being picked up are subset of each other but it is very well possible that variation might occur independently and still introduce redundancy in the final output.
+3. I am assuming your solution requires a presentation fix that eliminates variations based on information content already covered.
+
+Here""s a post processing step(modification of `filter_spans` in text space) that might be helpful with minor changes.
+
+```
+def filter_redundant_phrases(spans: Iterable[Span]) -> List[Span]:
+    """"""Filter a sequence of phrases and remove overlaps. Useful to eliminate redundancy
+    phrases (Iterable[Str]): The spans to filter.
+    RETURNS (List[str]): The filtered spans.
+    """"""
+
+    get_sort_key = lambda text: len(text.split())
+    sorted_spans = sorted(spans, key=get_sort_key, reverse=True)
+    filtered_spans = []
+    seen_tokens = set()
+    for span in sorted_spans:
+        phrase = span.text
+        phrase_components = phrase.split()
+        p_component_set = set(phrase_components)
+        redundancy_score = float(len(p_component_set.intersection(seen_tokens))) / float(len(p_component_set))
+        if redundancy_score > .6:
+            print(f""******skip {phrase}: {redundancy_score}"")
+            continue
+        filtered_spans.append(span)
+        seen_tokens.update(phrase_components)
+
+    return filtered_spans
+```",,DerwenAI/pytextrank,193
+IssueComment,DayalStrub,2021-08-30T17:25:51Z,"Hi [@Ankush-Chander](https://github.com/Ankush-Chander),
+
+And thanks for your detailed reply.
+
+I agree this is part of a bigger redundancy problem, and that this is specific to ""presentation"", by which I'm assuming you mean post TextRank score claculation.
+
+Regarding your points
+
+1. In the example you give of wanting to index the (document and) keyphrases for lookup/information retrieval, I think that choosing the longer span would actually do the trick as e.g. searching for ""four seasons"" when the only keyphrase is ""Seouls Four Season Hotel"" would still return the document/keyphrase, even without the ""subset"" keyphrase ""Four Season"" (at least with most scoring functions). Have I missed your point?
+2. I agree that  
+   a) `filter_spans` might not implement the desired logic for keyphrases,  
+   b) sorting out this ""overap"" will not remove all redundancy;  
+   but I do think it makes sense to not return overlapping phrases, and wonder whether it's worth addressing this issue separately from the rest of the ""redundancy"" issue. One option is however to expect that the upstream choice of `noun_chunk`s and `ent`s is improved/works and that this problem would not occur, but in this case I would imaging that most of the time we wouldn't need to use both `noun_chunk`s and `ent`s to construct key phrases, and noun chunks would suffice.
+
+I do see that there are risks with filtering spans. Keeping only the longer span risks keeping more noise, say if spaCy mislabels tokens and puts together a long, noisy noun chunk or entity.
+
+Your `filter_redundant_phrases` is a little harsh, but gives interesting results already as is. Thanks. I had also looked into spacy similarity (`phrase_1.similarity(phrase_2`), but this is possibly even broader and relies on decent embeddings.
+
+Are you interested in dealing with the ""overlapping keyphrases"", or rather leave as is?
+
+Are you interested in post-processing phrases more generally, inc. filtering along the lines you suggest, maybe choosing what parts of speech to retain in phrases (similarly to `pos_kept` to remove `DET`s, etc. but from the output), and giving the user options to deal with redundancy? I ask because I find myself sometimes post-processing keyphrases, and looking at `chunks[0]` for a given phrase, and it all feels a little ""late"" as PyTextRank has already packaged everything nicely.",,DerwenAI/pytextrank,193
+IssueComment,Ankush-Chander,2021-08-30T23:56:51Z,"> In the example you give of wanting to index the (document and) keyphrases for lookup/information retrieval, I think that choosing the longer span would actually do the trick as e.g. searching for ""four seasons"" when the only keyphrase is ""Seouls Four Season Hotel"" would still return the document/keyphrase, even without the ""subset"" keyphrase ""Four Season"" (at least with most scoring functions). Have I missed your point?
+
+Matches are expensive as it requires scoring. So we tend to reduce the search space by `filtering` documents containing certain keywords.  
+To that end we have two alternatives here:
+
+1. use `match_phrase` without worrying about variations(works for small corpus but slows down as corpus grows.). This returns `natural language processing` results also if you just query for `language processing`
+2. use `term filter` to reduce search space by indexing all relevant variations.
+
+I personally go with 2nd option while indexing/retrieval. Considering both ents and noun\_chunks helps because noun\_chunks might take a phrase entirely(Seoul""s Four Season Hotel) while ents can bring in ""Four Season Hotel""
+
+> Are you interested in post-processing phrases more generally, inc. filtering along the lines you suggest, maybe choosing what parts of speech to retain in phrases (similarly to pos\_kept to remove DETs, etc. but from the output), and giving the user options to deal with redundancy? I ask because I find myself sometimes post-processing keyphrases, and looking at chunks[0] for a given phrase, and it all feels a little ""late"" as PyTextRank has already packaged everything nicely.
+
+You are right. pytextrank provides scrubber for this purpose.  
+For me scrubber has two-fold use.
+
+1. To create equivalence classes of all the phrases that occur in the document.  
+   Eg: document: [""a document"", ""the document"", ""their document""]  
+   This ensures that all these variations are treated as same by textrank.
+2. Then you can use these classes(`document` instead of `a document`) for presentation purpose by without the need of cleaning the chunks involved.
+
+Following discussions should help:
+
+1. issue [Is their a way we can prevent stop words from being part of ranked phrases? #172](https://github.com/DerwenAI/pytextrank/issues/172)
+2. issue [[suggestion] use Span in scrubber? #180](https://github.com/DerwenAI/pytextrank/issues/180)
+3. [allow span as scrubber argument. #181](https://github.com/DerwenAI/pytextrank/pull/181)",,DerwenAI/pytextrank,193
+IssueComment,DayalStrub,2021-09-01T08:55:09Z,"Thanks [@Ankush-Chander](https://github.com/Ankush-Chander)!
+
+> You are right. pytextrank provides scrubber for this purpose.
+
+I hadn't realised the full power of the scrubber - as I found the docstrings a bit confusing and the rendered documentation doesn't have your example - which is a pity, as it is indeed quite powerful! Also, I think your example in the test scripts, removing `DET`s is very nice, and it might be good to have in the examples notebook.
+
+*[One potential issue with the `scrubber` that I found is that it returned a few `Phrases` with an empty `text`. Of course this was just because my text was noisy and I was scrubbing noise, but it might be worth removing these ""empty"" phrases from the final list returned by TextRank, though not sure how.]*
+
+I will play about with the `scrubber` and some other post-processing/redundancy removal, along the lines we talked about above, given the scrubber doesn't really cover that.",,DerwenAI/pytextrank,193
+IssueComment,DayalStrub,2021-09-01T08:56:24Z,"Coming back to the original overlap issue I raise, I was wondering whether it could make sense to have a `phrase_types = [""noun_chunks"", ""ent""]` in `BaseTextRank`, so the user could decide to switch off entities, or even noun chunks, by having something like this.
+
+```
+all_phrases: typing.Dict[Span, float] = {}
+for phrase_type in  in phrase_types:
+  phrases: typing.Dict[Span, float] = self._collect_phrases(self.doc.phrase_type, self.ranks)
+  all_phrases = {**all_phrases, **phrases}
+```
+
+Of course, I am currently removing entitites by using `nlp.add_pipe(""textrank"", before=""ner"")`, so maybe it's overkill.
+
+This could also be extended to filter the entity types, and e.g. not keep `CARDINAL`, `DATE`, or others deemed less important with something like `phrase_types = {""noun_chunks"": [], ""ent"": [""PERSON"", ""GPE"", ""ORG""]}`. Though I wonder whether this is contrary to the goal of letting TextRank do it's thing on the text - just thinking out loud, so happy to hear that this is a bad idea.",,DerwenAI/pytextrank,193
+IssueComment,Ankush-Chander,2021-09-01T16:53:02Z,"Named entities and noun chunking differes as spacy models get updated so I like to have as much control with myself instead of the pytextrank. Hence over use of scrubber.
+
+> This could also be extended to filter the entity types, and e.g. not keep CARDINAL, DATE, or others deemed less important with something like phrase\_types = {""noun\_chunks"": [], ""ent"": [""PERSON"", ""GPE"", ""ORG""]}.
+
+I would handle this requirement by assigning undesirable phrases to an equivalence class ""INELIGIBLE\_PHRASES"" by adding these lines in my scrubber while desirable phrases get their cleaned text.
+
+```
+        if text_span[0].ent_type_:
+            # ignore named entities
+            return ""INELIGIBLE_PHRASE""
+
+        if text_span.label_ in (""PERSON"", ""GPE"", ""ORG""):
+            # ignore specific entity types
+            return ""INELIGIBLE_PHRASE""
+```
+
+Then I ignore INELIGIBLE\_PHRASE altogether.",,DerwenAI/pytextrank,193
+IssueComment,DayalStrub,2021-09-03T08:19:03Z,"Oh wow, you do really put the scrubber to good/multiple use. Hadn't thought of using it also to ""post"" filter phrase types, ents etc. Thanks for the examples!",,DerwenAI/pytextrank,193
+IssueComment,Ankush-Chander,2021-09-04T04:14:07Z,"Hey [@DayalStrub](https://github.com/DayalStrub)  
+Glad to have this detailed discussion with you.
+
+I was curious what use case you are trying to solve using `pytextrank`.
+
+`Scrubber` documentation so far can be found [here](https://github.com/DerwenAI/pytextrank/blob/main/examples/sample.ipynb). It""s yet to be reflected in example website.  
+Any suggestions on how we can improve this topic""s documentation is welcome. A PR on documentation changes would be even better.
+
+Thanks  
+Ankush",,DerwenAI/pytextrank,193
+IssueComment,DayalStrub,2021-09-10T12:06:33Z,"Sorry for the late reply. It's been a busy week!
+
+I've added a few examples of scrubbing (yours) in [#197](https://github.com/DerwenAI/pytextrank/pull/197) .
+
+Re. the use case, we are experimenting really. We get a load of documents, of all types (Word, Emails, Powerpoints, etc.), and have a way for people to search and inspect them, so we were looking into providing keyphrases as metadata, so the users can
+
+* quickly see the top keyphrases for a document (displayed in a table or side by side to content) - which is why i was bothered by duplication, DETs, etc. as it's for a high level visual inspection
+* search for specific keyphrases - which would potentially improve simply searching for the phrase in the text by adding the fact that it's been returned as key. the metadata and the document get indexed, so searching for certain words in a keyphrase is fine so not having ""duplicates"" is also fine, and i was hoping to get away with the same set of keyphrases for both uses.
+
+We don't yet have feedback from the users as to whether they are finding it useful though.",,DerwenAI/pytextrank,193
+LabeledEvent,ceteri,2021-10-10T01:03:15Z,enhancement,,DerwenAI/pytextrank,193
+IssueComment,Ankush-Chander,2022-02-01T17:32:03Z,"Hi [@DayalStrub](https://github.com/DayalStrub) ,  
+Quite an interesting use case.
+
+I think we can consider this issue resolved.  
+[@ceteri](https://github.com/ceteri)",,DerwenAI/pytextrank,193
+ClosedEvent,ceteri,2022-02-01T17:47:44Z,Closed by ceteri in ,,DerwenAI/pytextrank,193
+IssueComment,DayalStrub,2022-02-01T18:03:49Z,"Thanks for closing.
+
+And sorry for not coming back to it and updating you on how it was received. As always, we're having difficulties getting people used to the new workflow and more importantly in quantifying whether it helps or not.",,DerwenAI/pytextrank,193

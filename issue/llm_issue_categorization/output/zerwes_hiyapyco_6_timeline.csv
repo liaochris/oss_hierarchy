@@ -1,0 +1,26 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,dmbryson,2015-09-02T19:31:02Z,import of hiyapyco __version__ in setup.py causes pip install failures,https://github.com/zerwes/hiyapyco/issues/6,zerwes/hiyapyco,6
+IssueOpened,dmbryson,2015-09-02T19:31:02Z,"Importing hiyapyco in setup.py causes pip install failures when PyYAML (and Jinja2) have not previously been installed in a virtualenv.
+
+Collecting PyYAML==3.11 (from ...)
+Using cached PyYAML-3.11.tar.gz
+Collecting HiYaPyCo==0.4.1 (from ...)
+Using cached HiYaPyCo-0.4.1.tar.gz
+Complete output from command python setup.py egg\_info:
+Traceback (most recent call last):
+File """", line 20, in
+File ""/private/var/folders/f7/js66bsc95mq6qp9b178zvngr0000gq/T/pip-build-oyKfvh/HiYaPyCo/setup.py"", line 10, in
+from hiyapyco import \*\*version\*\* as hiyapycoversion
+File ""hiyapyco/\*\*init\*\*.py"", line 24, in
+import yaml
+ImportError: No module named yaml
+
+```
+----------------------------------------
+```
+
+Command ""python setup.py egg\_info"" failed with error code 1 in /private/var/folders/f7/js66bsc95mq6qp9b178zvngr0000gq/T/pip-build-oyKfvh/HiYaPyCo",https://github.com/zerwes/hiyapyco/issues/6,zerwes/hiyapyco,6
+MentionedByCommit,zerwes,2015-09-03T13:13:39Z,again: fix for issue [#6](https://github.com/zerwes/hiyapyco/issues/6): dh clean safe,https://github.com/zerwes/hiyapyco/commit/56337ba7c88a0e7982edd5681cda58e79c4cadbd,zerwes/hiyapyco,6
+IssueComment,zerwes,2015-09-03T13:18:37Z,"thx for the hint  
+should be fixed w/ release 0.4.3",,zerwes/hiyapyco,6
+ClosedEvent,zerwes,2015-09-03T13:18:37Z,Closed by zerwes in ,,zerwes/hiyapyco,6

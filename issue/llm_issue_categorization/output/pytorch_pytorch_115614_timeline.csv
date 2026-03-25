@@ -1,0 +1,28 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,suo,2023-12-12T05:22:27Z,Make test_public_bindings.py a lint,https://github.com/pytorch/pytorch/issues/115614,pytorch/pytorch,115614
+IssueOpened,suo,2023-12-12T05:22:27Z,"Can we make this a lint instead of a test? Seems cheap enough to check as part of our linter suite, and it's mildly annoying to put up a PR and have it fail tests on something trivial.
+
+cc [@albanD](https://github.com/albanD) :)",https://github.com/pytorch/pytorch/issues/115614,pytorch/pytorch,115614
+LabeledEvent,albanD,2023-12-12T21:07:56Z,feature,,pytorch/pytorch,115614
+LabeledEvent,albanD,2023-12-12T21:07:56Z,better-engineering,,pytorch/pytorch,115614
+LabeledEvent,albanD,2023-12-12T21:07:56Z,module: python frontend,,pytorch/pytorch,115614
+LabeledEvent,soulitzer,2023-12-13T13:48:10Z,triaged,,pytorch/pytorch,115614
+IssueComment,albanD,2023-12-13T19:59:59Z,"We can easily duplicate it as both a test and linter. But it will make any run of lintrunner take >10s (the time to import every submodule within PT).  
+If you're fine with that, we can simply add
+
+```
+[[linter]]
+code = 'PUBLIC_API_CHECKS'
+include_patterns = ['**']
+exclude_patterns = [
+    'fb/**',
+    '**/fb/**',
+]
+command = [
+    'python3',
+    'test/test_public_bindings.py'
+]
+```",,pytorch/pytorch,115614
+IssueComment,suo,2023-12-13T23:08:56Z,"lintrunner passes a list of files to check, so one way to reduce the time taken is to only check modules that have been edited. This would make implementing the linter less trivial though.",,pytorch/pytorch,115614
+LabeledEvent,albanD,2023-12-14T17:26:33Z,actionable,,pytorch/pytorch,115614
+IssueComment,albanD,2023-12-14T17:27:40Z,I would be happy to review a PR refactoring the code to be able to check only specific submodules to make linting fast while preserving the current test.,,pytorch/pytorch,115614

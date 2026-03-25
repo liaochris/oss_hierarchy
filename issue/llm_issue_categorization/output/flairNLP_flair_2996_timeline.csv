@@ -1,0 +1,11 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,rayamoh,2022-11-23T20:20:06Z,flair erroring out in libcublasLt.so.11 module,https://github.com/flairNLP/flair/issues/2996,flairNLP/flair,2996
+IssueOpened,rayamoh,2022-11-23T20:20:06Z,"Using flair 0.11.3. Getting below error for from flair.data import Sentence. Not clear on what is causing the issue. It worked on local laptop but running in AzureML Compute instance giving below error. One observation - In local flair did not install nvidia-cuda-runtime-cu11 & other nvidia related packages. Below error seems to be nvidia related packages. Can you please help!
+
+sentencepiece 0.1.97  
+nvidia-cublas-cu11 11.10.3.66
+
+`from flair.data import Sentence File ""/anaconda/envs/honeybee/lib/python3.10/site-packages/flair/__init__.py"", line 5, in <module> import torch File ""/anaconda/envs/honeybee/lib/python3.10/site-packages/torch/__init__.py"", line 191, in <module> _load_global_deps() File ""/anaconda/envs/honeybee/lib/python3.10/site-packages/torch/__init__.py"", line 153, in _load_global_deps ctypes.CDLL(lib_path, mode=ctypes.RTLD_GLOBAL) File ""/anaconda/envs/honeybee/lib/python3.10/ctypes/__init__.py"", line 374, in __init__ self._handle = _dlopen(self._name, mode) OSError: /anaconda/envs/honeybee/lib/python3.10/site-packages/torch/lib/../../nvidia/cublas/lib/libcublas.so.11: undefined symbol: cublasLtGetStatusString, version libcublasLt.so.11`",https://github.com/flairNLP/flair/issues/2996,flairNLP/flair,2996
+LabeledEvent,rayamoh,2022-11-23T20:20:06Z,question,,flairNLP/flair,2996
+IssueComment,rayamoh,2022-11-23T20:51:11Z,export LD\_LIBRARY\_PATH = <path to nvidia cublas/lib/ in conda environment> solved this issue,,flairNLP/flair,2996
+ClosedEvent,rayamoh,2022-11-23T20:51:11Z,Closed by rayamoh in ,,flairNLP/flair,2996

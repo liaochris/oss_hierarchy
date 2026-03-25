@@ -1,0 +1,166 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,wyf0912,2020-12-24T10:48:03Z,.parameters() is empty in forward when using DataParallel,https://github.com/pytorch/pytorch/issues/49828,pytorch/pytorch,49828
+IssueOpened,wyf0912,2020-12-24T10:48:03Z,"## 🐛 Bug
+
+## To Reproduce
+
+code
+
+```
+import torch
+import torch.nn as nn
+
+
+class Net(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc = nn.Linear(5, 1)
+        self.cnn = nn.Conv2d(1, 1, 1, 1, 1)
+
+    def forward(self, x):
+        print('params list:', list(self.parameters()))
+        print('params dict:', self._parameters.items())
+        return x
+
+
+if __name__ == '__main__':
+    net = Net().cuda()
+    net = nn.DataParallel(net)
+
+    net(torch.rand(4, 5))
+```
+
+The output is as follows:
+
+```
+params list: []
+params list: []
+params dict: odict_items([])
+params dict: odict_items([])
+params list: []
+params list: []
+params dict: odict_items([])
+params dict: odict_items([])
+```
+
+Both parameters() and \_parameters are empty.
+
+## Expected behavior
+
+Output the parameters of the module
+
+## Environment
+
+PyTorch version: 1.7.1  
+Is debug build: False  
+CUDA used to build PyTorch: 10.1  
+ROCM used to build PyTorch: N/A
+
+OS: Ubuntu 16.04.6 LTS (x86\_64)  
+GCC version: (Ubuntu 5.4.0-6ubuntu1~16.04.11) 5.4.0 20160609  
+Clang version: Could not collect  
+CMake version: version 3.5.1
+
+Python version: 3.8 (64-bit runtime)  
+Is CUDA available: True  
+CUDA runtime version: Could not collect  
+GPU models and configuration:  
+GPU 0: GeForce RTX 2080 Ti  
+GPU 1: GeForce RTX 2080 Ti  
+GPU 2: GeForce RTX 2080 Ti  
+GPU 3: GeForce RTX 2080 Ti
+
+Nvidia driver version: 418.67  
+cuDNN version: /usr/lib/x86\_64-linux-gnu/libcudnn.so.7.6.3  
+HIP runtime version: N/A  
+MIOpen runtime version: N/A
+
+Versions of relevant libraries:  
+[pip3] numpy==1.19.2  
+[pip3] torch==1.7.1  
+[pip3] torchaudio==0.7.0a0+a853dff  
+[pip3] torchvision==0.8.2  
+[conda] blas 1.0 mkl  
+[conda] cudatoolkit 10.1.243 h6bb024c\_0  
+[conda] mkl 2020.2 256  
+[conda] mkl-service 2.3.0 py38he904b0f\_0  
+[conda] mkl\_fft 1.2.0 py38h23d657b\_0  
+[conda] mkl\_random 1.1.1 py38h0573a6f\_0  
+[conda] numpy 1.19.2 py38h54aff64\_0  
+[conda] numpy-base 1.19.2 py38hfa32c7d\_0  
+[conda] pytorch 1.7.1 py3.8\_cuda10.1.243\_cudnn7.6.3\_0 pytorch  
+[conda] torchaudio 0.7.2 py38 pytorch  
+[conda] torchvision 0.8.2 py38\_cu101 pytorch
+
+cc [@albanD](https://github.com/albanD) [@mruberry](https://github.com/mruberry) [@jbschlosser](https://github.com/jbschlosser)",https://github.com/pytorch/pytorch/issues/49828,pytorch/pytorch,49828
+IssueComment,AlexanderDKazakov,2020-12-25T15:40:41Z,"I have the same issue ('1.6.0+cu101' and '1.7.1+cu110').
+
+cuDNN version: /usr/lib/x86\_64-linux-gnu/libcudnn.so.8.0.5  
+Cuda compilation tools, release 11.1, V11.1.105  
+Build cuda\_11.1.TC455\_06.29190527\_0  
+Driver Version: 455.45.01
+
+GPU models: 2x Quadro M4000",,pytorch/pytorch,49828
+IssueComment,ngimel,2020-12-25T20:49:35Z,"This is expected. `.parameters()` returns leaf variables, ""parameters"" in DataParallel replicas are not leafs (they are computed from the base model parameters.",,pytorch/pytorch,49828
+LabeledEvent,ngimel,2020-12-25T21:01:54Z,module: data parallel,,pytorch/pytorch,49828
+LabeledEvent,ngimel,2020-12-25T21:01:59Z,triaged,,pytorch/pytorch,49828
+LabeledEvent,ngimel,2020-12-25T21:02:18Z,module: nn,,pytorch/pytorch,49828
+IssueComment,wyf0912,2020-12-26T06:10:25Z,"> This is expected. `.parameters()` returns leaf variables, ""parameters"" in DataParallel replicas are not leafs (they are computed from the base model parameters.
+
+Thanks for your reply. I think it might be a good idea to introduce warnings or exceptions when using .parameters() for replicas.",,pytorch/pytorch,49828
+ClosedEvent,wyf0912,2020-12-26T06:10:25Z,Closed by wyf0912 in ,,pytorch/pytorch,49828
+IssueComment,pankajkumar,2021-06-18T11:49:52Z,"Hi [@ngimel](https://github.com/ngimel) / [@wyf0912](https://github.com/wyf0912)  
+Is there any alternative way to get list of parameters when using DataParallel?",,pytorch/pytorch,49828
+IssueComment,ligeng0197,2022-01-06T16:57:38Z,what should we do if we need to cal gradient wrt the parameters of module in forward function then?,,pytorch/pytorch,49828
+IssueComment,zhanglonghao1992,2022-03-01T08:08:24Z,"[@pankajkumar](https://github.com/pankajkumar) Hi, did you solve this?",,pytorch/pytorch,49828
+IssueComment,kirill-ionkin,2022-12-06T11:40:23Z,"Hello, guys! I think, a spent a lot of time, tried to get .parameters(), when parallel my network with DataParallel. And, i hope, this info will helpful for someone. In my opinion, you can get .parameters() correctry from paralleled model - and it depence on TORCH VESRION!
+
+1. I tried to implement UGATIT to train it on multiple GPU's, but it doesn't work, because this issue - .parameters() was empty and nobody can help me!(torch=1.7)
+2. After a lot of experiments, a change my enviroment with torch=1.2.0 and it works! I can get .parameters() and it is not empty!
+
+# Above my steps inside jupyter-notebook
+
+## You can try to run this on your notebook and see results
+
+import torch  
+import torch.nn as nn
+
+torch.cuda.is\_available() # check cuda available  
+!nvidia-smi
+
+torch.**version** # check torch version
+
+gpu\_ids = [0, 1] # set devices ids to use them in DataParallel
+
+x = torch.rand(4, 10) # input into parallel model
+
+### simple model implementation
+
+```
+class Model(nn.Module):
+    def __init__(self, n_channels=10):
+        super().__init__()
+        self.lin1 = nn.Linear(n_channels, 10)
+        self.lin2 = nn.Linear(10, 1)
+        
+    def forward(self, x):
+        print(list(self.lin1.parameters())[0]) # to get patameters of fc layer
+        return x
+```
+
+### create model
+
+model = Model()  
+model
+
+### init fisrt device
+
+device0 = torch.device(""cuda:0"")
+
+model.to(device0)
+
+### parallel model with DataParallel
+
+model\_par = torch.nn.DataParallel(model, device\_ids=gpu\_ids)
+
+model\_par(x)",,pytorch/pytorch,49828

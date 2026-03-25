@@ -1,0 +1,51 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,ankitvgupta,2018-10-02T15:17:15Z,torch.multinomial without replacement returns repetitive values when all non-zero items are exhausted ,https://github.com/pytorch/pytorch/issues/12260,pytorch/pytorch,12260
+IssueOpened,ankitvgupta,2018-10-02T15:17:15Z,"## 🐛 Bug
+
+When given a one-hot probability distribution, with replacement=False, torch.multinomial returns 0s for all indices after the first one. While I understand that it is weird to sample > 1 value without replacement if the distribution is one-hot, I think this is less desirable behavior than randomly sampling the remaining values without replacement.
+
+## To Reproduce
+
+Steps to reproduce the behavior:
+
+```
+>>> torch.multinomial(torch.FloatTensor([0,1,0,0]), 3, replacement=False)
+tensor([1, 0, 0])
+```
+
+This seems undesired, because replacement=False implies to me that I should expect my outputs to all be different. My understanding is that this was discussed in a recent issue about the GPU kernel for multinomial not matching the CPU here: [#9062](https://github.com/pytorch/pytorch/issues/9062)
+
+## Expected behavior
+
+I expected not to get the index ""0"" in the output more than once.
+
+## Environment
+
+Please copy and paste the output from our  
+[environment collection script](https://raw.githubusercontent.com/pytorch/pytorch/master/torch/utils/collect_env.py)  
+(or fill out the checklist below manually).
+
+You can get the script and run it with:
+
+```
+wget https://raw.githubusercontent.com/pytorch/pytorch/master/torch/utils/collect_env.py
+# For security purposes, please check the contents of collect_env.py before running it.
+python collect_env.py
+```
+
+* PyTorch Version (e.g., 1.0): 0.4.0/0.4.1
+* OS (e.g., Linux): 16.04
+* How you installed PyTorch (`conda`, `pip`, source): pip
+* Build command you used (if compiling from source): N/A
+* Python version: 3.6
+* CUDA/cuDNN version: 9
+* GPU models and configuration: K80
+* Any other relevant information: N/A
+
+## Additional context",https://github.com/pytorch/pytorch/issues/12260,pytorch/pytorch,12260
+LabeledEvent,ssnl,2018-10-02T15:27:56Z,blocker,,pytorch/pytorch,12260
+LabeledEvent,zou3519,2018-10-08T17:55:39Z,high priority,,pytorch/pytorch,12260
+AssignedEvent,ailzhang,2018-10-08T20:22:03Z,ailzhang assigned ailzhang,,pytorch/pytorch,12260
+MentionedByPR,ailzhang,2018-10-09T17:43:15Z,Multinomial raise error,https://github.com/pytorch/pytorch/pull/12490,pytorch/pytorch,12260
+ClosedEvent,facebook-github-bot,2018-10-11T03:40:27Z,Closed by facebook-github-bot in 8f34d0,https://github.com/pytorch/pytorch/commit/8734b174cadc8513bef177c57f1f8267898f34d0,pytorch/pytorch,12260
+MentionedByIssue,asanakoy,2019-07-20T21:29:50Z,,https://github.com/pytorch/pytorch/issues/9062,pytorch/pytorch,12260

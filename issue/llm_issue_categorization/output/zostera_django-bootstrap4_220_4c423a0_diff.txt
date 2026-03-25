@@ -1,0 +1,707 @@
+diff --git a/AUTHORS.md b/AUTHORS.md
+new file mode 100644
+index 00000000..4128757e
+--- /dev/null
++++ b/AUTHORS.md
+@@ -0,0 +1,25 @@
++# Authors
++
++This application is developed and maintained by [Zostera](https://zostera.nl).
++
++## Development Lead
++
++- Dylan Verheul <dylan@dyve.net>
++
++## Contributors
++
++- Allard Stijnman <a.g.stijnman@gmail.com>
++- Austin Whittier <austin.whitt@gmail.com>
++- Caio Ariede <caio.ariede@gmail.com>
++- Fabio C. Barrionuevo da Luz <bnafta@gmail.com>
++- Fabio Perfetti <perfabio87@gmail.com>
++- Jay Pipes <jaypipes@gmail.com>
++- Jonas Hagstedt <hagstedt@gmail.com>
++- Jordan Starcher <jstarcher@gmail.com>
++- Juan Carlos <juancarlospaco@gmail.com>
++- Markus Holtermann <info@markusholtermann.eu>
++- Nick S <nsmith448@gmail.com>
++- Owais Lone <loneowais@gmail.com>
++- pmav99 <pmav99@users.noreply.github.com>
++- Richard Hajdu <tuskone16@gmail.com>
++- Timothy Allen <tim@pyphilly.org>
+diff --git a/AUTHORS.rst b/AUTHORS.rst
+deleted file mode 100644
+index 8bd7c155..00000000
+--- a/AUTHORS.rst
++++ /dev/null
+@@ -1,29 +0,0 @@
+-=======
+-Authors
+-=======
+-
+-This application is developed and maintained by `Zostera <https://zostera.nl>`_.
+-
+-Development Lead
+-----------------
+-
+-* Dylan Verheul <dylan@dyve.net>
+-
+-Contributors
+-------------
+-
+-* Allard Stijnman <a.g.stijnman@gmail.com>
+-* Austin Whittier <austin.whitt@gmail.com>
+-* Caio Ariede <caio.ariede@gmail.com>
+-* Fabio C. Barrionuevo da Luz <bnafta@gmail.com>
+-* Fabio Perfetti <perfabio87@gmail.com>
+-* Jay Pipes <jaypipes@gmail.com>
+-* Jonas Hagstedt <hagstedt@gmail.com>
+-* Jordan Starcher <jstarcher@gmail.com>
+-* Juan Carlos <juancarlospaco@gmail.com>
+-* Markus Holtermann <info@markusholtermann.eu>
+-* Nick S <nsmith448@gmail.com>
+-* Owais Lone <loneowais@gmail.com>
+-* pmav99 <pmav99@users.noreply.github.com>
+-* Richard Hajdu <tuskone16@gmail.com>
+-* Timothy Allen <tim@pyphilly.org>
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+new file mode 100644
+index 00000000..3268cd97
+--- /dev/null
++++ b/CHANGELOG.md
+@@ -0,0 +1,121 @@
++# Changelog
++
++## Unreleased
++
++- Convert HISTORY.rst to Markdown and rename to CHANGELOG.md.
++- Convert README.rst, AUTHORS.rst and CONTRIBUTING.rst to Markdown, and change extension to .md.
++- Update CONTRIBUTING.md to reflect use of `poetry`.
++
++## [2.0.1] - (2020-06-02)
++
++- Set beautifulsoup4 requirement to \>= 4.8.0 (fixes #216).
++- Do not assume all inputs are inside labels (fixes #215).
++
++## [2.0.0] - (2020-06-01)
++
++- Use poetry (<https://python-poetry.org/>) for dependency management and packaging.
++- Drop support for Python 3.5.
++- Fix form-check-{label,input} classes applied too broadly. These should only be applied to labels and inputs found underneath the enclosing widget div for radio and checkbox select, not on the whole document.
++- Allow to display radio and checkbox elements inline using the `form-check` classes.
++
++## [1.1.2] - (2019-12-13)
++
++- Restructure tox and Makefile.
++- Add test for `bootstrap4.__version__`.
++
++## [1.1.1] - (2019-12-11)
++
++- Remove tag command from Makefile.
++- Reinstate `bootstrap4.__version__` (#186).
++- Add test for using a different jQuery version (#184).
++
++## [1.1.0] - (2019-12-09)
++
++- Update default Bootstrap to v4.3.1.
++- Add support for Python 3.8, Django 3 and Django master.
++- Switch to Django `manage.py` for test running.
++- Update Makefile commands.
++- Update tox configuration.
++- Use correct license (BSD-3-Clause).
++- Fix typo's in docstrings.
++- Update Travis configuration.
++- Drop MANIFEST.in, use `setuptools_scm`.
++- Stop using `_version.py`, use git tags for versioning.
++- Fixed issues with labels and input (#174 and #181).
++
++## [1.0.1] - (2019-08-30)
++
++- Fix support for Python 3.5 (#168).
++- Set correct Python versions in setup.py.
++- Fix `make test` command.
++
++## [1.0.0] - (2019-08-30)
++
++- Set default class for buttons to `btn-primary` (#150.
++- Drop support for Python 2 and Django 1.11, 2.0 and 2.1 (#155).
++- Template tag `bootstrap_field` now allows 3 values for `show_label`: `True`, `False`, `sr-only` and `skip\`. In the case of `False` / `sr-only` the label is hidden but present for screen readers. When `show_label` is set to `skip`, the label is not generated at all.
++- Fix validation on input groups (#122).
++- No longer duplicate jquery in bootstrap4.html (#139, #140).
++- Apply `form-check`, `form-check-label` and `form-check-input` classes to appropriate tags for `RadioSelect` and `CheckboxSelectMultiple` widgets (#141).
++- Errors on file inputs are shown (#146).
++- Only display non-field errors in form alert block (#161).
++- Reinstate `bootstrap4_title` block to `bootstrap4.html` (#156).
++- Fix typo in `alert-dismissible` class (#142).
++- Honor the `form_group_class` parameter in the `buttons` tag (#162).
++
++## [0.0.8] - (2019-03-12)
++
++- Drop support for the `base_url` setting (#105).
++- Remove use of \"falsy\" as a string literal (#111).
++- Fix javascript inclusion bugs (#71).
++- Allow email to have addons (#131).
++- Do not mark placeholder text as safe (#135).
++
++## [0.0.7] - (2018-08-22)
++
++- Improve alert accessibility (#93.
++- Add a new widget: RadioSelectButtonGroup (#103.
++- Several fixes and improvements to HTML renderin.
++- Switch to explicit Travis test.
++- Upgrade Bootstrap to 4.1.1
++- Upgrade jQuery to 3.3.1
++- Upgrade Popper to 1.14.3
++- Fixed `bootstrap4.html` to add jQuery per setting `include_jquery=[False|'full'|'slim']`.
++- Adopt Black formatting, see <https://github.com/ambv/black>.
++
++## [0.0.6] - (2018-02-14)
++
++- Change form help text element from div to small (#60).
++- Upgrade Bootstrap to 4.0.0 (#66).
++
++## [0.0.5] - (2018-01-03)
++
++- Drop develop branch, work with master and feature branche.
++- Clean up `HISTORY.rst`.
++- Upgrade Bootstrap to 4.0.0-beta.3.
++- Use `col-4` rather than `col-xs-4` (#54).
++- Added pagination alignment options (#56).
++- Fixed form field errors and help texts (#39.
++- Use django language if `USE_I18N=True` (#53).
++
++## [0.0.4] - (2017-10-26)
++
++- Upgrade Bootstrap to 4.0.0-beta.2.
++- Fix settings, tags and tests for remote JS and CSS.
++
++## [0.0.3] - (2017-09-24)
++
++- Upgraded bootstrap4 to the beta version.
++
++## [0.0.2] - (2017-09-06, not released on PyPI)
++
++- Upgraded jQuery version from CDN to 3.2.1 (#17).
++- Added proper pagination layout classes (#19).
++
++## [0.0.1] - (2017-06-04)
++
++- First releas.
++- Remove `bootstrap_icon`, BS4 no longer has default icons.
++- Various changes to get from 3 to 4, started MIGRATE.rst.
++- Started `django-bootstrap4` based on `django-bootstrap3`.
++- Thanks everybody that contributed to `django-bootstrap3`!
+\ No newline at end of file
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+new file mode 100644
+index 00000000..c3876e95
+--- /dev/null
++++ b/CONTRIBUTING.md
+@@ -0,0 +1,82 @@
++# Contributing
++
++Contributions are welcome, and they are greatly appreciated! Every
++little bit helps, and credit will always be given.
++
++You can contribute in many ways:
++
++## Types of Contributions
++
++### Report Bugs
++
++Report bugs at <https://github.com/zostera/django-bootstrap4/issues>.
++
++If you are reporting a bug, please include:
++
++- Your operating system name and version.
++- Any details about your local setup that might be helpful in troubleshooting.
++- Detailed steps to reproduce the bug.
++
++### Fix Bugs
++
++Look through the GitHub issues for bugs. Anything tagged with \"bug\" is open to whoever wants to implement it.
++
++### Implement Features
++
++Look through the GitHub issues for features. Anything tagged with \"feature\" is open to whoever wants to implement it.
++
++### Write Documentation
++
++`django-bootstrap4` could always use more documentation, whether as part of the official django-bootstrap4 docs, in docstrings, or even on the web in blog posts, articles, and such.
++
++### Submit Feedback
++
++The best way to send feedback is to file an issue at
++<https://github.com/zostera/django-bootstrap4/issues>.
++
++If you are proposing a feature:
++
++- Explain in detail how it would work.
++- Keep the scope as narrow as possible, to make it easier to implement.
++
++## Get Started!
++
++Ready to contribute? Here\'s how to set up `django-bootstrap4` for local development.
++
++You will need some knowledge of git, github, and Python/Django development. Using a Python virtual environment is advised.
++
++1. Fork and clone `django-bootstrap4` repo on GitHub. There is an excellent guide at <https://guides.github.com/activities/forking/>.
++2. Install [poetry](https://python-poetry.org).
++3. Inside your local `django-bootstrap4` folder, run
++    ```shell script
++    $ poetry install
++    ```
++4. Create a branch for local development:
++    ```shell script
++    $ git checkout -b name-of-your-bugfix-or-feature
++    ```
++    Now you can make your changes locally.
++5. When you\'re done making changes, check that your changes pass the tests.
++    Run the unit tests in your virtual environment with the `manage.py` command:
++    ```shell script
++    $ python manage.py test
++    ````
++    Run the extended tests with `tox`:
++    ```shell script
++    $ make tox
++    ```
++6. Commit your changes and push your branch to GitHub:
++    ```shell script
++    $ git add .
++    $ git commit -m "Your detailed description of your changes."
++    $ git push origin name-of-your-bugfix-or-feature
++    ```
++7. Submit a pull request through the GitHub website.
++
++## Pull Request Guidelines
++
++Before you submit a pull request, check that it meets these guidelines:
++
++1. The pull request should include tests.
++2. If the pull request adds functionality, the docs should be updated. Put your new functionality into a function with a docstring, and add the feature to the list in CHANGELOG.md.
++3. The pull request should pass the Continuous Integration tests. Check <https://travis-ci.org/zostera/django-bootstrap4/pull_requests> and make sure that all tests pass. You can run the tests locally using `tox`.
+diff --git a/CONTRIBUTING.rst b/CONTRIBUTING.rst
+deleted file mode 100644
+index a877140d..00000000
+--- a/CONTRIBUTING.rst
++++ /dev/null
+@@ -1,115 +0,0 @@
+-============
+-Contributing
+-============
+-
+-Contributions are welcome, and they are greatly appreciated! Every
+-little bit helps, and credit will always be given. 
+-
+-You can contribute in many ways:
+-
+-Types of Contributions
+-----------------------
+-
+-Report Bugs
+-~~~~~~~~~~~
+-
+-Report bugs at https://github.com/zostera/django-bootstrap4/issues.
+-
+-If you are reporting a bug, please include:
+-
+-* Your operating system name and version.
+-* Any details about your local setup that might be helpful in troubleshooting.
+-* Detailed steps to reproduce the bug.
+-
+-Fix Bugs
+-~~~~~~~~
+-
+-Look through the GitHub issues for bugs. Anything tagged with "bug"
+-is open to whoever wants to implement it.
+-
+-Implement Features
+-~~~~~~~~~~~~~~~~~~
+-
+-Look through the GitHub issues for features. Anything tagged with "feature"
+-is open to whoever wants to implement it.
+-
+-Write Documentation
+-~~~~~~~~~~~~~~~~~~~
+-
+-django-bootstrap4 could always use more documentation, whether as part of the 
+-official django-bootstrap4 docs, in docstrings, or even on the web in blog posts,
+-articles, and such.
+-
+-Submit Feedback
+-~~~~~~~~~~~~~~~
+-
+-The best way to send feedback is to file an issue at https://github.com/zostera/django-bootstrap4/issues.
+-
+-If you are proposing a feature:
+-
+-* Explain in detail how it would work.
+-* Keep the scope as narrow as possible, to make it easier to implement.
+-* Remember that this is a volunteer-driven project, and that contributions
+-  are welcome :)
+-
+-Get Started!
+-------------
+-
+-Ready to contribute? Here's how to set up `django-bootstrap4` for local development.
+-
+-1. Fork the `django-bootstrap4` repo on GitHub.
+-2. Clone your fork locally::
+-
+-    $ git clone https://github.com/your_username_here/django-bootstrap4.git
+-
+-3. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development::
+-
+-    $ mkvirtualenv django-bootstrap4
+-    $ cd django-bootstrap4/
+-    $ pip install -r requirements.txt
+-    $ python setup.py develop
+-
+-4. Create a branch for local development::
+-
+-    $ git checkout -b name-of-your-bugfix-or-feature
+-
+-Now you can make your changes locally.
+-
+-5. When you're done making changes, check that your changes pass flake8 and the
+-tests, including testing other Python versions with tox::
+-
+-    $ flake8 bootstrap4 tests
+-    $ python setup.py test
+-    $ tox
+-
+-To get flake8 and tox, just pip install them into your virtualenv. 
+-
+-6. Commit your changes and push your branch to GitHub::
+-
+-    $ git add .
+-    $ git commit -m "Your detailed description of your changes."
+-    $ git push origin name-of-your-bugfix-or-feature
+-
+-7. Submit a pull request through the GitHub website.
+-
+-Pull Request Guidelines
+------------------------
+-
+-Before you submit a pull request, check that it meets these guidelines:
+-
+-1. The pull request should include tests.
+-2. If the pull request adds functionality, the docs should be updated. Put
+-   your new functionality into a function with a docstring, and add the
+-   feature to the list in README.rst.
+-3. The pull request should pass the Continuous Integration tests. Check
+-   https://travis-ci.org/dyve/django-bootstrap4/pull_requests
+-   and make sure that all tests pass. You can run the tests locally
+-   using `tox`.
+-
+-Tips
+-----
+-
+-To run a subset of tests::
+-
+-    $ python manage.py test tests.test_components
+-
+diff --git a/HISTORY.rst b/HISTORY.rst
+deleted file mode 100644
+index 74f5af3d..00000000
+--- a/HISTORY.rst
++++ /dev/null
+@@ -1,122 +0,0 @@
+-.. :changelog:
+-
+-History
+--------
+-
+-2.0.1 (2020-06-02)
+-++++++++++++++++++
+-- Set beautifulsoup4 requirement to >= 4.8.0 (fixes #216).
+-- Do not assume all inputs are inside labels (fixes #215).
+-
+-2.0.0 (2020-06-01)
+-++++++++++++++++++
+-- Use poetry (https://python-poetry.org/) for dependency management and packaging.
+-- Drop support for Python 3.5.
+-- Fix form-check-{label,input} classes applied too broadly. These should only be applied to labels and inputs found underneath the enclosing widget div for radio and checkbox select, not on the whole document.
+-- Allow to display radio and checkbox elements inline using the form-check classes.
+-
+-1.1.2 (2019-12-13)
+-++++++++++++++++++
+-- Restructure tox and Makefile
+-- Add test for `bootstrap4.__version__`
+-
+-1.1.1 (2019-12-11)
+-++++++++++++++++++
+-- Remove tag command from Makefile
+-- Reinstate `bootstrap4.__version__` (#186)
+-- Add test for using a different jQuery version (#184)
+-
+-1.1.0 (2019-12-09)
+-++++++++++++++++++
+-- Update default Bootstrap to v4.3.1
+-- Add support for Python 3.8, Django 3 and Django master
+-- Switch to Django `manage.py` for test running
+-- Update Makefile commands
+-- Update tox configuration
+-- Use correct license (BSD-3-Clause)
+-- Fix typo's in docstrings
+-- Update Travis configuration
+-- Drop MANIFEST.in, use setuptools_scm
+-- Stop using _version.py, use git tags for versioning
+-- Fixed issues with labels and input (#174 and #181)
+-
+-1.0.1 (2019-08-30)
+-++++++++++++++++++
+-- Fix support for Python 3.5 (#168)
+-- Set correct Python versions in setup.py
+-- Fix `make test` command
+-
+-1.0.0 (2019-08-30)
+-++++++++++++++++++
+-- Set default class for buttons to `btn-primary` (#150)
+-- Drop support for Python 2 and Django 1.11, 2.0 and 2.1 (#155)
+-- Template tag `bootstrap_field` now allows 3 values for `show_label`: `True`, `False` / `'sr-only'` and `'skip'`. In the case of `False` / `'sr-only'` the label is hidden but present for screen readers. When `show_label` is set to `'skip'`, the label is not generated at all.
+-- Fix validation on input groups (#122)
+-- No longer duplicate jquery in bootstrap4.html (#139, #140)
+-- Apply `form-check`, `form-check-label` and `form-check-input` classes to appropriate tags for `RadioSelect` and `CheckboxSelectMultiple` widgets (#141)
+-- Errors on file inputs are shown (#146)
+-- Only display non-field errors in form alert block (#161)
+-- Reinstate `bootstrap4_title` block to `bootstrap4.html` (#156)
+-- Fix typo in `alert-dismissible` class (#142)
+-- Honor the `form_group_class` parameter in the `buttons` tag (#162)
+-
+-0.0.8 (2019-03-12)
+-++++++++++++++++++
+-- Drop support for the `base_url` setting (#105)
+-- Remove use of "falsy" as a string literal (#111)
+-- Fix javascript inclusion bugs (#71)
+-- Allow email to have addons (#131)
+-- Do not mark placeholder text as safe (#135)
+-- Adopt black
+-
+-0.0.7 (2018-08-22)
+-++++++++++++++++++
+-- Improve alert accessibility (#93)
+-- Add a new widget: RadioSelectButtonGroup (#103)
+-- Several fixes and improvements to HTML rendering
+-- Switch to explicit Travis tests
+-- Upgrade Bootstrap to 4.1.1
+-- Upgrade jQuery to 3.3.1
+-- Upgrade Popper to 1.14.3
+-- Fixed bootstrap4.html to add jQuery per setting 'include_jquery' [False|True|'full'|'slim']
+-- Adopt Black formatting, see https://github.com/ambv/black
+-
+-0.0.6 (2018-02-14)
+-+++++++++++++++++++
+-- Change form help text element from div to small (#60)
+-- Upgrade Bootstrap to 4.0.0 (#66)
+-
+-0.0.5 (2018-01-03)
+-++++++++++++++++++
+-- Drop develop branch, work with master and feature branches
+-- Clean up history file
+-- Upgrade Bootstrap to 4.0.0-beta.3
+-- Use `col-4` rather than `col-xs-4` (#54)
+-- Added pagination alignment options (#56)
+-- Fixed form field errors and help texts (#39)
+-- Use django language if ``USE_I18N=True`` (#53)
+-
+-0.0.4 (2017-10-26)
+-++++++++++++++++++
+-- Upgrade Bootstrap to 4.0.0-beta.2
+-- Fix settings, tags and tests for remote JS and CSS
+-
+-0.0.3 (2017-09-24)
+-++++++++++++++++++
+-- Upgraded bootstrap4 to the beta version
+-
+-0.0.2 (2017-09-06, not released on PyPI)
+-++++++++++++++++++++++++++++++++++++++++
+-- Upgraded jQuery version from CDN to 3.2.1 (#17)
+-- Added proper pagination layout classes (#19)
+-
+-0.0.1 (2017-06-04)
+-++++++++++++++++++
+-- First release
+-
+-Unreleased (2017-04-25)
+-+++++++++++++++++++++++
+-- Remove `bootstrap_icon`, BS4 no longer has default icons.
+-- Various changes to get from 3 to 4, started MIGRATE.rst.
+-- Started `django-bootstrap4` based on `django-bootstrap3`.
+-- Thanks everybody that contributed to `django-bootstrap3`!
+diff --git a/MIGRATE.rst b/MIGRATE.rst
+deleted file mode 100644
+index 205676f4..00000000
+--- a/MIGRATE.rst
++++ /dev/null
+@@ -1,16 +0,0 @@
+-=========
+-Migration
+-=========
+-
+-Below is a list of caveats when migrating from Bootstrap3/django-bootstrap3 to Bootstrap4/django-bootstrap4.
+-
+-This document only considers the differences between django-bootstrap3 and django-bootstrap4. For the migration
+-guide from Bootstrap 3 to 4, please look at the Bootstrap docs, especially the `Migration section <https://getbootstrap.com/docs/4.0/migration/>`_.
+-
+-Icons
+------
+-
+-Bootstrap 4 does not ship with an icon set, so everything regarding to icons has been removed.
+-
+-If you need easy access to icons that are compatible with Bootstrap 4, please consider
+-https://github.com/zostera/django-icons.
+diff --git a/README.rst b/README.md
+similarity index 100%
+rename from README.rst
+rename to README.md
+diff --git a/docs/authors.rst b/docs/authors.rst
+index 94292d01..e8812ff2 100644
+--- a/docs/authors.rst
++++ b/docs/authors.rst
+@@ -1 +1 @@
+-.. include:: ../AUTHORS.rst
+\ No newline at end of file
++.. mdinclude:: ../AUTHORS.md
+\ No newline at end of file
+diff --git a/docs/changelog.rst b/docs/changelog.rst
+new file mode 100644
+index 00000000..5ec4a0ec
+--- /dev/null
++++ b/docs/changelog.rst
+@@ -0,0 +1 @@
++.. mdinclude:: ../CHANGELOG.md
+\ No newline at end of file
+diff --git a/docs/conf.py b/docs/conf.py
+index 078c8029..4fa8af95 100644
+--- a/docs/conf.py
++++ b/docs/conf.py
+@@ -19,7 +19,8 @@
+ # The short X.Y version.
+ version = ".".join(release.split(".")[:2])
+ 
+-extensions = ["sphinx.ext.autodoc", "sphinx.ext.viewcode"]
++extensions = ["sphinx.ext.autodoc", "sphinx.ext.viewcode", "m2r"]
++source_suffix = [".rst", ".md"]
+ pygments_style = "sphinx"
+ htmlhelp_basename = f"{PROJECT_NAME}-doc"
+ 
+diff --git a/docs/contributing.rst b/docs/contributing.rst
+deleted file mode 100644
+index 3bdd7dc2..00000000
+--- a/docs/contributing.rst
++++ /dev/null
+@@ -1 +0,0 @@
+-.. include:: ../CONTRIBUTING.rst
+\ No newline at end of file
+diff --git a/docs/history.rst b/docs/history.rst
+deleted file mode 100644
+index bec23d82..00000000
+--- a/docs/history.rst
++++ /dev/null
+@@ -1 +0,0 @@
+-.. include:: ../HISTORY.rst
+\ No newline at end of file
+diff --git a/docs/index.rst b/docs/index.rst
+index 7400a9e9..3c936bf8 100644
+--- a/docs/index.rst
++++ b/docs/index.rst
+@@ -13,6 +13,5 @@ Contents:
+    settings
+    templates
+    widgets
+-   contributing
+    authors
+-   history
++   changelog
+diff --git a/docs/migrate.rst b/docs/migrate.rst
+index 3ba00db1..ba57ea76 100644
+--- a/docs/migrate.rst
++++ b/docs/migrate.rst
+@@ -1 +1,16 @@
+-.. include:: ../MIGRATE.rst
+\ No newline at end of file
++=========
++Migration
++=========
++
++Below is a list of caveats when migrating from Bootstrap3/django-bootstrap3 to Bootstrap4/django-bootstrap4.
++
++This document only considers the differences between django-bootstrap3 and django-bootstrap4. For the migration
++guide from Bootstrap 3 to 4, please look at the Bootstrap docs, especially the `Migration section <https://getbootstrap.com/docs/4.5/migration/>`_.
++
++Icons
++-----
++
++Bootstrap 4 does not ship with an icon set, so everything regarding to icons has been removed.
++
++If you need easy access to icons that are compatible with Bootstrap 4, please consider
++https://github.com/zostera/django-icons.
+diff --git a/poetry.lock b/poetry.lock
+index b2c53c91..cdf27807 100644
+--- a/poetry.lock
++++ b/poetry.lock
+@@ -177,7 +177,7 @@ untokenize = "*"
+ category = "main"
+ description = "Docutils -- Python Documentation Utilities"
+ name = "docutils"
+-optional = true
++optional = false
+ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
+ version = "0.16"
+ 
+@@ -262,7 +262,7 @@ i18n = ["Babel (>=0.8)"]
+ category = "main"
+ description = "Markdown and reStructuredText in a single file."
+ name = "m2r"
+-optional = true
++optional = false
+ python-versions = "*"
+ version = "0.2.1"
+ 
+@@ -290,7 +290,7 @@ version = "0.6.1"
+ category = "main"
+ description = "The fastest markdown parser in pure Python"
+ name = "mistune"
+-optional = true
++optional = false
+ python-versions = "*"
+ version = "0.8.4"
+ 
+@@ -590,7 +590,7 @@ testing = ["jaraco.itertools", "func-timeout"]
+ docs = ["sphinx", "m2r"]
+ 
+ [metadata]
+-content-hash = "7236b74229de4bfc002db0e422dae48f78646b98dcd4dec46c5885fbe53d21c8"
++content-hash = "82aaba408ae0ee1852e3c6a67dc0d448a0a518b3954caa65c4e23c159e62a81f"
+ python-versions = "^3.6"
+ 
+ [metadata.files]
+diff --git a/pyproject.toml b/pyproject.toml
+index e02bc466..50e0cb02 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -1,13 +1,13 @@
+ [tool.poetry]
+ name = "django-bootstrap4"
+-version = "2.0.1"
++version = "2.0.2"
+ description = "Bootstrap support for Django projects"
+ homepage = "https://github.com/zostera/django-bootstrap4"
+ repository = "https://github.com/zostera/django-bootstrap4"
+ documentation = "https://django-bootstrap4.readthedocs.io/"
+ authors = ["Dylan Verheul <dylan@zostera.nl>"]
+ license = "BSD-3-Clause"
+-readme = "README.rst"
++readme = "README.md"
+ keywords= ["django", "django-bootstrap4", "bootstrap4", "bootstrap"]
+ classifiers = [
+     "Development Status :: 5 - Production/Stable",
+@@ -49,6 +49,7 @@ flake8 = "^3.7.9"
+ docformatter = "^1.3.1"
+ pydocstyle = "^5.0.2"
+ coverage = {extras = ["toml"], version = "^5.0.4"}
++m2r = "^0.2.1"
+ 
+ [tool.poetry.extras]
+ docs = ["sphinx", "sphinx_rts_theme", "m2r"]

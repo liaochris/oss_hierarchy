@@ -1,0 +1,65 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,belonesox,2020-07-21T12:27:23Z,"Option ""--recompile-c-only"" misleading.",https://github.com/Nuitka/Nuitka/issues/792,Nuitka/Nuitka,792
+IssueOpened,belonesox,2020-07-21T12:27:23Z,"While reading from option description
+
+""--recompile-c-only"" — ""… Takes existing files and simply compile them as C again. …""
+
+someone (as me) may thought that is The Option that opposite to ""--generate-c-only"" that skip VERY LONG  
+`Optimization.optimize(main_module.getOutputFilename())` and only call Scons with clcache to recompile already generated C files (for hacking, experiments with compiler/linker options, etc).
+
+But unfortunately, it is not true, Nuika still takes hours to ""Optimization.optimize""  
+and there is no other option ""--please-just-make-scons-and-recompile-already-generated-files-and-nothing-more"".
+
+Please, let ""--recompile-c-only"" will only recompile C code, or.... if I missed the goal of the option, just make another option for this purpose.",,Nuitka/Nuitka,792
+IssueComment,kayhayen,2023-06-21T06:15:51.000Z,"Unfortunately, for scons to work, Nuitka needs the information about the modules, and this would have to come from compilation or a cache. The later is the actual solution in my mind, but it doesn't exist, but for this I see this issue as a duplicate.
+
+What this option does is to skip generating the C files, which is only useful for manual editing while debugging. Not a user facing option at all.",,Nuitka/Nuitka,792
+ClosedEvent,kayhayen,2023-06-21T06:15:51.000Z,"[kayhayen closed this as completed on Jun 21, 2023",,Nuitka/Nuitka,792
+LabelEvent,kayhayen,2023-06-21T06:15:59.000Z,"kayhayen added duplicate on Jun 21, 2023",,Nuitka/Nuitka,792
+AssigneeEvent,kayhayen,2023-06-21T06:16:01.000Z,"kayhayenself- assigned thison Jun 21, 2023",,Nuitka/Nuitka,792
+IssueComment,belonesox,2023-06-21T08:41:23.000Z,"So, can we discuss here or on another issue other possibility, like option `--stop-on-generating-scons-file-and-shell-script-for-compilation`?
+
+This option would stop Nuitka, generate shell file with Scons command for compilation and leaves it for researcher (experiments with compilation flags, etc)?
+
+Can I make and propose patch for that?",,Nuitka/Nuitka,792
+IssueComment,kayhayen,2023-06-21T15:49:51.000Z,"Nuitka puts things in environment variables, on the command line when it calls things, in include files, etc. and is all dirty about this folder contents. This could get cleaned up, but it would also increase the maintenance burden for what exactly. I would much rather see time invested in proper caching, such that it would be close to that in effect.",,Nuitka/Nuitka,792
+IssueComment,belonesox,2023-06-21T18:21:09.000Z,"All this stuff (environment variables, etc) also can be freezed on some `set-up-envs-and-build-generated-cpp-sources-using-scons.sh` file.
+
+I would like to experiment with cpp compile phase (different gcc/ld options, using SAST tools for CPP, etc), without regenerating sources from Nuitka. May be I should write dirty-hacking-monkey-patching plugin for this, but official option of course would be much better.",,Nuitka/Nuitka,792
+IssueComment,kayhayen,2023-06-23T07:56:19.000Z,"Adding plugin interfaces of general usablity would be great.
+
+Now that I think of it, the call to scons is probably having an ""env"" provided too, if you capture that, you probably got something repeatable already. I can even imagine that with some form of isExperimental(""create-scons-call-scipt"") you would write it out, and I would carry that from a PR. Just make it a Python script please, not e.g. a CMD, because then it's automatically cross platform usable.",,Nuitka/Nuitka,792
+UnclassifiedEventType,kayhayen,2023-06-23T07:56:19.000Z,"kayhayenreopened this on Jun 23, 2023",,Nuitka/Nuitka,792
+AssigneeEvent,kayhayen,2023-06-23T07:56:30.000Z,"kayhayen assigned belonesoxon Jun 23, 2023",,Nuitka/Nuitka,792
+LabelEvent,kayhayen,2023-06-23T07:56:36.000Z,"kayhayen added enhancementAn improvement rather than a bugAn improvement rather than a bug and removed duplicate on Jun 23, 2023",,Nuitka/Nuitka,792
+IssueComment,kayhayen,2023-06-23T07:58:46.000Z,"Ah, there is also post processing. You definitely want to also do that, only then constants and stuff are going to work, when resources are set, etc. let alone speak of standalone and onefile, so maybe that script doesn't cut it at all. I will let you figure it out though.",,Nuitka/Nuitka,792
+LabelEvent,belonesox,2024-03-15T13:53:12.000Z,"belonesox added 3 commits that reference this issue on Mar 15, 2024Patch to implement Nuitka#792 (comment)a5c30a6Adapt and test patch for Nuitka#792 (comment) on Linuxd68fc93Autoformat patch for Nuitka#792 (comment)b397c00",,Nuitka/Nuitka,792
+MentionedByPR,belonesox,2024-03-16T03:04:45.000Z,"belonesox mentioned this in 2 pull requests on Mar 15, 2024
+Fix obvious typo, that breaks idempotency of scons build process — af… #2770",https://github.com/Nuitka/Nuitka/pull/2770,Nuitka/Nuitka,792
+MentionedByPR,belonesox,2024-03-16T03:04:45.000Z,"belonesox mentioned this in 2 pull requests on Mar 15, 2024
+Generate Scons Pipeline Debug Script #2771",https://github.com/Nuitka/Nuitka/pull/2771,Nuitka/Nuitka,792
+MentionedByCommit,kayhayen,2024-03-17T09:05:01.000Z,"kayhayenadded a commit that references this issue on Mar 17, 2024Debugging: Generate Scons Pipeline Debug Script (#2771)...Verifiedaff5443
+Debugging: Generate Scons Pipeline Debug Script (#2771)
+
+* Patch to implement https://github.com/Nuitka/Nuitka/issues/792#issuecomment-1601361367
+
+* Adapt and test patch for https://github.com/Nuitka/Nuitka/issues/792#issuecomment-1601361367 on Linux
+
+* Autoformat patch for https://github.com/Nuitka/Nuitka/issues/792#issuecomment-1601361367
+
+* Adapt patch for python2
+
+* Adapt patch for windows again — quoting only for Linux
+
+* simplify a bit, and move scons debug generation maximally close to Scons call
+
+* struggling with autoformat
+
+* using isWin32Windows for detecting non-posix Win32 Windows
+
+* From shell file to shell file and python for https://github.com/Nuitka/Nuitka/pull/2771#issuecomment-2001932850
+
+* finish struggling with autoformat",https://github.com/Nuitka/Nuitka/commit/aff5443407f92f652d9fd5b92d7e669a754c3999,Nuitka/Nuitka,792
+MentionedByCommit,kayhayen,2024-03-17T09:05:01.000Z,"kayhayenadded a commit that references this issue on Mar 17, 2024Debugging: Generate Scons Pipeline Debug Script (#2771)...Verifiedaff5443",https://github.com/Nuitka/Nuitka/commit/aff5443407f92f652d9fd5b92d7e669a754c3999,Nuitka/Nuitka,792
+IssueComment,kayhayen,2024-03-17T13:18:57.000Z,"I am closing this now that we merged the quick option. I will however mid term develop this into something that does post processing, and can be called from Nuitka itself, maybe.",,Nuitka/Nuitka,792
+ClosedEvent,kayhayen,2024-03-17T13:18:57.000Z,"[kayhayen closed this as completed on Mar 17, 2024",,Nuitka/Nuitka,792

@@ -1,0 +1,148 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,andrewpc,2019-04-02T02:58:12Z,Unable to pair Xiaomi motion sensor - Simple Descriptor different,https://github.com/zigpy/zha-device-handlers/issues/58,zigpy/zha-device-handlers,58
+IssueOpened,andrewpc,2019-04-02T02:58:12Z,"Using Home Assistant 0.90.1. I have successfully been able to pair Xiaomi temperature, magnet sensors and a lumi plug, however I am unable to successfully join the motion sensor. The device is joined however doesnt work properly as a motion sensor, and is shown as ""quirks: false"".  
+[![Screen Shot 2019-04-02 at 1 55 13 pm](https://user-images.githubusercontent.com/5012263/55372894-fd7abc00-554e-11e9-8e48-b49480f11e77.png)](https://user-images.githubusercontent.com/5012263/55372894-fd7abc00-554e-11e9-8e48-b49480f11e77.png)
+
+The full join log can be seen here:
+
+<https://pastebin.com/0Hwf4BXR>",https://github.com/zigpy/zha-device-handlers/issues/58,zigpy/zha-device-handlers,58
+IssueComment,Adminiuga,2019-04-02T03:26:41Z,"Leave the device running and in the log file filter by lines containing `[0x721d:1:0x0406]`. Do you get any **[zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=0** ?
+
+```
+Apr 02 13:44:39 ha hass[7045]: 2019-04-02 13:44:39 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5ae47daa90>>]]
+Apr 02 13:44:39 ha hass[7045]: 2019-04-02 13:44:39 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+```",,zigpy/zha-device-handlers,58
+IssueComment,andrewpc,2019-04-02T04:03:32Z,"All 0=1 in the last 90 minutes
+
+```
+2019-04-02 13:44:39 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 14:06:12 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5b3033b2e8>>]]
+2019-04-02 14:06:12 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 14:06:47 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5b30103a20>>]]
+2019-04-02 14:06:47 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 14:06:56 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5ae45eeeb8>>]]
+2019-04-02 14:06:56 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 14:07:18 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5b205c3ef0>>]]
+2019-04-02 14:07:18 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 14:19:02 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5b30153e48>>]]
+2019-04-02 14:19:02 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 14:50:53 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5ae4746b70>>]]
+2019-04-02 14:50:53 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 14:50:58 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5b203d0ac8>>]]
+2019-04-02 14:50:58 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 14:51:04 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5ae456ba90>>]]
+2019-04-02 14:51:04 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 14:51:10 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5ae40e6128>>]]
+2019-04-02 14:51:10 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 15:00:58 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5ac9ce5710>>]]
+2019-04-02 15:00:58 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 15:01:25 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5ae60355c0>>]]
+2019-04-02 15:01:25 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 15:01:30 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5ae47fb7b8>>]]
+2019-04-02 15:01:30 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 15:01:40 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5b206642e8>>]]
+2019-04-02 15:01:40 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 15:01:47 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5b20698ba8>>]]
+2019-04-02 15:01:47 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 15:01:52 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5ac9cdef60>>]]
+2019-04-02 15:01:52 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 15:01:58 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5b30133438>>]]
+2019-04-02 15:01:58 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 15:02:10 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5b206b9cc0>>]]
+2019-04-02 15:02:10 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+2019-04-02 15:02:16 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] ZCL request 0x000a: [[<Attribute attrid=0 value=<zigpy.zcl.foundation.TypeValue object at 0x7f5ae6035630>>]]
+2019-04-02 15:02:16 DEBUG (MainThread) [zigpy.zcl] [0x721d:1:0x0406] Attribute report received: 0=1
+```",,zigpy/zha-device-handlers,58
+IssueComment,andrewpc,2019-04-02T09:32:49Z,"Checked 6 hours later and confirming, every log entry is 0=1 despite the sensor being in a location where there would definitely be on and off movement.",,zigpy/zha-device-handlers,58
+IssueComment,dmulcahey,2019-04-02T11:36:20Z,[@Adminiuga](https://github.com/Adminiuga) they only report the trigger. The quirks unset the state with timers.,,zigpy/zha-device-handlers,58
+IssueComment,Adminiuga,2019-04-02T13:50:55Z,"Yep and I thought we were supporting these, but this specific one seem to lack the IAS cluster.",,zigpy/zha-device-handlers,58
+IssueComment,dmulcahey,2019-04-02T14:02:19Z,The entire signature is different.. I’ll get a copy for it.,,zigpy/zha-device-handlers,58
+IssueComment,andrewpc,2019-04-06T11:19:50Z,any updates on this one? thanks,,zigpy/zha-device-handlers,58
+IssueComment,dmulcahey,2019-04-06T14:20:12Z,Not yet,,zigpy/zha-device-handlers,58
+IssueComment,andrewpc,2019-04-20T04:49:57Z,"I was able to get this working properly by creating a new quirk implementation. As it doesn't implement the IAS cluster I dropped the logic specific to resetting that and reduced the occupancy timeout along with updating the descriptor mapping. Weirdly it natively seems to present as device type DIMMER\_SWITCH instead of OCCUPANCY\_SENSOR.
+
+[![Screen Shot 2019-04-20 at 2 47 50 pm](https://user-images.githubusercontent.com/5012263/56452893-88dfb400-637b-11e9-9e41-3457eb62abae.png)](https://user-images.githubusercontent.com/5012263/56452893-88dfb400-637b-11e9-9e41-3457eb62abae.png)
+
+Here is the code:
+
+```
+class MotionAQ2(XiaomiCustomDevice):
+    """"""Custom device representing aqara body sensors.""""""
+
+    def __init__(self, *args, **kwargs):
+        """"""Init.""""""
+        self.battery_size = 9
+        self.motionBus = Bus()
+        super().__init__(*args, **kwargs)
+
+    class OccupancyCluster(CustomCluster, OccupancySensing):
+        """"""Occupancy cluster.""""""
+
+        cluster_id = OccupancySensing.cluster_id
+
+        def __init__(self, *args, **kwargs):
+            """"""Init.""""""
+            super().__init__(*args, **kwargs)
+            self._timer_handle = None
+
+        def _update_attribute(self, attrid, value):
+            super()._update_attribute(attrid, value)
+
+            if attrid == OCCUPANCY_STATE and value == ON:
+                if self._timer_handle:
+                    self._timer_handle.cancel()
+                self.endpoint.device.motionBus.listener_event('motion_event')
+                loop = asyncio.get_event_loop()
+                self._timer_handle = loop.call_later(120, self._turn_off)
+
+        def _turn_off(self):
+            self._timer_handle = None
+            self._update_attribute(OCCUPANCY_STATE, OFF)
+
+
+    signature = {
+        #  <SimpleDescriptor endpoint=1 profile=260 device_type=260
+        #  device_version=1
+        #  input_clusters=[0, 65535, 1030, 1024]
+        #  output_clusters=[0, 25]>
+        1: {
+            'manufacturer': 'LUMI',
+            'model': 'lumi.sensor_motion.aq2',
+            'profile_id': zha.PROFILE_ID,
+            'device_type': zha.DeviceType.DIMMER_SWITCH,
+            'input_clusters': [
+                Basic.cluster_id,
+                XIAOMI_CLUSTER_ID,
+                OccupancySensing.cluster_id,
+                IlluminanceMeasurement.cluster_id,
+            ],
+            'output_clusters': [
+                Basic.cluster_id,
+                Ota.cluster_id
+            ],
+        },
+    }
+
+    replacement = {
+        'endpoints': {
+            1: {
+                'manufacturer': 'LUMI',
+                'model': 'lumi.sensor_motion.aq2',
+                'input_clusters': [
+                    BasicCluster,
+                    IlluminanceMeasurement.cluster_id,
+                    OccupancyCluster,
+                    XIAOMI_CLUSTER_ID
+                ],
+                'output_clusters': [
+                    Basic.cluster_id,
+                    Ota.cluster_id
+                ],
+            }
+        },
+    }
+```",,zigpy/zha-device-handlers,58
+MentionedByPR,dmulcahey,2019-04-30T12:00:38Z,Clean up Xiaomi motion and Occupancy handling and add alternate signature,https://github.com/zigpy/zha-device-handlers/pull/64,zigpy/zha-device-handlers,58
+IssueComment,dmulcahey,2019-04-30T12:01:43Z,Thanks for the beginning of this. I added an official representation that contains both motion and occupancy so that there is consistency in the implementations. See [#64](https://github.com/zigpy/zha-device-handlers/pull/64) for details.,,zigpy/zha-device-handlers,58
+ClosedEvent,dmulcahey,2019-04-30T12:07:15Z,Closed by dmulcahey in #64,https://github.com/zigpy/zha-device-handlers/pull/64,zigpy/zha-device-handlers,58
+IssueComment,andrewpc,2019-04-30T12:25:26Z,Thank you! Confirmed working with your new quirk after remove and re-add with both occupancy and motion sensor.,,zigpy/zha-device-handlers,58

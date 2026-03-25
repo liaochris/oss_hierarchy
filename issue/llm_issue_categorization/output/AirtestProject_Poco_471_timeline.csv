@@ -1,0 +1,81 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,Li96224,2021-06-30T03:49:03Z,pocoui相关 小程序UI脚本运行时有时候会定位不到元素报超时，有时间又没问题，已添加了等待时间方式了，排除页面加载时间问题。可看具体描述，多谢。,https://github.com/AirtestProject/Poco/issues/471,AirtestProject/Poco,471
+IssueOpened,Li96224,2021-06-30T03:49:03Z,"运行环境:  
+macos10.14.6,python 3.9 , airtest 1.2.0 ,pocoui 1.0.82,手机华为mote10，手机系统android10，Android Debug Bridge version 1.0.41 Version 29.0.6-6198805，微信小程序:""超级猩猩""  
+""  
+问题描述:  
+在运行脚本时微信切入小程序页面后，定位不到小程序页面元素，报了超时错误。但是该场景问题偶尔会成功，有时间就可以定位到，不会报错。经过确认不是页面加载太快或太慢的原因，因为已经加了等待。同时手机对pocoservice已经开启启动权限。
+
+代码截图:  
+[![image](https://user-images.githubusercontent.com/52486139/123899022-fabed980-d998-11eb-9eb8-7f9921933f74.png)](https://user-images.githubusercontent.com/52486139/123899022-fabed980-d998-11eb-9eb8-7f9921933f74.png)  
+[![image](https://user-images.githubusercontent.com/52486139/123899034-027e7e00-d999-11eb-83d6-c428b0417030.png)](https://user-images.githubusercontent.com/52486139/123899034-027e7e00-d999-11eb-83d6-c428b0417030.png)
+
+报错信息:  
+报错:  
+[11:04:20][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 wait-for-device  
+[11:04:20][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell getprop ro.build.version.sdk  
+[11:04:20][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell dumpsys activity top  
+[11:04:20][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell dumpsys package com.netease.open.pocoservice  
+[11:04:20][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell dumpsys package com.netease.open.pocoservice.test  
+[11:04:20][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 forward --no-rebind tcp:17413 tcp:10080  
+[11:04:20][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 forward --no-rebind tcp:12023 tcp:10081  
+[11:04:20][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell ps -A |echo $(grep -E com.github.uiautomator)  
+[11:04:20][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell am force-stop com.netease.open.pocoservice  
+[11:04:20][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell am start -n com.netease.open.pocoservice/.TestActivity  
+[11:04:20][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell am instrument -w -e debug false -e class com.netease.open.pocoservice.InstrumentedTestAsLauncher com.netease.open.pocoservice.test/android.support.test.runner.AndroidJUnitRunner  
+[11:04:22][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell monkey -p com.tencent.mm -c android.intent.category.LAUNCHER 1  
+[11:04:29][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell ls -l /data/local/tmp/rotationwatcher.jar  
+[11:04:29][DEBUG]<airtest.core.android.rotation> install\_rotationwatcher skipped  
+[11:04:29][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell app\_process -Djava.class.path=/data/local/tmp/rotationwatcher.jar /data/local/tmp com.example.rotationwatcher.Main  
+[11:04:29][DEBUG]<airtest.utils.nbsp> [rotation\_server]b'0'  
+[11:04:31][INFO]<airtest.core.android.rotation> update orientation None->0  
+[11:04:31][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell dumpsys display  
+[11:04:31][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell dumpsys SurfaceFlinger  
+[11:04:31][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell getevent -p  
+[11:04:31][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell ls -l /data/local/tmp/maxpresent.jar  
+[11:04:31][DEBUG]<airtest.core.android.touch\_methods.maxtouch> install\_maxtouch skipped  
+[11:04:31][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell dumpsys display  
+[11:04:31][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell dumpsys SurfaceFlinger  
+[11:04:31][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell getevent -p  
+[11:04:32][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 forward --no-rebind tcp:12512 localabstract:maxpresent\_12512  
+[11:04:32][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell app\_process -Djava.class.path=/data/local/tmp/maxpresent.jar /data/local/tmp com.netease.maxpresent.MaxPresent socket maxpresent\_12512  
+[11:04:32][DEBUG]<airtest.utils.nbsp> [airtouch\_server]b'Metrics Message : 2560.0=====1440.0'  
+[11:04:32][DEBUG]<airtest.utils.nbsp> [airtouch\_server]b'Start local socket (maxpresent\_12512) server...'  
+[11:06:50][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 shell am force-stop com.tencent.mm
+
+Error  
+Traceback (most recent call last):  
+File ""/Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/unittest/case.py"", line 59, in testPartExecutor  
+yield  
+File ""/Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/unittest/case.py"", line 593, in run  
+self.\_callTestMethod(testMethod)  
+File ""/Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/unittest/case.py"", line 550, in \_callTestMethod  
+method()  
+File ""/Users/supermonkey/AirtestProject/demo.py"", line 125, in test\_case  
+self.assertEqual(HomePage().select\_good\_lessons\_get\_text(poco=self.poco),""精选好课"")  
+File ""/Users/supermonkey/AirtestProject/demo.py"", line 88, in select\_good\_lessons\_get\_text  
+init\_element(self.select\_good\_lessons,poco).wait\_for\_appearance()  
+File ""/Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/poco/proxy.py"", line 681, in wait\_for\_appearance  
+raise PocoTargetTimeout('appearance', self)  
+poco.exceptions.PocoTargetTimeout: Waiting timeout for appearance of ""UIObjectProxy of ""text=精选好课""""
+
+Assertion failed  
+只执行一次
+
+Ran 1 test in 150.926s
+
+FAILED (errors=1)  
+[11:06:51][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 forward --remove tcp:17413  
+[11:06:51][DEBUG]<airtest.core.android.adb> /Library/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages/airtest/core/android/static/adb/mac/adb -P 5037 -s UYT5T18524015578 forward --remove tcp:12512  
+[11:06:51][DEBUG]<airtest.utils.nbsp> [rotation\_server]b''  
+[11:06:51][DEBUG]<airtest.utils.nbsp> [airtouch\_server]b''
+
+Process finished with exit code 1
+
+Assertion failed
+
+Assertion failed",https://github.com/AirtestProject/Poco/issues/471,AirtestProject/Poco,471
+IssueComment,nianwu,2021-07-14T09:57:03Z,"当 airtestIDE 打开的时候, 会更新 poco 辅助窗 中的 节点树,  
+这种情况下 可以找到文字  
+如果关闭了 airteset IDE 就会出现找不到文字的情况,  
+目前需要找到一种方法去模拟 airtestIDE 的这个操作, 但是没有找到",,AirtestProject/Poco,471

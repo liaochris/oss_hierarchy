@@ -1,0 +1,31 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,dankamongmen,2021-02-28T18:02:21Z,add pixel component to keller demo,https://github.com/dankamongmen/notcurses/issues/1381,dankamongmen/notcurses,1381
+IssueOpened,dankamongmen,2021-02-28T18:02:21Z,"The `keller` demo shows off the various blitters; we ought throw `NCBLIT_PIXEL` into the rotation. If unavailable, we should display some indication to that effect (otherwise, setups without pixel support will complete 2s\*4==8s faster than those with, etc.). Otherwise, it ought be centered, ideally stretched, and not visible after its time.",,dankamongmen/notcurses,1381
+LabelEvent,dankamongmen,2021-02-28T18:02:22.000Z,"dankamongmen added enhancementNew feature or requestNew feature or request demorelevant to notcurses-demorelevant to notcurses-demo on Feb 28, 2021",,dankamongmen/notcurses,1381
+MilestoneEvent,dankamongmen,2021-02-28T18:02:22.000Z,"dankamongmen added this to the  2.3.0 milestone on Feb 28, 2021",,dankamongmen/notcurses,1381
+AssigneeEvent,dankamongmen,2021-02-28T18:02:22.000Z,"dankamongmenself- assigned thison Feb 28, 2021",,dankamongmen/notcurses,1381
+IssueComment,dankamongmen,2021-02-28T18:25:39.000Z,"It's in there now, but in the upper left, and unstretched.",,dankamongmen/notcurses,1381
+MentionedByCommit,dankamongmen,2021-03-07T19:16:19.000Z,"dankamongmenadded a commit that references this issue on Mar 7, 2021keller: don't use NCSCALE_STRETCH with NCBLIT_PIXEL...yet #1381Verifiedcdf8685
+keller: don't use NCSCALE_STRETCH with NCBLIT_PIXEL...yet #1381",https://github.com/dankamongmen/notcurses/commit/cdf86851545ffd8ec544a3cdf95a3f826bed3591,dankamongmen/notcurses,1381
+MentionedByCommit,dankamongmen,2021-03-07T19:16:19.000Z,"dankamongmenadded a commit that references this issue on Mar 7, 2021keller: don't use NCSCALE_STRETCH with NCBLIT_PIXEL...yet #1381Verifiedcdf8685",https://github.com/dankamongmen/notcurses/commit/cdf86851545ffd8ec544a3cdf95a3f826bed3591,dankamongmen/notcurses,1381
+MentionedByIssue,dankamongmen,2021-03-07T19:24:50.000Z,"dankamongmen mentioned this on Mar 7, 2021
+release 2.2.3 #1387",https://github.com/dankamongmen/notcurses/issues/1387,dankamongmen/notcurses,1381
+IssueComment,dankamongmen,2021-03-07T19:52:17.000Z,"we're seeing some weirdness. see this screenshot:
+
+[![2021-03-07-144457_1044x628_scrot](https://user-images.githubusercontent.com/143473/110252491-bcb62980-7f53-11eb-9e71-57ed6b690c46.png)](https://user-images.githubusercontent.com/143473/110252491-bcb62980-7f53-11eb-9e71-57ed6b690c46.png)
+
+the first chunk is placed in the correct position, but then we drop the height of the chunk for the rest. what's going on?",,dankamongmen/notcurses,1381
+IssueComment,dankamongmen,2021-03-07T19:52:46.000Z,"also, what's going on with our text?",,dankamongmen/notcurses,1381
+IssueComment,dankamongmen,2021-03-07T20:33:58.000Z,"this seems to be a recent development -- i've got a screenshot here from when we were apparently working properly, dated 2021-02-28
+
+[![xterm-with-sixel](https://user-images.githubusercontent.com/143473/110253867-829c5600-7f5a-11eb-8d8f-2922803c1bee.png)](https://user-images.githubusercontent.com/143473/110253867-829c5600-7f5a-11eb-8d8f-2922803c1bee.png)",,dankamongmen/notcurses,1381
+IssueComment,dankamongmen,2021-03-08T01:05:13.000Z,`git bisect` is pointing at [7b61395](https://github.com/dankamongmen/notcurses/commit/7b61395ec43cf8ca602d8ea1e908714a68b321f2).,,dankamongmen/notcurses,1381
+MentionedByIssue,dankamongmen,2021-03-08T01:50:26.000Z,"dankamongmen mentioned this on Mar 7, 2021
+figure out pixel integration with the z-axis #1388",https://github.com/dankamongmen/notcurses/issues/1388,dankamongmen/notcurses,1381
+IssueComment,dankamongmen,2021-03-08T09:58:38.000Z,"ok, i think we've got this working acceptably finally. i now run an `ncplane_erase()` followed by an explicit `DEMO_RENDER()` when doing `NCBLIT_PIXEL`. as a result, the legend damages all cells it touches when printed, and thus shows up properly. it's kind of a gross workaround, but it does work.",,dankamongmen/notcurses,1381
+MentionedByCommit,dankamongmen,2021-03-08T10:02:23.000Z,"dankamongmenadded a commit that references this issue on Mar 8, 2021keller: work around damage check for pixel #1381Verified17e92a6
+keller: work around damage check for pixel #1381",https://github.com/dankamongmen/notcurses/commit/17e92a69f98c6f1b18716ce56705696f6e0a97d9,dankamongmen/notcurses,1381
+MentionedByCommit,dankamongmen,2021-03-08T10:02:23.000Z,"dankamongmenadded a commit that references this issue on Mar 8, 2021keller: work around damage check for pixel #1381Verified17e92a6",https://github.com/dankamongmen/notcurses/commit/17e92a69f98c6f1b18716ce56705696f6e0a97d9,dankamongmen/notcurses,1381
+ClosedEvent,dankamongmen,2021-03-08T10:02:37.000Z,"[dankamongmen closed this as completed on Mar 8, 2021",,dankamongmen/notcurses,1381
+LabelEvent,dankamongmen,2021-03-24T04:30:45.000Z,"dankamongmen added bitmapsbitmapped graphics (sixel, kitty, mmap)bitmapped graphics (sixel, kitty, mmap) on Mar 24, 2021",,dankamongmen/notcurses,1381
+UnclassifiedEventType,dankamongmen,2021-04-14T23:35:48.000Z,"dankamongmenmodified the milestones:  3.0.0,  2.3.0 on Apr 14, 2021",,dankamongmen/notcurses,1381

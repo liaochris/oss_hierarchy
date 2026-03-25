@@ -1,0 +1,99 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,belm0,2020-10-01T12:32:56Z,MemorySendChannel: replace the last queued item,https://github.com/python-trio/trio/issues/1744,python-trio/trio,1744
+IssueOpened,belm0,2020-10-01T12:32:56Z,"The idea is optional support for best-effort synchronous send. I can pick whatever memory channel size is suitable (1, 10). In the worst case values might get dropped, but retaining the most recent value would be ensured.
+
+### proposed API
+
+add `replace_on_overflow=False` keyword-only arg to `send_nowait()`
+
+If `replace_on_overflow` is True, rather than raising `WouldBlock`, the last queued item will be replaced with the given value. This is expected to be combined with `max_buffer_size` > 0, since otherwise there can be no queued item to replace.
+
+### implementation
+
+In existing `WouldBlock` case, if `replace_on_overflow` is True and `max_buffer_size` > 0, simply replace the last item in the deque. This is O(1).
+
+### use case detail
+
+I'd like to explore using it for trio\_util AsyncValue. While that API has overwrite semantics (you can keep writing synchronously to the value attribute and nothing gets queued, but last value is always retained), on the other hand I do want to support [subscribing to value transitions](https://github.com/groove-x/trio-util/issues/8) without any events getting dropped (assuming that the subscriber reschedules himself immediately after receive).
+
+So I might use a memory channel of size 1 (which would support at most 1 write per scheduler frame without dropping events), or optionally larger sizes. But in all cases I need writes to be synchronous, and the last value to be retained on overflow.",,python-trio/trio,1744
+LabelEvent,belm0,2020-10-01T12:32:56.000Z,"belm0 added communication on Oct 1, 2020",,python-trio/trio,1744
+MentionedByIssue,belm0,2020-10-01T12:36:12.000Z,"belm0 mentioned this on Oct 1, 2020
+notes on transitions() iterator groove-x/trio-util#8",https://github.com/groove-x/trio-util/issues/8,python-trio/trio,1744
+MentionedByCommit,belm0,2020-10-01T14:08:47.000Z,"belm0added a commit that references this issue on Oct 1, 2020MemorySendChannel: replace_on_overflow option for send_nowait()...This issue will close once commit f1072a2 is merged into the 'master' branch.f1072a2
+MemorySendChannel: replace_on_overflow option for send_nowait()
+
+Closes: #1744",https://github.com/belm0/trio/commit/f1072a2d59d23606062f849d1f7089f14d2abddb,python-trio/trio,1744
+MentionedByCommit,belm0,2020-10-01T14:08:47.000Z,"belm0added a commit that references this issue on Oct 1, 2020MemorySendChannel: replace_on_overflow option for send_nowait()...This issue will close once commit f1072a2 is merged into the 'master' branch.f1072a2",https://github.com/belm0/trio/commit/f1072a2d59d23606062f849d1f7089f14d2abddb,python-trio/trio,1744
+MentionedByPR,belm0,2020-10-01T14:10:10.000Z,"belm0 mentioned this on Oct 1, 2020
+MemorySendChannel: replace_on_overflow option for send_nowait() #1745",https://github.com/python-trio/trio/pull/1745,python-trio/trio,1744
+MentionedByCommit,belm0,2020-10-01T14:15:40.000Z,"belm0added a commit that references this issue on Oct 1, 2020MemorySendChannel: replace_on_overflow option for send_nowait()...This issue will close once commit c7bca13 is merged into the 'master' branch.c7bca13
+MemorySendChannel: replace_on_overflow option for send_nowait()
+
+Closes: #1744",https://github.com/belm0/trio/commit/c7bca133778489dec58c07225f8238333fa2ba73,python-trio/trio,1744
+MentionedByCommit,belm0,2020-10-01T14:15:40.000Z,"belm0added a commit that references this issue on Oct 1, 2020MemorySendChannel: replace_on_overflow option for send_nowait()...This issue will close once commit c7bca13 is merged into the 'master' branch.c7bca13",https://github.com/belm0/trio/commit/c7bca133778489dec58c07225f8238333fa2ba73,python-trio/trio,1744
+IssueComment,njsmith,2020-10-03T16:33:44.000Z,"For your case, would something like this work?
+
+I'm hesitant to add the `replace_on_overflow` because it feels pretty arbitrary and specific to your particular project...",,python-trio/trio,1744
+IssueComment,belm0,2020-10-04T01:09:52.000Z,"[@njsmith](https://github.com/njsmith) thank you for the suggestion. Discarding the oldest value isn't suitable for this use case, because at allows an over-eager producer task to blow away the entire queue of values in a single scheduler cycle. With replace\_on\_overflow, the worst a task could do is affect the most recent value.
+
+Another way to think about it, assuming the items queued in the channel are temporal: an overflow scenario should only affect items local in time. If say, the channel size is 100 and has items spanning 1 minute, and in the last 5 seconds there is a surge of incoming items, that shouldn't affect items that are a minute old.
+
+it feels pretty arbitrary and specific to your particular project...
+
+The intention is to use this in refactoring and enhancement of trio\_util `AsyncValue`, which is somewhat general and used by at least one other member of the Trio community (mozesa). It's an API with overwrite semantics, which I don't think is that unusual and has served us well in 2 years of active use. (`AsyncValue.value` setter corresponds roughly to ""accept this new value and trigger an event"". )
+
+So we see that the memory channel API is flexible enough to implement ""discard oldest value"" (though I can't think of a case where one would want that). It should be general enough to implement ""discard most recent value"" too, which I know has use cases.",,python-trio/trio,1744
+IssueComment,mozesa,2020-10-04T14:18:54.000Z,"I am actively following this feature request, enchantment proposal since, as [@belm0](https://github.com/belm0) mentioned, I have used `trio_util` for a year with a great pleasure and thus I am interested in anything that could make `trio_util` even better.
+
+At the same time I do understand [@njsmith](https://github.com/njsmith)'s concern as well.",,python-trio/trio,1744
+IssueComment,njsmith,2020-10-04T17:29:05.000Z,"I'm just trying to wrap my head around the problem that this is trying to solve. `AsyncValue` is great for sure, but it's all about a single value, so I don't know how buffers come into anything. It sounds like you want to use a memory channel as a kind of regularly-sampled history of some value's history? I'm not sure memory channels are a great fit for that...
+
+Another concern: it's unclear how this should interact with task that are blocked in `send`.",,python-trio/trio,1744
+IssueComment,smurfix,2020-10-04T19:00:34.000Z,"how this should interact with task that are blocked in send
+
+Doesn't happen in his usecase, which is another reason why a memory channel is a bad fit.
+
+[@belm0](https://github.com/belm0) if I had your job I'd grab the old `Queue` implementation off the archive (it's simpler than the current memory channel implementation) and mangle it to implement the exact semantics you need.",,python-trio/trio,1744
+IssueComment,belm0,2020-10-05T06:15:10.000Z,"It sounds like you want to use a memory channel as a kind of regularly-sampled history
+
+[@njsmith](https://github.com/njsmith) Not in general. It was a poor attempt at an example, to avoid a dive into AsyncValue API and design. But that's not going to fly with this audience 😇
+
+`AsyncValue` has a synchronous setter/getter. It also has async wait on a value or transition.
+
+So that's all fine. It's vetted: we know it's very useful, and moreover approachable by casual programmers (the return values of `wait_value()` and `wait_transition()` are rarely used). Current implementation uses `ParkingLot`. A typical use might be to do some async work whenever the state matches a specific value:
+
+Now, that will miss transitions which occur while the async work is happening. In many cases, that is what you want. And that happens to be the simplest semantics for casual programmers, because they don't need to think about queueing and all it entails-- for example, what happens if their action takes 20 seconds and someone just made 100 transitions to the value.
+
+However, in some cases we do want to avoid missing transitions. These suffice right now for ""best effort"":
+
+By ""best effort"", I mean it's good enough to deal with writes to value every other scheduler frame or so. So yes, that pattern is encroaching on memory channels, and ""you should just use a channel"". But I have reasons for not wanting to promote every developer using the memory channel API in our app, like 1) it's a more complicated thing to learn than AsyncValue, with non-trivial options like channel size, and 2) the person creating the signal needs to think about all potential use cases and ""do I use AsyncValue or this queueing thing?"".
+
+It started with a harmless enhancement: add a `transitions()` async generator to the `AsyncValue` API that accepts the same args as the single-use `wait_transition()`. As a first pass it would just encapsulate the `while True` loop.
+
+In our codebase it would replace about 50 instances of these manual `while` loops and make the code more clear. But `trio_util` is a library for general use, and I'm not satisfied with publishing a generator API that is only ""good enough to deal with writes to value every other scheduler frame or so"".
+
+So I'd like to re-implement `AsyncValue` on top of memory channels with `replace_on_overflow=True`. With a channel size of 1, `transitions()` could handle a write to value every scheduler frame without dropping events. When that limit is exceeded, the behavior would be the same as it is now. And by adding an option for larger channel sizes, it could also prevent dropping events in scenarios with multiple writes per scheduler frame (e.g. multiple writing tasks).",,python-trio/trio,1744
+IssueComment,belm0,2020-10-05T07:52:12.000Z,"grab the old Queue implementation off the archive (it's simpler than the current memory channel implementation) and mangle it to implement the exact semantics you need
+
+At that point I'd probably just use the `wait_task_rescheduled` API directly. But that is a good reference, thank you.",,python-trio/trio,1744
+IssueComment,belm0,2020-10-05T14:05:46.000Z,"After having a go at an actual `AsyncValue.transitions()` implementation, I've realized:
+
+After another read of the broadcast channels discussion ([#987](https://github.com/python-trio/trio/issues/987)), I made something that again employs `ParkingLot`. For now, it drops oldest values on overflow, since that seemed more efficient to implement.
+
+So far the unit tests I've thrown at the `transitions()` implementation seem to be holding up.",,python-trio/trio,1744
+IssueComment,belm0,2020-10-06T02:41:22.000Z,"closing as there isn't adequate interest in this enhancement, and I've found I don't need it myself
+
+thank you for the discussion!",,python-trio/trio,1744
+ClosedEvent,belm0,2020-10-06T02:41:23.000Z,"[belm0 closed this as completed on Oct 5, 2020",,python-trio/trio,1744
+IssueComment,njsmith,2020-10-06T02:51:03.000Z,"If the goal is to avoid losing wakeups, then I think you can do that 100% reliably without any queue or dropping anything? I would keep state in each subscriber generator tracking which events they've seen, and when events are fed in, make a note of which generators are supposed to wake up, so they either wake up if they're asleep, or else they'll return immediately the next time they're iterated. E.g.:",,python-trio/trio,1744
+IssueComment,belm0,2020-10-06T03:45:22.000Z,"I see-- that's an interesting pattern. Currently I'm using `ParkingLot` so doing something like that wasn't obvious.
+
+However in `AsyncValue`, the waitable methods and generator return the exact value(s) that triggered the predicate, which is sometimes required. This may be why I need a queue, but I'm not sure. I'll have to see if I can apply this pattern.",,python-trio/trio,1744
+IssueComment,njsmith,2020-10-06T05:44:07.000Z,,,python-trio/trio,1744
+IssueComment,belm0,2020-10-06T05:48:34.000Z,"So for `AsyncValue` I think there are two reasons that pattern isn't suitable (or in hindsight only one, because the 2nd has a workaround):",,python-trio/trio,1744
+IssueComment,belm0,2020-10-06T06:02:33.000Z,"Can't you just stash that value next to the Event, in the Subscription  
+object? Or a list of values, I guess, since there may be multiple triggers  
+between each wakeup.
+
+Yes, but then I want to know if the subscriber is actually behind and I should jump to the most recent value, as opposed to being fast enough but merely out of phase (see post I made to broadcast channel issue [#987 (comment)](https://github.com/python-trio/trio/issues/987#issuecomment-704001375)). So then I'm putting a generation number in the subscription object too, and on top of the desire to share subscriptions, at that point I don't see a win over the revised broadcast object (FrontRunnerBroadcastValue) I posted to the other issue.",,python-trio/trio,1744

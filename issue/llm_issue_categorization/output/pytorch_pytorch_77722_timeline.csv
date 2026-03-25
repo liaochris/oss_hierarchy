@@ -1,0 +1,28 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,pytorch-bot,2022-05-18T03:55:05Z,DISABLED testAdd (__main__.TestLazyReuseIr),https://github.com/pytorch/pytorch/issues/77722,pytorch/pytorch,77722
+IssueOpened,pytorch-bot,2022-05-18T03:55:05Z,"Platforms: asan, linux
+
+This test was disabled because it is failing in CI. See [recent examples](http://torch-ci.com/failure/testAdd%2C%20TestLazyReuseIr) and the most recent trunk [workflow logs](https://github.com/pytorch/pytorch/runs/6481502117).
+
+Over the past 3 hours, it has been determined flaky in 62 workflow(s) with 124 red and 124 green.",https://github.com/pytorch/pytorch/issues/77722,pytorch/pytorch,77722
+LabeledEvent,pytorch-bot,2022-05-18T03:55:05Z,module: flaky-tests,,pytorch/pytorch,77722
+LabeledEvent,pytorch-bot,2022-05-18T03:55:05Z,oncall: jit,,pytorch/pytorch,77722
+LabeledEvent,pytorch-bot,2022-05-18T03:55:05Z,skipped,,pytorch/pytorch,77722
+IssueComment,pytorch-bot,2022-05-18T03:55:07Z,"Hello there! From the DISABLED prefix in this issue title, it looks like you are attempting to disable a test in PyTorch CI. The information I have parsed is below:
+
+* Test name: `testAdd (__main__.TestLazyReuseIr)`
+* Platforms for which to skip the test: asan, linux
+
+Within ~15 minutes, `testAdd (__main__.TestLazyReuseIr)` will be disabled in PyTorch CI for these platforms: asan, linux. Please verify that your test name looks correct, e.g., `test_cuda_assert_async (__main__.TestCuda)`.
+
+To modify the platforms list, please include a line in the issue body, like below. The default action will disable the test for all platforms if no platforms list is specified.
+
+```
+Platforms: case-insensitive, list, of, platforms
+```
+
+We currently support the following platforms: asan, linux, mac, macos, rocm, win, windows.",,pytorch/pytorch,77722
+IssueComment,pytorch-bot,2022-05-18T06:44:41Z,"Another case of trunk flakiness has been found [here](https://github.com/pytorch/pytorch/runs/6482514638).  
+Please verify the issue was opened after this instance, that the platforms list includes all of  
+[asan, linux], or disable bot might not be working as expected.",,pytorch/pytorch,77722
+ClosedEvent,huydhn,2022-12-12T21:11:12Z,Closed by huydhn in ,,pytorch/pytorch,77722

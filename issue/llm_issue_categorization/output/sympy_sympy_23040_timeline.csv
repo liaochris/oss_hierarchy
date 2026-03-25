@@ -1,0 +1,118 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,bjodah,2022-02-08T08:19:23Z,Should Float(1.0)*Symbol(x) simplify?,https://github.com/sympy/sympy/issues/23040,sympy/sympy,23040
+IssueOpened,bjodah,2022-02-08T08:19:23Z,"I'm wondering what you feel regarding our current behavior:
+
+```
+>>> (Float(1.0)*x).simplify()
+1.0⋅x
+```
+
+Since 1.0 is exactly representable in all floating point systems that I know of, I would argue that `.simplify()` should return `x` here. Especially since we have:
+
+```
+>>> Float(1.0) == 1
+True
+```",https://github.com/sympy/sympy/issues/23040,sympy/sympy,23040
+IssueComment,oscarbenjamin,2022-02-08T09:52:57Z,"It depends what you think that the 1.0 represents conceptually. If the expression is thought of as representing a computation that has not yet happened then it makes sense to remove the 1.0 in a product. Usually though SymPy maintains a distinction between exact and inexact so the idea is that `1.0*x` shows that something inexact happened e.g.:
+
+```
+In [1]: e = 10 ** 20
+
+In [2]: a = (e + 1) * x / e
+
+In [3]: a
+Out[3]: 
+100000000000000000001⋅x
+───────────────────────
+ 100000000000000000000 
+
+In [4]: a.evalf()
+Out[4]: 1.0⋅x
+
+In [6]: _.coeff(x)._prec
+Out[6]: 53
+```
+
+The `1.0` shows us that the expression is only approximately correct and the coefficient is only accurate to 53 bits.",,sympy/sympy,23040
+IssueComment,ThePauliPrinciple,2022-02-08T10:23:37Z,"```
+Float(1.0) == 1
+```
+
+Is a bit of an unfortunate result from python that SymPy mimics, rather than a good choice:
+
+```
+1.0 == 1
+```
+
+or even
+
+```
+{1:True}[1.0]
+```
+
+If you are certain that your `Float(1.0)` represents an integer, you could always substitute I suppose.",,sympy/sympy,23040
+IssueComment,bjodah,2022-02-08T12:45:41Z,"> SymPy maintains a distinction between exact and inexact so the idea is that `1.0*x` shows that something inexact happened
+
+Sure, but that street runs both ways then, consider e.g.:
+
+```
+>>> srepr(Float(1.0)*x - Float(1.0)*x)
+Integer(0)
+```
+
+But switching to interval arithmetics will of course quickly yield unwieldy expressions.
+
+> If you are certain that your Float(1.0) represents an integer, you could always substitute I suppose.
+
+Sure, that's what I'm doing, I just wanted to lift the question whether `simplify` should do this by default or not–my instinct was ""yes"", hence this issue, but I can see why we might not want to.",,sympy/sympy,23040
+IssueComment,oscarbenjamin,2022-02-08T22:04:01Z,"> Sure, but that street runs both ways then, consider e.g.:
+
+I agree that this is not always consistent in SymPy. Whether or not simplify should do this is a good question. I'm sure some users would expect it to. I'm also sure others would object. There isn't really a clear semantic for any of these things that could be used to define what the behaviour should be.",,sympy/sympy,23040
+IssueComment,asmeurer,2022-02-09T00:33:15Z,"I think it would be useful for simplify() to do it. This sort of `1.0*x` thing comes up a lot and it's useful to have a way to remove it. The main functional difference between `1.0*x` and `x` is that `1.0*x` will evaluate `x` to a float when `x` is substituted with a number.
+
+```
+>>> (1.0*x).subs(x, 3)
+3.00000000000000
+```
+
+It depends of course on what you are doing. If you are generating code where `x` will always be a float anyway, then having extra 1.0's like this is pointless and just leads to extra computation. But I agree if you are doing symbolics it can be a useful signal that there was some floating-point operation (we decided a long time ago that `1.0*x` shouldn't automatically simplify, if you want to dig up the discussions).
+
+But at the end of the day, `simplify()` is just a heuristic that should be good enough for the most common cases. If you don't like what simplify() is doing you should use a more targeted simplification function. The point of it is more to just ""do what I probably want to make this simpler"".
+
+It's actually not obvious to me what the ""correct"" way is to remove trivial instances of 1.0 from an expression would be. The only thing that comes to mind is using `replace`, and it doesn't seem to work!
+
+```
+>>> (1.0*x).replace(1.0, 1)
+1.0*x
+```
+
+Although `subs` does work
+
+```
+>>> (1.0*x).subs(1.0, 1)
+x
+```",,sympy/sympy,23040
+IssueComment,smichr,2022-02-09T12:50:49Z,"> it doesn't seem to work!
+
+correct -- as I recall, `replace` ignores replacements where the previous and new are the same according to `==`; `xreplace` will work, however: `eq.xreplace({f:int(f) for f in eq.atoms(Float) if f == int(f)})`
+
+Perhaps a reasonable way to resolve the inconsistency of sometimes treating the unknown values as known (e.g. `0/x == 0`) is to require that all such expressions to be entered as unevaluated (UnevaluatedExpr):
+
+```
+>>> UnevaluatedExpr(Mul(0,x,evaluate=0))
+0*x
+```
+
+otherwise the expressions will evaluate.",,sympy/sympy,23040
+IssueComment,bjodah,2022-02-09T13:03:24Z,"I think it's fine to instruct the user to use `nsimplify` as an alternative, but I struggle with setting the tolerance, so currently I find `nsimplify` pretty much useless for this particular application (see also [gh-23041](https://github.com/sympy/sympy/issues/23041)):
+
+```
+In [20]: nsimplify(1+1e15, tolerance=1e-20)
+Out[20]: 1000000000000000
+
+In [21]: 1.0+1e15
+Out[21]: 1000000000000001.0
+```",,sympy/sympy,23040
+LabeledEvent,oscarbenjamin,2022-02-17T00:42:14Z,floats,,sympy/sympy,23040
+LabeledEvent,oscarbenjamin,2022-02-17T00:42:14Z,simplify,,sympy/sympy,23040
+MentionedByIssue,dilpath,2022-02-18T17:08:34Z,,https://github.com/AMICI-dev/AMICI/issues/1671,sympy/sympy,23040

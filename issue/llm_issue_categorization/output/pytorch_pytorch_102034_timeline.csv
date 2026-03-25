@@ -1,0 +1,45 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,pytorch-bot,2023-05-23T00:57:24Z,DISABLED test_call_parent_non_class_methods_from_child (torch._dynamo.testing.DynamicShapesMiscTests),https://github.com/pytorch/pytorch/issues/102034,pytorch/pytorch,102034
+IssueOpened,pytorch-bot,2023-05-23T00:57:24Z,"Platforms: linux, mac
+
+This test was disabled because it is failing in CI. See [recent examples](https://hud.pytorch.org/flakytest?name=test_call_parent_non_class_methods_from_child&suite=DynamicShapesMiscTests) and the most recent trunk [workflow logs](https://github.com/pytorch/pytorch/runs/undefined).
+
+Over the past 3 hours, it has been determined flaky in 2 workflow(s) with 2 failures and 2 successes.
+
+**Debugging instructions (after clicking on the recent samples link):**  
+DO NOT ASSUME THINGS ARE OKAY IF THE CI IS GREEN. We now shield flaky tests from developers so CI will thus be green but it will be harder to parse the logs.  
+To find relevant log snippets:
+
+1. Click on the workflow logs linked above
+2. Click on the Test step of the job so that it is expanded. Otherwise, the grepping will not work.
+3. Grep for `test_call_parent_non_class_methods_from_child`
+4. There should be several instances run (as flaky tests are rerun in CI) from which you can study the logs.
+
+Test file path: `dynamo/test_dynamic_shapes.py` or `dynamo/test_dynamic_shapes.py`
+
+cc [@voznesenskym](https://github.com/voznesenskym) [@penguinwu](https://github.com/penguinwu) [@anijain2305](https://github.com/anijain2305) [@EikanWang](https://github.com/EikanWang) [@jgong5](https://github.com/jgong5) [@Guobing-Chen](https://github.com/Guobing-Chen) [@XiaobingSuper](https://github.com/XiaobingSuper) [@zhuhaozhe](https://github.com/zhuhaozhe) [@blzheng](https://github.com/blzheng) [@Xia-Weiwen](https://github.com/Xia-Weiwen) [@wenzhe-nrv](https://github.com/wenzhe-nrv) [@jiayisunx](https://github.com/jiayisunx)",,pytorch/pytorch,102034
+LabelEvent,pytorch-bot,2023-05-23T00:57:24.000Z,"pytorch-bot added module: dynamo module: flaky-testsProblem is a flaky test in CIProblem is a flaky test in CI skippedDenotes a (flaky) test currently skipped in CI.Denotes a (flaky) test currently skipped in CI. triagedThis issue has been looked at a team member, and triaged and prioritized into an appropriate moduleThis issue has been looked at a team member, and triaged and prioritized into an appropriate module on May 22, 2023",,pytorch/pytorch,102034
+IssueComment,pytorch-bot,2023-05-23T00:57:26.000Z,"Within ~15 minutes, `test_call_parent_non_class_methods_from_child (torch._dynamo.testing.DynamicShapesMiscTests)` will be disabled in PyTorch CI for these platforms: linux, mac. Please verify that your test name looks correct, e.g., `test_cuda_assert_async (__main__.TestCuda)`.
+
+To modify the platforms list, please include a line in the issue body, like below. The default action will disable the test for all platforms if no platforms list is specified.
+
+We currently support the following platforms: asan, dynamo, inductor, linux, mac, macos, rocm, win, windows.",,pytorch/pytorch,102034
+IssueComment,clee2000,2023-05-24T23:37:42.000Z,dup,,pytorch/pytorch,102034
+ClosedEvent,clee2000,2023-05-24T23:37:42.000Z,"[clee2000 closed this as completed on May 24, 2023",,pytorch/pytorch,102034
+UnclassifiedEventType,pytorch-bot,2023-05-25T21:39:25.000Z,"pytorch-botreopened this on May 25, 2023",,pytorch/pytorch,102034
+IssueComment,pytorch-bot,2023-05-25T21:40:21.000Z,"Another case of trunk flakiness has been found [here](https://github.com/pytorch/pytorch/runs/undefined).  
+Reopening the issue to disable. Please verify that the platforms list includes all of  
+[linux].",,pytorch/pytorch,102034
+IssueComment,pytorch-bot,2023-06-01T21:39:31.000Z,"Another case of trunk flakiness has been found [here](https://github.com/pytorch/pytorch/runs/undefined).  
+Please verify the issue was opened after this instance, that the platforms list includes all of  
+[asan, linux], or disable bot might not be working as expected.",,pytorch/pytorch,102034
+IssueComment,pytorch-bot,2023-06-02T00:58:54.000Z,"Another case of trunk flakiness has been found [here](https://github.com/pytorch/pytorch/runs/undefined).  
+Please verify the issue was opened after this instance, that the platforms list includes all of  
+[linux], or disable bot might not be working as expected.",,pytorch/pytorch,102034
+IssueComment,pytorch-bot,2023-06-02T21:39:58.000Z,"Another case of trunk flakiness has been found [here](https://github.com/pytorch/pytorch/runs/undefined).  
+Please verify the issue was opened after this instance, that the platforms list includes all of  
+[linux, mac, macos], or disable bot might not be working as expected.",,pytorch/pytorch,102034
+UnclassifiedEventType,clee2000,2023-06-02T21:50:12.000Z,"clee2000changed the title [-]DISABLED test_call_parent_non_class_methods_from_child (__main__.DynamicShapesMiscTests)[/-] [+]DISABLED test_call_parent_non_class_methods_from_child (torch._dynamo.testing.DynamicShapesMiscTests)[/+] on Jun 2, 2023",,pytorch/pytorch,102034
+AssigneeEvent,zou3519,2024-01-26T19:20:06.000Z,"zou3519self- assigned thison Jan 26, 2024",,pytorch/pytorch,102034
+IssueComment,zou3519,2024-01-26T19:20:09.000Z,"Looking at the logs, the code in question doesn't exist anymore",,pytorch/pytorch,102034
+ClosedEvent,zou3519,2024-01-26T19:20:09.000Z,"[zou3519 closed this as completed on Jan 26, 2024",,pytorch/pytorch,102034

@@ -1,0 +1,46 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,mr-c,2018-04-09T08:03:13Z,solo 'mapSubject' under jsonldPredicate not rendering in HTML,https://github.com/common-workflow-language/schema_salad/issues/167,common-workflow-language/schema_salad,167
+IssueOpened,mr-c,2018-04-09T08:03:13Z,"<https://github.com/common-workflow-language/common-workflow-language/blob/46091d30e9c4fec1347a3f58b2a6056838a3da60/v1.0/Process.yml#L811>
+
+<http://www.commonwl.org/v1.0/CommandLineTool.html#CommandLineTool>",https://github.com/common-workflow-language/schema_salad/issues/167,common-workflow-language/schema_salad,167
+LabeledEvent,mr-c,2018-04-09T08:03:13Z,bug,,common-workflow-language/schema_salad,167
+MentionedByPR,mr-c,2018-04-09T08:04:03Z,clean up syntax,https://github.com/common-workflow-language/user_guide/pull/105,common-workflow-language/schema_salad,167
+IssueComment,mr-c,2018-04-09T08:16:37Z,"Anywhere we have just a `mapSubject` but not `mapPredicate` then this rendering bug is triggered: `{Workflow,CommandLineTool,Expression}.requirements` and [`Workflow.steps`](http://www.commonwl.org/v1.0/Workflow.html#Workflow)",,common-workflow-language/schema_salad,167
+IssueComment,mr-c,2018-04-09T09:12:04Z,"`Workflow.steps` is fixed by restoring the flow-through of the `jsonldPredicate` when `nbsp` is false:
+
+> steps: array<WorkflowStep> | map<WorkflowStep.id, WorkflowStep>
+
+```
+diff --git a/schema_salad/makedoc.py b/schema_salad/makedoc.py
+index 45bcab2..c2f9b9a 100644
+--- a/schema_salad/makedoc.py
++++ b/schema_salad/makedoc.py
+@@ -237,7 +237,7 @@ class RenderType(object):
+             if nbsp and len(tp) <= 3:
+                 return ""&nbsp;|&nbsp;"".join([self.typefmt(n, redirects, jsonldPredicate=jsonldPredicate) for n in tp])
+             else:
+-                return "" | "".join([self.typefmt(n, redirects) for n in tp])
++                return "" | "".join([self.typefmt(n, redirects, jsonldPredicate=jsonldPredicate) for n in tp])
+         if isinstance(tp, dict):
+             if tp[""type""] == ""https://w3id.org/cwl/salad#array"":
+                 ar = ""array&lt;%s&gt;"" % (self.typefmt(
+```
+
+But for `{Workflow,CommandLineTool,Expression}.requirements` (and to a lesser extent, `{Workflow,CommandLineTool,Expression}.hints`) the change is unsatisfactory in part due to the fact that the abstract `ProcessRequirement` type is never rendered:
+
+> requirements: array<InlineJavascriptRequirement | SchemaDefRequirement | DockerRequirement | SoftwareRequirement | InitialWorkDirRequirement | EnvVarRequirement | ShellCommandRequirement | ResourceRequirement | SubworkflowFeatureRequirement | ScatterFeatureRequirement | MultipleInputFeatureRequirement | StepInputExpressionRequirement> | map<InlineJavascriptRequirement | SchemaDefRequirement | DockerRequirement | SoftwareRequirement | InitialWorkDirRequirement | EnvVarRequirement | ShellCommandRequirement | ResourceRequirement | SubworkflowFeatureRequirement | ScatterFeatureRequirement | MultipleInputFeatureRequirement | StepInputExpressionRequirement**.class**, InlineJavascriptRequirement | SchemaDefRequirement | DockerRequirement | SoftwareRequirement | InitialWorkDirRequirement | EnvVarRequirement | ShellCommandRequirement | ResourceRequirement | SubworkflowFeatureRequirement | ScatterFeatureRequirement | MultipleInputFeatureRequirement | StepInputExpressionRequirement>
+
+> hints: array | map<Any.class, Any>",,common-workflow-language/schema_salad,167
+MentionedByIssue,tom-tan,2018-07-17T02:28:10Z,,https://github.com/common-workflow-language/common-workflow-language/issues/729,common-workflow-language/schema_salad,167
+MentionedByPR,tetron,2018-07-30T19:42:30Z,"Fix type rendering of ""steps""",https://github.com/common-workflow-language/schema_salad/pull/193,common-workflow-language/schema_salad,167
+IssueComment,tetron,2018-07-30T20:32:15Z,"So the problem is that at this point the rendering doesn't have access to the abstract classes, and doesn't easily have access to the types being cross referenced either. So some solutions are much harder to implement than others.
+
+After some fiddling, here's what I came up with:
+
+> array<InlineJavascriptRequirement | SchemaDefRequirement | DockerRequirement | SoftwareRequirement | InitialWorkDirRequirement | EnvVarRequirement | ShellCommandRequirement | ResourceRequirement | SubworkflowFeatureRequirement | ScatterFeatureRequirement | MultipleInputFeatureRequirement | StepInputExpressionRequirement> |  
+> map<`class`, InlineJavascriptRequirement | SchemaDefRequirement | DockerRequirement | SoftwareRequirement | InitialWorkDirRequirement | EnvVarRequirement | ShellCommandRequirement | ResourceRequirement | SubworkflowFeatureRequirement | ScatterFeatureRequirement | MultipleInputFeatureRequirement | StepInputExpressionRequirement>
+
+> array<EnvironmentDef> | map<`envName`, `envValue` | EnvironmentDef>",,common-workflow-language/schema_salad,167
+MentionedByIssue,tetron,2018-07-31T02:01:30Z,,https://github.com/common-workflow-language/common-workflow-language/issues/322,common-workflow-language/schema_salad,167
+IssueComment,mr-c,2018-07-31T11:31:05Z,Fixed in [#193](https://github.com/common-workflow-language/schema_salad/pull/193),,common-workflow-language/schema_salad,167
+ClosedEvent,mr-c,2018-07-31T11:31:05Z,Closed by mr-c in ,,common-workflow-language/schema_salad,167

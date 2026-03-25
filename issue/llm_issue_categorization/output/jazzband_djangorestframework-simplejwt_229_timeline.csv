@@ -1,0 +1,15 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,mohmyo,2020-04-04T02:08:18Z,"Pure JWT authentication class without tieing it to any user, not even TokenUser",https://github.com/jazzband/djangorestframework-simplejwt/issues/229,jazzband/djangorestframework-simplejwt,229
+IssueOpened,mohmyo,2020-04-04T02:08:18Z,"Hello,
+
+I found myself yesterday working on a part which a token is only needed there just for the sake of anonymous access and to share some info in the payload. I already know the concepts of JWT and used it before but this is the first time for me to use it in DRF.
+
+I only needed to create and validate a JWT token for only one endpoint which is different from the standard way which is using it as the authentication class for your whole system.
+
+I dug a bit and found that you have to create your `access` token for `TokenUser` so authentication class passes it, but can't we also provide another authentication class which only authenticate for pure JWT token validity? without a user as it's not needed, not even the dummy one like `TokenUser`?
+
+I find this very reasonable because some times all you want is just generating a JWT token and something that verifies it and gain access to your view when it's valid and otherwise not.
+
+Thank you all for this great job.",https://github.com/jazzband/djangorestframework-simplejwt/issues/229,jazzband/djangorestframework-simplejwt,229
+IssueComment,Andrew-Chen-Wang,2020-04-10T13:06:10Z,"When I was initially testing out SimpleJWT with native Django 3.0 websockets, I ran into a similar issue of needing only one endpoint. Worse yet, database accessing is dangerous async (until psycopg3 comes out + Django ORM re-written). However, the SimpleJWT library is designed for authentication purposes. Especially since your use-case is for a single view, too, you should just use the `jwt` library which is pre-packaged in this library (as in pip install downloads simplejwt and jwt) and play around with it instead of using the simplejwt library to try anything out.",,jazzband/djangorestframework-simplejwt,229
+ClosedEvent,Andrew-Chen-Wang,2020-04-10T13:06:10Z,Closed by Andrew-Chen-Wang in ,,jazzband/djangorestframework-simplejwt,229
