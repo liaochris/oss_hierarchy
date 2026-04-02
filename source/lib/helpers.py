@@ -37,9 +37,9 @@ def ReadFileList(file_list):
     return df
 
 
-def ImputeTimePeriod(df: pd.DataFrame, time_period_months: int) -> pd.DataFrame:
+def ImputeTimePeriod(df, time_period_months):
     df = df.copy()
-    df["created_at"] = pd.to_datetime(df["created_at"])
+    df["created_at"] = pd.to_datetime(df["created_at"], format='ISO8601')
 
     # bucket months into 1..(12/t)
     m = df["created_at"].dt.month

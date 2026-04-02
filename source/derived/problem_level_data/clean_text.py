@@ -5,9 +5,7 @@ from pandarallel import pandarallel
 from pathlib import Path
 from source.lib.helpers import ImputeTimePeriod
 from source.lib.JMSLab.SaveData import SaveData
-import random
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-pandarallel.initialize(progress_bar = True)
 
 RE_PATTERNS = [
     # Code blocks / inline code
@@ -58,10 +56,11 @@ def Main():
 
     INDIR = Path("drive/output/derived/problem_level_data/repo_actions")
     OUTDIR = Path("drive/output/derived/problem_level_data/cleaned_text")
+    LOG_DIR = Path("output/derived/problem_level_data/cleaned_text")
     OUTDIR.mkdir(parents=True, exist_ok=True)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-    projects = [f for f in os.listdir(INDIR) if f.endswith(".parquet")]
-    random.shuffle(projects)
+    projects = sorted([f for f in os.listdir(INDIR) if f.endswith(".parquet") and not f.startswith("._")])
     for project_file in projects:
         project = Path(project_file).stem
         print(f"\n=== Processing project: {project} ===")
@@ -87,7 +86,7 @@ def Main():
         df_text_cleaned = CleanTextColumn(df_text, "text")
         df_text_cleaned = AddVaderSentiment(df_text_cleaned)
 
-        SaveData(df_text_cleaned, ['action_id'], OUTDIR / f"{project}.parquet")
+        SaveData(df_text_cleaned, ['action_id'], OUTDIR / f"{project}.parquet", LOG_DIR / f"{project}.log")
 
 
 def NormalizeTokens(text):
@@ -101,7 +100,7 @@ def NormalizeTokens(text):
         "PATH": "[PATH]",
     }
     for token, full in token_map.items():
-        text = re.sub(rf"\b{token}\]", full, text)
+        text = re.sub(rf"\[{token}\]", full, text)
 
     # Collapse consecutive tokens ([URL] [URL] -> [URL])
     text = re.sub(r"(\[[A-Z]+\])(?:\s+\1)+", r"\1", text)
@@ -155,7 +154,8 @@ def AddVaderSentiment(df_text, text_col='cleaned_text', parallel_threshold=10000
 
     df_text = df_text.copy()
 
-    if len(df_text) > parallel_threshold and hasattr(df_text[text_col], "parallel_apply"):
+    if len(df_text) > parallel_threshold:
+        pandarallel.initialize(progress_bar=True, verbose=0)
         results = df_text[text_col].parallel_apply(analyze_text)
     else:
         results = df_text[text_col].apply(analyze_text)
