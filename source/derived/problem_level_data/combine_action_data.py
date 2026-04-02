@@ -5,31 +5,42 @@ import json
 import numpy as np
 import random
 from source.lib.JMSLab.SaveData import SaveData
+from source.lib.helpers import JsonDeserialize, JsonSerialize, MakeRepoNameSafe
 
 INDIR_REPO = Path('drive/output/scrape/extract_github_data/repo_level_data')
 INDIR_LINK = Path('drive/output/scrape/link_issue_pull_request')
 INDIR_REPO_LIST = Path('output/scrape/extract_github_data')
 OUTDIR = Path('drive/output/derived/problem_level_data/repo_actions')
-OUTDIR_TRACKING = Path('output/derived/problem_level_data')
-STATS_PATH = Path("output/derived/problem_level_data/dropped_stats.csv")
+LOG_DIR = Path('output/derived/problem_level_data/repo_actions')
+STATS_DIR = Path("output/derived/problem_level_data")
 
 
 def Main():
     TrackRepoComponents()
 
-    issue_repos = {p.stem for p in (INDIR_REPO / "issue").glob("*.parquet")}
-    pr_repos = {p.stem for p in (INDIR_REPO / "pr").glob("*.parquet")}
-    link_repos = {p.stem for p in (INDIR_LINK / "linked_pull_request_to_issue").glob("*.parquet")}
+    issue_repos = {p.stem for p in (INDIR_REPO / "issue").glob("*.parquet") if not p.name.startswith("._")}
+    pr_repos = {p.stem for p in (INDIR_REPO / "pr").glob("*.parquet") if not p.name.startswith("._")}
+    link_repos = {p.stem for p in (INDIR_LINK / "linked_pull_request_to_issue").glob("*.parquet") if not p.name.startswith("._")}
     repos = sorted(issue_repos & pr_repos & link_repos)
-    random.shuffle(repos)
 
+    OUTDIR.mkdir(parents=True, exist_ok=True)
     with concurrent.futures.ProcessPoolExecutor() as executor:
-        for msg in executor.map(ProcessRepo, repos):
-            print(msg)
+        results = list(executor.map(ProcessRepo, repos))
+
+    for msg, _ in results:
+        print(msg)
+
+    stats_rows = [stats for _, stats in results if stats is not None]
+    if stats_rows:
+        stats_df = pd.concat(stats_rows, ignore_index=True).sort_values('latest_repo_name')
+        STATS_DIR.mkdir(parents=True, exist_ok=True)
+        SaveData(stats_df, ['latest_repo_name'],
+                 STATS_DIR / "dropped_stats.parquet",
+                 STATS_DIR / "dropped_stats.log")
 
 
 def TrackRepoComponents():
-    OUTDIR_TRACKING.mkdir(parents=True, exist_ok=True)
+    STATS_DIR.mkdir(parents=True, exist_ok=True)
     repo_list_path = INDIR_REPO_LIST / "repo_id_history_final.csv"
 
     if not repo_list_path.exists():
@@ -42,11 +53,11 @@ def TrackRepoComponents():
     tracking_rows = []
     for _, row in unique_repos.iterrows():
         repo_name = row['latest_repo_name']
-        safe_name = repo_name.replace("/", "___")
+        safe_name = MakeRepoNameSafe(repo_name)
 
-        has_issues = (INDIR_REPO / "issue" / f"{safe_name}.parquet").exists()
-        has_prs = (INDIR_REPO / "pr" / f"{safe_name}.parquet").exists()
-        has_linked = (INDIR_LINK / "linked_pull_request_to_issue" / f"{safe_name}.parquet").exists()
+        has_issues = int((INDIR_REPO / "issue" / f"{safe_name}.parquet").exists())
+        has_prs = int((INDIR_REPO / "pr" / f"{safe_name}.parquet").exists())
+        has_linked = int((INDIR_LINK / "linked_pull_request_to_issue" / f"{safe_name}.parquet").exists())
 
         tracking_rows.append({
             'repo_name': repo_name,
@@ -56,8 +67,9 @@ def TrackRepoComponents():
         })
 
     tracking_df = pd.DataFrame(tracking_rows)
-    tracking_df.to_csv(OUTDIR_TRACKING / "repo_component_tracking.csv", index=False)
-    print(f"Component tracking exported: {len(tracking_df)} repos")
+    SaveData(tracking_df, ['repo_name'], STATS_DIR / "repo_component_tracking.parquet", STATS_DIR / "repo_component_tracking.log")
+    n_ready = tracking_df[["has_issues", "has_prs", "has_linked"]].all(axis=1).sum()
+    print(f"Component tracking exported: {len(tracking_df)} repos total, {n_ready} ready to process (have issues, PRs, and linked data)")
 
 
 def ProcessRepo(safe_repo_name):
@@ -67,20 +79,23 @@ def ProcessRepo(safe_repo_name):
     out_path = OUTDIR / f"{safe_repo_name}.parquet"
 
     if not (issue_path.exists() and pr_path.exists() and linked_path.exists()):
-        return f"missing inputs {safe_repo_name}"
+        return f"missing inputs {safe_repo_name}", None
     if out_path.exists():
-        return f"already exists {safe_repo_name}"
+        return f"already exists {safe_repo_name}", None
 
     df_issue = LoadAndProcessIssues(issue_path)
     df_pr = LoadAndProcessPullRequests(pr_path, linked_path)
-    df_all = CombineIssuesAndPRs(df_issue, df_pr, STATS_PATH, safe_repo_name)
+    df_all, stats_row = CombineIssuesAndPRs(df_issue, df_pr, safe_repo_name)
 
     if df_all.empty:
-        return f"empty result {safe_repo_name}"
+        return f"empty result {safe_repo_name}", stats_row
 
-    OUTDIR.mkdir(parents=True, exist_ok=True)
-    SaveData(df_all, ['action_id'], out_path)
-    return f"exported {safe_repo_name}"
+    for col in ['assignees', 'labels', 'requested_reviewers', 'issue_link']:
+        if col in df_all.columns:
+            df_all[col] = df_all[col].apply(JsonSerialize)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    SaveData(df_all, ['action_id'], out_path, LOG_DIR / f"{safe_repo_name}.log")
+    return f"exported {safe_repo_name}", stats_row
 
 
 def ParseJsonList(x, col):
@@ -97,10 +112,7 @@ def ParseJsonList(x, col):
 
 def LoadAndProcessIssues(issue_path):
     def extract_text_title(df):
-        df['issue_body'] = df.apply(
-            lambda x: x['issue_body'] if x['type'] == "IssuesEvent" and x['action'] == "opened" else pd.NA,
-            axis=1
-        )
+        df['issue_body'] = df['issue_body'].where((df['type'] == "IssuesEvent") & (df['action'] == "opened"))
         df["text"] = df["issue_body"].combine_first(df["issue_comment_body"])
         df["title"] = (
             df.groupby("thread_number")["title"]
@@ -143,8 +155,9 @@ def LoadAndProcessIssues(issue_path):
 def LoadAndProcessPullRequests(pr_path, linked_pr_path):
     def merge_linked_data(pr_events, linked_path):
         linked_prs = pd.read_parquet(linked_path).rename(columns={"pr_number": "thread_number"})
+        linked_prs["issue_link"] = linked_prs["issue_link"].apply(lambda x: JsonDeserialize(x, default=[]))
         return pr_events.merge(
-            linked_prs[["repo_name", "thread_number", "pull_request_text", "pull_request_title"]],
+            linked_prs[["repo_name", "thread_number", "pull_request_text", "pull_request_title", "issue_link"]],
             on=["repo_name", "thread_number"], how="left"
         )
 
@@ -223,12 +236,7 @@ def LoadAndProcessPullRequests(pr_path, linked_pr_path):
     return pr_events
 
 
-def CombineIssuesAndPRs(df_issue, df_pr, stats_path, safe_repo_name):
-    def append_stats(stats_row, stats_path):
-        stats_path.parent.mkdir(parents=True, exist_ok=True)
-        header = not stats_path.exists() or stats_path.stat().st_size == 0
-        stats_row.to_csv(stats_path, mode="a", header=header, index=False)
-
+def CombineIssuesAndPRs(df_issue, df_pr, safe_repo_name):
     def fix_mislabeled_issue_comments(df):
         # IssueCommentEvent on PRs should be labeled as "pull request comment"
         # GitHub incorrectly labels comments on PRs as IssueCommentEvent
@@ -244,11 +252,8 @@ def CombineIssuesAndPRs(df_issue, df_pr, stats_path, safe_repo_name):
         df["thread_number"] = df["thread_number"].astype(float)
         opened_threads = df[df["type"].str.endswith(" opened")][["repo_name", "thread_number"]].drop_duplicates()
 
-        opened_thread_keys = set(zip(opened_threads["repo_name"], opened_threads["thread_number"]))
-        mask_without_opener = df.apply(
-            lambda r: (r["repo_name"], r["thread_number"]) not in opened_thread_keys,
-            axis=1
-        )
+        opened_idx = pd.MultiIndex.from_frame(opened_threads[["repo_name", "thread_number"]])
+        mask_without_opener = ~pd.MultiIndex.from_frame(df[["repo_name", "thread_number"]]).isin(opened_idx)
 
         count_unopened_thread_actions = mask_without_opener.sum()
         count_threads_unopened = df.loc[mask_without_opener, ["repo_name", "thread_number"]].drop_duplicates().shape[0]
@@ -266,7 +271,10 @@ def CombineIssuesAndPRs(df_issue, df_pr, stats_path, safe_repo_name):
         return df_filtered, stats_row
 
     def deduplicate_opening_text(df, opened_type, action_types_to_clean):
-        opened_df = df[df["type"] == opened_type][["thread_number", "text"]].rename(columns={"text": "opened_text"})
+        # Keep earliest opener per thread (duplicate PR open events with different repo IDs due to repo ID changes)
+        opened_df = (df[df["type"] == opened_type].sort_values("created_at")
+                     .drop_duplicates("thread_number", keep="first")
+                     [["thread_number", "text"]].rename(columns={"text": "opened_text"}))
         df = df.merge(opened_df, on="thread_number", how="left")
         mask = df["type"].isin(action_types_to_clean) & (df["text"] == df["opened_text"])
         df.loc[mask, "text"] = pd.NA
@@ -306,7 +314,6 @@ def CombineIssuesAndPRs(df_issue, df_pr, stats_path, safe_repo_name):
     df_deduped = fix_mislabeled_issue_comments(df_deduped)
 
     df_filtered, stats_row = remove_threads_without_opener(df_deduped, safe_repo_name)
-    append_stats(stats_row, stats_path)
 
     # Remove duplicate text from close/reopen events that repeat the opening text
     df_filtered = deduplicate_opening_text(
@@ -324,7 +331,7 @@ def CombineIssuesAndPRs(df_issue, df_pr, stats_path, safe_repo_name):
     df_filtered = forward_fill_list_columns(df_filtered, ['assignees', 'labels', 'requested_reviewers'])
     df_filtered = create_action_id(df_filtered)
 
-    return df_filtered.drop(columns=["action"])
+    return df_filtered.drop(columns=["action"]), stats_row
 
 
 if __name__ == "__main__":
