@@ -16,6 +16,11 @@ STATS_DIR = Path("output/derived/problem_level_data")
 
 
 def Main():
+    OUTDIR.mkdir(parents=True, exist_ok=True)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    for f in list(OUTDIR.glob("*.parquet")) + list(LOG_DIR.glob("*.log")):
+        f.unlink(missing_ok=True)
+
     TrackRepoComponents()
 
     issue_repos = {p.stem for p in (INDIR_REPO / "issue").glob("*.parquet") if not p.name.startswith("._")}
@@ -35,7 +40,7 @@ def Main():
         stats_df = pd.concat(stats_rows, ignore_index=True).sort_values('latest_repo_name')
         STATS_DIR.mkdir(parents=True, exist_ok=True)
         SaveData(stats_df, ['latest_repo_name'],
-                 STATS_DIR / "dropped_stats.parquet",
+                 STATS_DIR / "dropped_stats.csv",
                  STATS_DIR / "dropped_stats.log")
 
 
@@ -67,7 +72,7 @@ def TrackRepoComponents():
         })
 
     tracking_df = pd.DataFrame(tracking_rows)
-    SaveData(tracking_df, ['repo_name'], STATS_DIR / "repo_component_tracking.parquet", STATS_DIR / "repo_component_tracking.log")
+    SaveData(tracking_df, ['repo_name'], STATS_DIR / "repo_component_tracking.csv", STATS_DIR / "repo_component_tracking.log")
     n_ready = tracking_df[["has_issues", "has_prs", "has_linked"]].all(axis=1).sum()
     print(f"Component tracking exported: {len(tracking_df)} repos total, {n_ready} ready to process (have issues, PRs, and linked data)")
 

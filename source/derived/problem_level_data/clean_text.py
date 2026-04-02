@@ -59,6 +59,8 @@ def Main():
     LOG_DIR = Path("output/derived/problem_level_data/cleaned_text")
     OUTDIR.mkdir(parents=True, exist_ok=True)
     LOG_DIR.mkdir(parents=True, exist_ok=True)
+    for f in list(OUTDIR.glob("*.parquet")) + list(LOG_DIR.glob("*.log")):
+        f.unlink(missing_ok=True)
 
     projects = sorted([f for f in os.listdir(INDIR) if f.endswith(".parquet") and not f.startswith("._")])
     for project_file in projects:
