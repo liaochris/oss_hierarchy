@@ -212,7 +212,7 @@ def Main(proxy_num: int):
                (TIMELINE_DIR / f"{safe_repo}_issue_timeline.parquet").exists()
 
     with concurrent.futures.ThreadPoolExecutor() as pool:
-        done_flags =  rmovlist(pool.map(_IsAlreadyDone, parquet_files))
+        done_flags = list(pool.map(_IsAlreadyDone, parquet_files))
 
     parquet_files = [f for f, done in zip(parquet_files, done_flags) if not done]
     print(f"{len(parquet_files)} repos remaining to process")
