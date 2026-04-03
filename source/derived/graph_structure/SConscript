@@ -52,7 +52,7 @@ source = [
     f'#drive/output/derived/graph_structure/graph_degrees/{ref}.parquet',
 ]
 target = [
-    f'#drive/output/derived/graph_structure/important_members/{ref}.parquet',
+    f'#output/derived/graph_structure/important_members/{ref}.csv',
     '#output/derived/graph_structure/importance_summary.csv',
 ]
 env.Python(target, source)
