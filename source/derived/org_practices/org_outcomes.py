@@ -1,70 +1,61 @@
-from source.lib.helpers import ImputeTimePeriod, ConcatStatsByTimePeriod, MakeRepoNameSafe
+import random, shutil
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 import pandas as pd
 import pyarrow.dataset as ds
-from concurrent.futures import ProcessPoolExecutor
-import random
+from source.lib.helpers import ImputeTimePeriod, ConcatStatsByTimePeriod, LoadGlobals, MakeRepoNameSafe
+
+_globals = LoadGlobals("source/lib/globals.json")
+N_JOBS   = _globals["n_jobs"]
+
+INDIR                  = Path("drive/output/derived/problem_level_data/repo_actions")
+INDIR_MONTHLY_DOWNLOADS = Path("drive/output/scrape/pypi_downloads")
+INDIR_PYPI_GITHUB      = Path("output/derived/collect_github_repos")
+INDIR_GITHUB_MAP       = Path("output/scrape/extract_github_data/")
+INDIR_PROJECT_DOWNLOADS = Path("drive/output/scrape/pypi_downloads/pypi_package_downloads_package_level")
+OUTDIR                 = Path("drive/output/derived/org_practices/org_outcomes")
+TIME_PERIOD            = _globals["time_period_months"]
 
 
 def Main():
-    time_period = 6
-    indir = Path("drive/output/derived/problem_level_data/repo_actions")
-    indir_monthly_downloads = Path("drive/output/scrape/pypi_downloads")
-    indir_pypi_github = Path("output/derived/collect_github_repos")
-    indir_github_map = Path("output/scrape/extract_github_data/")
-    indir_project_downloads = Path("drive/output/scrape/pypi_downloads/pypi_package_downloads_package_level")
-    outdir = Path("drive/output/derived/org_characteristics/org_outcomes")
-
-    repos = [f.stem.replace("_", "/", 1) for f in indir.glob("*.parquet")]
+    CleanOutputs()
+    repos = [f.stem.replace("_", "/", 1) for f in INDIR.glob("*.parquet")]
     random.shuffle(repos)
 
-    with ProcessPoolExecutor(max_workers=8) as executor:
-        futures = [
-            executor.submit(
-                ProcessRepo,
-                repo,
-                time_period,
-                indir,
-                indir_monthly_downloads,
-                indir_pypi_github,
-                indir_github_map,
-                indir_project_downloads,
-                outdir,
-            )
-            for repo in repos
-        ]
+    with ProcessPoolExecutor(max_workers=N_JOBS) as executor:
+        futures = [executor.submit(ProcessRepo, repo) for repo in repos]
         for f in futures:
             f.result()
 
 
-def ProcessRepo(repo, time_period, indir, indir_monthly_downloads, indir_pypi_github, indir_github_map, indir_project_downloads, outdir):
-    outfile_agg = outdir / f"{MakeRepoNameSafe(repo)}.parquet"
-    if outfile_agg.exists():
-        print(f"⏭️ Skipping {repo}, already processed.")
-        return
+def CleanOutputs():
+    if OUTDIR.exists():
+        shutil.rmtree(OUTDIR)
+    OUTDIR.mkdir(parents=True, exist_ok=True)
 
-    pypi_names = LoadRepoMappings(indir_github_map, indir_pypi_github, repo)
-    df_downloads = LoadFilteredDownloads(indir_monthly_downloads / "pypi_monthly_downloads.parquet", pypi_names)
-    df_all = pd.read_parquet(indir / f"{MakeRepoNameSafe(repo)}.parquet")
 
-    stats = [GetOutcomeEventCounts(df_all, time_period)]
+def ProcessRepo(repo):
+    outfile_agg = OUTDIR / f"{MakeRepoNameSafe(repo)}.parquet"
+    pypi_names   = LoadRepoMappings(repo)
+    df_downloads = LoadFilteredDownloads(INDIR_MONTHLY_DOWNLOADS / "pypi_monthly_downloads.parquet", pypi_names)
+    df_all       = pd.read_parquet(INDIR / f"{MakeRepoNameSafe(repo)}.parquet")
+
+    stats = [GetOutcomeEventCounts(df_all, TIME_PERIOD)]
     if not df_downloads.empty:
-        stats.append(GetDownloadsAgg(df_downloads, time_period))
-        release_summary = GetReleaseSummary(indir_project_downloads, time_period, pypi_names)
+        stats.append(GetDownloadsAgg(df_downloads, TIME_PERIOD))
+        release_summary = GetReleaseSummary(INDIR_PROJECT_DOWNLOADS, TIME_PERIOD, pypi_names)
         if not release_summary.empty:
             stats.append(release_summary)
 
     df_combined = ConcatStatsByTimePeriod(*stats)
     if not df_combined.empty:
-        outdir.mkdir(parents=True, exist_ok=True)
         df_combined.to_parquet(outfile_agg)
-        print(f"✅ Processed {repo} → {outfile_agg}")
 
 
-def LoadRepoMappings(indir_github_map, indir_pypi_github, repo):
-    df_github_map = pd.read_csv(indir_github_map / "repo_id_history_final.csv")
+def LoadRepoMappings(repo):
+    df_github_map = pd.read_csv(INDIR_GITHUB_MAP / "repo_id_history_final.csv")
     repo_names = df_github_map.query("latest_repo_name == @repo")["repo_name"].unique().tolist()
-    df_pypi_github_map = pd.read_csv(indir_pypi_github / "linked_pypi_github.csv")
+    df_pypi_github_map = pd.read_csv(INDIR_PYPI_GITHUB / "linked_pypi_github.csv")
     if repo_names:
         return df_pypi_github_map[df_pypi_github_map["github repository"].isin(repo_names)]["package"].unique().tolist()
     return []
