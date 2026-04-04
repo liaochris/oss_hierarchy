@@ -16,11 +16,7 @@ STATS_DIR = Path("output/derived/problem_level_data")
 
 
 def Main():
-    OUTDIR.mkdir(parents=True, exist_ok=True)
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    for f in list(OUTDIR.glob("*.parquet")) + list(LOG_DIR.glob("*.log")):
-        f.unlink(missing_ok=True)
-
+    CleanOutputs()
     TrackRepoComponents()
 
     issue_repos = {p.stem for p in (INDIR_REPO / "issue").glob("*.parquet") if not p.name.startswith("._")}
@@ -28,7 +24,6 @@ def Main():
     link_repos = {p.stem for p in (INDIR_LINK / "linked_pull_request_to_issue").glob("*.parquet") if not p.name.startswith("._")}
     repos = sorted(issue_repos & pr_repos & link_repos)
 
-    OUTDIR.mkdir(parents=True, exist_ok=True)
     with concurrent.futures.ProcessPoolExecutor() as executor:
         results = list(executor.map(ProcessRepo, repos))
 
@@ -42,6 +37,13 @@ def Main():
         SaveData(stats_df, ['latest_repo_name'],
                  STATS_DIR / "dropped_stats.csv",
                  STATS_DIR / "dropped_stats.log")
+
+
+def CleanOutputs():
+    OUTDIR.mkdir(parents=True, exist_ok=True)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    for f in list(OUTDIR.glob("*.parquet")) + list(LOG_DIR.glob("*.log")):
+        f.unlink(missing_ok=True)
 
 
 def TrackRepoComponents():

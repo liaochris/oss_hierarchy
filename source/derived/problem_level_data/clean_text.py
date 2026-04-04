@@ -7,6 +7,10 @@ from source.lib.helpers import ImputeTimePeriod
 from source.lib.JMSLab.SaveData import SaveData
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
+INDIR   = Path("drive/output/derived/problem_level_data/repo_actions")
+OUTDIR  = Path("drive/output/derived/problem_level_data/cleaned_text")
+LOG_DIR = Path("output/derived/problem_level_data/cleaned_text")
+
 RE_PATTERNS = [
     # Code blocks / inline code
     (re.compile(r"```.*?```", re.DOTALL), " "),
@@ -53,15 +57,7 @@ RE_PATTERNS = [
 
 
 def Main():
-
-    INDIR = Path("drive/output/derived/problem_level_data/repo_actions")
-    OUTDIR = Path("drive/output/derived/problem_level_data/cleaned_text")
-    LOG_DIR = Path("output/derived/problem_level_data/cleaned_text")
-    OUTDIR.mkdir(parents=True, exist_ok=True)
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    for f in list(OUTDIR.glob("*.parquet")) + list(LOG_DIR.glob("*.log")):
-        f.unlink(missing_ok=True)
-
+    CleanOutputs()
     projects = sorted([f for f in os.listdir(INDIR) if f.endswith(".parquet") and not f.startswith("._")])
     for project_file in projects:
         project = Path(project_file).stem
@@ -89,6 +85,13 @@ def Main():
         df_text_cleaned = AddVaderSentiment(df_text_cleaned)
 
         SaveData(df_text_cleaned, ['action_id'], OUTDIR / f"{project}.parquet", LOG_DIR / f"{project}.log")
+
+
+def CleanOutputs():
+    OUTDIR.mkdir(parents=True, exist_ok=True)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    for f in list(OUTDIR.glob("*.parquet")) + list(LOG_DIR.glob("*.log")):
+        f.unlink(missing_ok=True)
 
 
 def NormalizeTokens(text):

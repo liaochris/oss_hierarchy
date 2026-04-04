@@ -13,10 +13,13 @@ LOG_DIR = Path("output/derived/graph_structure/graph_degrees")
 
 
 def Main():
-    for f in list((OUTDIR).glob("*.parquet")) + list((LOG_DIR / "interactions").glob("*.log")):
-        f.unlink(missing_ok=True)
-
+    CleanOutputs()
     ProcessRepos(INDIR_INTERACTIONS, INDIR_GRAPHS, OUTDIR)
+
+
+def CleanOutputs():
+    for f in list(OUTDIR.glob("*.parquet")) + list((LOG_DIR / "interactions").glob("*.log")):
+        f.unlink(missing_ok=True)
 
 
 def ProcessRepos(indir_interactions, indir_graphs, outdir, n_jobs=-1):

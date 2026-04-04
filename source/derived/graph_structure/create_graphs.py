@@ -16,16 +16,7 @@ LOG_DIR = Path('output/derived/graph_structure')
 
 
 def Main():
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    OUTDIR.mkdir(parents=True, exist_ok=True)
-
-    for f in list((OUTDIR / "interactions").glob("*.parquet")) + list((LOG_DIR / "interactions").glob("*.log")):
-        f.unlink(missing_ok=True)
-    for d in (OUTDIR / "graphs").glob("*"):
-        if d.is_dir():
-            for f in d.glob("*.gexf"):
-                f.unlink(missing_ok=True)
-
+    CleanOutputs()
     globals_data = LoadGlobals("source/lib/globals.json")
     time_period = 6
     repo_list = sorted({
@@ -46,6 +37,17 @@ def Main():
     if not log_df.empty:
         log_df['per_period_exported'] = log_df['per_period_exported'].apply(JsonSerialize)
         SaveData(log_df, ['repo'], LOG_DIR / "exported_graphs_log.csv", LOG_DIR / "exported_graphs_log.log")
+
+
+def CleanOutputs():
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    OUTDIR.mkdir(parents=True, exist_ok=True)
+    for f in list((OUTDIR / "interactions").glob("*.parquet")) + list((LOG_DIR / "interactions").glob("*.log")):
+        f.unlink(missing_ok=True)
+    for d in (OUTDIR / "graphs").glob("*"):
+        if d.is_dir():
+            for f in d.glob("*.gexf"):
+                f.unlink(missing_ok=True)
 
 
 def worker(repo, time_periods, time_period, outdir, indir_data):
