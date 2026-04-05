@@ -106,7 +106,7 @@ def _ActorIssuePRMixCore(df_actions, bot_list):
     return shares.rename(lambda c: f"share_{c}").to_frame().T.reset_index(drop=True)
 
 def ActorIssuePRMix(df_actions, bot_list):
-    return ApplyRolling(df_actions, ROLLING_PERIODS, _ActorIssuePRMixCore, bot_list=bot_list)
+    return ApplyRolling(df_actions, ROLLING_PERIODS, _ActorIssuePRMixCore, bot_list=bot_list, time_period=TIME_PERIOD)
 
 
 def _AverageTypeCountCore(df_actions, bot_list):
@@ -118,7 +118,7 @@ def _AverageTypeCountCore(df_actions, bot_list):
     return pd.DataFrame({"avg_unique_types": [avg_types.mean()]})
 
 def AverageTypeCount(df_actions, bot_list):
-    return ApplyRolling(df_actions, ROLLING_PERIODS, _AverageTypeCountCore, bot_list=bot_list)
+    return ApplyRolling(df_actions, ROLLING_PERIODS, _AverageTypeCountCore, bot_list=bot_list, time_period=TIME_PERIOD)
 
 
 if __name__ == "__main__":

@@ -82,7 +82,7 @@ def _OrganizedProblemSolvingCore(df_actions):
             .join([ComputeMeanStatus(df_all2, "has_tag"), ComputeMeanStatus(df_all2, "has_assignee")], how="outer"))
 
 def OrganizedProblemSolving(df_actions):
-    return ApplyRolling(df_actions, ROLLING_PERIODS, _OrganizedProblemSolvingCore)
+    return ApplyRolling(df_actions, ROLLING_PERIODS, _OrganizedProblemSolvingCore, time_period=TIME_PERIOD)
 
 
 def FirstFilePresence(df_files, file_type, col_name):

@@ -105,7 +105,7 @@ def LoadFilteredImportantMembers(repo_name, INDIR_IMPORTANT, INDIR_LIB, importan
         raise ValueError(f"importance_type '{importance_type}' not found in importance.json")
 
     importance_parameters = importance_parameters_all[importance_type]
-    df_important_members = pd.read_parquet(INDIR_IMPORTANT / f"{repo_name}.parquet")
+    df_important_members = pd.read_csv(INDIR_IMPORTANT / f"{repo_name}.csv")
 
     df_filtered_important = df_important_members.copy()
     for col, value in importance_parameters.items():
@@ -118,7 +118,9 @@ def LoadFilteredImportantMembers(repo_name, INDIR_IMPORTANT, INDIR_LIB, importan
         .dt.to_period("M")
         .dt.to_timestamp()
     )
-    df_filtered_important["important_actors"] = df_filtered_important["important_actors"].apply(lambda x: [int(ele) for ele in x])
+    df_filtered_important["important_actors"] = df_filtered_important["important_actors"].apply(
+        lambda x: [int(ele) for ele in JsonDeserialize(x, default=[])]
+    )
 
     return df_filtered_important
 
@@ -133,12 +135,11 @@ def FilterOnImportant(df, df_filtered_important):
     ]
     return df
 
-TIME_PERIOD = 6
-def ApplyRolling(df_all, rolling_periods, stat_func, **kwargs):
+def ApplyRolling(df_all, rolling_periods, stat_func, time_period=6, **kwargs):
     results = []
     unique_periods = sorted(df_all['time_period'].unique())
     for t in unique_periods:
-        window_start = t - pd.DateOffset(months=(rolling_periods - 1) * TIME_PERIOD)
+        window_start = t - pd.DateOffset(months=(rolling_periods - 1) * time_period)
         df_window = df_all[(df_all['time_period'] >= window_start) & (df_all['time_period'] <= t)]
         if df_window.empty:
             continue
@@ -156,6 +157,10 @@ def LoadGlobals(json_path):
 
 def MakeRepoNameSafe(repo_name):
     return repo_name.replace("/", "___")
+
+
+def MakeRepoNameOriginal(safe_name):
+    return safe_name.replace("___", "/")
 
 
 def JsonSerialize(x):

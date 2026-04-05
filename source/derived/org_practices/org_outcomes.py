@@ -10,7 +10,7 @@ N_JOBS   = _globals["n_jobs"]
 
 INDIR                  = Path("drive/output/derived/problem_level_data/repo_actions")
 INDIR_MONTHLY_DOWNLOADS = Path("drive/output/scrape/pypi_downloads")
-INDIR_PYPI_GITHUB      = Path("output/derived/collect_github_repos")
+INDIR_PYPI_GITHUB      = Path("output/scrape/pypi_site_info")
 INDIR_GITHUB_MAP       = Path("output/scrape/extract_github_data/")
 INDIR_PROJECT_DOWNLOADS = Path("drive/output/scrape/pypi_downloads/pypi_package_downloads_package_level")
 OUTDIR                 = Path("drive/output/derived/org_practices/org_outcomes")

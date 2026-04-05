@@ -186,7 +186,7 @@ def _ResponseRateCore(df, bot_list, by_type=False):
     return pd.DataFrame([{**overall, **by_t.to_dict()}])
 
 def CalculateResponseRate(df, bot_list, by_type=False):
-    return ApplyRolling(df, ROLLING_PERIODS, _ResponseRateCore, bot_list=bot_list, by_type=by_type)
+    return ApplyRolling(df, ROLLING_PERIODS, _ResponseRateCore, bot_list=bot_list, by_type=by_type, time_period=TIME_PERIOD)
 
 
 def _ResponseTimeCore(df_eligible_senders, bot_list, by_type=False):
@@ -207,7 +207,7 @@ def _ResponseTimeCore(df_eligible_senders, bot_list, by_type=False):
     return pd.DataFrame([{**overall, **by_t.to_dict(), "mean_days_to_respond_to_last_comment": last_comment_avg}])
 
 def CalculateResponseTime(df_eligible_senders, bot_list, by_type=False):
-    return ApplyRolling(df_eligible_senders, ROLLING_PERIODS, _ResponseTimeCore, bot_list=bot_list, by_type=by_type)
+    return ApplyRolling(df_eligible_senders, ROLLING_PERIODS, _ResponseTimeCore, bot_list=bot_list, by_type=by_type, time_period=TIME_PERIOD)
 
 
 def _SentimentCore(df_text, bot_list, by_type=False):
@@ -228,7 +228,7 @@ def _SentimentCore(df_text, bot_list, by_type=False):
     return pd.DataFrame([{**overall, **by_t_flat}])
 
 def CalculateTextSentiment(df_text, bot_list, by_type=False):
-    return ApplyRolling(df_text, ROLLING_PERIODS, _SentimentCore, bot_list=bot_list, by_type=by_type)
+    return ApplyRolling(df_text, ROLLING_PERIODS, _SentimentCore, bot_list=bot_list, by_type=by_type, time_period=TIME_PERIOD)
 
 
 def _PercentPullsMergedReviewedCore(df_actions):
@@ -253,7 +253,7 @@ def _PercentPullsMergedReviewedCore(df_actions):
     })
 
 def PercentPullsMergedReviewed(df_actions):
-    return ApplyRolling(df_actions, ROLLING_PERIODS, _PercentPullsMergedReviewedCore)
+    return ApplyRolling(df_actions, ROLLING_PERIODS, _PercentPullsMergedReviewedCore, time_period=TIME_PERIOD)
 
 
 def _AvgPRDiscCountsCore(df_actions, include_opener=True):
@@ -277,7 +277,7 @@ def _AvgPRDiscCountsCore(df_actions, include_opener=True):
             }))
 
 def CalculateAvgPRDiscCounts(df_actions, include_opener=True):
-    return ApplyRolling(df_actions, ROLLING_PERIODS, _AvgPRDiscCountsCore, include_opener=include_opener)
+    return ApplyRolling(df_actions, ROLLING_PERIODS, _AvgPRDiscCountsCore, include_opener=include_opener, time_period=TIME_PERIOD)
 
 
 def CalculateNetworkClustering(repo_name, bot_list, df_important_members):
