@@ -1,39 +1,149 @@
+import os
+import itertools
 import subprocess
 import datetime
-from pathlib import Path
-import pandas as pd
 import shutil
 import concurrent.futures
 import random
+from pathlib import Path
+
+import pandas as pd
+
 from source.lib.helpers import LoadGlobals
+from source.lib.JMSLab.SaveData import SaveData
 
-def RunGit(repo_path, args):
-    result = subprocess.run(
-        ["git", "-C", str(repo_path)] + args,
-        capture_output=True,
-        text=True
+
+def Main():
+    os.chdir("/Users/chrisliao/Documents/research_temp")
+    INDIR = Path('output/scrape/extract_github_data')
+    OUTDIR = Path("drive/output/scrape/governance_data")
+    LOG_OUTDIR = Path("output/scrape/governance_data")
+    TEMPDIR = Path("drive/temp/governance_data/repos")
+    OUTDIR.mkdir(exist_ok=True, parents=True)
+    LOG_OUTDIR.mkdir(exist_ok=True, parents=True)
+    TEMPDIR.mkdir(exist_ok=True, parents=True)
+
+    df_repo_list = pd.read_csv(INDIR / 'repo_id_history_final.csv')
+    repo_list = df_repo_list.query('latest_repo_name != "ERROR" & is_fork == 0')['repo_name'].unique().tolist()
+
+    random.shuffle(repo_list)
+    START_DATE = LoadGlobals("source/lib/globals.json")['github_start_date']
+
+    gh_tokens = LoadTokens()
+
+    letter_groups = {}
+    for repo in repo_list:
+        first_char = repo[0].lower() if repo[0].isalpha() else "numeric"
+        letter_groups.setdefault(first_char, []).append(repo)
+
+    all_outputs = []
+    with concurrent.futures.ProcessPoolExecutor(max_workers=8) as executor:
+        futures = [
+            executor.submit(ProcessLetterGroup, letter, repos, TEMPDIR, OUTDIR, LOG_OUTDIR, START_DATE, gh_tokens)
+            for letter, repos in letter_groups.items()
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            all_outputs.extend(future.result())
+
+    print(f"Finished {len(all_outputs)} repos")
+
+
+def LoadTokens():
+    token_names = (
+        ["PRIMARY_GITHUB_TOKEN", "BACKUP_GITHUB_TOKEN"]
+        + [f"BACKUP{i}_GITHUB_TOKEN" for i in range(2, 10)]
     )
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip())
-    return result.stdout.strip()
+    tokens = [os.environ[name] for name in token_names if os.environ.get(name)]
+    if not tokens:
+        raise RuntimeError(
+            "No GitHub tokens found. Set PRIMARY_GITHUB_TOKEN and optionally "
+            "BACKUP_GITHUB_TOKEN through BACKUP9_GITHUB_TOKEN in your environment."
+        )
+    print(f"Loaded {len(tokens)} GitHub token(s)")
+    return tokens
 
 
-def CloneRepo(owner, repo, TEMPDIR):
+def ProcessLetterGroup(letter, repos, TEMPDIR, OUTDIR, LOG_OUTDIR, START_DATE, gh_tokens):
+    logfile = LOG_OUTDIR / f"{letter}.log"
+    token_cycle = itertools.cycle(gh_tokens)
+    results = []
+    for repo in repos:
+        owner, repo_name = repo.split("/", 1)
+        token = next(token_cycle)
+        result = RepoOrgGovernanceHistory(owner, repo_name, TEMPDIR, OUTDIR, logfile, START_DATE, token)
+        if result:
+            results.append(result)
+    return results
+
+
+def RepoOrgGovernanceHistory(owner, repo, TEMPDIR, OUTDIR, logfile, START_DATE, GH_TOKEN):
+    outfile = OUTDIR / f"{owner}_{repo}.parquet"
+
+    if outfile.exists():
+        print(f"Skipping {owner}/{repo}, output already exists: {outfile}")
+        return str(outfile)
+
+    rows = []
+
+    repo_path = CloneRepo(owner, repo, TEMPDIR, GH_TOKEN)
+    if repo_path:
+        commits = GetCommitsTouchingGovernance(repo_path, START_DATE)
+        for sha, date in commits:
+            files = ExtractGovernanceFiles(repo_path, sha)
+            for fpath, text in files.items():
+                rows.append({
+                    "repo": f"{owner}/{repo}",
+                    "source": "repo",
+                    "commit": sha,
+                    "date": date.isoformat(),
+                    "file_path": fpath,
+                    "file_type": ClassifyGovernanceFile(fpath),
+                    "text": text
+                })
+        shutil.rmtree(repo_path, ignore_errors=True)
+
+    org_path = CloneRepo(owner, ".github", TEMPDIR, GH_TOKEN)
+    if org_path:
+        commits = GetCommitsTouchingGovernance(org_path, START_DATE)
+        for sha, date in commits:
+            files = ExtractGovernanceFiles(org_path, sha)
+            for fpath, text in files.items():
+                rows.append({
+                    "repo": f"{owner}/{repo}",
+                    "source": "org_default",
+                    "commit": sha,
+                    "date": date.isoformat(),
+                    "file_path": fpath,
+                    "file_type": ClassifyGovernanceFile(fpath),
+                    "text": text
+                })
+        shutil.rmtree(org_path, ignore_errors=True)
+
+    if rows:
+        df = pd.DataFrame(rows)
+        SaveData(df, ["repo", "source", "date", "commit", "file_path"], outfile, logfile, append=True)
+        print(f"Exported {len(df)} rows (repo + org defaults) to {outfile}")
+        return str(outfile)
+    else:
+        print(f"No governance files found in {owner}/{repo} (repo or org defaults)")
+        return None
+
+
+def CloneRepo(owner, repo, TEMPDIR, GH_TOKEN):
     repo_path = Path(TEMPDIR) / owner / repo
     if repo_path.exists():
         return None
     repo_path.parent.mkdir(parents=True, exist_ok=True)
-    url = f"https://github.com/{owner}/{repo}.git"
+    url = f"https://{GH_TOKEN}@github.com/{owner}/{repo}.git"
     try:
         subprocess.run(["git", "clone", url, str(repo_path)], check=True)
     except subprocess.CalledProcessError:
-        print(f"⚠️ Could not clone {owner}/{repo}")
+        print(f"Could not clone {owner}/{repo}")
         return None
     return repo_path
 
 
 def GetCommitsTouchingGovernance(repo_path, START_DATE):
-    cutoff = START_DATE
     patterns = [
         "CODEOWNERS",
         "CONTRIBUTING.*",
@@ -48,10 +158,15 @@ def GetCommitsTouchingGovernance(repo_path, START_DATE):
         "docs/CODEOWNERS",
         "docs/CONTRIBUTING.*",
     ]
-    log_output = RunGit(
-        repo_path,
-        ["log", "--since", cutoff, "--pretty=format:%H %cI", "--", *patterns]
-    )
+    try:
+        log_output = RunGit(
+            repo_path,
+            ["log", "--since", START_DATE, "--pretty=format:%H %cI", "--", *patterns]
+        )
+    except RuntimeError as e:
+        if "does not have any commits yet" in str(e):
+            return []
+        raise
     commits = []
     for line in log_output.splitlines():
         sha, date = line.split(" ", 1)
@@ -113,89 +228,14 @@ def ClassifyGovernanceFile(path):
     return "other"
 
 
-def RepoOrgGovernanceHistory(owner, repo, TEMPDIR, OUTDIR, START_DATE):
-    OUTDIR = Path(OUTDIR)
-    OUTDIR.mkdir(parents=True, exist_ok=True)
-    outfile = OUTDIR / f"{owner}_{repo}.parquet"
-
-    if outfile.exists():
-        print(f"⏩ Skipping {owner}/{repo}, output already exists: {outfile}")
-        return str(outfile)
-
-    rows = []
-
-    repo_path = CloneRepo(owner, repo, TEMPDIR)
-    if repo_path:
-        commits = GetCommitsTouchingGovernance(repo_path, START_DATE)
-        for sha, date in commits:
-            files = ExtractGovernanceFiles(repo_path, sha)
-            if files:
-                for fpath, text in files.items():
-                    rows.append({
-                        "repo": f"{owner}/{repo}",
-                        "source": "repo",
-                        "commit": sha,
-                        "date": date.isoformat(),
-                        "file_path": fpath,
-                        "file_type": ClassifyGovernanceFile(fpath),
-                        "text": text
-                    })
-        shutil.rmtree(repo_path)
-        repo_path.mkdir(parents=True, exist_ok=True)
-
-    org_path = CloneRepo(owner, ".github", TEMPDIR)
-    if org_path:
-        commits = GetCommitsTouchingGovernance(org_path, START_DATE)
-        for sha, date in commits:
-            files = ExtractGovernanceFiles(org_path, sha)
-            if files:
-                for fpath, text in files.items():
-                    rows.append({
-                        "repo": f"{owner}/{repo}",
-                        "source": "org_default",
-                        "commit": sha,
-                        "date": date.isoformat(),
-                        "file_path": fpath,
-                        "file_type": ClassifyGovernanceFile(fpath),
-                        "text": text
-                    })
-        shutil.rmtree(org_path)
-        org_path.mkdir(parents=True, exist_ok=True)
-
-    if rows:
-        df = pd.DataFrame(rows)
-        df.to_parquet(outfile, index=False)
-        print(f"✅ Exported {len(df)} rows (repo + org defaults) to {outfile}")
-        return str(outfile)
-    else:
-        print(f"⚠️ No governance files found in {owner}/{repo} (repo or org defaults)")
-        return None
-
-
-def Worker(repo, TEMPDIR, OUTDIR, START_DATE):
-    owner, repo_name = repo.split("/", 1)
-    return RepoOrgGovernanceHistory(owner, repo_name, TEMPDIR, OUTDIR, START_DATE)
-
-def Main():
-    INDIR = Path('output/scrape/extract_github_data')
-    OUTDIR = Path("drive/output/scrape/governance_data")
-    TEMPDIR = Path("drive/temp/governance_data/repos")
-    TEMPDIR.mkdir(exist_ok = True, parents = True)
-
-    df_repo_list = pd.read_csv(INDIR / 'repo_id_history_final.csv')
-    repo_list = df_repo_list.query('latest_repo_name != "ERROR" & is_fork == 0')['repo_name'].unique().tolist()
-    
-    random.shuffle(repo_list)
-    START_DATE = LoadGlobals("source/lib/globals.json")['github_start_date']
-    all_outputs = []
-    with concurrent.futures.ProcessPoolExecutor(max_workers=12) as executor:
-        futures = [executor.submit(Worker, repo, TEMPDIR, OUTDIR, START_DATE) for repo in repo_list]
-        for future in concurrent.futures.as_completed(futures):
-            result = future.result()
-            if result:
-                all_outputs.append(result)
-
-    print(f"✅ Finished {len(all_outputs)} repos")
+def RunGit(repo_path, args):
+    result = subprocess.run(
+        ["git", "-C", str(repo_path)] + args,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.decode("utf-8", errors="replace").strip())
+    return result.stdout.decode("utf-8", errors="replace").strip()
 
 
 if __name__ == "__main__":
