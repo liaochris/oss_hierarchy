@@ -14,7 +14,6 @@ from source.lib.JMSLab.SaveData import SaveData
 
 
 def Main():
-    os.chdir("/Users/chrisliao/Documents/research_temp")
     INDIR = Path('output/scrape/extract_github_data')
     OUTDIR = Path("drive/output/scrape/governance_data")
     LOG_OUTDIR = Path("output/scrape/governance_data")
@@ -77,7 +76,7 @@ def ProcessLetterGroup(letter, repos, TEMPDIR, OUTDIR, LOG_OUTDIR, START_DATE, g
 
 
 def RepoOrgGovernanceHistory(owner, repo, TEMPDIR, OUTDIR, logfile, START_DATE, GH_TOKEN):
-    outfile = OUTDIR / f"{owner}_{repo}.parquet"
+    outfile = OUTDIR / f"{owner}___{repo}.parquet"
 
     if outfile.exists():
         print(f"Skipping {owner}/{repo}, output already exists: {outfile}")
