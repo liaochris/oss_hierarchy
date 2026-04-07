@@ -96,8 +96,8 @@ def WeightedMean(values, weights, zero_weight_return = np.nan):
 def ConcatStatsByTimePeriod(*dfs):
     dfs_with_index = [df.set_index("time_period") for df in dfs if not df.empty]
     if len(dfs_with_index)==0:
-        return pd.DataFrame
-    return pd.concat(dfs_with_index, axis=1)
+        return pd.DataFrame()
+    return pd.concat(dfs_with_index, axis=1).reset_index()
 
 def LoadFilteredImportantMembers(repo_name, INDIR_IMPORTANT, INDIR_LIB, importance_type):
     importance_parameters_all = json.load(open(INDIR_LIB / "importance.json"))
