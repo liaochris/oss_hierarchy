@@ -16,7 +16,7 @@ env.Python(
     ],
     source=[
         '#source/derived/org_outcomes_practices/org_outcomes.py',
-        f'#drive/output/derived/problem_level_data/repo_actions/{ref}.parquet',
+        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
         '#drive/output/scrape/pypi_downloads/pypi_monthly_downloads.parquet',
         '#output/scrape/pypi_site_info/linked_pypi_github.csv',
         '#output/scrape/extract_github_data/repo_id_history_final.csv',
@@ -32,7 +32,7 @@ env.Python(
     ],
     source=[
         '#source/derived/org_outcomes_practices/collaboration.py',
-        f'#drive/output/derived/problem_level_data/repo_actions/{ref}.parquet',
+        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
         f'#drive/output/derived/graph_structure/interactions/{ref}.parquet',
         imp_members,
         bot_list,
@@ -48,7 +48,7 @@ env.Python(
     ],
     source=[
         '#source/derived/org_outcomes_practices/shared_knowledge.py',
-        f'#drive/output/derived/problem_level_data/repo_actions/{ref}.parquet',
+        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
         imp_members,
         bot_list,
     ],
@@ -63,9 +63,9 @@ env.Python(
     ],
     source=[
         '#source/derived/org_outcomes_practices/discussion_quality.py',
-        f'#drive/output/derived/problem_level_data/repo_actions/{ref}.parquet',
+        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
         f'#drive/output/derived/graph_structure/interactions/{ref}.parquet',
-        f'#drive/output/derived/problem_level_data/cleaned_text/{ref}.parquet',
+        f'#drive/output/derived/action_data/cleaned_text/{ref}.parquet',
         imp_members,
         bot_list,
     ],
@@ -80,7 +80,7 @@ env.Python(
     ],
     source=[
         '#source/derived/org_outcomes_practices/investment_in_new_talent.py',
-        f'#drive/output/derived/problem_level_data/repo_actions/{ref}.parquet',
+        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
         f'#drive/output/derived/graph_structure/interactions/{ref}.parquet',
         f'#drive/output/scrape/governance_data/{ref}.parquet',
         imp_members,
@@ -94,7 +94,7 @@ env.Python(
     ],
     source=[
         '#source/derived/org_outcomes_practices/organizational_routines.py',
-        f'#drive/output/derived/problem_level_data/repo_actions/{ref}.parquet',
+        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
         f'#drive/output/scrape/governance_data/{ref}.parquet',
     ],
 )
