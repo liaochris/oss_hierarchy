@@ -3,14 +3,17 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from source.lib.helpers import ApplyRolling, ConcatStatsByTimePeriod, FilterOnImportant, ImputeTimePeriod, LoadFilteredImportantMembers, LoadGlobals
+from source.lib.helpers import CleanDirs, ImputeTimePeriod, LoadGlobals
+from source.derived.org_outcomes_practices.helpers import ApplyRolling, ConcatStatsByTimePeriod, FilterOnImportant, LoadBotList, LoadFilteredImportantMembers
 from source.lib.JMSLab.SaveData import SaveData
 
-_globals        = LoadGlobals("source/lib/globals.json")
-TIME_PERIOD     = _globals["time_period_months"]
-ROLLING_PERIODS = _globals["rolling_periods"]
-N_JOBS          = _globals["n_jobs"]
-RUN_EXTENSIONS  = _globals["run_extensions"]
+_globals              = LoadGlobals("source/lib/globals.json")
+_constants            = LoadGlobals("source/derived/org_outcomes_practices/constants.json")
+TIME_PERIOD           = _globals["time_period_months"]
+ROLLING_PERIODS       = _globals["rolling_periods"]
+N_JOBS                = _globals["n_jobs"]
+RUN_EXTENSIONS        = _globals["run_extensions"]
+PR_REVIEW_DATA_START  = pd.Timestamp(_constants["pr_review_data_start_date"])
 
 with open(Path("source/lib") / "importance.json") as f:
     _importance_params = json.load(f)
@@ -18,7 +21,7 @@ PRIMARY_SUBSET    = "all"
 EXTENSION_SUBSETS = list(_importance_params.keys())
 
 INDIR_LIB       = Path("source/lib")
-INDIR           = Path("drive/output/derived/problem_level_data/repo_actions")
+INDIR           = Path("drive/output/derived/action_data/repo_actions")
 INDIR_BOT       = Path("output/derived/create_bot_list")
 INDIR_INTERACTIONS = Path("drive/output/derived/graph_structure/interactions")
 INDIR_FILE      = Path("drive/output/scrape/governance_data")
@@ -31,7 +34,7 @@ _DATA_CUTOFF = pd.Timestamp("2024-12-31")
 
 def Main():
     CleanOutputs()
-    bot_list   = LoadBotList()
+    bot_list   = LoadBotList(INDIR_BOT)
     repo_files = [f.stem for f in INDIR.glob("*.parquet") if not f.stem.startswith("._")]
     random.shuffle(repo_files)
     subsets = [PRIMARY_SUBSET] + (EXTENSION_SUBSETS if RUN_EXTENSIONS else [])
@@ -47,16 +50,10 @@ def CleanOutputs():
         return
     for subset_dir in OUTDIR.iterdir():
         if subset_dir.is_dir():
-            target = subset_dir / f"rolling{ROLLING_PERIODS}"
-            log_target = LOG_OUTDIR / subset_dir.name / f"rolling{ROLLING_PERIODS}"
-            target.mkdir(parents=True, exist_ok=True)
-            log_target.mkdir(parents=True, exist_ok=True)
-            for f in list(target.glob("*.parquet")) + list(log_target.glob("*.log")):
-                f.unlink(missing_ok=True)
-
-
-def LoadBotList():
-    return pd.to_numeric(pd.read_csv(INDIR_BOT / "bot_list.csv")["actor_id"]).unique().tolist()
+            CleanDirs([
+                subset_dir / f"rolling{ROLLING_PERIODS}",
+                LOG_OUTDIR / subset_dir.name / f"rolling{ROLLING_PERIODS}",
+            ])
 
 
 def ProcessRepo(repo_name, contributor_subset, bot_list):
@@ -176,8 +173,7 @@ def CalculateNewcomerAdoption(df_actions, bot_list, past_periods):
             continue
 
         df_new = df_acts[df_acts["actor_id"].isin(newcomers)]
-        # PR review data only available from 2020-07 onward
-        act_list = ["pull_request_merged", "pull_request_review"] if period >= pd.Timestamp("2020-07-01") \
+        act_list = ["pull_request_merged", "pull_request_review"] if period >= PR_REVIEW_DATA_START \
                    else ["pull_request_merged"]
         for act in act_list:
             did_before = df_new[(df_new["time_period"] < period) & (df_new["activity"] == act)]["actor_id"].unique()

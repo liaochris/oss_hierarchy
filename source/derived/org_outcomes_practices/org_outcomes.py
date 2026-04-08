@@ -1,15 +1,16 @@
 import random
-from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 import pandas as pd
 import pyarrow.dataset as ds
-from source.lib.helpers import ImputeTimePeriod, ConcatStatsByTimePeriod, LoadGlobals, MakeRepoNameOriginal
+from joblib import Parallel, delayed
+from source.lib.helpers import CleanDirs, ImputeTimePeriod, LoadGlobals, MakeRepoNameOriginal
+from source.derived.org_outcomes_practices.helpers import AddTypeBroad, ConcatStatsByTimePeriod
 from source.lib.JMSLab.SaveData import SaveData
 
 _globals = LoadGlobals("source/lib/globals.json")
 N_JOBS   = _globals["n_jobs"]
 
-INDIR                  = Path("drive/output/derived/problem_level_data/repo_actions")
+INDIR                  = Path("drive/output/derived/action_data/repo_actions")
 INDIR_MONTHLY_DOWNLOADS = Path("drive/output/scrape/pypi_downloads")
 INDIR_PYPI_GITHUB      = Path("output/scrape/pypi_site_info")
 INDIR_GITHUB_MAP       = Path("output/scrape/extract_github_data/")
@@ -24,17 +25,11 @@ def Main():
     repo_files = [f.stem for f in INDIR.glob("*.parquet") if not f.stem.startswith("._")]
     random.shuffle(repo_files)
 
-    with ProcessPoolExecutor(max_workers=N_JOBS) as executor:
-        futures = [executor.submit(ProcessRepo, repo_file) for repo_file in repo_files]
-        for f in futures:
-            f.result()
+    Parallel(n_jobs=N_JOBS)(delayed(ProcessRepo)(repo_file) for repo_file in repo_files)
 
 
 def CleanOutputs():
-    OUTDIR.mkdir(parents=True, exist_ok=True)
-    LOG_OUTDIR.mkdir(parents=True, exist_ok=True)
-    for f in list(OUTDIR.glob("*.parquet")) + list(LOG_OUTDIR.glob("*.log")):
-        f.unlink(missing_ok=True)
+    CleanDirs([OUTDIR, LOG_OUTDIR])
 
 
 def ProcessRepo(repo_file):
@@ -77,9 +72,7 @@ def LoadFilteredDownloads(parquet_path, pypi_names):
 
 def GetOutcomeEventCounts(df_all, time_period):
     df_all = ImputeTimePeriod(df_all, time_period)
-    df_all["type_broad"] = df_all["type"].apply(
-        lambda x: "pull request review" if x.startswith("pull request review") and x != "pull request review comment" else x
-    )
+    df_all = AddTypeBroad(df_all)
     event_types = ["issue opened", "pull request opened", "pull request merged", "pull request closed", "issue closed"]
     df_out = (
         df_all[df_all["type_broad"].isin(event_types)]

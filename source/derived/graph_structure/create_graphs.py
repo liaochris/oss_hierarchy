@@ -5,12 +5,12 @@ from pathlib import Path
 import networkx as nx
 import numpy as np
 import itertools
-import concurrent.futures
 from datetime import datetime
-from source.lib.helpers import MakeRepoNameSafe, MakeRepoNameOriginal, ImputeTimePeriod, LoadGlobals, JsonSerialize
+from joblib import Parallel, delayed
+from source.lib.helpers import CleanDirs, MakeRepoNameSafe, MakeRepoNameOriginal, ImputeTimePeriod, LoadGlobals, JsonSerialize
 from source.lib.JMSLab.SaveData import SaveData
 
-INDIR_DATA = Path('drive/output/derived/problem_level_data/repo_actions')
+INDIR_DATA = Path('drive/output/derived/action_data/repo_actions')
 OUTDIR = Path('drive/output/derived/graph_structure')
 LOG_DIR = Path('output/derived/graph_structure')
 
@@ -26,12 +26,10 @@ def Main():
     })
     time_periods = pd.date_range(globals_data["github_start_date"], globals_data["github_end_date"], freq="6MS").to_list()
 
-    all_logs = []
-    with concurrent.futures.ProcessPoolExecutor(max_workers=12) as executor:
-        futures = [executor.submit(worker, repo, time_periods, time_period, OUTDIR, INDIR_DATA) for repo in repo_list]
-        for future in concurrent.futures.as_completed(futures):
-            logs = future.result()
-            all_logs.extend(logs)
+    results = Parallel(n_jobs=12)(
+        delayed(worker)(repo, time_periods, time_period, OUTDIR, INDIR_DATA) for repo in repo_list
+    )
+    all_logs = [log for logs in results for log in logs]
 
     log_df = pd.DataFrame(all_logs)
     if not log_df.empty:
@@ -40,10 +38,7 @@ def Main():
 
 
 def CleanOutputs():
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    OUTDIR.mkdir(parents=True, exist_ok=True)
-    for f in list((OUTDIR / "interactions").glob("*.parquet")) + list((LOG_DIR / "interactions").glob("*.log")):
-        f.unlink(missing_ok=True)
+    CleanDirs([OUTDIR / "interactions", LOG_DIR / "interactions"])
     for d in (OUTDIR / "graphs").glob("*"):
         if d.is_dir():
             for f in d.glob("*.gexf"):

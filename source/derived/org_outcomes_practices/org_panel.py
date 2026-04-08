@@ -11,7 +11,7 @@ TIME_PERIOD     = _globals["time_period_months"]
 ROLLING_PERIODS = _globals["rolling_periods"]
 N_JOBS          = _globals["n_jobs"]
 
-INDIR           = Path("drive/output/derived/problem_level_data/repo_actions")
+INDIR           = Path("drive/output/derived/action_data/repo_actions")
 INDIR_IMPORTANT = Path("output/derived/graph_structure/important_members")
 INDIR_LIB       = Path("source/lib")
 INDIR_CHARS     = Path("drive/output/derived/org_outcomes_practices")

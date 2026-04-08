@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from joblib import Parallel, delayed
+from source.lib.helpers import CleanDirs
 from source.lib.JMSLab.SaveData import SaveData
 
 INDIR_INTERACTIONS = Path("drive/output/derived/graph_structure/interactions")
@@ -18,8 +19,7 @@ def Main():
 
 
 def CleanOutputs():
-    for f in list(OUTDIR.glob("*.parquet")) + list((LOG_DIR / "interactions").glob("*.log")):
-        f.unlink(missing_ok=True)
+    CleanDirs([OUTDIR, LOG_DIR / "interactions"])
 
 
 def ProcessRepos(indir_interactions, indir_graphs, outdir, n_jobs=-1):

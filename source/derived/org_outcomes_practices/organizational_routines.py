@@ -1,9 +1,10 @@
 import random
-from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from source.lib.helpers import ApplyRolling, ConcatStatsByTimePeriod, ImputeTimePeriod, LoadGlobals
+from joblib import Parallel, delayed
+from source.lib.helpers import CleanDirs, ImputeTimePeriod, LoadGlobals
+from source.derived.org_outcomes_practices.helpers import ApplyRolling, ConcatStatsByTimePeriod
 from source.lib.JMSLab.SaveData import SaveData
 
 _globals        = LoadGlobals("source/lib/globals.json")
@@ -11,7 +12,7 @@ TIME_PERIOD     = _globals["time_period_months"]
 ROLLING_PERIODS = _globals["rolling_periods"]
 N_JOBS          = _globals["n_jobs"]
 
-INDIR       = Path("drive/output/derived/problem_level_data/repo_actions")
+INDIR       = Path("drive/output/derived/action_data/repo_actions")
 INDIR_FILE  = Path("drive/output/scrape/governance_data")
 OUTDIR      = Path("drive/output/derived/org_outcomes_practices/repo_organizational_routines")
 LOG_OUTDIR  = Path("output/derived/org_outcomes_practices/repo_organizational_routines")
@@ -26,19 +27,11 @@ def Main():
     CleanOutputs()
     repos = [f.stem for f in INDIR.glob("*.parquet") if not f.stem.startswith("._")]
     random.shuffle(repos)
-    with ProcessPoolExecutor(max_workers=N_JOBS) as executor:
-        futures = [executor.submit(ProcessRepo, repo) for repo in repos]
-        for f in futures:
-            f.result()
+    Parallel(n_jobs=N_JOBS)(delayed(ProcessRepo)(repo) for repo in repos)
 
 
 def CleanOutputs():
-    target = OUTDIR / f"rolling{ROLLING_PERIODS}"
-    log_target = LOG_OUTDIR / f"rolling{ROLLING_PERIODS}"
-    target.mkdir(parents=True, exist_ok=True)
-    log_target.mkdir(parents=True, exist_ok=True)
-    for f in list(target.glob("*.parquet")) + list(log_target.glob("*.log")):
-        f.unlink(missing_ok=True)
+    CleanDirs([OUTDIR / f"rolling{ROLLING_PERIODS}", LOG_OUTDIR / f"rolling{ROLLING_PERIODS}"])
 
 
 def ProcessRepo(repo):

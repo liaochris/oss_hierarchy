@@ -2,7 +2,8 @@ import json, random
 from pathlib import Path
 import pandas as pd
 from joblib import Parallel, delayed
-from source.lib.helpers import ApplyRolling, ConcatStatsByTimePeriod, FilterOnImportant, ImputeTimePeriod, LoadFilteredImportantMembers, LoadGlobals
+from source.lib.helpers import CleanDirs, ImputeTimePeriod, LoadGlobals
+from source.derived.org_outcomes_practices.helpers import AddTypeBroad, ApplyRolling, ConcatStatsByTimePeriod, FilterOnImportant, LoadBotList, LoadFilteredImportantMembers
 from source.lib.JMSLab.SaveData import SaveData
 
 _globals        = LoadGlobals("source/lib/globals.json")
@@ -17,7 +18,7 @@ PRIMARY_SUBSET    = "all"
 EXTENSION_SUBSETS = list(_importance_params.keys())
 
 INDIR_LIB       = Path("source/lib")
-INDIR           = Path("drive/output/derived/problem_level_data/repo_actions")
+INDIR           = Path("drive/output/derived/action_data/repo_actions")
 INDIR_BOT       = Path("output/derived/create_bot_list")
 INDIR_IMPORTANT = Path("output/derived/graph_structure/important_members")
 OUTDIR          = Path("drive/output/derived/org_outcomes_practices/repo_shared_knowledge")
@@ -26,7 +27,7 @@ LOG_OUTDIR      = Path("output/derived/org_outcomes_practices/repo_shared_knowle
 
 def Main():
     CleanOutputs()
-    bot_list   = LoadBotList()
+    bot_list   = LoadBotList(INDIR_BOT)
     repo_files = [f.stem for f in INDIR.glob("*.parquet") if not f.stem.startswith("._")]
     random.shuffle(repo_files)
     subsets = [PRIMARY_SUBSET] + (EXTENSION_SUBSETS if RUN_EXTENSIONS else [])
@@ -42,16 +43,10 @@ def CleanOutputs():
         return
     for subset_dir in OUTDIR.iterdir():
         if subset_dir.is_dir():
-            target = subset_dir / f"rolling{ROLLING_PERIODS}"
-            log_target = LOG_OUTDIR / subset_dir.name / f"rolling{ROLLING_PERIODS}"
-            target.mkdir(parents=True, exist_ok=True)
-            log_target.mkdir(parents=True, exist_ok=True)
-            for f in list(target.glob("*.parquet")) + list(log_target.glob("*.log")):
-                f.unlink(missing_ok=True)
-
-
-def LoadBotList():
-    return pd.to_numeric(pd.read_csv(INDIR_BOT / "bot_list.csv")["actor_id"]).unique().tolist()
+            CleanDirs([
+                subset_dir / f"rolling{ROLLING_PERIODS}",
+                LOG_OUTDIR / subset_dir.name / f"rolling{ROLLING_PERIODS}",
+            ])
 
 
 def ProcessRepo(repo_name, contributor_subset, bot_list):
@@ -75,10 +70,7 @@ def ProcessRepo(repo_name, contributor_subset, bot_list):
             return
 
     df_actions["actor_id"] = df_actions["actor_id"].astype("Int64")
-    df_actions["type_broad"] = df_actions["type"].apply(
-        lambda x: "pull request review"
-        if x.startswith("pull request review") and x != "pull request review comment" else x
-    )
+    df_actions = AddTypeBroad(df_actions)
     df_actions["type_issue_pr"] = df_actions["type"].apply(
         lambda x: "issue" if x.startswith("issue") else "pull request"
     )

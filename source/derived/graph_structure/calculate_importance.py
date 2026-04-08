@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
 import glob
-import concurrent.futures
 import pandas as pd
 import numpy as np
+from joblib import Parallel, delayed
 from source.lib.JMSLab.SaveData import SaveData
 from source.lib.helpers import JsonSerialize
 
@@ -18,8 +18,7 @@ def Main():
 
     tasks = MakeTasks(files, configs)
 
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        results = list(executor.map(ProcessFile, tasks))
+    results = Parallel(n_jobs=-1)(delayed(ProcessFile)(task) for task in tasks)
 
     results = [r for r in results if r is not None]
 
