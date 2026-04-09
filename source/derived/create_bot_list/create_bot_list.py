@@ -25,7 +25,7 @@ def Main():
         pl.col('actor_login').str.ends_with('bot')
     ).to_pandas().drop_duplicates()
 
-    SaveData(bots_df, ['actor_id', 'actor_login'], OUTDIR / 'bot_list.parquet', OUTDIR / 'bot_list.log')
+    SaveData(bots_df, ['actor_id', 'actor_login'], OUTDIR / 'bot_list.csv', OUTDIR / 'bot_list.log')
 
 if __name__ == "__main__":
     Main()

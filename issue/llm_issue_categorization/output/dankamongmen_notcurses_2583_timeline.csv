@@ -1,0 +1,71 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,kascote,2022-01-29T00:54:51Z,some behaviors observed on menus,https://github.com/dankamongmen/notcurses/issues/2583,dankamongmen/notcurses,2583
+IssueOpened,kascote,2022-01-29T00:54:51Z,"This are some thing I found working on a POC for menus, i don't know if some are bugs, other feature request or the way they are supposed to work, for that reason I put all on this ticket. If you want I can break this on different ones.
+
+* `ncmenu_offer_input` do not handle menu item hotkeys only resolve menu sections,  
+  could be handy to have menu items resolution too.
+* making a mouse click in a menu item do not select it visually  
+  when click a menu section, the section is unrolled and the first menu  
+  item is selected. Then when click another item on the same section, it's not selected.
+* the action to click a menu item, do not imply to unroll the menu too (a feature to have?) or this  
+  is supposed to be done on the client code?
+* hotkeys do not work on menu items  
+  the hot hotkeys only work on the menu sections. once the section is unrolled  
+  hitting the underlined hotkey will not select the menu item.  
+  There isn't a way to select an item by code.
+* disable a menu item by default  
+  a function exists to disable/enable an menu item at run time but will be handy  
+  to have an option to flag it as disabled at creation time.
+
+Please include the following data:
+
+* COLORTERM=24bit  
+  LANG=en\_US.UTF-8  
+  LESS\_TERMCAP\_mb=$'\C-[[01;31m'  
+  LESS\_TERMCAP\_md=$'\C-[[01;38;5;74m'  
+  LESS\_TERMCAP\_me=$'\C-[[0m'  
+  LESS\_TERMCAP\_se=$'\C-[[0m'  
+  LESS\_TERMCAP\_so=$'\C-[[38;5;246m'  
+  LESS\_TERMCAP\_ue=$'\C-[[0m'  
+  LESS\_TERMCAP\_us=$'\C-[[04;38;5;146m'  
+  TERM=xterm-kitty  
+  TERMINFO=/Applications/kitty.app/Contents/Resources/kitty/terminfo
+* notcurses version 3.0.5
+* terminal Kitty 0.24.1",https://github.com/dankamongmen/notcurses/issues/2583,dankamongmen/notcurses,2583
+LabeledEvent,kascote,2022-01-29T00:54:51Z,documentation,,dankamongmen/notcurses,2583
+LabeledEvent,kascote,2022-01-29T00:54:51Z,enhancement,,dankamongmen/notcurses,2583
+AssignedEvent,dankamongmen,2022-01-29T17:40:15Z,dankamongmen assigned dankamongmen,,dankamongmen/notcurses,2583
+IssueComment,dankamongmen,2022-01-29T17:40:22Z,i'll look into all of this today. thanks a lot for the quality report and looking into this -- i haven't played with the menu code in probably over a year =]. i'll try to have fixes out for you very soon.,,dankamongmen/notcurses,2583
+IssueComment,dankamongmen,2022-02-07T14:56:22Z,"ok, i think a few of these have been resolved via [#2582](https://github.com/dankamongmen/notcurses/issues/2582) just now, but not all of them. i'm pretty sure hotkeys *do* work, but you have to check for them yourself iirc. see e.g. `menu_or_hud_key()` in `demo/hud.c`. now, there's an argument to be made that they *ought* be handled by `ncmenu_offer_input()`, but they aren't now, for the same reason that `NCKEY_ENTER` isn't handled by `ncmenu_offer_input()` (you'd have to provide callbacks for all the possible items).",,dankamongmen/notcurses,2583
+MentionedByIssue,dankamongmen,2022-02-07T15:04:39Z,,https://github.com/dankamongmen/notcurses/issues/2607,dankamongmen/notcurses,2583
+IssueComment,dankamongmen,2022-02-07T15:04:47Z,"> * `ncmenu_offer_input` do not handle menu item hotkeys only resolve menu sections,  
+>   could be handy to have menu items resolution too.
+
+see comment above
+
+> * making a mouse click in a menu item do not select it visually  
+>   when click a menu section, the section is unrolled and the first menu  
+>   item is selected. Then when click another item on the same section, it's not selected.
+
+agreed, let me fix this
+
+> * the action to click a menu item, do not imply to unroll the menu too (a feature to have?) or this  
+>   is supposed to be done on the client code?
+
+> * hotkeys do not work on menu items
+
+see comment above
+
+> the hot hotkeys only work on the menu sections. once the section is unrolled
+
+see comment above
+
+> * disable a menu item by default  
+>   a function exists to disable/enable an menu item at run time but will be handy  
+>   to have an option to flag it as disabled at creation time.
+
+agreed. the problem is that this would be an ABI breakage, because it would make the `ncmenu_item` struct larger. you pass in an array of the new, larger struct to the older library, and boom! there it goes. we could add this for 4.0.0 and ABI4. i'll make a new bug for this-- [#2583](https://github.com/dankamongmen/notcurses/issues/2583)",,dankamongmen/notcurses,2583
+MilestonedEvent,dankamongmen,2022-02-07T15:04:53Z,added to milestone: 3.1.0,,dankamongmen/notcurses,2583
+MentionedByCommit,dankamongmen,2022-02-07T16:41:28Z,[ncmenu\_offer\_input] change selected item on mouse click [#2583](https://github.com/dankamongmen/notcurses/issues/2583),https://github.com/dankamongmen/notcurses/commit/196958dce049c2c3ab14510f5951b60386199098,dankamongmen/notcurses,2583
+IssueComment,dankamongmen,2022-02-07T16:41:38Z,"alright, works, tested using the `menu` PoC.",,dankamongmen/notcurses,2583
+ClosedEvent,dankamongmen,2022-02-07T16:41:38Z,Closed by dankamongmen in ,,dankamongmen/notcurses,2583

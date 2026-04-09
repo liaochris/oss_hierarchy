@@ -1,0 +1,32 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,njtuzzy,2018-12-28T09:18:48Z,gloo::IoException when i used pytorch1.0 to do the distributed comptuting,https://github.com/pytorch/pytorch/issues/15592,pytorch/pytorch,15592
+IssueOpened,njtuzzy,2018-12-28T09:18:48Z,"hi, everyone
+
+when i try to use the pytorch1.0 to do the distributed training(two nodes, 4 gpu), the node0 seems normal which is waiting for the node1 joining in, but on node 2, i got the following error:
+
+terminate called after throwing an instance of 'gloo::IoException'  
+what(): [/opt/conda/conda-bld/pytorch\_1544084119927/work/third\_party/gloo/gloo/transport/tcp/pair.cc:724] connect [127.0.1.1]:3210: Connection refused  
+Aborted (core dumped)
+
+is anyone know what is going on? and how to fix it?
+
+Thanks",https://github.com/pytorch/pytorch/issues/15592,pytorch/pytorch,15592
+LabeledEvent,pytorchbot,2018-12-28T09:18:49Z,oncall: distributed,,pytorch/pytorch,15592
+IssueComment,teng-li,2019-01-02T19:31:36Z,"[@njtuzzy](https://github.com/njtuzzy) If you do only GPU training, please use NCCL backend. If you have to use Gloo, try setting the following env variable: `export GLOO_SOCKET_IFNAME=WHATEVER IN IFCONFIG (like eth0 or something`. That should work",,pytorch/pytorch,15592
+AssignedEvent,teng-li,2019-01-02T19:31:44Z,teng-li assigned teng-li,,pytorch/pytorch,15592
+IssueComment,njtuzzy,2019-01-08T01:56:26Z,"[@teng-li](https://github.com/teng-li) ， sorry for the late reply, It works and thank you very much for telling me that!",,pytorch/pytorch,15592
+ClosedEvent,njtuzzy,2019-01-08T03:09:43Z,Closed by njtuzzy in ,,pytorch/pytorch,15592
+IssueComment,xbinglzh,2022-05-20T11:16:34Z,"(BackendExecutor pid=7850) The actor is dead because its worker process has died. Worker exit type: SYSTEM\_ERROR\_EXIT  
+(BackendExecutor pid=7850) 2022-05-20 19:15:43,827 INFO utils.py:57 -- Worker 7 has failed.  
+(BaseWorkerMixin pid=7893) terminate called after throwing an instance of 'gloo::IoException'  
+(BaseWorkerMixin pid=7893) what(): [/pytorch/third\_party/gloo/gloo/transport/tcp/pair.cc:799] connect [127.0.0.1]:13187: Connection refused  
+(BaseWorkerMixin pid=7893) \*\*\* SIGABRT received at time=1653045343 on cpu 4 \*\*\*  
+(BaseWorkerMixin pid=7893) PC: @ 0x7f865a972387 (unknown) raise  
+(BaseWorkerMixin pid=7893) @ 0x7f865b422630 (unknown) (unknown)  
+(BaseWorkerMixin pid=7893) @ 0x5f64726968742f68 (unknown) (unknown)  
+(BaseWorkerMixin pid=7893) [2022-05-20 19:15:43,802 E 7893 8153] logging.cc:325: \*\*\* SIGABRT received at time=1653045343 on cpu 4 \*\*\*  
+(BaseWorkerMixin pid=7893) [2022-05-20 19:15:43,802 E 7893 8153] logging.cc:325: PC: @ 0x7f865a972387 (unknown) raise  
+(BaseWorkerMixin pid=7893) [2022-05-20 19:15:43,805 E 7893 8153] logging.cc:325: @ 0x7f865b422630 (unknown) (unknown)  
+(BaseWorkerMixin pid=7893) [2022-05-20 19:15:43,808 E 7893 8153] logging.cc:325: @ 0x5f64726968742f68 (unknown) (unknown)  
+(BaseWorkerMixin pid=7893) Fatal Python error: Aborted",,pytorch/pytorch,15592
+IssueComment,xbinglzh,2022-05-20T11:17:10Z,add export GLOO\_SOCKET\_IFNAME=eth0 also error,,pytorch/pytorch,15592

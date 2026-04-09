@@ -1,45 +1,58 @@
 Import('*')
-import os
-import glob
-import pandas as pd
-import numpy as np
 
+from source.lib.helpers import LoadGlobals, MakeRepoNameSafe
 
-df_graphs = pd.read_csv('../../../drive/output/derived/graph_structure/exported_graphs_log.csv')
-df_graphs['time_perid_date'] = pd.to_datetime(df_graphs['time_period_date'])
-df_graphs['ym'] = df_graphs.time_perid_date.dt.year.astype("string")+df_graphs.time_perid_date.dt.month.astype("string").str.zfill(2)
+globals_data = LoadGlobals("../../../source/lib/globals.json")
+reference_repo = globals_data['reference_github_repo']
+ref = MakeRepoNameSafe(reference_repo)
 
-graph_outdir = '#drive/output/derived/graph_structure/graphs'
-target = []
-for idx in df_graphs.index:
-    ym = df_graphs.loc[idx, 'ym']
-    repo = df_graphs.loc[idx, 'repo'].replace("/","_")
-    repo_date_graphs = [f'{graph_outdir}/{ym}/{repo}.gexf']
-    if df_graphs.loc[idx, 'pr_exported']:
-        repo_date_graphs.append(f'{graph_outdir}/{ym}/{repo}_pr.gexf')
-    if df_graphs.loc[idx, 'issue_exported']:
-        repo_date_graphs.append(f'{graph_outdir}/{ym}/{repo}_issue.gexf')
-    if df_graphs.loc[idx, 'pr_review_exported']:
-        repo_date_graphs.append(f'{graph_outdir}/{ym}/{repo}_pr_review.gexf')
-    target.extend(repo_date_graphs)
+def _six_month_periods(start_str, end_str):
+    from datetime import date
+    y, m, _ = (int(x) for x in start_str.split('-'))
+    ey, em, _ = (int(x) for x in end_str.split('-'))
+    periods = []
+    while (y, m) <= (ey, em):
+        periods.append(f"{y}{str(m).zfill(2)}")
+        m += 6
+        if m > 12:
+            m -= 12
+            y += 1
+    return periods
 
-source = ['#source/derived/graph_structure/create_graphs.py',
-          '#drive/output/derived/problem_level_data/df_issue.parquet',
-          '#drive/output/derived/problem_level_data/df_pr.parquet',
-          '#drive/output/derived/problem_level_data/df_pr_commits.parquet',
-          '#source/derived/contributor_stats/calculate_contributions.py',
-          '#drive/output/scrape/link_committers_profile/committers_info_pr.csv',
-          '#drive/output/scrape/link_committers_profile/committers_info_push.csv']
+time_periods = _six_month_periods(globals_data['github_start_date'], globals_data['github_end_date'])
 
-env.Precious(env.Python(target, source))
+source = [
+    '#source/derived/graph_structure/create_graphs.py',
+    f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
+]
+target = [
+    f'#drive/output/derived/graph_structure/interactions/{ref}.parquet',
+    '#output/derived/graph_structure/exported_graphs_log.csv',
+] + [
+    f'#drive/output/derived/graph_structure/graphs/{tp}/{ref}.gexf'
+    for tp in time_periods
+]
+env.Python(target, source)
 
+source = [
+    '#source/derived/graph_structure/calculate_degree.py',
+    f'#drive/output/derived/graph_structure/interactions/{ref}.parquet',
+] + [
+    f'#drive/output/derived/graph_structure/graphs/{tp}/{ref}.gexf'
+    for tp in time_periods
+]
+target = [
+    f'#drive/output/derived/graph_structure/graph_degrees/{ref}.parquet',
+]
+env.Python(target, source)
 
-source = ['#source/derived/graph_structure/calculate_graph_metrics.py'] + target.copy()
-target = ['#drive/output/derived/graph_structure/graph_metrics.json']
-env.Precious(env.Python(target, source))
-
-
-source = ['#source/derived/graph_structure/calculate_contributor_characteristics.py',
-          '#drive/output/derived/graph_structure/graph_metrics.json']
-target = ['#drive/output/derived/graph_structure/contributor_characteristics.parquet']
-env.Precious(env.Python(target, source))
+source = [
+    '#source/derived/graph_structure/calculate_importance.py',
+    '#source/lib/importance.json',
+    f'#drive/output/derived/graph_structure/graph_degrees/{ref}.parquet',
+]
+target = [
+    f'#output/derived/graph_structure/important_members/{ref}.csv',
+    '#output/derived/graph_structure/importance_summary.csv',
+]
+env.Python(target, source)

@@ -1,0 +1,51 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,xyzdev-cell,2020-06-11T06:43:49Z,"UE4项目, 只能取到初始化之后的第一个画面",https://github.com/AirtestProject/Airtest/issues/753,AirtestProject/Airtest,753
+IssueOpened,xyzdev-cell,2020-06-11T06:43:49Z,"**(重要！问题分类)**
+
+* 图像识别、设备控制相关问题
+
+**描述问题bug**  
+UE4项目, 使用图像识别来做  
+使用下面的方式获得句柄, 来截取图像或者进行按键等操作  
+hwnd = win32gui.GetForegroundWindow()  
+if win32gui.GetWindowText(hwnd) == MY\_APP\_TITLE:  
+dev\_str = ""windows:///"" + str(hwnd)  
+dev = connect\_device(dev\_str)  
+return dev
+
+```
+（在这里粘贴traceback或其他报错信息）
+(无报错)
+```
+
+**相关截图**  
+根据记录,始终只有游戏第一屏的截图, 就是登录界面  
+使用坐标方法进入游戏主界面后,查看log报告,用于比较的截图始终是初始化那个屏  
+填入用户名密码的字符反馈都没有在截图上显示
+
+**复现步骤**
+
+1. 使用脚本直接运行, 用坐标点击方法切换界面, log报告的每一步游戏的截图始终只有初始化界面  
+   或者
+2. 游戏启动后手动登录到主界面
+3. 使用IDE中的窗口连接,
+4. 搜索到游戏窗口连接
+5. 在脚本中双击图像打开image editor
+6. 选择 snaphot+ recognition
+7. 在识别框中, 看到的搜索底图还是初始化的登录前界面
+
+**预期效果**  
+能识别到游戏的最新界面图像
+
+**python 版本:** `python3.8`
+
+**airtest 版本:** `1.1.13`
+
+**设备:**
+
+* 系统: [win10 1009]
+* (UE4版本 4.25)
+
+**其他相关环境信息**  
+使用桌面(windows:///)连接时, 可以正常获得界面图像, 获得正常的界面变化",https://github.com/AirtestProject/Airtest/issues/753,AirtestProject/Airtest,753
+IssueComment,dushao7412359,2023-04-04T15:10:38Z,我用UE5嵌入SDK后，也是只能捕捉到登录界面的控件信息，初步以为是airtest没有开放UE5的支持导致的问题，希望这个问题，官方可以尽快解决吧,,AirtestProject/Airtest,753

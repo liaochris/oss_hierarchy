@@ -1,0 +1,61 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,InfluencerNGZK,2020-07-13T13:58:08Z,Cannot get cookie,https://github.com/webfp/tor-browser-selenium/issues/134,webfp/tor-browser-selenium,134
+IssueOpened,InfluencerNGZK,2020-07-13T13:58:08Z,"Hey I am using the following code to get cookies
+
+```
+from tbselenium.tbdriver import TorBrowserDriver, webdriver
+import time
+
+with TorBrowserDriver(""/home/rena/Documents/tor-browser-linux64-9.0.9_zh-CN/tor-browser_zh-CN"") as driver:
+    driver.get('https://github.com')
+    print(driver.get_cookies())
+    time.sleep(3)
+```
+
+It does not print any cookies. However when I try firefox, I can get the cookies
+
+```
+from tbselenium.tbdriver import TorBrowserDriver, webdriver
+
+driver = webdriver.Firefox()
+driver.set_window_size(800, 600)
+driver.get(""https://github.com"")
+print(driver.get_cookies())
+```
+
+The cookies get from firefox are listed below.  
+`[{'name': '_gh_sess', 'value': 'j2xFUjFzKIyGKK2Dal3fCjuPk0mVC%2Fg06ekgN7GaaCSAUdZPVo0aVzhk3OEaDqbUeBBTT2G7qB%2FLQHdjB3bUi4%2BCbnxfB0KoxLlppYHcw6u1ALovXJDi4pcCsBc%2Bxl0H1bjgwtxbAftvo4o45yjZCmMh33odEYyjOgFiCaYAx%2Ft8DrMN2EkuGM8bvn8hZx6sOEvl%2Fz%2FRsPtDZmz52taUqlYzK6dnmk1TWe8Ti97pTOKfVlIp6%2B7Wa%2BlugYM53CJ9aUNqZps6QBiMZm4rRT1V%2Fg%3D%3D--hvB%2FGvQS0roaCwgr--CMVnjkIi9iRoV4CSbUysbA%3D%3D', 'path': '/', 'domain': 'github.com', 'secure': True, 'httpOnly': True}, {'name': '_octo', 'value': 'GH1.1.1571672737.1594648589', 'path': '/', 'domain': '.github.com', 'secure': True, 'httpOnly': False, 'expiry': 1626184589}, {'name': 'logged_in', 'value': 'no', 'path': '/', 'domain': '.github.com', 'secure': True, 'httpOnly': True, 'expiry': 1626184589}, {'name': '_ga', 'value': 'GA1.2.988609455.1594648592', 'path': '/', 'domain': '.github.com', 'secure': False, 'httpOnly': False, 'expiry': 1657720591}, {'name': '_gat', 'value': '1', 'path': '/', 'domain': '.github.com', 'secure': False, 'httpOnly': False, 'expiry': 1594649191}]`  
+What is the difference between the two methods above. How can I get cookies from torbrowser driver just as firefox driver do.",https://github.com/webfp/tor-browser-selenium/issues/134,webfp/tor-browser-selenium,134
+IssueComment,InfluencerNGZK,2020-07-14T03:11:07Z,"Seems that the following code can solve the cookies problem mentioned above
+
+```
+from selenium import webdriver
+import time
+import os
+from selenium.webdriver.firefox.firefox_profile import FirefoxProfile
+from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
+from selenium.webdriver.firefox.options import Options
+
+profileTor = '/etc/tor/'  # torrc
+binary = os.path.expanduser('/home/rena/Documents/tor-browser-linux64-9.0.9_zh-CN/tor-browser_zh-CN/Browser/firefox')
+
+firefox_binary = FirefoxBinary(binary)
+firefox_profile = FirefoxProfile(profileTor)
+
+# set socks proxy
+firefox_profile.set_preference(""network.proxy.type"", 1)
+firefox_profile.set_preference(""network.proxy.socks_version"", 5)
+firefox_profile.set_preference(""network.proxy.socks"", '127.0.0.1')
+firefox_profile.set_preference(""network.proxy.socks_port"", 9150)
+firefox_profile.set_preference(""network.proxy.socks_remote_dns"", True)
+
+options = Options()
+options.set_headless(headless=False)
+
+driver = webdriver.Firefox(firefox_profile=firefox_profile, firefox_options=options)
+driver.get('http://check.torproject.org')
+time.sleep(3)
+print(driver.get_cookies())
+driver.close()
+```",,webfp/tor-browser-selenium,134
+ClosedEvent,InfluencerNGZK,2020-07-14T03:11:34Z,Closed by InfluencerNGZK in ,,webfp/tor-browser-selenium,134

@@ -1,0 +1,104 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,malfet,2021-02-03T06:38:30Z,ProcessGroupShareTensorTest crashes during shutdown if used with Python-3.9,https://github.com/pytorch/pytorch/issues/51619,pytorch/pytorch,51619
+IssueOpened,malfet,2021-02-03T06:38:30Z,"## To Reproduce
+
+Steps to reproduce the behavior:
+
+1. Build PyTorch against Python-3.9
+2. Run `python test_c10d_spawn.py -v ProcessGroupShareTensorTest`  
+   It will crush during shutdown with the following crash trace:
+
+```
+* thread #1, name = 'python', stop reason = signal SIGSEGV: invalid address (fault address: 0x0)
+  * frame #0: 0x00007fffa10acbdf libtorch_cuda.so`std::unique_ptr<void, void (*)(void*)>::~unique_ptr(this=0x000055555591e048) at unique_ptr.h:263
+    frame #1: 0x00007fffa10ab97a libtorch_cuda.so`c10::detail::UniqueVoidPtr::~UniqueVoidPtr(this=0x000055555591e040) at UniqueVoidPtr.h:38
+    frame #2: 0x00007fffa10aba4a libtorch_cuda.so`c10::DataPtr::~DataPtr(this=0x000055555591e040) at Allocator.h:20
+    frame #3: 0x00007fffa10a8131 libtorch_cuda.so`torch::CudaIPCSentData::~CudaIPCSentData(this=0x000055555591e010) at CudaIPCTypes.cpp:185
+    frame #4: 0x00007fffa10adb08 libtorch_cuda.so`std::default_delete<torch::CudaIPCSentData>::operator(this=0x00005555a3e1b6a8, __ptr=0x000055555591e010)(torch::CudaIPCSentData*) const at unique_ptr.h:78
+    frame #5: 0x00007fffa10ad109 libtorch_cuda.so`std::unique_ptr<torch::CudaIPCSentData, std::default_delete<torch::CudaIPCSentData> >::~unique_ptr(this=0x00005555a3e1b6a8) at unique_ptr.h:263
+    frame #6: 0x00007fffa10af9d8 libtorch_cuda.so`void std::_Destroy<std::unique_ptr<torch::CudaIPCSentData, std::default_delete<torch::CudaIPCSentData> > >(__pointer=0x00005555a3e1b6a8) at stl_construct.h:98
+    frame #7: 0x00007fffa10af285 libtorch_cuda.so`void std::_Destroy_aux<false>::__destroy<std::unique_ptr<torch::CudaIPCSentData, std::default_delete<torch::CudaIPCSentData> >*>(__first=0x00005555a3e1b6a8, __last=0x00005555a3e1b6d0) at stl_construct.h:108
+    frame #8: 0x00007fffa10ae31a libtorch_cuda.so`void std::_Destroy<std::unique_ptr<torch::CudaIPCSentData, std::default_delete<torch::CudaIPCSentData> >*>(__first=0x00005555a3e1b6a0, __last=0x00005555a3e1b6d0) at stl_construct.h:137
+    frame #9: 0x00007fffa10ad891 libtorch_cuda.so`void std::_Destroy<std::unique_ptr<torch::CudaIPCSentData, std::default_delete<torch::CudaIPCSentData> >*, std::unique_ptr<torch::CudaIPCSentData, std::default_delete<torch::CudaIPCSentData> > >(__first=0x00005555a3e1b6a0, __last=0x00005555a3e1b6d0, (null)=0x00007fffb2ec33f8) at stl_construct.h:206
+    frame #10: 0x00007fffa10ace15 libtorch_cuda.so`std::vector<std::unique_ptr<torch::CudaIPCSentData, std::default_delete<torch::CudaIPCSentData> >, std::allocator<std::unique_ptr<torch::CudaIPCSentData, std::default_delete<torch::CudaIPCSentData> > > >::~vector(this=0x00007fffb2ec33f8) at stl_vector.h:434
+    frame #11: 0x00007fffa10a73ab libtorch_cuda.so`torch::(anonymous namespace)::CudaIPCSentDataLimbo::(this=0x00007fffb2ec33f8)() const at CudaIPCTypes.cpp:59
+    frame #12: 0x00007fffa10a7223 libtorch_cuda.so`torch::(anonymous namespace)::CudaIPCGlobalEntities::(this=0x00007fffb2ec3380)() const at CudaIPCTypes.cpp:38
+    frame #13: 0x00007ffff7806161 libc.so.6`__run_exit_handlers(status=0, listp=0x00007ffff7bae718, run_list_atexit=<unavailable>, run_dtors=<unavailable>) at exit.c:108
+    frame #14: 0x00007ffff780625a libc.so.6`__GI_exit(status=<unavailable>) at exit.c:139
+    frame #15: 0x00005555557ca6f9 python`Py_Exit(sts=<unavailable>) at pylifecycle.c:2437
+    frame #16: 0x00005555557ca72d python`handle_system_exit at pythonrun.c:696
+    frame #17: 0x00005555557ca784 python`_PyErr_PrintEx at pythonrun.c:706
+    frame #18: 0x00005555557d1005 python`PyRun_SimpleFileExFlags at pythonrun.c:444
+    frame #19: 0x00005555557d16b8 python`Py_RunMain at main.c:379
+    frame #20: 0x00005555557d1829 python`Py_BytesMain at main.c:1129
+    frame #21: 0x00007ffff77e4bf7 libc.so.6`__libc_start_main(main=(python`main at python.c:15), argc=6, argv=0x00007fffffffe6f8, init=<unavailable>, fini=<unavailable>, rtld_fini=<unavailable>, stack_end=0x00007fffffffe6e8) at libc-start.c:310
+    frame #22: 0x0000555555757275 python`_start at start.S:103
+```
+
+cc [@pietern](https://github.com/pietern) [@mrshenli](https://github.com/mrshenli) [@pritamdamania87](https://github.com/pritamdamania87) [@zhaojuanmao](https://github.com/zhaojuanmao) [@satgera](https://github.com/satgera) [@rohan-varma](https://github.com/rohan-varma) [@gqchen](https://github.com/gqchen) [@aazzolini](https://github.com/aazzolini) [@osalpekar](https://github.com/osalpekar) [@jiayisuse](https://github.com/jiayisuse) [@agolynski](https://github.com/agolynski) @SciPioneer [@H-Huang](https://github.com/H-Huang) [@mrzzd](https://github.com/mrzzd) [@cbalioglu](https://github.com/cbalioglu)",,pytorch/pytorch,51619
+IssueComment,malfet,2021-02-03T06:39:08.000Z,"Presumably, because we are trying to add more elements during from the destructor, see:",,pytorch/pytorch,51619
+LabelEvent,zou3519,2021-02-03T15:32:41.000Z,"zou3519 added oncall: distributedAdd this issue/PR to distributed oncall triage queueAdd this issue/PR to distributed oncall triage queue on Feb 3, 2021",,pytorch/pytorch,51619
+LabelEvent,pritamdamania87,2021-02-23T02:16:36.000Z,"pritamdamania87 added module: flaky-testsProblem is a flaky test in CIProblem is a flaky test in CI triagedThis issue has been looked at a team member, and triaged and prioritized into an appropriate moduleThis issue has been looked at a team member, and triaged and prioritized into an appropriate module on Feb 22, 2021",,pytorch/pytorch,51619
+AssigneeEvent,pritamdamania87,2021-02-25T22:38:44.000Z,"pritamdamania87self- assigned thison Feb 25, 2021",,pytorch/pytorch,51619
+UnclassifiedEventType,pritamdamania87,2021-02-25T23:10:13.000Z,"pritamdamania87removed oncall: distributedAdd this issue/PR to distributed oncall triage queueAdd this issue/PR to distributed oncall triage queue on Feb 25, 2021",,pytorch/pytorch,51619
+UnclassifiedEventType,pritamdamania87,2021-02-25T23:10:17.000Z,"pritamdamania87removed their assignmenton Feb 25, 2021",,pytorch/pytorch,51619
+LabelEvent,pritamdamania87,2021-02-25T23:18:21.000Z,"pritamdamania87 added oncall: distributedAdd this issue/PR to distributed oncall triage queueAdd this issue/PR to distributed oncall triage queue on Feb 25, 2021",,pytorch/pytorch,51619
+AssigneeEvent,pritamdamania87,2021-02-25T23:26:21.000Z,"pritamdamania87 assigned pritamdamania87 and un assigned pritamdamania87on Feb 25, 2021",,pytorch/pytorch,51619
+IssueComment,pritamdamania87,2021-02-26T05:23:28.000Z,"[@mrshenli](https://github.com/mrshenli) Was wondering if you had some more context regarding these tests since I saw you added them a while back :) I tried poking around, but not sure yet what might be causing the issues in cleanup.
+
+In general it seems like the producer is not cleaning up tensors correctly and I see warnings such as:",,pytorch/pytorch,51619
+IssueComment,pritamdamania87,2021-02-26T18:33:49.000Z,"Looks like one of the SIGSEGV was coming from a nullptr from a map and was fixed by this change:
+
+However, now I see SIGSEGV with the following stack:",,pytorch/pytorch,51619
+MentionedByCommit,pritamdamania87,2021-03-02T02:13:42.000Z,"pritamdamania87added a commit that references this issue on Mar 1, 2021Fix SIGSEGV in CudaIPCTypes.cpp....95421ac
+Fix SIGSEGV in CudaIPCTypes.cpp.
+
+As described in https://github.com/pytorch/pytorch/issues/51619,
+ProcessGroupShareTensorTest was failing due to segfaults in CudaIPCTypes.cpp.
+There were two issues that had to be fixed for this:
+
+1. The ref_counter_files_ map was looked up and the result was used without
+checking whether or not the appropriate key existed in the map. This would
+result in default construction in the map if the key didn't exist resulting in
+a nullptr being stored in the map.
+2. ~CudaIPCSentData uses the global cuda_ipc_global_entities variable. But as
+part of destroying cuda_ipc_global_entities, ~CudaIPCSentData is called which
+accesses an already destroyed cuda_ipc_global_entities. This is now avoided by
+clearing all shared blocks in ~CudaIPCGlobalEntities to ensure they are all
+cleaned up before the destructor exits.
+
+#Closes: https://github.com/pytorch/pytorch/issues/51619
+
+Differential Revision: [D26742332](https://our.internmc.facebook.com/intern/diff/D26742332/)
+
+[ghstack-poisoned]",https://github.com/pytorch/pytorch/commit/95421ac26ed3cb1914f15430fbf2411caa081789,pytorch/pytorch,51619
+MentionedByCommit,pritamdamania87,2021-03-02T02:13:42.000Z,"pritamdamania87added a commit that references this issue on Mar 1, 2021Fix SIGSEGV in CudaIPCTypes.cpp....95421ac",https://github.com/pytorch/pytorch/commit/95421ac26ed3cb1914f15430fbf2411caa081789,pytorch/pytorch,51619
+MentionedByPR,pritamdamania87,2021-03-02T02:13:42.000Z,"pritamdamania87 mentioned this on Mar 1, 2021
+Fix SIGSEGV in CudaIPCTypes.cpp. #53080",https://github.com/pytorch/pytorch/pull/53080,pytorch/pytorch,51619
+MentionedByCommit,pritamdamania87,2021-03-02T02:13:56.000Z,"pritamdamania87added a commit that references this issue on Mar 1, 2021Fix SIGSEGV in CudaIPCTypes.cpp....5fb586f
+Fix SIGSEGV in CudaIPCTypes.cpp.
+
+As described in https://github.com/pytorch/pytorch/issues/51619,
+ProcessGroupShareTensorTest was failing due to segfaults in CudaIPCTypes.cpp.
+There were two issues that had to be fixed for this:
+
+1. The ref_counter_files_ map was looked up and the result was used without
+checking whether or not the appropriate key existed in the map. This would
+result in default construction in the map if the key didn't exist resulting in
+a nullptr being stored in the map.
+2. ~CudaIPCSentData uses the global cuda_ipc_global_entities variable. But as
+part of destroying cuda_ipc_global_entities, ~CudaIPCSentData is called which
+accesses an already destroyed cuda_ipc_global_entities. This is now avoided by
+clearing all shared blocks in ~CudaIPCGlobalEntities to ensure they are all
+cleaned up before the destructor exits.
+
+#Closes: https://github.com/pytorch/pytorch/issues/51619
+
+Differential Revision: [D26742332](https://our.internmc.facebook.com/intern/diff/D26742332/)
+
+ghstack-source-id: 122812319
+Pull Request resolved: https://github.com/pytorch/pytorch/pull/53080",https://github.com/pytorch/pytorch/commit/5fb586f6ae4f80e32526224a5082f8085c5bdbf4,pytorch/pytorch,51619
+MentionedByCommit,pritamdamania87,2021-03-02T02:13:56.000Z,"pritamdamania87added a commit that references this issue on Mar 1, 2021Fix SIGSEGV in CudaIPCTypes.cpp....5fb586f",https://github.com/pytorch/pytorch/commit/5fb586f6ae4f80e32526224a5082f8085c5bdbf4,pytorch/pytorch,51619
+ClosedEvent,facebook-github-bot,2021-03-16T23:41:24.000Z,"[facebook-github-bot closed this as completedin 8533a48 on Mar 16, 2021",https://github.com/pytorch/pytorch/commit/8533a485eaf42ee620e6f6a7384e332379178566,pytorch/pytorch,51619
+MentionedByPR,jaglinux,2023-01-26T21:02:39.000Z,"jaglinux mentioned this on Jan 26, 2023
+[CI] Disable rocm distributed tests #91632",https://github.com/pytorch/pytorch/pull/91632,pytorch/pytorch,51619

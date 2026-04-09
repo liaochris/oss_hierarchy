@@ -27,18 +27,23 @@ Columns:
 - repo_name
 - issue_number
 
-The **first row** (after the header) is always IssueTitle containing the issue title.
-The **second row** is always IssueOpened containing the original issue post text.
+The **first row** (after the header) is always `IssueTitle` containing the issue title.
+The **second row** is always `IssueOpened` containing the original issue post text.
+
+**CSV Format:** Rows are newline-separated; everything else is in raw CSV formatting (i.e., `\n` within quoted fields appears as literal `\n`, not an actual line break).
 
 ### Edge Cases
 - For reopened issues, focus on the final resolution state
-- If CSV is malformed or information is missing, extract what you can and use null values where needed
+- If CSV is malformed or information is missing, extract what you can and use `null` values where needed
 
 ---
 
 ## Core Issue Classification
 
 ### Step 1: Issue Type
+
+**Populates:** `issue_type`
+
 Classify the issue type based on the original issue post (IssueOpened row, which is the second row after the header).
 
 Use one of: `bug`, `enhancement`, `question`
@@ -47,6 +52,9 @@ Use one of: `bug`, `enhancement`, `question`
 - `question`: Asking how to use a function or seeking clarification
 
 ### Step 2: Resolution Found
+
+**Populates:** `resolution_found`
+
 Classify whether the issue was substantively resolved.
 
 Use one of: `yes`, `no`
@@ -55,6 +63,9 @@ Use one of: `yes`, `no`
 
 
 ### Step 3: Resolution Type
+
+**Populates:** `resolution_type`
+
 If resolution_found is `yes`, classify the resolution mechanism. Otherwise use `null`.
 
 Use one of: `code`, `discussion`, `null`
@@ -62,10 +73,26 @@ Use one of: `code`, `discussion`, `null`
 - `discussion`: Resolved via explanation, configuration guidance, or comment with no code changes needed
 - `null`: If resolution_found is `no`
 
-**Priority rule**: Code takes precedence. If code was written AND discussion occurred, classify as `code`. Use `discussion` only when the problem was resolved entirely through explanation without any code changes. 
+**Priority rule**: Code takes precedence. If code was written AND discussion occurred, classify as `code`. Use `discussion` only when the problem was resolved **entirely** through explanation with **no code changes implied or made**.
+
+**Important: Implied code changes count as `code`**
+
+If the discussion indicates code changes will be made or were made, even without an explicit PR/commit reference, classify as `code`. Examples of implied code changes:
+- "Let me update that now"
+- "I'll fix this"
+- "Pushing a fix"
+- "I've made the change"
+- "Updated in the latest version"
+- "Fixed in master/main"
+- "This should be resolved now"
+
+Only use `discussion` when the problem was resolved through explanation alone (e.g., user was using the API incorrectly, needed configuration guidance, or the answer was "this is expected behavior"). 
 
 
 ### Step 4: Resolution Artifact (if resolved)
+
+**Populates:** `resolution`
+
 Extract the specific artifact that resolved the issue.
 
 #### Decision Tree for Identifying Resolution:
@@ -94,25 +121,82 @@ When resolution_found is `yes`, provide a resolution object:
 "resolution": {
   "type": "pull_request" | "commit" | "comment",
   "url": "exact URL string from CSV",
-  "solution": "verbatim text: PR title, commit message, or comment text"
+  "solution": "FULL VERBATIM TEXT - see requirements below"
 }
 ```
+
+**CRITICAL: Solution Text Requirements**
+
+The `solution` field must contain the **FULL, COMPLETE, VERBATIM** text from the CSV row that resolved the issue:
+- For **comments**: Copy the **ENTIRE** comment text from that row's `text` column
+- For **PRs**: Copy the **FULL** PR title from the `text` column
+- For **commits**: Copy the **FULL** commit message from the `text` column
+
+**Rules:**
+- **No truncation** - include the complete text, no matter how long
+- **No summarization** - do not paraphrase or condense
+- **No modification** - copy exactly as it appears in the CSV cell
+- Copy the entire cell content from the `text` column of the resolving row
 
 When resolution_found is `no` OR cannot identify the artifact, set to `null`.
 
 
 ### Step 5: Resolution Inability
+
+**Populates:** `resolution_inability`
+
 If resolution_found is `no`, classify why the issue was not resolved.
 
 Use one of:
-- `no_responder`: No one from the project responded substantively
 - `asker_ghosted`: Asker stopped responding before resolution
-- `responder_ghosted`: Responder(s) stopped engaging before resolution
+- `responder_dropped`: No one from the project responded substantively or the responder(s) stopped engaging before resolution
 - `impossible_or_out_of_scope`: Resolution explicitly stated as impossible or out of scope
 
 If resolution_found is `yes`, set this field to `null`.
 
-**Note**: Do not count automated bot replies (like this issue is stale and is being closed), "I have this too" comments, or state-change-only events as substantive responses.
+**Note**: Do not count automated bot replies (like "this issue is stale and is being closed"), "I have this too" comments, or state-change-only events as substantive responses.
+
+
+### Step 6: Backwards-Incompatible Change
+
+**Populates:** `backwards_incompatible`
+
+Does the issue describe something that used to work but no longer does?
+
+Use exactly one of:
+- `yes_internal`: Backwards-incompatible change within this project (something that used to work now fails after an update to this project)
+- `yes_external`: Breakage caused by an external dependency update
+- `no`: No backwards incompatibility described
+
+Do **NOT** classify incorrect usage as backwards incompatibility.
+
+
+### Step 7: Software Broken (ONLY for bugs and questions)
+
+**Populates:** `software_broken`
+
+**Only evaluate if issue_type is `bug` or `question`. Set to `null` for `enhancement`.**
+
+Definition: If NO code change was made to fix the issue, would the software fail to work as intended?
+
+Use one of:
+- `yes`: The software itself is broken and would not work correctly without a code fix
+- `no`: The issue arises from incorrect usage, misconfiguration, or user error
+- `null`: If issue_type is `enhancement`
+
+
+### Step 8: Feature Solution Status (ONLY for enhancements)
+
+**Populates:** `feature_solution_status`
+
+**Only evaluate if issue_type is `enhancement`. Set to `null` for `bug` or `question`.**
+
+If the issue proposes a feature or enhancement, classify its outcome.
+
+Use one of:
+- `implemented`: The requested feature (or equivalent) was implemented
+- `not_implemented`: The feature was not implemented
+- `null`: If issue_type is `bug` or `question`
 
 ---
 
@@ -128,17 +212,24 @@ Return a single JSON object with exactly these top-level fields:
   "resolution": {
     "type": "pull_request" | "commit" | "comment",
     "url": "string",
-    "solution": "string"
+    "solution": "FULL VERBATIM TEXT from CSV"
   } | null,
-  "resolution_inability": "no_responder" | "asker_ghosted" | "responder_ghosted" | "impossible_or_out_of_scope" | null
+  "resolution_inability": "responder_dropped" | "asker_ghosted" | "impossible_or_out_of_scope" | null,
+  "backwards_incompatible": "yes_internal" | "yes_external" | "no",
+  "software_broken": "yes" | "no" | null,
+  "feature_solution_status": "implemented" | "not_implemented" | null
 }
 ```
+
+**Field constraints by issue_type:**
+- `software_broken`: Required (`yes`/`no`) for `bug` and `question`; must be `null` for `enhancement`
+- `feature_solution_status`: Required (`implemented`/`not_implemented`) for `enhancement`; must be `null` for `bug` and `question`
 
 ### Complete Examples with CSV Input
 
 These examples show complete CSV inputs (multiple rows) and the expected classification output.
 
-**Note:** All examples include all rows from the CSV except LabeledEvent, AssignedEvent, and UnassignedEvent rows, which have been omitted for clarity. The provided CSV's are newline separated by rows; everything else is in raw csv formatting. 
+**Note:** All examples include all rows from the CSV except LabeledEvent, AssignedEvent, and UnassignedEvent rows, which have been omitted for clarity. Rows are newline-separated; `\n` within quoted fields appears as literal `\n`. 
 
 ---
 
@@ -155,7 +246,7 @@ ClosedEvent,honzakral,2016-03-21T17:45:11Z,Closed by honzakral in a903a1,https:/
 
 Expected Output (raw JSON, no code blocks):
 
-{"issue_type":"bug","resolution_found":"yes","resolution_type":"code","resolution":{"type":"commit","url":"https://github.com/elastic/elasticsearch-dsl-py/commit/b97ed033e7676069ff8f933ae433246e8aa903a1","solution":"Closed by honzakral in a903a1"},"resolution_inability":null}
+{"issue_type":"bug","resolution_found":"yes","resolution_type":"code","resolution":{"type":"commit","url":"https://github.com/elastic/elasticsearch-dsl-py/commit/b97ed033e7676069ff8f933ae433246e8aa903a1","solution":"Closed by honzakral in a903a1"},"resolution_inability":null,"backwards_incompatible":"no","software_broken":"yes","feature_solution_status":null}
 
 ---
 
@@ -173,7 +264,7 @@ ClosedEvent,pytorchmergebot,2023-02-14T17:58:58Z,Closed by pytorchmergebot in 30
 
 Expected Output (raw JSON, no code blocks):
 
-{"issue_type":"enhancement","resolution_found":"yes","resolution_type":"code","resolution":{"type":"commit","url":"https://github.com/pytorch/pytorch/commit/b7e1477e9b69a80114cbc992216cf57adf30b207","solution":"Closed by pytorchmergebot in 30b207"},"resolution_inability":null}
+{"issue_type":"enhancement","resolution_found":"yes","resolution_type":"code","resolution":{"type":"commit","url":"https://github.com/pytorch/pytorch/commit/b7e1477e9b69a80114cbc992216cf57adf30b207","solution":"Closed by pytorchmergebot in 30b207"},"resolution_inability":null,"backwards_incompatible":"no","software_broken":null,"feature_solution_status":"implemented"}
 
 ---
 
@@ -190,11 +281,11 @@ ClosedEvent,JulienPalard,2019-06-30T09:52:13Z,Closed by JulienPalard in ,,Julien
 
 Expected Output (raw JSON, no code blocks):
 
-{"issue_type":"question","resolution_found":"yes","resolution_type":"discussion","resolution":{"type":"comment","url":"","solution":"We're using the name `select` for this:\n\n```\n>>> \"123\" | select(int) | add\n6\n```\n\nI choose `select` for its similarity with SQL select, and I were having a where:\n\n```\n>>> range(10) | where(lambda x: x % 2 == 0) | select(lambda x: x ** 2) | concat\n'0, 4, 16, 36, 64'\n```\n\nbeing the equivalent of:\n\n```\n>>> [x ** 2 for x in range(10) if x % 2 == 0]\n[0, 4, 16, 36, 64]\n```"},"resolution_inability":null}
+{"issue_type":"question","resolution_found":"yes","resolution_type":"discussion","resolution":{"type":"comment","url":"","solution":"We're using the name `select` for this:\n\n```\n>>> \"123\" | select(int) | add\n6\n```\n\nI choose `select` for its similarity with SQL select, and I were having a where:\n\n```\n>>> range(10) | where(lambda x: x % 2 == 0) | select(lambda x: x ** 2) | concat\n'0, 4, 16, 36, 64'\n```\n\nbeing the equivalent of:\n\n```\n>>> [x ** 2 for x in range(10) if x % 2 == 0]\n[0, 4, 16, 36, 64]\n```"},"resolution_inability":null,"backwards_incompatible":"no","software_broken":"no","feature_solution_status":null}
 
 ---
 
-**Example 4: Unresolved enhancement (no_responder)**
+**Example 4: Unresolved enhancement (responder_dropped)**
 
 CSV Input:
 ```
@@ -208,11 +299,11 @@ ClosedEvent,stale,2024-04-14T14:21:21Z,Closed by stale in ,,bridgecrewio/checkov
 
 Expected Output (raw JSON, no code blocks):
 
-{"issue_type":"enhancement","resolution_found":"no","resolution_type":null,"resolution":null,"resolution_inability":"no_responder"}
+{"issue_type":"enhancement","resolution_found":"no","resolution_type":null,"resolution":null,"resolution_inability":"responder_dropped","backwards_incompatible":"no","software_broken":null,"feature_solution_status":"not_implemented"}
 
 ---
 
-**Example 5: Bug unresolved (no_responder)**
+**Example 5: Bug unresolved (responder_dropped)**
 
 CSV Input:
 ```
@@ -224,7 +315,7 @@ IssueComment,Ntstr,2022-05-31T16:02:52Z,"Hello,\n\ndid you find a solution?  \nI
 
 Expected Output (raw JSON, no code blocks):
 
-{"issue_type":"bug","resolution_found":"no","resolution_type":null,"resolution":null,"resolution_inability":"no_responder"}
+{"issue_type":"bug","resolution_found":"no","resolution_type":null,"resolution":null,"resolution_inability":"responder_dropped","backwards_incompatible":"no","software_broken":"yes","feature_solution_status":null}
 
 ### Output Requirements:
 
@@ -239,11 +330,11 @@ Your response must be a single line of valid JSON with NO additional formatting:
 
 **String values:**
 - Use exact lowercase strings as specified in each step (e.g., `"bug"`, `"yes"`, `"code"`)
-- Multi-word values use underscores (e.g., `"asker_ghosted"`, `"no_responder"`)
+- Multi-word values use underscores (e.g., `"asker_ghosted"`, `"responder_dropped"`)
 - For null values, use JSON `null` (not the string `"null"`)
 
 **Example of correct format:**
-`{"issue_type":"bug","resolution_found":"yes","resolution_type":"code","resolution":{"type":"commit","url":"https://...","solution":"Fixed bug"},"resolution_inability":null}`
+`{"issue_type":"bug","resolution_found":"yes","resolution_type":"code","resolution":{"type":"commit","url":"https://...","solution":"Fixed bug"},"resolution_inability":null,"backwards_incompatible":"no","software_broken":"yes","feature_solution_status":null}`
 
 **Example of INCORRECT format (do NOT do this):**
 ```json

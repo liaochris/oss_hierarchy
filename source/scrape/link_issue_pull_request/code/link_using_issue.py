@@ -1,3 +1,4 @@
+# source/scrape/link_issue_pull_request/code/link_using_issue.py
 import pandas as pd
 import glob
 from tqdm import tqdm
@@ -16,13 +17,17 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 from wakepy import keep
 import os
+import concurrent.futures
+import argparse
 
 from source.scrape.link_issue_pull_request.code.create_issue_timeline_json import HtmlTextToTimelineJSON
 from source.scrape.link_issue_pull_request.code.create_issue_timeline_dom import HtmlTextToTimelineDOM
 from source.scrape.link_issue_pull_request.code.fetch_helpers import FetchGitHubPage
-from source.lib.helpers import MakeRepoNameSafe
+from source.lib.helpers import MakeRepoNameSafe, JsonSerialize
+from source.lib.JMSLab.SaveData import SaveData
 
-PROXY_NUM = 3
+
+CHUNK_SIZE = 200
 
 
 def ReadIssueParquet(path):
@@ -35,9 +40,9 @@ def ReadIssueParquet(path):
         return pd.DataFrame(columns=cols)
 
 
-def _FetchIssuePage(sesh, repo_name, issue_number):
+def _FetchIssuePage(sesh, repo_name, issue_number, proxy_num: int):
     url = f"https://github.com/{repo_name}/issues/{issue_number}"
-    resp, is_not_found, is_rate_limited = FetchGitHubPage(sesh, url, PROXY_NUM)
+    resp, is_not_found, is_rate_limited = FetchGitHubPage(sesh, url, proxy_num)
     is_pull = "/pull/" in resp.url
     return resp, is_not_found, is_rate_limited, is_pull
 
@@ -66,7 +71,7 @@ def _ExpandAllWithSelenium(issue_url):
                     )
                     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                     time.sleep(3)
-                    driver.execute_script("arguments[0].scrollIntoView({block:'center'});", btn)
+                    driver.execute_script("arguments[0].scrollIntoView({block:\'center\'});", btn)
                     time.sleep(3)
                     btn.click()
                     time.sleep(10)
@@ -91,23 +96,23 @@ def _ExpandAllWithSelenium(issue_url):
     return html
 
 
-def GrabIssueData(repo_name, issue_number):
+def GrabIssueData(repo_name, issue_number, proxy_num: int):
     try:
         product = SoupStrainer("a")
         sesh = requests.Session()
 
         issue_url = f"https://github.com/{repo_name}/issues/{issue_number}"
 
-        resp, is_not_found, is_rate_limited, is_pull = _FetchIssuePage(sesh, repo_name, issue_number)
+        resp, is_not_found, is_rate_limited, is_pull = _FetchIssuePage(sesh, repo_name, issue_number, proxy_num)
         if is_not_found:
             return {"pr_links": [], "github_links": [], "timeline_df": None}
         if is_rate_limited:
             print("RATE LIMITED")
             time.sleep(120)
-            resp, is_not_found, is_rate_limited, is_pull = _FetchIssuePage(sesh, repo_name, issue_number)
+            resp, is_not_found, is_rate_limited, is_pull = _FetchIssuePage(sesh, repo_name, issue_number, proxy_num)
         if is_not_found:
             return {"pr_links": [], "github_links": [], "timeline_df": None}
-        
+
         html_text = resp.text if hasattr(resp, "text") else ""
         bs = BeautifulSoup(html_text, "html.parser")
         bs_text = bs.find(attrs={"data-testid": "issue-title"})
@@ -119,7 +124,7 @@ def GrabIssueData(repo_name, issue_number):
             maybe_timeline = HtmlTextToTimelineJSON(html_text)
             if isinstance(maybe_timeline, pd.DataFrame) and not maybe_timeline.empty:
                 timeline_df = maybe_timeline.copy()
-                if re.search(r'"hasNextPage":true', html_text):
+                if re.search(r"\"hasNextPage\":true", html_text):
                     expanded_html = _ExpandAllWithSelenium(issue_url)
                     dom_timeline = HtmlTextToTimelineDOM(expanded_html)
                     opening_issue_row = None
@@ -143,11 +148,12 @@ def GrabIssueData(repo_name, issue_number):
                 date = opening_issue_row.get("date") if isinstance(opening_issue_row, dict) or hasattr(opening_issue_row, "get") else None
                 issue_title_df = pd.DataFrame(
                     [["IssueTitle", author, date, issue_title, issue_url]],
-                    columns=timeline_cols
+                    columns=timeline_cols,
                 )
                 timeline_df = pd.concat([issue_title_df, timeline_df], ignore_index=True).reset_index(drop=True)
                 timeline_df["repo_name"] = repo_name
                 timeline_df["issue_number"] = issue_number
+                timeline_df["event_order"] = range(1, len(timeline_df) + 1)
         else:
             timeline_df = pd.DataFrame()
 
@@ -169,7 +175,7 @@ def GrabIssueData(repo_name, issue_number):
             "pr_links": pr_links,
             "github_links": github_links,
             "timeline_df": timeline_df,
-            "is_pull": is_pull
+            "is_pull": is_pull,
         }
 
     except Exception as e:
@@ -177,10 +183,9 @@ def GrabIssueData(repo_name, issue_number):
         return f"Error: {e}"
 
 
-def Main():
+def Main(proxy_num: int):
     warnings.filterwarnings("ignore")
 
-    os.chdir('/Users/chrisliao/Documents/research_temp')
     INDIR = Path("drive/output/scrape/extract_github_data/repo_level_data/issue")
     OUTDIR = Path("drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request")
     TIMELINE_DIR = Path("drive/output/scrape/link_issue_pull_request/timeline")
@@ -188,64 +193,146 @@ def Main():
     OUTDIR.mkdir(parents=True, exist_ok=True)
     TIMELINE_DIR.mkdir(parents=True, exist_ok=True)
 
+    CHUNK_OUTDIR = OUTDIR / "chunks"
+    CHUNK_TIMELINE_DIR = TIMELINE_DIR / "chunks"
+    CHUNK_OUTDIR.mkdir(parents=True, exist_ok=True)
+    CHUNK_TIMELINE_DIR.mkdir(parents=True, exist_ok=True)
+
+    LOG_ISSUE_DIR    = Path("output/scrape/link_issue_pull_request/linked_issue_to_pull_request/logs")
+    LOG_TIMELINE_DIR = Path("output/scrape/link_issue_pull_request/timeline/logs")
+    LOG_ISSUE_DIR.mkdir(parents=True, exist_ok=True)
+    LOG_TIMELINE_DIR.mkdir(parents=True, exist_ok=True)
+
     parquet_files = glob.glob(str(INDIR / "*.parquet"))
     np.random.shuffle(parquet_files)
-    with keep.running():
-        for parquet_file in parquet_files:
-            print(parquet_file)
-            df_issue = ReadIssueParquet(parquet_file)
-            if df_issue.empty:
+
+    def _IsAlreadyDone(parquet_file):
+        safe_repo = Path(parquet_file).stem
+        return (OUTDIR / f"{safe_repo}.parquet").exists() and \
+               (TIMELINE_DIR / f"{safe_repo}_issue_timeline.parquet").exists()
+
+    with concurrent.futures.ThreadPoolExecutor() as pool:
+        done_flags = list(pool.map(_IsAlreadyDone, parquet_files))
+
+    parquet_files = [f for f, done in zip(parquet_files, done_flags) if not done]
+    print(f"{len(parquet_files)} repos remaining to process")
+
+    for parquet_file in parquet_files:
+        print(parquet_file)
+        df_issue = ReadIssueParquet(parquet_file)
+        if df_issue.empty:
+            continue
+
+        repo_name = df_issue["repo_name"].iloc[0]
+        safe_repo = MakeRepoNameSafe(repo_name)
+
+        assert df_issue["repo_name"].nunique() == 1
+
+        repo_file = OUTDIR / f"{safe_repo}.parquet"
+        timeline_file = TIMELINE_DIR / f"{safe_repo}_issue_timeline.parquet"
+
+        if repo_file.exists() and timeline_file.exists():
+            continue
+
+        chunks = [df_issue.iloc[i : i + CHUNK_SIZE].copy() for i in range(0, len(df_issue), CHUNK_SIZE)]
+
+        while True:
+            unmade = [i for i in range(len(chunks)) if not ((CHUNK_OUTDIR / f"{safe_repo}_chunk_{i:04d}.parquet").exists()
+                and (CHUNK_TIMELINE_DIR / f"{safe_repo}_chunk_{i:04d}_timeline.parquet").exists())]
+            if not unmade:
+                break
+
+            chunk_idx = int(np.random.choice(unmade))
+            chunk_df = chunks[chunk_idx]
+
+            chunk_out = CHUNK_OUTDIR / f"{safe_repo}_chunk_{chunk_idx:04d}.parquet"
+            chunk_tl  = CHUNK_TIMELINE_DIR / f"{safe_repo}_chunk_{chunk_idx:04d}_timeline.parquet"
+            if chunk_out.exists() and chunk_tl.exists():
                 continue
 
-            repo_name = df_issue["repo_name"].iloc[0]
-            safe_repo = MakeRepoNameSafe(repo_name)
+            print(f"  Chunk {chunk_idx + 1}/{len(chunks)} ({len(chunk_df)} issues)")
 
-            assert df_issue["repo_name"].nunique() == 1
-    
-            repo_file = OUTDIR / f"{safe_repo}.parquet"
-            timeline_file = TIMELINE_DIR / f"{safe_repo}_issue_timeline.parquet"
-
-            if repo_file.exists() and timeline_file.exists():
-                continue
-
-            results = []
-            for idx, row in tqdm(df_issue.iterrows(), total=len(df_issue), desc="Fetching issues"):
-                results.append(GrabIssueData(row["repo_name"], int(float(row["issue_number"]))))
-            df_issue["linked_pull_request"] = results
+            rows = [(row["repo_name"], int(float(row["issue_number"]))) for _, row in chunk_df.iterrows()]
+            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+                results = list(
+                    tqdm(
+                        pool.map(lambda r: GrabIssueData(r[0], r[1], proxy_num), rows),
+                        total=len(rows),
+                        desc="Fetching issues",
+                    )
+                )
+            chunk_df["linked_pull_request"] = results
 
             for retry in range(10):
-                error_mask = df_issue['linked_pull_request'].apply(lambda x: isinstance(x, str))
+                error_mask = chunk_df["linked_pull_request"].apply(lambda x: isinstance(x, str))
                 if not error_mask.any():
                     break
-                error_indices = df_issue[error_mask].index.tolist()
-                for idx in tqdm(error_indices, desc=f"Retry {retry + 1}"):
-                    row = df_issue.loc[idx]
-                    df_issue.at[idx, "linked_pull_request"] = GrabIssueData(
-                        row["repo_name"], int(float(row["issue_number"]))
+                error_indices = chunk_df[error_mask].index.tolist()
+                retry_rows = [
+                    (chunk_df.loc[idx, "repo_name"], int(float(chunk_df.loc[idx, "issue_number"])))
+                    for idx in error_indices
+                ]
+                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+                    retry_results = list(
+                        tqdm(
+                            pool.map(lambda r: GrabIssueData(r[0], r[1], proxy_num), retry_rows),
+                            total=len(retry_rows),
+                            desc=f"Retry {retry + 1}",
+                        )
                     )
+                for idx, result in zip(error_indices, retry_results):
+                    chunk_df.at[idx, "linked_pull_request"] = result
                 time.sleep(5)
 
             timeline_dfs = [
                 d["timeline_df"]
-                for d in df_issue["linked_pull_request"]
+                for d in chunk_df["linked_pull_request"]
                 if isinstance(d, dict) and isinstance(d.get("timeline_df"), pd.DataFrame)
             ]
 
             if timeline_dfs:
-                repo_timeline_df = pd.concat(timeline_dfs, ignore_index=True)
-                repo_timeline_df.to_parquet(timeline_file, engine="pyarrow", index=False)
+                pd.concat(timeline_dfs, ignore_index=True).to_parquet(chunk_tl, engine="pyarrow", index=False)
+            else:
+                pd.DataFrame().to_parquet(chunk_tl, engine="pyarrow", index=False)
 
-            df_issue["linked_pull_request"] = df_issue["linked_pull_request"].apply(
+            chunk_df["linked_pull_request"] = chunk_df["linked_pull_request"].apply(
                 lambda d: {
                     "pr_links": d.get("pr_links", []),
                     "github_links": d.get("github_links", []),
-                    "is_pull": d.get("is_pull", False)
-                } if isinstance(d, dict) else d
+                    "is_pull": d.get("is_pull", False),
+                }
+                if isinstance(d, dict)
+                else d
             )
 
-            df_issue.to_parquet(repo_file, engine="pyarrow")
-            
+            chunk_df.to_parquet(chunk_out, engine="pyarrow")
+
+        chunk_dfs = [pd.read_parquet(CHUNK_OUTDIR / f"{safe_repo}_chunk_{i:04d}.parquet") for i in range(len(chunks))]
+        repo_df = pd.concat(chunk_dfs, ignore_index=True)
+        repo_df["linked_pull_request"] = repo_df["linked_pull_request"].apply(JsonSerialize)
+        issue_letter = "numeric" if safe_repo[0].isdigit() else safe_repo[0].lower()
+        SaveData(repo_df, ["repo_name", "issue_number"], repo_file,
+                 LOG_ISSUE_DIR / f"{issue_letter}.log", append=True)
+
+        tl_dfs = [
+            pd.read_parquet(CHUNK_TIMELINE_DIR / f"{safe_repo}_chunk_{i:04d}_timeline.parquet")
+            for i in range(len(chunks))
+        ]
+        non_empty_tls = [t for t in tl_dfs if not t.empty]
+        combined_tl = pd.concat(non_empty_tls, ignore_index=True) if non_empty_tls else pd.DataFrame()
+        if not combined_tl.empty:
+            SaveData(combined_tl, ["repo_name", "issue_number", "event_order"], timeline_file,
+                     LOG_TIMELINE_DIR / f"{issue_letter}.log", append=True)
+        else:
+            combined_tl.to_parquet(timeline_file, engine="pyarrow", index=False)
+
+        for i in range(len(chunks)):
+            (CHUNK_OUTDIR / f"{safe_repo}_chunk_{i:04d}.parquet").unlink()
+            (CHUNK_TIMELINE_DIR / f"{safe_repo}_chunk_{i:04d}_timeline.parquet").unlink()
 
 
 if __name__ == "__main__":
-    Main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--proxy-num", type=int, required=True)
+    args = parser.parse_args()
+    Main(args.proxy_num)

@@ -58,22 +58,40 @@ def AssignLatestNamesAndGroups(df):
     df["latest_repo_name"] = df["repo_name"].map(cache_latest)
     df["forked_from"] = df["repo_name"].map(cache_fork)
     df["is_fork"] = df["repo_name"].map(cache_flag)
-    df["archive_date"] = df["repo_name"].map(cache_archive)
+    df["archive_date"] = pd.to_datetime(df["repo_name"].map(cache_archive))
 
     unique_latest = {name: i for i, name in enumerate(df["latest_repo_name"].unique())}
     df["repo_group"] = df["latest_repo_name"].map(unique_latest)
     return df
 
+def CollapseOverlappingPeriods(df, keys):
+    return (
+        df
+        .groupby(keys, dropna=False)
+        .agg(
+            first_seen=("first_seen", "min"),
+            last_seen=("last_seen", "max"),
+            forked_from=("forked_from", "first"),
+            is_fork=("is_fork", "max"),
+            archive_date=("archive_date", "max"),
+        )
+        .reset_index()
+    )
+
 
 def Main():
     INDIR = Path("output/scrape/extract_github_data")
+
+    keys = ["repo_group", "repo_id", "repo_name", "latest_repo_name"]
+
     df_full = pd.read_csv(INDIR / "repo_id_history.csv")
 
     df_full = AssignLatestNamesAndGroups(df_full)
-    
+    df_full = CollapseOverlappingPeriods(df_full, keys)
+
     SaveData(
         df_full,
-        ["repo_group", "repo_id", "repo_name", "latest_repo_name"],
+        keys,
         INDIR / "repo_id_history_final.csv",
         INDIR / "repo_id_history_final.log",
     )

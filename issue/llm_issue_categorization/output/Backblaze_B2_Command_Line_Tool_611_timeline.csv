@@ -1,0 +1,49 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,sirleech,2020-04-10T01:04:34Z,Exceptions are thrown to the user on CLI,https://github.com/Backblaze/B2_Command_Line_Tool/issues/611,Backblaze/B2_Command_Line_Tool,611
+IssueOpened,sirleech,2020-04-10T01:04:34Z,"There are some python exceptions that are thrown literally to the CLI output, and this made me question whether or not my local python was working correctly.
+
+Can you please wrap these in user friendly errors.
+
+You can reproduce it by canceling a sync, which leaves some unfinished uploads. Then, remove the unfinished uploads. Restarting sync will make some errors when it tries to resume the partial uploads, which look very ugly and questions the accuracy of the backup.
+
+CLI UX changes :)",https://github.com/Backblaze/B2_Command_Line_Tool/issues/611,Backblaze/B2_Command_Line_Tool,611
+IssueComment,ppolewicz,2020-04-10T16:17:37Z,"This will large file upload continuation thing is going to be improved with a new uploader in [Backblaze/b2-sdk-python#113](https://github.com/Backblaze/b2-sdk-python/pull/113)
+
+CLI does not catch everything sdk can throw at it, that is true. The error reporting could be better.
+
+[#540](https://github.com/Backblaze/B2_Command_Line_Tool/issues/540) is related",,Backblaze/B2_Command_Line_Tool,611
+LabeledEvent,ppolewicz,2020-04-10T16:17:46Z,bug,,Backblaze/B2_Command_Line_Tool,611
+LabeledEvent,ppolewicz,2020-04-10T16:17:46Z,up-for-grabs,,Backblaze/B2_Command_Line_Tool,611
+MentionedByIssue,molomby,2020-05-09T05:49:35Z,,https://github.com/Backblaze/B2_Command_Line_Tool/issues/618,Backblaze/B2_Command_Line_Tool,611
+IssueComment,molomby,2020-05-09T06:14:14Z,"You're not even catching `ctrl-c`..
+
+```
+ERROR:b2.console_tool:ConsoleTool command interrupt                     
+Traceback (most recent call last):
+  File ""/usr/local/lib/python2.7/site-packages/b2/console_tool.py"", line 1476, in run_command
+    return command.run(args)
+  File ""/usr/local/lib/python2.7/site-packages/b2/console_tool.py"", line 1304, in run
+    allow_empty_source=allow_empty_source
+  File ""/usr/local/lib/python2.7/site-packages/logfury/v0_1/trace_call.py"", line 84, in wrapper
+    return function(*wrapee_args, **wrapee_kwargs)
+  File ""/usr/local/lib/python2.7/site-packages/b2sdk/sync/sync.py"", line 271, in sync_folders
+    sync_executor.shutdown()
+  File ""/usr/local/lib/python2.7/site-packages/b2sdk/bounded_queue_executor.py"", line 69, in shutdown
+    self.executor.shutdown()
+  File ""/usr/local/lib/python2.7/site-packages/concurrent/futures/thread.py"", line 169, in shutdown
+    t.join(sys.maxint)
+  File ""/usr/local/Cellar/python@2/2.7.17/Frameworks/Python.framework/Versions/2.7/lib/python2.7/threading.py"", line 951, in join
+    self.__block.wait(delay)
+  File ""/usr/local/Cellar/python@2/2.7.17/Frameworks/Python.framework/Versions/2.7/lib/python2.7/threading.py"", line 359, in wait
+    _sleep(delay)
+  File ""/usr/local/lib/python2.7/site-packages/b2/console_tool.py"", line 85, in keyboard_interrupt_handler
+    raise KeyboardInterrupt()
+KeyboardInterrupt
+```
+
+This was during a `sync` operations",,Backblaze/B2_Command_Line_Tool,611
+IssueComment,mjurbanski-reef,2023-11-10T09:17:05Z,"I'm happy to say this is now better. For example, KeyboardInterrupt is being handled properly.  
+Still, not all possible exceptions are guaranteed to be handled, but we will deal with them on case-by-case basis, while new code is to be written with the approach of user-friendliness in mind.
+
+When you get an unreadable error in CLI with the current version please report it as a new issue.",,Backblaze/B2_Command_Line_Tool,611
+ClosedEvent,mjurbanski-reef,2023-11-10T09:17:05Z,Closed by mjurbanski-reef in ,,Backblaze/B2_Command_Line_Tool,611

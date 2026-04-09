@@ -1,0 +1,53 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,joelarmstrong,2017-03-17T22:11:33Z,"Retry retriable Docker failures (in _fixPermissions, etc)",https://github.com/DataBiosphere/toil/issues/1578,DataBiosphere/toil,1578
+IssueOpened,joelarmstrong,2017-03-17T22:11:33Z,"At medium-large scale, especially if you launch a ton of containers at once, you can end up running up against the containerd launch timeout. This happened especially often previous to the 1.12 series (see docker issue #22226), but I've been getting these even after the AWS provisioner switched over to a CoreOS version containing 1.12.3. (My appliance contains a 1.12.3 client, too). This is obviously a Docker issue, but could Toil retry retriable Docker failures like this? The symptom is that Docker exits with return code 125 (ECANCELLED), and outputs an error message to stderr:
+
+```
+30d03dba-1aea-49a1-85cf-197edc816d25    docker: Error response from daemon: containerd: container did not start before the specified timeout.
+30d03dba-1aea-49a1-85cf-197edc816d25    DEBUG:toil.fileStore:LOG-TO-MASTER: Job 'CactusBarWrapper' 30d03dba-1aea-49a1-85cf-197edc816d25 used 49.73% (7.0 GB [7561211904B] used, 14.2 GB [15204352000B] requested) at the end of its run.
+30d03dba-1aea-49a1-85cf-197edc816d25    DEBUG:toil.fileStore:CACHE: Obtained lock on file /var/lib/mesos/slaves/f15072d4-b9e6-44df-a669-66e986da45f7-S448/frameworks/f15072d4-b9e6-44df-a669-66e986da45f7-0032/executors/toil-9916/runs/51d9f82e-6def-4666-85f4-a95fc40e537c/toil-43764132
+-2f0d-41c5-9984-a2f78d9eb7e2/cache-43764132-2f0d-41c5-9984-a2f78d9eb7e2/.cacheLock
+30d03dba-1aea-49a1-85cf-197edc816d25    DEBUG:toil.fileStore:LOG-TO-MASTER: Successfully deleted local copies of file with ID '3d45f54d-3186-470c-bb60-7b3a4da130f0'.
+30d03dba-1aea-49a1-85cf-197edc816d25    DEBUG:toil.fileStore:CACHE: Released lock
+30d03dba-1aea-49a1-85cf-197edc816d25    DEBUG:toil.fileStore:CACHE: Obtained lock on file /var/lib/mesos/slaves/f15072d4-b9e6-44df-a669-66e986da45f7-S448/frameworks/f15072d4-b9e6-44df-a669-66e986da45f7-0032/executors/toil-9916/runs/51d9f82e-6def-4666-85f4-a95fc40e537c/toil-43764132
+-2f0d-41c5-9984-a2f78d9eb7e2/cache-43764132-2f0d-41c5-9984-a2f78d9eb7e2/.cacheLock
+30d03dba-1aea-49a1-85cf-197edc816d25    DEBUG:toil.fileStore:CACHE: Released lock
+30d03dba-1aea-49a1-85cf-197edc816d25    DEBUG:toil.fileStore:CACHE: Obtained lock on file /var/lib/mesos/slaves/f15072d4-b9e6-44df-a669-66e986da45f7-S448/frameworks/f15072d4-b9e6-44df-a669-66e986da45f7-0032/executors/toil-9916/runs/51d9f82e-6def-4666-85f4-a95fc40e537c/toil-43764132
+-2f0d-41c5-9984-a2f78d9eb7e2/cache-43764132-2f0d-41c5-9984-a2f78d9eb7e2/.cacheLock
+30d03dba-1aea-49a1-85cf-197edc816d25    DEBUG:toil.fileStore:CACHE: Released lock
+30d03dba-1aea-49a1-85cf-197edc816d25    Traceback (most recent call last):
+30d03dba-1aea-49a1-85cf-197edc816d25      File ""/usr/local/lib/python2.7/dist-packages/toil/worker.py"", line 340, in main
+30d03dba-1aea-49a1-85cf-197edc816d25        job._runner(jobGraph=jobGraph, jobStore=jobStore, fileStore=fileStore)
+30d03dba-1aea-49a1-85cf-197edc816d25      File ""/usr/local/lib/python2.7/dist-packages/toil/job.py"", line 1288, in _runner
+30d03dba-1aea-49a1-85cf-197edc816d25        returnValues = self._run(jobGraph, fileStore)
+30d03dba-1aea-49a1-85cf-197edc816d25      File ""/usr/local/lib/python2.7/dist-packages/toil/job.py"", line 1235, in _run
+30d03dba-1aea-49a1-85cf-197edc816d25        return self.run(fileStore)
+30d03dba-1aea-49a1-85cf-197edc816d25      File ""/venv/lib/python2.7/site-packages/cactus/pipeline/cactus_workflow.py"", line 773, in run
+30d03dba-1aea-49a1-85cf-197edc816d25        
+30d03dba-1aea-49a1-85cf-197edc816d25      File ""/venv/lib/python2.7/site-packages/cactus/pipeline/cactus_workflow.py"", line 763, in runBarForJob
+30d03dba-1aea-49a1-85cf-197edc816d25        def run(self, fileStore):
+30d03dba-1aea-49a1-85cf-197edc816d25      File ""/venv/lib/python2.7/site-packages/cactus/shared/common.py"", line 505, in runCactusBar
+30d03dba-1aea-49a1-85cf-197edc816d25        job_name=jobName, fileStore=fileStore, input_size=inputSize)
+30d03dba-1aea-49a1-85cf-197edc816d25      File ""/venv/lib/python2.7/site-packages/cactus/shared/common.py"", line 1006, in cactus_call
+30d03dba-1aea-49a1-85cf-197edc816d25        if check_output:
+30d03dba-1aea-49a1-85cf-197edc816d25      File ""/usr/local/lib/python2.7/dist-packages/toil/lib/docker.py"", line 230, in _fixPermissions
+30d03dba-1aea-49a1-85cf-197edc816d25        subprocess.check_call(command)
+30d03dba-1aea-49a1-85cf-197edc816d25      File ""/usr/lib/python2.7/subprocess.py"", line 540, in check_call
+30d03dba-1aea-49a1-85cf-197edc816d25        raise CalledProcessError(retcode, cmd)
+30d03dba-1aea-49a1-85cf-197edc816d25    CalledProcessError: Command '['docker', 'run', '--log-driver=none', '-v', '/var/lib/mesos/slaves/f15072d4-b9e6-44df-a669-66e986da45f7-S448/frameworks/f15072d4-b9e6-44df-a669-66e986da45f7-0032/executors/toil-9916/runs/51d9f82e-6def-4666-85f4-a
+95fc40e537c/toil-43764132-2f0d-41c5-9984-a2f78d9eb7e2/tmpx65pGh/2bbeb24b-b855-41b4-a9cf-2a0c35e095a1:/data', '--rm', '--entrypoint=chown', 'quay.io/joelarmstrong/cactus:latest', '-R', '0:0', '/data']' returned non-zero exit status 125
+30d03dba-1aea-49a1-85cf-197edc816d25    ERROR:toil.worker:Exiting the worker because of a failed job on host ip-172-31-36-131.us-west-2.compute.internal
+30d03dba-1aea-49a1-85cf-197edc816d25    DEBUG:toil.jobStores.aws.jobStore:Loaded job 30d03dba-1aea-49a1-85cf-197edc816d25
+30d03dba-1aea-49a1-85cf-197edc816d25    WARNING:toil.jobGraph:Due to failure we are reducing the remaining retry count of job 'CactusBarWrapper' 30d03dba-1aea-49a1-85cf-197edc816d25 with ID 30d03dba-1aea-49a1-85cf-197edc816d25 to 1
+Added job: 'CactusBarWrapper' 30d03dba-1aea-49a1-85cf-197edc816d25 to active jobs
+```
+
+(Incidentally, I don't think \_fixPermissions actually needs to be run if Toil is being run in the toil appliance. Maybe it could detect that it's being run as root and not bother changing any permissions?)",https://github.com/DataBiosphere/toil/issues/1578,DataBiosphere/toil,1578
+MentionedByCommit,cket,2017-03-22T18:43:13Z,"Retry Docker calls, improve \_fixPermissions efficiency (resolves [#1578](https://github.com/DataBiosphere/toil/issues/1578))",https://github.com/DataBiosphere/toil/commit/19b39a45760ffd5b6278e5429b926f24612811ac,DataBiosphere/toil,1578
+MentionedByCommit,cket,2017-03-24T19:01:19Z,"Retry Docker calls, improve \_fixPermissions efficiency (resolves [#1578](https://github.com/DataBiosphere/toil/issues/1578))",https://github.com/DataBiosphere/toil/commit/5e3528b49bf0b487e212d455c90ec9d7a75fea06,DataBiosphere/toil,1578
+MentionedByPR,cket,2017-03-24T19:09:21Z,Retry Docker errors when possible,https://github.com/DataBiosphere/toil/pull/1592,DataBiosphere/toil,1578
+AssignedEvent,,2017-03-24T19:09:22Z,None assigned cket,,DataBiosphere/toil,1578
+LabeledEvent,,2017-03-24T19:09:22Z,in progress,,DataBiosphere/toil,1578
+ClosedEvent,cket,2017-03-27T20:33:31Z,Closed by cket in #1592,https://github.com/DataBiosphere/toil/pull/1592,DataBiosphere/toil,1578
+MentionedByCommit,cket,2017-03-27T20:33:33Z,Merge pull request [#1592](https://github.com/DataBiosphere/toil/pull/1592) from BD2KGenomics/issues/1578-retry-docker,https://github.com/DataBiosphere/toil/commit/bfb63c9c85ae311945d61be2e1fa6e7717f05522,DataBiosphere/toil,1578
+UnassignedEvent,cricketsloan,2018-07-05T18:27:37Z,cricketsloan unassigned cket,,DataBiosphere/toil,1578

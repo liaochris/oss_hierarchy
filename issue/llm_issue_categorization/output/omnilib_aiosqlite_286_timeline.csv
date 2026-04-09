@@ -1,0 +1,61 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,startakovsky,2024-03-18T19:42:42Z,commit parity with sqlite3 doesn't exist with conn.commit(),https://github.com/omnilib/aiosqlite/issues/286,omnilib/aiosqlite,286
+IssueOpened,startakovsky,2024-03-18T19:42:42Z,"### Description
+
+I was reading [this](https://docs.python.org/3/library/sqlite3.html#sqlite3-connection-context-manager) and learned that the context manager for the `sqlite3` library automatically handles commits but not closes. I am referring to this line from the Python documentation: `# Connection object used as context manager only commits or rollbacks transactions`
+
+Seems like the situation is not the same with aiosqlite. That you need to commit.
+
+In other words the first example below should work, but it doesn't.
+
+#### Doesn't work in an analogous fashion with sqlite3.
+
+```
+async with aiosqlite.connect(DB_FILEPATH) as conn:
+        await conn.execute(
+            '''
+            UPDATE .... 
+            ''', 
+            (
+                ...values
+            )
+        )
+conn.close()
+```
+
+#### Current code requires an explicit `conn.commit()`
+
+```
+async with aiosqlite.connect(DB_FILEPATH) as conn:
+        await conn.execute(
+            '''
+            UPDATE .... 
+            ''', 
+            (
+                ...values
+            )
+        )
+       await conn.commit()
+conn.close()
+```",https://github.com/omnilib/aiosqlite/issues/286,omnilib/aiosqlite,286
+IssueComment,startakovsky,2024-03-18T19:59:20Z,"Anyway, so I believe this is a bug and my request would be to do modify the context manager for the `aiosqlite.connection` object. I am not going to (attempt) to submit a PR unless I know we're in agreement or if I'm wrong etc. or any special caveats as to what makes this hard to do.",,omnilib/aiosqlite,286
+IssueComment,teobouvard,2024-03-29T08:56:43Z,"This issue was already raised 3 years ago in [#110](https://github.com/omnilib/aiosqlite/issues/110), and it did not receive any answers either.",,omnilib/aiosqlite,286
+IssueComment,amyreese,2024-04-06T21:14:25Z,"Happy to review a PR that adds similar behavior to the connection object. The part that concerns me is this:
+
+> If there is no open transaction upon leaving the body of the with statement, or if [autocommit](https://docs.python.org/3/library/sqlite3.html#sqlite3.Connection.autocommit) is True, the context manager does nothing.
+
+I’m not sure how that’s handled in sqlite, or if that requires special checks, but would like to make sure that nuance is matched here as well.
+
+Edit: and of course, I would want any PR to maintain the existing aiosqlite behavior of automatically closing the connection when the context ends, in addition to any new behavior to automatically commit open transactions.",,omnilib/aiosqlite,286
+IssueComment,auxym,2025-07-26T13:30:57Z,"Does aiosqlite aim to conform to [PEP 249](https://peps.python.org/pep-0249/), in particular with respect to the `autocommit` behavior? I looked through the docs and the connection object does not seem to have an autocommit option.
+
+Based on this issue, I understand that aiosqlite then behaves as `autocommit=False`? Then does it ensure that a transaction is always open (by automatically executing `BEGIN TRANSACTION` after a `db.commit()`)? Perhaps this could be explicitly clarified in the docs.
+
+If I may ask a question tangentially related, say we run something like this:
+
+```
+    await conn.execute('UPDATE ....  ', ( ...values))
+    await db.commit()
+```
+
+Is it then possible that the async event loop runs some other transaction in between our two `await`s? How can we ensure transaction ordering? Hope that is clear...",,omnilib/aiosqlite,286

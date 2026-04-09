@@ -1,0 +1,15 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,amartini,2024-06-28T22:47:04Z,imx.to downloads random files (ads?),https://github.com/mikf/gallery-dl/issues/5806,mikf/gallery-dl,5806
+IssueOpened,amartini,2024-06-28T22:47:04Z,"I have been using gallery-dl successfully on imx.to individual links, but now I updated it (lost my vps and had to redo it, so I don't know the previous version I was using) and it is downloading random images, probably from ads on the site. The previous version downloaded only the main image.  
+Is there a way to fix this or filter those images?",https://github.com/mikf/gallery-dl/issues/5806,mikf/gallery-dl,5806
+IssueComment,mikf,2024-06-28T23:15:12Z,"Could you post an example link where it downloads the wrong file?
+
+Tests still complete successfully and the few imx.to galleries from vipergirls I tested with download the correct files as well.
+
+> but now I updated it
+
+The last real change to the imx.to code was in 2018 ([564e12c](https://github.com/mikf/gallery-dl/commit/564e12ca8f5eb3bbe2e0863399528b60fbce081a)), so I doubt you updating is to blame.",,mikf/gallery-dl,5806
+IssueComment,amartini,2024-06-29T01:45:17Z,"Guess I found it. My script was running gallery-dl ""r:url"" instead of gallery-dl ""url"". Not sure why this was working fine before.",,mikf/gallery-dl,5806
+LabeledEvent,mikf,2024-06-29T12:57:15Z,user:error,,mikf/gallery-dl,5806
+ClosedEvent,mikf,2024-06-29T12:57:19Z,Closed by mikf in ,,mikf/gallery-dl,5806
+MentionedByIssue,spirillen,2025-04-25T12:25:54Z,,https://github.com/mypdns/matrix/issues/126996,mikf/gallery-dl,5806

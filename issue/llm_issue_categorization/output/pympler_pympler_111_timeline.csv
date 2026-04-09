@@ -1,0 +1,55 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,sinorga,2020-06-04T03:08:48Z,asizeof get wrong size with numpy arrays after slicing,https://github.com/pympler/pympler/issues/111,pympler/pympler,111
+IssueOpened,sinorga,2020-06-04T03:08:48Z,"Its similar with [#36](https://github.com/pympler/pympler/issues/36)
+
+Environment:  
+ubuntu 1804, 64 bit  
+python 3.7.5  
+numpy 1.17.3  
+Pympler 0.8
+
+---
+
+```
+>>> import numpy as np
+>>> from pympler import asizeof
+>>> arr = np.arange(1000)
+>>> asizeof.asizeof(arr)
+8096
+>>> arr = arr[:]
+>>> asizeof.asizeof(arr)
+96
+```
+
+The size is expected to the same.",https://github.com/pympler/pympler/issues/111,pympler/pympler,111
+IssueComment,mrJean1,2020-06-04T04:41:04Z,What is the `asizeof.__version__`?,,pympler/pympler,111
+IssueComment,sinorga,2020-06-04T07:29:49Z,It's `19.03.29`,,pympler/pympler,111
+IssueComment,mrJean1,2020-06-04T12:02:16Z,"Thank you. So far, I'm able to duplicate the issue with asizeof 19.03.29 using Python 2.7.18 and numpy 1.16.5, with Python 3.7.6 and numpy 1.17.2 and with Python 3.8.2 and numpy 1.18.0, all in 64-bit and on macOS 10.13.6.
+
+The result may be unexpected, but is correct. Using the example below, both objects `a` and `b` are an instance of `numpy.ndarray`, but only object `a` includes the memory for the 1,000 items. Object `b` is a `slice` of `a` and refers to object `a` through the `.base` attribute of `numpy.ndarray` objects documented [here](https://numpy.org/devdocs/reference/generated/numpy.ndarray.base.html).
+
+```
+>>> a = numpy.arange(1000)
+>>> asizeof.asizeof(a), a.base
+8096, None
+
+>>> b = a[:]
+>>> asizeof.asizeof(b), b.base is a
+96, True
+```
+
+To illustrate the difference:
+
+```
+>>> b = numpy.array(a[:])
+>>> asizeof.asizeof(b), b.base
+8096, None
+```
+
+Perhaps, `asizeof` should be enhanced to handle the `.base` attribute `numpy` objects like *references*, similar to `list` and `tuple` items or `dict` keys and values ?",,pympler/pympler,111
+MentionedByCommit,mrJean1,2020-06-04T15:52:17Z,Handle NumPy slices.,https://github.com/mrJean1/pympler/commit/30018c89b1aa7b1f4c5cab8ba52bdce18c2fc085,pympler/pympler,111
+MentionedByPR,mrJean1,2020-06-04T15:52:43Z,Handle NumPy slices.,https://github.com/pympler/pympler/pull/112,pympler/pympler,111
+IssueComment,mrJean1,2020-06-04T16:20:12Z,"After the patch **Handle NumPy slices**, the `asizeof` slice `b` will include and be slightly larger than the size of `a`. Likewise, the combined `asizeof(a, b)` will just be the size of `b`.",,pympler/pympler,111
+MentionedByCommit,Pankrat,2020-10-14T13:35:48Z,Handle NumPy slices.,https://github.com/pympler/pympler/commit/34ed6fe0f83d4b1076d982578c9034990d39558e,pympler/pympler,111
+IssueComment,Pankrat,2020-10-14T21:06:47Z,Thanks [@sinorga](https://github.com/sinorga) and [@mrJean1](https://github.com/mrJean1)! Your fix has been included in v0.9.,,pympler/pympler,111
+ClosedEvent,Pankrat,2020-10-14T21:06:47Z,Closed by Pankrat in ,,pympler/pympler,111

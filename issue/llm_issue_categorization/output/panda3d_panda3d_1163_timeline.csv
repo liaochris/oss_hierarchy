@@ -1,0 +1,54 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,Epihaius,2021-05-14T15:38:14Z,flatten_strong scales normals of certain loaded models,https://github.com/panda3d/panda3d/issues/1163,panda3d/panda3d,1163
+IssueOpened,Epihaius,2021-05-14T15:38:14Z,"Hi,
+
+Calling `flatten_strong` on the GeomNode of the model loaded from the .fbx file included in the .zip file below doesn't appear to preserve the unit-length of its vertex normals, but rather applies the scale set on its NodePath to those normals:
+
+[hangar\_1\_cont5.zip](https://github.com/panda3d/panda3d/files/6479706/hangar_1_cont5.zip)
+
+Code to reproduce this issue:
+
+```
+from direct.showbase.ShowBase import ShowBase
+from panda3d.core import *
+
+
+loader = Loader.get_global_ptr()
+loader_options = LoaderOptions(LoaderOptions.LF_no_cache)
+
+model = NodePath(loader.load_sync(""hangar_1_cont5.fbx"", loader_options))
+#model.ls()
+child = model.find(""**/+GeomNode"")
+v_data = child.node().modify_geom(0).modify_vertex_data()
+print(""Vertex format:\n"", child.node().get_geom(0).get_vertex_data().format)
+# setting the format explicitly (even to an identical one) fixes the issue
+#v_data.format = GeomVertexFormat.get_v3n3c4()
+child.flatten_strong()  # bake the transforms into the vertices
+v_data = child.node().modify_geom(0).modify_vertex_data()
+normal_reader = GeomVertexReader(v_data, ""normal"")
+max_normal_length = 0
+
+for i in range(v_data.get_num_rows()):
+    normal = normal_reader.get_data3()
+    max_normal_length = max(max_normal_length, normal.length())
+
+print(""max_normal_length:"", max_normal_length)
+```
+
+The issue might be related to the vertex format, as explicitly setting it to one registered in Panda3D (even one that is identical to the original one) makes the flatten process preserve the normal-length.  
+The original vertex format used by the model does seem a bit non-standard, as it uses 4 floats instead of integers for its colors, as well as a 3-component column for its UVs. Then again, as mentioned before, when defining and registering a similar format manually and assigning it to the vertex data, the problem doesn't occur.
+
+Note that the assimp error about no material being assigned to the mesh seems related to loading the .fbx without the use of `ShowBase.loader` (probably because some config variable isn't being set?), as using the latter doesn't generate this error message.
+
+## Environment
+
+* Operating system: Windows 10 64-bit
+* Panda3D version: 1.10.9
+* Installation method: SDK
+* Python version: 3.7.9",https://github.com/panda3d/panda3d/issues/1163,panda3d/panda3d,1163
+LabeledEvent,rdb,2021-07-02T13:45:41Z,bug,,panda3d/panda3d,1163
+AssignedEvent,rdb,2021-07-02T13:45:42Z,rdb assigned rdb,,panda3d/panda3d,1163
+IssueComment,rdb,2021-07-02T13:45:44Z,Easy fix: the Assimp loader is loading the normal column as `C_vector` instead of `C_normal`. The latter has special handling to preserve unit length normal vectors.,,panda3d/panda3d,1163
+MilestonedEvent,rdb,2021-07-02T13:45:49Z,added to milestone: 1.10.10,,panda3d/panda3d,1163
+MentionedByCommit,rdb,2021-07-02T13:46:20Z,assimp: Load normal column as C\_normal instead of C\_vector,https://github.com/panda3d/panda3d/commit/14e95eec723f97611e7ecf8d174c1698b70a7c5a,panda3d/panda3d,1163
+ClosedEvent,rdb,2021-07-02T15:43:16Z,Closed by rdb in 0a7c5a,https://github.com/panda3d/panda3d/commit/14e95eec723f97611e7ecf8d174c1698b70a7c5a,panda3d/panda3d,1163

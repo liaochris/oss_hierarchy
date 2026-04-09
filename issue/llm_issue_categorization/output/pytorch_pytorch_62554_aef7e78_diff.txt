@@ -1,0 +1,34 @@
+diff --git a/test/test_fx.py b/test/test_fx.py
+index c55e97dc7da84..2cfb033a695b9 100644
+--- a/test/test_fx.py
++++ b/test/test_fx.py
+@@ -2962,6 +2962,16 @@ def f(b, a):
+         self.assertEqual(nf(**val), f(**val))
+ 
+ 
++    def test_normalized_arguments(self):
++        class Tracer(torch.fx.Tracer):
++            def is_leaf_module(self, m, module_qualified_name):
++                return False
++
++        mod = torch.nn.Linear(4, 4)
++        net = Tracer().trace(mod)
++        node = list(net.nodes)[3]
++        ret = node.normalized_arguments(mod, normalize_to_only_use_kwargs=True)
++        self.assertEqual(ret.kwargs.keys(), ["input", "weight", "bias"])
+ 
+ 
+ def run_getitem_target():
+diff --git a/torch/fx/node.py b/torch/fx/node.py
+index e00f25f47a2ee..66174807fa058 100644
+--- a/torch/fx/node.py
++++ b/torch/fx/node.py
+@@ -500,7 +500,7 @@ def normalized_arguments(
+         """
+         if self.op == 'call_function':
+             assert callable(self.target)
+-            return normalize_function(self.target, self.args, self.kwargs, arg_types, kwarg_types)  # type: ignore[arg-type]
++            return normalize_function(self.target, self.args, self.kwargs, arg_types, kwarg_types, normalize_to_only_use_kwargs)  # type: ignore[arg-type]
+         elif self.op == 'call_module':
+             assert isinstance(self.target, str)
+             return normalize_module(root, self.target, self.args, self.kwargs)  # type: ignore[arg-type]

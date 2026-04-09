@@ -23,6 +23,7 @@ def LoadTableToDataset(client, dataset_name, table_name, INDIR):
         INDIR / "repo_id_history_final.csv", index_col=False
     ).query('latest_repo_name != "ERROR" & is_fork == 0')
     df_github_projects = df_github_projects[["repo_name"]].drop_duplicates()
+    df_github_projects["repo_name"] = df_github_projects["repo_name"].str.lower()
     github_project_ref = client.dataset(dataset_name).table(table_name)
     load_data_job = client.load_table_from_dataframe(df_github_projects, github_project_ref)
     load_results = load_data_job.result()
@@ -53,7 +54,7 @@ def GetRawGitHubData(client, github_projects_name, project_id, dataset_name, git
     SELECT *
     FROM `githubarchive.month.20*`
     WHERE (_TABLE_SUFFIX BETWEEN '{start_suffix}' AND '{end_suffix}')
-      AND repo.name IN (
+      AND LOWER(repo.name) IN (
         SELECT repo_name FROM `{project_id}.{dataset_name}.{github_projects_name}`
       )
     """

@@ -1,0 +1,20 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,ashish-ram,2018-12-05T11:41:09Z,_customer_lifetime_value implementation of DCF does not consider resampling freq of the transactions,https://github.com/CamDavidsonPilon/lifetimes/issues/233,CamDavidsonPilon/lifetimes,233
+IssueOpened,ashish-ram,2018-12-05T11:41:09Z,"```
+def _customer_lifetime_value(transaction_prediction_model, frequency, recency, T, monetary_value, time=12, discount_rate=0.01):
+
+    df = pd.DataFrame(index=frequency.index)
+    df['clv'] = 0  # initialize the clv column to zeros
+
+    for i in range(30, (time * 30) + 1, 30):
+        # since the prediction of number of transactions is cumulative, we have to subtract off the previous periods
+        expected_number_of_transactions = transaction_prediction_model.predict(i, frequency, recency, T) - transaction_prediction_model.predict(i - 30, frequency, recency, T)
+        # sum up the CLV estimates of all of the periods
+        df['clv'] += (monetary_value * expected_number_of_transactions) / (1 + discount_rate) ** (i / 30)
+
+    return df['clv']  # return as a series
+```
+
+In the the function assums that the frequency of purchases are always sampled per day i.e. freq=""D"". What if you have generated the summary using freq=""M""? This will lead to wrong calculation inside the loop of \_customer\_lifetime\_value().",https://github.com/CamDavidsonPilon/lifetimes/issues/233,CamDavidsonPilon/lifetimes,233
+MentionedByPR,ashish-ram,2019-01-23T18:23:12Z,add support for monthly and weekly sampled data in clv calculation,https://github.com/CamDavidsonPilon/lifetimes/pull/243,CamDavidsonPilon/lifetimes,233
+ClosedEvent,CamDavidsonPilon,2019-03-07T19:40:37Z,Closed by CamDavidsonPilon in ,,CamDavidsonPilon/lifetimes,233

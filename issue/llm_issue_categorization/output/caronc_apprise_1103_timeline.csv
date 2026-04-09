@@ -1,0 +1,38 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,MaleNurse,2024-04-10T16:50:11Z,Clicksend usernames as email address,https://github.com/caronc/apprise/issues/1103,caronc/apprise,1103
+IssueOpened,MaleNurse,2024-04-10T16:50:11Z,"📣 **Notification Service(s) Impacted**  
+Clicksend
+
+🐞 **Describe the bug**  
+Usernames are email addresses and the config does not accept them due to ""@"" being used prior to setting the target phone number. I can't find a way to change/create a simple username in the Clicksend dashboard. Perhaps there is a way to utilize the [REST API](https://developers.clicksend.com/docs/rest/v3/) and specify our username akin to how this is done in the [email setup](https://github.com/caronc/apprise/wiki/Notify_email)?
+
+💻 **Your System Details:**
+
+* OS: TrueNAS Scale (Debian 12 Bookworm) via Docker
+* Python Version: Python 3.11.2",https://github.com/caronc/apprise/issues/1103,caronc/apprise,1103
+LabeledEvent,MaleNurse,2024-04-10T16:50:11Z,bug,,caronc/apprise,1103
+IssueComment,caronc,2024-04-12T01:19:44Z,Try using `?user=your@email.address` or you can also just escape the `@` ([see here](https://github.com/caronc/apprise/wiki/Troubleshooting#special-characters-and-url-conflicts)) with `%40`,,caronc/apprise,1103
+IssueComment,caronc,2024-04-13T15:40:45Z,"To further your comment, i like the idea of remapping how content is parsed, but would that impact users who don't use an email address? I recall setting this up (my acccount has long expired as it's been a while), i had a regualr user id (not email). - I could be wrong here though (it's the reason i'm asking 🙂 )
+
+If i change it to the format you suggest, i would break the current design for others.
+
+Thoughts?",,caronc/apprise,1103
+IssueComment,MaleNurse,2024-04-15T18:38:20Z,"So both suggestions placed the correct strings into the user/pass according to the CLI -vvvv output (assuming clicksend is accepting the escaped @), but I'm getting 401 invalid credential errors w/ both my acct password and API key",,caronc/apprise,1103
+IssueComment,luckman212,2024-05-05T00:36:12Z,"Came here to report the same. Getting
+
+```
+DEBUG - ClickSend POST URL: https://rest.clicksend.com/v3/sms/send (cert_verify=True)
+DEBUG - ClickSend Payload: {'messages': [{'source': 'php', 'body': 'HelloWorld', 'to': '+1646XXXXXXX'}]}
+WARNING - Failed to send 1 ClickSend notification to 1646XXXXXXX: Unauthorized - Invalid Token., error=401.
+DEBUG - Response Details:
+b'{""http_code"":401,""response_code"":""UNAUTHORIZED"",""response_msg"":""Authorization failed."",""data"":null}'
+```
+
+apprise 1.7.6, I verified my credentials (I use a username:apikey, not email address)",,caronc/apprise,1103
+IssueComment,caronc,2024-05-05T01:43:15Z,"Okay, I'll resign up and investigate",,caronc/apprise,1103
+MentionedByPR,caronc,2024-05-05T16:38:49Z,clicksend:// authentication bugfix,https://github.com/caronc/apprise/pull/1121,caronc/apprise,1103
+IssueComment,caronc,2024-05-05T16:41:21Z,"I was able to reproduce your issue and fixed it in this latest PR.
+
+I also can confirm that I signed up with them a loonng time ago and they didn't have as heavy restrictions as they do today. But my login of `l2g` is grandfathered in (not an email). I had to use `clicksend://l2g:apikey/...` to work. Basically I won't be able to do the email request to rework the URL otherwise it would break for others (me included 😉 ).",,caronc/apprise,1103
+IssueComment,caronc,2024-05-05T16:42:43Z,Closing issue; check out `@master` branch and you'll be good to go. I'll do a new release hopefully next week.,,caronc/apprise,1103
+ClosedEvent,caronc,2024-05-05T16:42:43Z,Closed by caronc in ,,caronc/apprise,1103

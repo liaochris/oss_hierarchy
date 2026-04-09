@@ -1,0 +1,58 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,jgeewax,2015-04-20T17:00:03Z,datastore.(set|get)_default_connection() is a bit misleading,https://github.com/googleapis/google-cloud-python/issues/841,googleapis/google-cloud-python,841
+IssueOpened,jgeewax,2015-04-20T17:00:03Z,"I think `set_default_connection` is a bit misleading, in that it ""tries to create a connection from the environment""... To put this in pseudo-code:
+
+```
+def get_default_connection():
+  connection = <some pre-loaded connection already stored>
+  if not connection:
+    connection = <create a connection somehow from the environment>
+  if not connection:
+    connection = <create a connection from the environment another way>
+  if not connection:
+    raise EnvironmentError('Connection cannot be inferred from the environment :(')
+  return connection
+
+def set_default_connection(connection=None):
+  <some safe place to store a connection> = connection  # Yes, this could be None.
+```
+
+The idea being...
+
+* `set_default_connection()` sets a variable, that's all.
+* `get_default_connection()` goes through a list of possible ways to get a connection, raising an exception when we can't get one...
+
+What we have today is:
+
+* `set_default_connection()` sets a variable *and* tries to come up with a magical connection from the environment if possible.
+* `get_default_connection()` only returns the variable
+
+I'm sure this will be subject to a bunch of debate, but having a getter method also doing some setting seems really misleading to me.",,googleapis/google-cloud-python,841
+LabelEvent,jgeewax,2015-04-20T17:00:03.000Z,"jgeewax added type: questionRequest for information or clarification. Not an issue.Request for information or clarification. Not an issue. on Apr 20, 2015",,googleapis/google-cloud-python,841
+IssueComment,dhermes,2015-04-20T17:21:06.000Z,"I'm happy to consider renaming, but each of these actions needs to be possible for users.",,googleapis/google-cloud-python,841
+IssueComment,jgeewax,2015-04-20T17:33:03.000Z,"OK, so let me know if I understand correctly what the intent here is (`***` would be `connection` in the case we're discussing, but I'm generalizing):
+
+Does that make any sense?",,googleapis/google-cloud-python,841
+IssueComment,dhermes,2015-04-20T17:44:22.000Z,"I just realized that we need to find a way to get Sphinx to document method defined in `_implicit_environ.py` since they don't show up in  
+<http://googlecloudplatform.github.io/gcloud-python>
+
+Why do you get confused?
+
+Set default connection either explicitly or implicitly as fall-back.
+
+Means the passed-in (or explicit) value is used to set or the implicit value is used. (Tiny nuance: passing an explicit `None` is the same as passing no arguments.)",,googleapis/google-cloud-python,841
+IssueComment,dhermes,2015-04-22T21:47:37.000Z,[@jgeewax](https://github.com/jgeewax) Did you want to continue this discussion?,,googleapis/google-cloud-python,841
+IssueComment,jgeewax,2015-04-29T14:52:44.000Z,Closing out for now... I think we may be going in circles (completely my fault....) regarding authentication and the magic that goes with it.,,googleapis/google-cloud-python,841
+ClosedEvent,jgeewax,2015-04-29T14:52:44.000Z,"[jgeewax closed this as completed on Apr 29, 2015",,googleapis/google-cloud-python,841
+MentionedByIssue,dhermes,2015-04-29T16:20:02.000Z,"dhermes mentioned this on Apr 29, 2015
+Sphinx needs to document methods from _implicit_environ #845",https://github.com/googleapis/google-cloud-python/issues/845,googleapis/google-cloud-python,841
+AssigneeEvent,JustinBeckwith,2021-02-01T17:57:08.000Z,"JustinBeckwith assigned jgeewaxon Feb 1, 2021",,googleapis/google-cloud-python,841
+MentionedByCommit,parthea,2025-09-18T01:01:20.000Z,"partheaadded a commit that references this issue on Sep 17, 2025chore(python): update dependencies in .kokoro/docker/docs (#841)...c2f5538
+chore(python): update dependencies in .kokoro/docker/docs (#841)
+
+Source-Link: https://github.com/googleapis/synthtool/commit/e808c98e1ab7eec3df2a95a05331619f7001daef
+Post-Processor: gcr.io/cloud-devrel-public-resources/owlbot-python:latest@sha256:8e3e7e18255c22d1489258d0374c901c01f9c4fd77a12088670cd73d580aa737
+
+Co-authored-by: Owl Bot <gcf-owl-bot[bot]@users.noreply.github.com>",https://github.com/googleapis/google-cloud-python/commit/c2f553829537fe85141a99d060dc06d4bf055aed,googleapis/google-cloud-python,841
+MentionedByCommit,parthea,2025-09-18T01:01:20.000Z,"partheaadded a commit that references this issue on Sep 17, 2025chore(python): update dependencies in .kokoro/docker/docs (#841)...c2f5538",https://github.com/googleapis/google-cloud-python/commit/c2f553829537fe85141a99d060dc06d4bf055aed,googleapis/google-cloud-python,841
+LabelEvent,parthea,2025-11-22T12:15:54.000Z,"parthea added 6 commits that reference this issue on Nov 22, 2025build(deps): [autoapprove] bump pygments from 2.13.0 to 2.15.0 (#841)...abd7bebchore: prevent normalization of semver versioning (#841)79b4a01fix: deprecate credentials_file argument (#841)...f4be892chore: Add api-logging-partners to CODEOWNERS (#841)...335d50bfeat(dependencies)!: Upgrade to google-cloud-datastore 2.x (#841)...1ad7a5cchore: Add api-logging-partners to CODEOWNERS (#841)...93068bb",,googleapis/google-cloud-python,841

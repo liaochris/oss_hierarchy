@@ -1,0 +1,20 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,bll123,2018-10-13T16:59:08Z,mid3v2 command line : colon in tag data,https://github.com/quodlibet/mutagen/issues/355,quodlibet/mutagen,355
+IssueOpened,bll123,2018-10-13T16:59:08Z,"The tag's : character is getting re-mapped and quotes are added.  
+Is this what it is supposed to do?  
+I think I recall the : character being somewhat special.
+
+```
+bll-tecra:bll$ mid3v2 --UFID 'http://example.com=abc-def' waltz.mp3
+bll-tecra:bll$ mutagen-inspect waltz.mp3
+-- waltz.mp3
+- MPEG 1 layer 3, 128000 bps (CBR, LAME 3.99.1+, -b 128), 44100 Hz, 2 chn, 20.85 seconds (audio/mp3)
+UFID=http='//example.com=abc-def'
+```",https://github.com/quodlibet/mutagen/issues/355,quodlibet/mutagen,355
+IssueComment,bll123,2018-10-13T20:48:49Z,"This is what MusicBrainz Picard puts in:
+
+`UFID=http://musicbrainz.org='2409871f-6cde-42a1-a017-722b86f87e68'`",,quodlibet/mutagen,355
+IssueComment,bll123,2018-10-13T21:07:22Z,"Looks like this is the proper way to do it:
+
+`mid3v2 -e --delete-frames=UFID --UFID ""http\://example.com:abc-def"" test.mp3`",,quodlibet/mutagen,355
+ClosedEvent,bll123,2018-10-13T21:07:22Z,Closed by bll123 in ,,quodlibet/mutagen,355

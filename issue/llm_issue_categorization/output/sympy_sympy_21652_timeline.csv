@@ -1,0 +1,70 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,EelcoHoogendoorn,2021-06-23T05:45:06Z,Broken bicycle example,https://github.com/sympy/sympy/issues/21652,sympy/sympy,21652
+IssueOpened,EelcoHoogendoorn,2021-06-23T05:45:06Z,"The example in
+
+sympy/doc/src/modules/physics/mechanics/examples/bicycle\_example.rst
+
+seems to have accrued some code-rot, and so far I have been unable to fix it.
+
+Some lines have been commented out due to runtime reasons; and they flat out do not work anymore, referencing nonexisting symbols; seemingly due to innocent variable renaming that didnt propagate to the commented out lines. But trying to piece things together, I do keep running into other trouble. (concretely, replacing the nonexistent symbols sub\_dict with val\_dict, things do go along, but a few lines down, MM\_full.inv() will complain of a zero determinant.
+
+Considering I am just getting into sympy mechanics and Kanes method, I am at a loss as to what the fix here could be. But perhaps some of the original authors could be tagged to get it back into shape.",https://github.com/sympy/sympy/issues/21652,sympy/sympy,21652
+IssueComment,moorepants,2021-06-23T09:43:02Z,"Yes, that example has rotted. There are a number of open issues about the linearization falling. Everything up to the linearization should work.
+
+Here is a working nonlinear bicycle model: <https://pydy.readthedocs.io/en/latest/examples/carvallo-whipple.html> (although there is an issue with floating point errors I haven't worked out completely, see: [pydy/pydy#446](https://github.com/pydy/pydy/issues/446)",,sympy/sympy,21652
+LabeledEvent,moorepants,2021-06-23T09:46:51Z,physics.mechanics,,sympy/sympy,21652
+IssueComment,EelcoHoogendoorn,2021-06-23T11:21:12Z,"Thanks for the quick reply. I had looked at the pydy examples but missed this one in the docs. Downloading the .py linked at the top of that html doc page does not quite work for me either. The viz section complains about a missing method; leaving that aside, I can get the mpl plots to show. However, the plots do not reproduce those on the html page, and infact mostly show zero traces for me, modulo some numerical noise. Ill keep tinkering with it in the hope its something I can figure out, but it does not quite work out of the box. Either way it is much more well documented than the sympy example so that makes me hopeful. Ah; after reading your linked issue, changing q7: 1e-8 -> q7: 1e-7 fixed things on my machine; now the traces look healthy! (this is on a 2021mbp standard intel CPU; curious that youve experienced so much machine variability already; kinda expecting nonsense like this with something like the new mac chips but havnt seen much of this since 32bit died out). Hopefully I can get the linearization working in this script as well.
+
+I came here via your thesis, which I pretty much read in a single sitting. Not something I encounter every day; so thanks for that it has been a very helpful resource for what im trying to do. My goal is to see if I can build an intuitively controllable rear-steer recumbent using contemporary hardware (a solid BLDC servo and IMU); my first modelling goal is to see if the torque and bandwidth required to keep stable down to 1m/s or so indeed seems attainable within a few 1kg / few 100$ package. My gut feeling tells me it should be, but I think im about to get a quantitative answer to that. The rear wheel is supposed to be driven as well, so while ive got a working linear model im looking for a nonlinear one to investigate the coupling of balance to motor torque at nonzero steer angle.
+
+I think the most interesting open questions are about what one can effectively measure and what one should control. You mentioned being unsatisfied with your IMU and its ability to determine roll without drift; and I dont know if the past ten years has fundamentally changed that. I think my best bet is to let the computerized controller close the loop on the fast dynamics that can be measured from steer angle and roll rate alone, throw some LQR at it so its at least no more unstable than a regular bike (given an accurate roll measurement my linearized whipple model seems to have no issue promising a healthy stability margin for a wide speed range), and let the human controller be the judge about the heading and roll being where they ought to be. Its been ten years since I did anything with control theory whatsoever though. If you know of any other recent work that touches upon these topics id love to hear it.",,sympy/sympy,21652
+IssueComment,moorepants,2021-06-23T11:59:38Z,"> The viz section complains about a missing method; leaving that aside, I can get the mpl plots to show.
+
+The documentation page is from the latest development version of PyDy, thus the missing method.
+
+The numerical issues are yet unsolved. You'll have to reference the depth of discussion in the PR linked at the top of the documentation page.
+
+> My goal is to see if I can build an intuitively controllable rear-steer recumbent using contemporary hardware (a solid BLDC servo and IMU); my first modelling goal is to see if the torque and bandwidth required to keep stable down to 1m/s or so indeed seems attainable within a few 1kg / few 100$ package. My gut feeling tells me it should be, but I think im about to get a quantitative answer to that.
+
+Cool, this is possible. For sure. You'll just need good hardware.
+
+> You mentioned being unsatisfied with your IMU and its ability to determine roll without drift; and I dont know if the past ten years has fundamentally changed that.
+
+Yes, looks of better algorithms now. For example: <http://bicycle.tudelft.nl/schwab/Publications/sanjurjo2019roll.pdf>
+
+> I think my best bet is to let the computerized controller close the loop on the fast dynamics that can be measured from steer angle and roll rate alone,
+
+Sounds like a good start.
+
+> If you know of any other recent work that touches upon these topics id love to hear it.
+
+There is a ton of work since then. Too long to list, but google scholar should reveal much.",,sympy/sympy,21652
+IssueComment,EelcoHoogendoorn,2021-06-23T17:01:04Z,"> > You mentioned being unsatisfied with your IMU and its ability to determine roll without drift; and I dont know if the past ten years has fundamentally changed that.
+>
+> Yes, looks of better algorithms now. For example: <http://bicycle.tudelft.nl/schwab/Publications/sanjurjo2019roll.pdf>
+
+Interesting; this indeed looks like a nice improvement over other methods ive seen; very sensible. Still, it does leave some open questions. What happens if you lock your wheel up in a turn; or if there is significant pitch? Is it going to throw off my control algorithm and flip over my bike when doing 40kmh? It seems they have not yet stress tested it specifically for those adversarial conditions. On the other hand it does not sound like it will be particularly expensive or difficult to give a shot once ive actually put my hardware together.
+
+> > If you know of any other recent work that touches upon these topics id love to hear it.
+>
+> There is a ton of work since then. Too long to list, but google scholar should reveal much.
+
+Thanks for your input, it is much appreciated. Note that I meant automated/human hybrid control of single track vehicles specifically. Havnt had much luck searching for that yet.",,sympy/sympy,21652
+IssueComment,moorepants,2021-06-23T17:53:19Z,"> Still, it does leave some open questions. What happens if you lock your wheel up in a turn; or if there is significant pitch? Is it going to throw off my control algorithm and flip over my bike when doing 40kmh?
+
+Yes, all orientation estimation methods will have their weaknesses. But without these methods, even the normal riding cases will give you wildly incorrect results. You'll always need multiple layers in a real system to avoid incorrect results.
+
+> Thanks for your input, it is much appreciated. Note that I meant automated/human hybrid control of single track vehicles specifically. Havnt had much luck searching for that yet.
+
+Human/hybrid control is still open research questions. That's what we are currently working on in my lab.",,sympy/sympy,21652
+IssueComment,EelcoHoogendoorn,2021-06-24T19:40:05Z,"Hmm, calling linearize on the Kanes object in this script far exceeds the runtime of the already many minutes of the script I linked in the original issue; it did complete eventually after more than an hour but didn't time it exactly. Havnt been able to test yet if it actually gives me an invertable system, but debugging that question is not going to be a lot of fun this way.
+
+I suppose one thing that might help is to replace as many symbols as possible with their numerical constants beforehand? Or does it?
+
+> > Thanks for your input, it is much appreciated. Note that I meant automated/human hybrid control of single track vehicles specifically. Havnt had much luck searching for that yet.
+>
+> Human/hybrid control is still open research questions. That's what we are currently working on in my lab.
+
+Interesting stuff, will keep an eye on your website. LQR does not let me do partial observability, but just zeroing out the roll-gain on an LQR controller (which is far from optimal I imagine) already gives me closed loop eigenvalues that seem like they are in a human-controllable range, so thats encouraging. I suppose the next question is how to actually insert the human control so that it actually feels any better than a straight-up clown bike... probably should write a pybullet simulator for this or the like.",,sympy/sympy,21652
+IssueComment,moorepants,2025-06-03T20:19:52Z,Fixed in [#26921](https://github.com/sympy/sympy/pull/26921),,sympy/sympy,21652
+ClosedEvent,moorepants,2025-06-03T20:19:52Z,Closed by moorepants in ,,sympy/sympy,21652

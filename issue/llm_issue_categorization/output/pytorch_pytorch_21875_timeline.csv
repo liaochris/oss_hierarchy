@@ -1,0 +1,45 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,yf225,2019-06-17T22:00:44Z,In-place operation on differentiable view leaks memory,https://github.com/pytorch/pytorch/issues/21875,pytorch/pytorch,21875
+IssueOpened,yf225,2019-06-17T22:00:44Z,"```
+import torch
+import gc
+
+gc.collect()
+print(torch.cuda.memory_allocated(0))  # prints 0
+
+m = torch.nn.Linear(2,3)
+mw = m.weight[:]
+m.to('cuda')
+# with torch.no_grad():  # Without using `torch.no_grad()`, the next line will leak CUDA memory
+mw[0][0] = 5
+
+del mw
+del m
+gc.collect()
+print(torch.cuda.memory_allocated(0))  # prints 512
+```
+
+This is reproducible on master.
+
+Initial investigation shows that the leak is not because of saving Variables for backward (the SavedVariable constructor was not called).
+
+cc [@ezyang](https://github.com/ezyang) [@ssnl](https://github.com/ssnl) [@albanD](https://github.com/albanD) [@zou3519](https://github.com/zou3519) [@gqchen](https://github.com/gqchen) [@ngimel](https://github.com/ngimel)",,pytorch/pytorch,21875
+LabelEvent,yf225,2019-06-17T22:02:02.000Z,"yf225 added module: autogradRelated to torch.autograd, and the autograd engine in generalRelated to torch.autograd, and the autograd engine in general on Jun 17, 2019",,pytorch/pytorch,21875
+IssueComment,zou3519,2019-06-18T19:36:38.000Z,"I think just changing the view's value might cause a memory leak. I ran the following on master:
+
+In fact, it doesn't seem to be related to modules:",,pytorch/pytorch,21875
+UnclassifiedEventType,zou3519,2019-06-18T19:53:39.000Z,"zou3519changed the title [-]Changing view's value after base is moved to a different device could leak memory[/-] [+]In-place operation on differentiable view leaks memory[/+] on Jun 18, 2019",,pytorch/pytorch,21875
+LabelEvent,VitalyFedyunin,2019-06-24T20:00:44.000Z,"VitalyFedyunin added module: cudaRelated to torch.cuda, and CUDA support in generalRelated to torch.cuda, and CUDA support in general module: memory usagePyTorch is using more memory than it should, or it is leaking memoryPyTorch is using more memory than it should, or it is leaking memory on Jun 24, 2019",,pytorch/pytorch,21875
+AssigneeEvent,VitalyFedyunin,2019-06-24T20:01:21.000Z,"VitalyFedyuninself- assigned thison Jun 24, 2019",,pytorch/pytorch,21875
+LabelEvent,VitalyFedyunin,2019-06-24T20:01:31.000Z,"VitalyFedyunin added triagedThis issue has been looked at a team member, and triaged and prioritized into an appropriate moduleThis issue has been looked at a team member, and triaged and prioritized into an appropriate module on Jun 24, 2019",,pytorch/pytorch,21875
+IssueComment,albanD,2020-02-09T01:44:37.000Z,"This is a ref-cycle in cpp that goes as `x -> CopySlices -> AccumulateGrad -> x`.  
+This only happens because `x` here is a leaf Tensor.  
+Note that after doing such thing, trying to run backward will fail with ""leaf variable has been moved into the graph interior"" so we should fail earlier before the cycle is created.  
+This can be done by making [this check](https://github.com/pytorch/pytorch/blob/6249d7302b7277864ed0ade93f58d88ee0cd3aa8/torch/csrc/autograd/VariableTypeUtils.h#L44) detect views of leafs in addition to only leafs.",,pytorch/pytorch,21875
+LabelEvent,albanD,2020-02-09T01:44:43.000Z,"albanD added actionable on Feb 8, 2020",,pytorch/pytorch,21875
+IssueComment,albanD,2020-02-09T03:03:25.000Z,Note that fixing [#3818](https://github.com/pytorch/pytorch/issues/3818) would also fix this issue as breaking the `AccumulateGrad -> x` link will solve this as well.,,pytorch/pytorch,21875
+MentionedByPR,bdhirsh,2020-10-12T18:42:04.000Z,"bdhirsh mentioned this on Oct 12, 2020
+detect inplace modifications of views earlier (fix #21875) #46204",https://github.com/pytorch/pytorch/pull/46204,pytorch/pytorch,21875
+LabelEvent,bdhirsh,2020-10-12T18:42:05.000Z,"bdhirsh added 20 commits that reference this issue on Oct 12, 2020detect inplace modifications of views earlier (fix #21875)...This issue will close once commit c1671d0 is merged into the 'main' branch.c1671d0detect inplace modifications of views earlier (fix #21875)...This issue will close once commit ed45084 is merged into the 'main' branch.ed45084Update on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit 7d6df49 is merged into the 'main' branch.7d6df49Update on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit 4d270e8 is merged into the 'main' branch.4d270e8Update on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit 007c252 is merged into the 'main' branch.007c252detect inplace modifications of views earlier (fix #21875)...This issue will close once commit 6ffbcd7 is merged into the 'main' branch.6ffbcd7Update on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit ecdf068 is merged into the 'main' branch.ecdf068detect inplace modifications of views earlier (fix #21875)...This issue will close once commit c77706b is merged into the 'main' branch.c77706bUpdate on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit 34329c8 is merged into the 'main' branch.34329c8Update on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit 68bf572 is merged into the 'main' branch.68bf572detect inplace modifications of views earlier (fix #21875)...This issue will close once commit 153c82d is merged into the 'main' branch.153c82dUpdate on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit 163a0f5 is merged into the 'main' branch.163a0f5Update on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit c76ddda is merged into the 'main' branch.c76dddadetect inplace modifications of views earlier (fix #21875)...This issue will close once commit 27d2cfb is merged into the 'main' branch.27d2cfbUpdate on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit 278e8d3 is merged into the 'main' branch.278e8d3detect inplace modifications of views earlier (fix #21875)...This issue will close once commit b0ad57b is merged into the 'main' branch.b0ad57b",,pytorch/pytorch,21875
+LabelEvent,bdhirsh,2020-10-14T15:49:55.000Z,"bdhirsh added 20 commits that reference this issue on Oct 14, 2020Update on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit d1f5c47 is merged into the 'main' branch.d1f5c47Update on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit d0e2728 is merged into the 'main' branch.d0e2728Update on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit 4293333 is merged into the 'main' branch.4293333Update on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit eadd404 is merged into the 'main' branch.eadd404Update on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit 521920f is merged into the 'main' branch.521920fUpdate on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit eb97f1f is merged into the 'main' branch.eb97f1fdetect inplace modifications of views earlier (fix #21875)...This issue will close once commit 9cf54e9 is merged into the 'main' branch.9cf54e9Update on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit d356fac is merged into the 'main' branch.d356facdetect inplace modifications of views earlier (fix #21875)...This issue will close once commit bfa4703 is merged into the 'main' branch.bfa4703Update on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit 4279200 is merged into the 'main' branch.4279200detect inplace modifications of views earlier (fix #21875)...This issue will close once commit fa675c9 is merged into the 'main' branch.fa675c9Update on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit edec0a8 is merged into the 'main' branch.edec0a8detect inplace modifications of views earlier (fix #21875)...This issue will close once commit cc94576 is merged into the 'main' branch.cc94576Update on ""detect inplace modifications of views earlier (fix #21875)""...This issue will close once commit 326b359 is merged into the 'main' branch.326b359detect inplace modifications of views earlier (fix #21875)...This issue will close once commit 91dfd16 is merged into the 'main' branch.91dfd16",,pytorch/pytorch,21875
+ClosedEvent,facebook-github-bot,2020-10-19T16:01:15.000Z,"[facebook-github-bot closed this as completedin 00c779a on Oct 19, 2020",https://github.com/pytorch/pytorch/commit/00c779a92ba6653119a1c40d16c3af4dca86cefd,pytorch/pytorch,21875

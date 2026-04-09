@@ -1,0 +1,27 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,jonathanverner,2016-08-15T21:47:30Z,Functions cannot have 'throw' keyword arguments,https://github.com/brython-dev/brython/issues/480,brython-dev/brython,480
+IssueOpened,jonathanverner,2016-08-15T21:47:30Z,"The following code
+
+```
+def test(throw=True):
+    pass
+
+test(throw=False)
+```
+
+Gives the following error:
+
+```
+Traceback (most recent call last):
+  module editor line 100
+    traceback.print_exc(file=sys.stderr)
+  module $exec_267 line 4
+    test(throw=False)
+TypeError: test() got an unexpected keyword argument 'throw'
+```
+
+(Tested in the Brython.info editor, brython version 3.2.7)
+
+This probably has to do with 'throw' being a javascript keyword.",https://github.com/brython-dev/brython/issues/480,brython-dev/brython,480
+MentionedByCommit,jonathanverner,2016-08-15T23:42:58Z,"BUGFIX(client,observer): Workaround Brython bug with keyword argument…",https://github.com/jonathanverner/brython-misc/commit/f14da0d18006cf2c82b31083bcd24fdabeeb3820,brython-dev/brython,480
+ClosedEvent,PierreQuentel,2016-08-25T13:01:42Z,Closed by PierreQuentel in 084a0a,https://github.com/brython-dev/brython/commit/31c6699ebcc5df8adb44608129856ddc9e084a0a,brython-dev/brython,480

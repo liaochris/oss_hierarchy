@@ -1,0 +1,123 @@
+Import('*')
+
+from source.lib.helpers import LoadGlobals, MakeRepoNameSafe
+
+_g      = LoadGlobals("../../../source/lib/globals.json")
+ref     = MakeRepoNameSafe(_g['reference_github_repo'])
+rolling = f"rolling{_g['rolling_periods']}"
+
+importance_types = ['important_degree_top3', 'important_degree_z2']
+imp_members      = f'#output/derived/graph_structure/important_members/{ref}.csv'
+bot_list         = '#output/derived/create_bot_list/bot_list.csv'
+
+env.Python(
+    target=[
+        f'#drive/output/derived/org_outcomes_practices/org_outcomes/{ref}.parquet',
+    ],
+    source=[
+        '#source/derived/org_outcomes_practices/org_outcomes.py',
+        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
+        '#drive/output/scrape/pypi_downloads/pypi_monthly_downloads.parquet',
+        '#output/scrape/pypi_site_info/linked_pypi_github.csv',
+        '#output/scrape/extract_github_data/repo_id_history_final.csv',
+    ],
+)
+
+env.Python(
+    target=[
+        f'#drive/output/derived/org_outcomes_practices/repo_collaboration/all/{rolling}/{ref}.parquet',
+    ] + [
+        f'#drive/output/derived/org_outcomes_practices/repo_collaboration/{imp}/{rolling}/{ref}.parquet'
+        for imp in importance_types
+    ],
+    source=[
+        '#source/derived/org_outcomes_practices/collaboration.py',
+        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
+        f'#drive/output/derived/graph_structure/interactions/{ref}.parquet',
+        imp_members,
+        bot_list,
+    ],
+)
+
+env.Python(
+    target=[
+        f'#drive/output/derived/org_outcomes_practices/repo_shared_knowledge/all/{rolling}/{ref}.parquet',
+    ] + [
+        f'#drive/output/derived/org_outcomes_practices/repo_shared_knowledge/{imp}/{rolling}/{ref}.parquet'
+        for imp in importance_types
+    ],
+    source=[
+        '#source/derived/org_outcomes_practices/shared_knowledge.py',
+        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
+        imp_members,
+        bot_list,
+    ],
+)
+
+env.Python(
+    target=[
+        f'#drive/output/derived/org_outcomes_practices/repo_discussion_quality/all/{rolling}/{ref}.parquet',
+    ] + [
+        f'#drive/output/derived/org_outcomes_practices/repo_discussion_quality/{imp}/{rolling}/{ref}.parquet'
+        for imp in importance_types
+    ],
+    source=[
+        '#source/derived/org_outcomes_practices/discussion_quality.py',
+        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
+        f'#drive/output/derived/graph_structure/interactions/{ref}.parquet',
+        f'#drive/output/derived/action_data/cleaned_text/{ref}.parquet',
+        imp_members,
+        bot_list,
+    ],
+)
+
+env.Python(
+    target=[
+        f'#drive/output/derived/org_outcomes_practices/repo_investment_in_new_talent/all/{rolling}/{ref}.parquet',
+    ] + [
+        f'#drive/output/derived/org_outcomes_practices/repo_investment_in_new_talent/{imp}/{rolling}/{ref}.parquet'
+        for imp in importance_types
+    ],
+    source=[
+        '#source/derived/org_outcomes_practices/investment_in_new_talent.py',
+        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
+        f'#drive/output/derived/graph_structure/interactions/{ref}.parquet',
+        f'#drive/output/scrape/governance_data/{ref}.parquet',
+        imp_members,
+        bot_list,
+    ],
+)
+
+env.Python(
+    target=[
+        f'#drive/output/derived/org_outcomes_practices/repo_organizational_routines/{rolling}/{ref}.parquet',
+    ],
+    source=[
+        '#source/derived/org_outcomes_practices/organizational_routines.py',
+        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
+        f'#drive/output/scrape/governance_data/{ref}.parquet',
+    ],
+)
+
+for importance_type in importance_types:
+    env.Python(
+        target=[
+            f'#drive/output/derived/org_outcomes_practices/org_panel/{importance_type}/panel_{rolling}.parquet',
+            f'#output/derived/org_outcomes_practices/org_panel_{importance_type}.log',
+        ],
+        source=[
+            '#source/derived/org_outcomes_practices/org_panel.py',
+            '#source/lib/importance.json',
+            f'#drive/output/derived/org_outcomes_practices/org_outcomes/{ref}.parquet',
+            f'#drive/output/derived/org_outcomes_practices/repo_collaboration/all/{rolling}/{ref}.parquet',
+            f'#drive/output/derived/org_outcomes_practices/repo_collaboration/{importance_type}/{rolling}/{ref}.parquet',
+            f'#drive/output/derived/org_outcomes_practices/repo_shared_knowledge/all/{rolling}/{ref}.parquet',
+            f'#drive/output/derived/org_outcomes_practices/repo_shared_knowledge/{importance_type}/{rolling}/{ref}.parquet',
+            f'#drive/output/derived/org_outcomes_practices/repo_discussion_quality/all/{rolling}/{ref}.parquet',
+            f'#drive/output/derived/org_outcomes_practices/repo_discussion_quality/{importance_type}/{rolling}/{ref}.parquet',
+            f'#drive/output/derived/org_outcomes_practices/repo_investment_in_new_talent/all/{rolling}/{ref}.parquet',
+            f'#drive/output/derived/org_outcomes_practices/repo_investment_in_new_talent/{importance_type}/{rolling}/{ref}.parquet',
+            f'#drive/output/derived/org_outcomes_practices/repo_organizational_routines/{rolling}/{ref}.parquet',
+            imp_members,
+        ],
+    )

@@ -1,0 +1,49 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,stephansmit,2024-01-31T16:26:11Z,check_types decorator doesnt validate after inplace mutation with method,https://github.com/unionai-oss/pandera/issues/1475,unionai-oss/pandera,1475
+IssueOpened,stephansmit,2024-01-31T16:26:11Z,"I have this code, as stated in the docs:
+
+```
+from pandera.typing import DataFrame
+from pandera import SchemaModel, check_types
+class Schema(SchemaModel):
+    id: int
+    name: str
+
+    class Config:
+        strict = True
+
+class SchemaOut(SchemaModel):
+    age: int
+
+
+@check_types
+def fn_mutate_inplace(df: DataFrame[Schema]) -> DataFrame[SchemaOut]:
+    out = df.assign(age=30).pipe(DataFrame[SchemaOut])
+    out.drop([""age""], axis=1, inplace=True)
+    return out
+
+
+df = pd.DataFrame({
+    ""id"": [1, 2, 3],
+    ""name"": [""a"", ""b"", ""c""]
+})
+
+df2 = fn_mutate_inplace(df.pipe(DataFrame[Schema]))
+df2
+```
+
+I expect that mypy will succeed, but that the check\_types decorator will validate the output at runtime and therefore will fail. However, this code runs, and gives me back a dataframe which is not consistent with the SchemaOut.
+
+Is this correct behaviour, and should I only pipe to the final schema at the very end of a function?
+
+If I dont pipe the dataframe to SchemaOut, the code will fail and pandera will catch the error at runtime, but then mypy will fail. It seems that the check\_types decorator is not checking anymore when the types are already piped in the method.
+
+Python version 3.10.11
+
+**pandas==2.2.0  
+pandas-stubs==2.1.4.231227  
+pandera==0.18.0  
+pydantic==2.6.0  
+pydantic\_core==2.16.1**",https://github.com/unionai-oss/pandera/issues/1475,unionai-oss/pandera,1475
+LabeledEvent,stephansmit,2024-01-31T16:26:11Z,bug,,unionai-oss/pandera,1475
+MentionedByIssue,deakinmt,2025-08-16T13:52:27Z,,https://github.com/unionai-oss/pandera/issues/2117,unionai-oss/pandera,1475

@@ -1,0 +1,28 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,dblenkus,2017-10-12T22:51:52Z,Using elasticsearch-dsl in parallel tests,https://github.com/elastic/elasticsearch-dsl-py/issues/749,elastic/elasticsearch-dsl-py,749
+IssueOpened,dblenkus,2017-10-12T22:51:52Z,"Hi,
+
+I am using `elasticsearch-dsl` in parallel Django tests. That means that each thread must have unique index name to prevent collisions. Till Django version 1.10 this hack worked:  
+<https://github.com/genialis/resolwe/blob/10b6021908a97ab8fe8c1d82ce993758544408a8/resolwe/elastic/indices.py#L53>
+
+But in Django 1.11 url configuration is imported earlier than before (still in the thread of test runner) which causes that only one instance of `DocType` object is initialized so all threads use the same index again.
+
+I've tried overriding `DocType._get_index` method, but with no luck:
+
+```
+def _get_index(self, index=None):
+    index = super(BaseDocument, self)._get_index(index)
+
+    if getattr(settings, 'ELASTICSEARCH_TESTING', False):
+        index = '{}_test_{}'.format(index, threading.get_ident())
+
+    return index
+```
+
+Is there a recommended way of changing index name on the fly?
+
+Thanks,  
+Domen",https://github.com/elastic/elasticsearch-dsl-py/issues/749,elastic/elasticsearch-dsl-py,749
+IssueComment,WisdomPill,2017-10-18T16:47:47Z,"You can specify the index on every request by passing the index parameter in a Search() for example or a save(), init() etc... I hope it helps",,elastic/elasticsearch-dsl-py,749
+IssueComment,dblenkus,2017-10-18T19:38:34Z,"Thanks! It turned out that at some places `DocType._doc_type.index` is accessed directly instead of using `DocType._get_index`. So the best solution, that I came up with, is to change index name directly in `DocType._doc_type.index`. But this has to be done before initializing `DocType` as otherwise it has no effect.",,elastic/elasticsearch-dsl-py,749
+ClosedEvent,dblenkus,2017-10-18T19:38:34Z,Closed by dblenkus in ,,elastic/elasticsearch-dsl-py,749

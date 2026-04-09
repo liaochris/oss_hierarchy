@@ -1,0 +1,73 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,pytorch-bot,2023-02-09T12:49:34Z,DISABLED test_geometric_kstest_cuda_float64 (__main__.TestTorchDeviceTypeCUDA),https://github.com/pytorch/pytorch/issues/94507,pytorch/pytorch,94507
+IssueOpened,pytorch-bot,2023-02-09T12:49:34Z,"Platforms: inductor
+
+This test was disabled because it is failing in CI. See [recent examples](https://hud.pytorch.org/flakytest?name=test_geometric_kstest_cuda_float64&suite=TestTorchDeviceTypeCUDA) and the most recent trunk [workflow logs](https://github.com/pytorch/pytorch/runs/11221133650).
+
+Over the past 3 hours, it has been determined flaky in 6 workflow(s) with 6 failures and 6 successes.
+
+**Debugging instructions (after clicking on the recent samples link):**  
+DO NOT ASSUME THINGS ARE OKAY IF THE CI IS GREEN. We now shield flaky tests from developers so CI will thus be green but it will be harder to parse the logs.  
+To find relevant log snippets:
+
+1. Click on the workflow logs linked above
+2. Click on the Test step of the job so that it is expanded. Otherwise, the grepping will not work.
+3. Grep for `test_geometric_kstest_cuda_float64`
+4. There should be several instances run (as flaky tests are rerun in CI) from which you can study the logs.
+
+Test file path: `test_torch.py`
+
+cc [@mruberry](https://github.com/mruberry)",,pytorch/pytorch,94507
+LabelEvent,pytorch-bot,2023-02-09T12:49:34.000Z,"pytorch-bot added module: flaky-testsProblem is a flaky test in CIProblem is a flaky test in CI module: testsIssues related to tests (not the torch.testing module)Issues related to tests (not the torch.testing module) skippedDenotes a (flaky) test currently skipped in CI.Denotes a (flaky) test currently skipped in CI. triagedThis issue has been looked at a team member, and triaged and prioritized into an appropriate moduleThis issue has been looked at a team member, and triaged and prioritized into an appropriate module on Feb 9, 2023",,pytorch/pytorch,94507
+IssueComment,pytorch-bot,2023-02-09T12:49:38.000Z,"Within ~15 minutes, `test_geometric_kstest_cuda_float64 (__main__.TestTorchDeviceTypeCUDA)` will be disabled in PyTorch CI for these platforms: inductor. Please verify that your test name looks correct, e.g., `test_cuda_assert_async (__main__.TestCuda)`.
+
+To modify the platforms list, please include a line in the issue body, like below. The default action will disable the test for all platforms if no platforms list is specified.
+
+We currently support the following platforms: asan, dynamo, inductor, linux, mac, macos, rocm, win, windows.",,pytorch/pytorch,94507
+IssueComment,pytorch-bot,2023-02-09T12:49:39.000Z,"Within ~15 minutes, `test_geometric_kstest_cuda_float64 (__main__.TestTorchDeviceTypeCUDA)` will be disabled in PyTorch CI for these platforms: linux. Please verify that your test name looks correct, e.g., `test_cuda_assert_async (__main__.TestCuda)`.
+
+To modify the platforms list, please include a line in the issue body, like below. The default action will disable the test for all platforms if no platforms list is specified.
+
+We currently support the following platforms: asan, dynamo, linux, mac, macos, rocm, win, windows.",,pytorch/pytorch,94507
+IssueComment,pytorch-bot,2023-02-09T12:49:39.000Z,"Within ~15 minutes, `test_geometric_kstest_cuda_float64 (__main__.TestTorchDeviceTypeCUDA)` will be disabled in PyTorch CI for these platforms: linux. Please verify that your test name looks correct, e.g., `test_cuda_assert_async (__main__.TestCuda)`.
+
+To modify the platforms list, please include a line in the issue body, like below. The default action will disable the test for all platforms if no platforms list is specified.
+
+We currently support the following platforms: asan, dynamo, linux, mac, macos, rocm, win, windows.",,pytorch/pytorch,94507
+IssueComment,pytorch-bot,2023-02-09T12:49:40.000Z,"Within ~15 minutes, `test_geometric_kstest_cuda_float64 (__main__.TestTorchDeviceTypeCUDA)` will be disabled in PyTorch CI for these platforms: linux. Please verify that your test name looks correct, e.g., `test_cuda_assert_async (__main__.TestCuda)`.
+
+To modify the platforms list, please include a line in the issue body, like below. The default action will disable the test for all platforms if no platforms list is specified.
+
+We currently support the following platforms: asan, dynamo, linux, mac, macos, rocm, win, windows.",,pytorch/pytorch,94507
+IssueComment,pytorch-bot,2023-02-23T12:49:38.000Z,Resolving the issue because the test is not flaky anymore after 3605 reruns without any failures and the issue hasn't been updated in 14 days. Please reopen the issue to re-disable the test if you think this is a false positive,,pytorch/pytorch,94507
+ClosedEvent,pytorch-bot,2023-02-23T12:49:39.000Z,"[pytorch-bot closed this as completed on Feb 23, 2023",,pytorch/pytorch,94507
+UnclassifiedEventType,pytorch-bot,2023-02-23T21:39:23.000Z,"pytorch-botreopened this on Feb 23, 2023",,pytorch/pytorch,94507
+IssueComment,pytorch-bot,2023-02-23T21:42:17.000Z,"Another case of trunk flakiness has been found [here](https://github.com/pytorch/pytorch/runs/11557349930).  
+Reopening the issue to disable. Please verify that the platforms list includes all of  
+[linux].",,pytorch/pytorch,94507
+IssueComment,pytorch-bot,2023-02-24T00:58:14.000Z,"Another case of trunk flakiness has been found [here](https://github.com/pytorch/pytorch/runs/11560332343).  
+Please verify the issue was opened after this instance, that the platforms list includes all of  
+[linux], or disable bot might not be working as expected.",,pytorch/pytorch,94507
+IssueComment,pytorch-bot,2023-04-10T00:57:26.000Z,Resolving the issue because the test is not flaky anymore after 1650 reruns without any failures and the issue hasn't been updated in 14 days. Please reopen the issue to re-disable the test if you think this is a false positive,,pytorch/pytorch,94507
+ClosedEvent,pytorch-bot,2023-04-10T00:57:27.000Z,"[pytorch-bot closed this as completed on Apr 9, 2023",,pytorch/pytorch,94507
+UnclassifiedEventType,pytorch-bot,2023-04-10T06:39:33.000Z,"pytorch-botreopened this on Apr 10, 2023",,pytorch/pytorch,94507
+IssueComment,pytorch-bot,2023-04-10T06:39:43.000Z,"Another case of trunk flakiness has been found [here](https://github.com/pytorch/pytorch/runs/12625024300).  
+Reopening the issue to disable. Please verify that the platforms list includes all of  
+[linux].",,pytorch/pytorch,94507
+IssueComment,pytorch-bot,2023-05-25T00:58:20.000Z,Resolving the issue because the test is not flaky anymore after 1350 reruns without any failures and the issue hasn't been updated in 14 days. Please reopen the issue to re-disable the test if you think this is a false positive,,pytorch/pytorch,94507
+ClosedEvent,pytorch-bot,2023-05-25T00:59:55.000Z,"[pytorch-bot closed this as completed on May 24, 2023",,pytorch/pytorch,94507
+UnclassifiedEventType,pytorch-bot,2023-05-25T21:39:27.000Z,"pytorch-botreopened this on May 25, 2023",,pytorch/pytorch,94507
+IssueComment,pytorch-bot,2023-05-25T21:40:21.000Z,"Another case of trunk flakiness has been found [here](https://github.com/pytorch/pytorch/runs/undefined).  
+Reopening the issue to disable. Please verify that the platforms list includes all of  
+[inductor].",,pytorch/pytorch,94507
+IssueComment,pytorch-bot,2023-05-26T00:58:07.000Z,"Another case of trunk flakiness has been found [here](https://github.com/pytorch/pytorch/runs/undefined).  
+Please verify the issue was opened after this instance, that the platforms list includes all of  
+[inductor], or disable bot might not be working as expected.",,pytorch/pytorch,94507
+IssueComment,pytorch-bot,2023-06-09T15:39:39.000Z,Resolving the issue because the test is not flaky anymore after 300 reruns without any failures and the issue hasn't been updated in 14 days. Please reopen the issue to re-disable the test if you think this is a false positive,,pytorch/pytorch,94507
+ClosedEvent,pytorch-bot,2023-06-09T15:39:44.000Z,"[pytorch-bot closed this as completed on Jun 9, 2023",,pytorch/pytorch,94507
+UnclassifiedEventType,pytorch-bot,2023-06-09T21:39:26.000Z,"pytorch-botreopened this on Jun 9, 2023",,pytorch/pytorch,94507
+IssueComment,pytorch-bot,2023-06-09T21:46:45.000Z,"Another case of trunk flakiness has been found [here](https://github.com/pytorch/pytorch/runs/14145154089).  
+Reopening the issue to disable. Please verify that the platforms list includes all of  
+[inductor].",,pytorch/pytorch,94507
+IssueComment,github-actions,2023-10-20T22:15:32.000Z,"I cannot find any mention of this test in rockset for the past 7 days or in the logs for the past 5 commits on viable/strict. Closing this issue as it is highly likely that this test has either been renamed or removed. If you think this is a false positive, please feel free to re-open this issue.",,pytorch/pytorch,94507
+ClosedEvent,github-actions,2023-10-20T22:15:33.000Z,"[github-actions closed this as completed on Oct 20, 2023",,pytorch/pytorch,94507

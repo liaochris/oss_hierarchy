@@ -1,0 +1,144 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,rgildein,2023-01-20T10:34:12Z,[Bug]: controller.info returns less information than juju show-controller,https://github.com/juju/python-libjuju/issues/795,juju/python-libjuju,795
+IssueOpened,rgildein,2023-01-20T10:34:12Z,"### Description
+
+I'm not sure if this is relevant bug, but I need to get similar information as from `juju show-controller` using python-libjuju.  
+Currently there is only `addresses`, `cacert`, `error` and `unknown_fields` in the output from `controller.info()`, and I need to get the controller version. I didn't find any way to get this value and I think it should be part of `controller.info()`.
+
+Output obtained with libjuju:
+
+```
+{
+      ""addresses"": [
+       ""<***>:17070""
+      ],
+      ""cacert"": ""<***>"",
+      ""error"": null,
+      ""unknown_fields"": {}
+}
+```
+
+output from `juju show-controller`
+
+```
+$ juju show-controller u1
+u1:
+  details:
+    uuid: e9fe93a8-b705-4067-8f30-6eec183eeb4f
+    controller-uuid: e9fe93a8-b705-4067-8f30-6eec183eeb4f
+    api-endpoints: ['10.46.31.14:17070']
+    cloud: u1-lxd
+    region: u1
+    agent-version: 2.9.29
+    agent-git-commit: 2ad800a0f8585e139eff34a1e214aac2da8e7073
+    controller-model-version: 2.9.29
+    mongo-version: 4.4.18
+    ca-fingerprint: B6:E7:C8:9A:05:52:45:D6:8F:F8:23:C8:B0:26:2A:35:59:15:8B:B3:7D:7F:06:34:1D:A6:B0:26:2A:BE:7F:58
+    ca-cert: |
+      -----BEGIN CERTIFICATE-----
+      MIIEEzCCAnugAwIBAgIVAJNQi4kjM3lNs3gIetPtwxxzDYMMMA0GCSqGSIb3DQEB
+      CwUAMCExDTALBgNVBAoTBEp1anUxEDAOBgNVBAMTB2p1anUtY2EwHhcNMjIwMzIz
+      MjA1OTM4WhcNMzIwMzIzMjEwNDM4WjAhMQ0wCwYDVQQKEwRKdWp1MRAwDgYDVQQD
+      EwdqdWp1LWNhMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA2IZAt5Nq
+      aMOF9AwtY3K3MOqDEnzdTyXeQjgTMLsXoYTwBjCsX/SSvlwNNftXk8TP27OZOevd
+      76GQbttsKVCmDnAffbK6CPOLBaUR/dPLalI9DVVEYv/Hft89xhBpzIuer8fyOPbt
+      n/4MrvtGK+iHBCbJ4Unb3Z47RIOLFVm+rvLDkOeZ9am02Le/w8S8qNuZjLsrvV6A
+      2U69Q7OMmT4ogcdii9OMHEyFGY0XiPtwXmotR0eoh0ABMhgqEu3kI02kDjEbXxGi
+      Uz9KWsH3qzhb8Q8nkuIHuIJAmkxpTkZt/D12atgPcOA4HJE6cDaqHlPkQFI46ww+
+      tAU4M/CwAiqY0TCsOgVYbzBduji5rDHwA2OP68jR0TRtOaQJHoH1CxBonSgGVRLj
+      skKs4NhAmax/UopF8lx0g2UVzMlw9KpilALRD4Md6giYY9ieDgbJaAHKYSwR5hGf
+      6vej4xTQMjPxfdFxO+i3L7dxpJpA3Apy6bYJ8nqSPoP3AO4EWRbB6EKrAgMBAAGj
+      QjBAMA4GA1UdDwEB/wQEAwICpDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSB
+      MAGrQNiUUzTeYk7VF3ukVfgVwzANBgkqhkiG9w0BAQsFAAOCAYEAJraEa1qIhPU0
+      X1DEkiPjCueDo+SKKpa+OiQXRm4c4VK1/VYEgiuImDnOdeI6Agm0OcLWAVZrtZnU
+      73rDfgy3KYJOxCtL3hEb6aOwjKblA1d3IpZasNsOrpfU5hwUjttBKxt+ekNK8LAZ
+      A1dzemn14GcMJsCohiPESXRfp6Vo0aODECg50Wl010uzStOu0e2hFJdD3WYbq6UW
+      oldNjepABm//kOC0XiEGClffmhKuwVXRr1PgP3XNrlaaAZvE55AaMHBFmt/FfhO9
+      xmruCjXEIn7TRto6JQId2rBkrmLBEJtWytUt9SDd6sNlUhxivk+cHOOery6crSjM
+      vZnxEehdfrpPDrckTL+0GhZch+hh3lVHA6zE2EhysUFBNM3uyx5/tTqzpyVKUqaF
+      Op1P48QhMR2BKaABDUvctGCKR2GfbpMUKvTzf795NN1Xhvos62zsOzVwDSBkmXiD
+      +xg2OVZ92yQd68vTdig/6mx9aWcItI+fONIX5TjFFfro0DHnu1bq
+      -----END CERTIFICATE-----
+  controller-machines:
+    ""0"":
+      instance-id: juju-dc0b48-0
+  models:
+    controller:
+      uuid: 833dcdc1-e4f6-466f-8e49-c04da0dc0b48
+      model-uuid: 833dcdc1-e4f6-466f-8e49-c04da0dc0b48
+      machine-count: 1
+    default:
+      uuid: c2efa01d-b174-472a-81f0-a68307c13943
+      model-uuid: c2efa01d-b174-472a-81f0-a68307c13943
+  current-model: admin/controller
+  account:
+    user: admin
+    access: superuser                                                                                                                                                                                                            [5.79s]
+(.venv) x1:➜  multijuju git:(command/controller-version) ✗ juju show-controller u1
+u1:
+  details:
+    uuid: e9fe93a8-b705-4067-8f30-6eec183eeb4f
+    controller-uuid: e9fe93a8-b705-4067-8f30-6eec183eeb4f
+    api-endpoints: ['<***>:17070']
+    cloud: u1-lxd
+    region: u1
+    agent-version: 2.9.29
+    agent-git-commit: 2ad800a0f8585e139eff34a1e214aac2da8e7073
+    controller-model-version: 2.9.29
+    mongo-version: 4.4.18
+    ca-fingerprint: B6:E7:C8:9A:05:52:45:D6:8F:F8:23:C8:B0:26:2A:35:59:15:8B:B3:7D:7F:06:34:1D:A6:B0:26:2A:BE:7F:58
+    ca-cert: |
+      <***>
+  controller-machines:
+    ""0"":
+      instance-id: juju-dc0b48-0
+  models:
+    controller:
+      uuid: 833dcdc1-e4f6-466f-8e49-c04da0dc0b48
+      model-uuid: 833dcdc1-e4f6-466f-8e49-c04da0dc0b48
+      machine-count: 1
+    default:
+      uuid: c2efa01d-b174-472a-81f0-a68307c13943
+      model-uuid: c2efa01d-b174-472a-81f0-a68307c13943
+  current-model: admin/default
+  account:
+    user: admin
+    access: superuser
+```
+
+### Urgency
+
+Casually reporting
+
+### Python-libjuju version
+
+2.9.11
+
+### Juju version
+
+2.9.38
+
+### Reproduce / Test
+
+```
+import asyncio
+from juju.controller import Controller
+
+
+async def get_info():
+    controller = Controller()
+    await controller.connect()
+    info = await controller.info()
+    print(info)
+
+asyncio.run(get_info())
+```",https://github.com/juju/python-libjuju/issues/795,juju/python-libjuju,795
+LabeledEvent,rgildein,2023-01-20T10:34:12Z,kind/bug,,juju/python-libjuju,795
+IssueComment,juanmanuel-tirado,2023-01-20T11:48:11Z,"the `controller.info()` function is not the same as using the juju CLI `show-controller` command. The first one only returns the information regarding the current connection with the controller. That's the reason why you don't get all the fields you're looking for.
+
+I don't think there's such a functionality in pythonlib-juju at this moment. You can probably reconstruct this by calling the corresponding functions. If you need this functionality, please open a similar issue as a wishlist item. Meanwhile, I will close this one.",,juju/python-libjuju,795
+ClosedEvent,juanmanuel-tirado,2023-01-20T11:48:11Z,Closed by juanmanuel-tirado in ,,juju/python-libjuju,795
+IssueComment,rgildein,2023-01-20T13:00:24Z,"Hi [@juanmanuel-tirado](https://github.com/juanmanuel-tirado), thanks for quick reply. I was not sure if it's by design. I'll open second issue as future request.
+
+I could not use juju directly, because we are working on plugin (Python) which requires to connecting to remote servers.",,juju/python-libjuju,795
+MentionedByIssue,rgildein,2023-01-20T13:31:43Z,,https://github.com/juju/python-libjuju/issues/796,juju/python-libjuju,795

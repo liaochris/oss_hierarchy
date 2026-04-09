@@ -1,0 +1,89 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,RoryKurek,2021-06-23T17:29:31Z,thermo 0.2.7 Incompatible with Pint 0.17,https://github.com/CalebBell/thermo/issues/83,CalebBell/thermo,83
+IssueOpened,RoryKurek,2021-06-23T17:29:31Z,"The latest versions of both libraries appear to have some incompatibilities when attempting to use thermo.units. Running the below example from the thermo documentation results in an error. It appears that eos\_mix is attempting to do a float() conversion which this version of Pint does not like. Not sure about the best way around this to maintain compatibility for users using Pint and those not using Pint.
+
+Is there a specific version of Pint which is definitely compatible?
+
+```
+eos = PRMIX(**kwargs)
+Traceback (most recent call last):
+  File ""c:\users\user\appdata\local\programs\python\python39\lib\code.py"", line 90, in runcode
+    exec(code, self.locals)
+  File ""<input>"", line 1, in <module>
+  File ""C:\Users\User\.virtualenvs\pipeflow-2kmDBsbg\lib\site-packages\thermo\eos_mix.py"", line 6964, in __init__
+    b = float((bs*zs).sum())
+  File ""C:\Users\User\.virtualenvs\pipeflow-2kmDBsbg\lib\site-packages\pint\quantity.py"", line 833, in __float__
+    raise DimensionalityError(self._units, ""dimensionless"")
+pint.errors.DimensionalityError: Cannot convert from 'kelvin / pascal' to 'dimensionless'
+```",https://github.com/CalebBell/thermo/issues/83,CalebBell/thermo,83
+IssueComment,CalebBell,2021-06-24T00:01:43Z,"Hi Rory,  
+This functionality is working fine with pint 0.17 for me. Pleases check that:
+
+* Your array-like inputs are all numpy arrays, not lists
+* You are using the PRMIX object from thermo.units, not thermo.eos\_mix.
+
+Otherwise, if this does not resolve your problem, please post a reproducible example - a trace back is rarely enough to debug an issue.
+
+Sincerely,  
+Caleb",,CalebBell/thermo,83
+IssueComment,RoryKurek,2021-06-24T03:16:13Z,"Sure enough, my PRMIX import was incorrect. Sorry about that, I'm still getting used to the library. Thanks for all your hard work on this!",,CalebBell/thermo,83
+ClosedEvent,RoryKurek,2021-06-24T03:16:13Z,Closed by RoryKurek in ,,CalebBell/thermo,83
+IssueComment,RoryKurek,2021-06-24T04:05:39Z,"Still running into some issues, unfortunately. It seems there's something funny happening in the `convert_input` code that's triggered by the default T, P and zs values in `CEOSGas`, `CEOSLiquid` and `FlashVL`. I experimented with working around it by manually entering T, P and zs values in the CEOS calls shown below, but could find no such workaround for FlashVL.
+
+Apologies if I'm still missing something here.
+
+```
+from thermo.units import u, ChemicalConstantsPackage, PRMIX, CEOSLiquid, CEOSGas, FlashVL
+from thermo.interaction_parameters import IPDB
+
+constants, properties = ChemicalConstantsPackage.from_IDs(['methane', 'ethane'])
+
+kijs = IPDB.get_ip_asymmetric_matrix('ChemSep PR', constants.CASs, 'kij')
+
+eos_kwargs = {'Pcs': constants.Pcs * u.Pa, 'Tcs': constants.Tcs * u.K,
+              'omegas': constants.omegas * u.dimensionless, 'kijs': kijs * u.dimensionless}
+
+gas = CEOSGas(PRMIX, eos_kwargs, T=298.15 * u.K, P=101325.0 * u.Pa, zs=[0.5, 0.5] * u.dimensionless,
+              HeatCapacityGases=properties.HeatCapacityGases)
+liquid = CEOSLiquid(PRMIX, eos_kwargs, T=298.15 * u.K, P=101325.0 * u.Pa, zs=[0.5, 0.5] * u.dimensionless,
+                    HeatCapacityGases=properties.HeatCapacityGases)
+
+flasher = FlashVL(constants, properties, liquid=liquid, gas=gas)
+
+Traceback (most recent call last):
+  File ""C:\Users\barry\.virtualenvs\PipeFlow-M9WwuO0A\lib\site-packages\fluids\units.py"", line 214, in convert_input
+    return val.to(unit).magnitude
+AttributeError: 'float' object has no attribute 'to'
+During handling of the above exception, another exception occurred:
+Traceback (most recent call last):
+  File ""c:\users\barry\appdata\local\programs\python\python39\lib\code.py"", line 90, in runcode
+    exec(code, self.locals)
+  File ""<input>"", line 1, in <module>
+  File ""C:\Users\barry\.virtualenvs\PipeFlow-M9WwuO0A\lib\site-packages\thermo\flash\flash_vl.py"", line 316, in __init__
+    self._finish_initialization()
+  File ""C:\Users\barry\.virtualenvs\PipeFlow-M9WwuO0A\lib\site-packages\thermo\flash\flash_vl.py"", line 326, in _finish_initialization
+    self.flash_pure = FlashPureVLS(constants=constants, correlations=correlations,
+  File ""C:\Users\barry\.virtualenvs\PipeFlow-M9WwuO0A\lib\site-packages\thermo\flash\flash_pure_vls.py"", line 282, in __init__
+    self._finish_initialization()
+  File ""C:\Users\barry\.virtualenvs\PipeFlow-M9WwuO0A\lib\site-packages\thermo\flash\flash_pure_vls.py"", line 355, in _finish_initialization
+    self.eos_pure_STP = gas.eos_mix.to_TPV_pure(T=298.15, P=101325.0, V=None, i=0)
+  File ""C:\Users\barry\.virtualenvs\PipeFlow-M9WwuO0A\lib\site-packages\fluids\units.py"", line 402, in call_func_with_inputs_to_SI
+    args_base, kwargs_base = self.input_units_to_dimensionless(name, *args, **kwargs)
+  File ""C:\Users\barry\.virtualenvs\PipeFlow-M9WwuO0A\lib\site-packages\fluids\units.py"", line 433, in input_units_to_dimensionless
+    kwargs[name] = convert_input(val, unit, self.ureg, self.strict)
+  File ""C:\Users\barry\.virtualenvs\PipeFlow-M9WwuO0A\lib\site-packages\fluids\units.py"", line 217, in convert_input
+    raise TypeError('%s has no quantity' %(val))
+TypeError: 298.15 has no quantity
+```",,CalebBell/thermo,83
+IssueComment,CalebBell,2021-06-25T01:05:21Z,"Hi Rory,
+
+This is just not going to work. The functionality in the unit handling framework is missing an awful lot of things before this could work, and it's not even on my roadmap because I have no idea how I would make some of these things work. Please revert to the non-units framework.
+
+For now, I am pleased the thermo.eos and thermo.eos\_mix bits continue to work with pint. I will update the documentation to make it clean these new classes won't be working in the near future.
+
+I am closing this as Thermo never claimed that this would work. One thing at a time.
+
+Sincerely,  
+Caleb",,CalebBell/thermo,83
+ClosedEvent,CalebBell,2021-06-25T01:05:21Z,Closed by CalebBell in ,,CalebBell/thermo,83
+IssueComment,RoryKurek,2021-06-25T20:33:56Z,"That's totally fair. I will probably just wrap the library with my own code to handle unit conversions as needed. Again, thanks for all your hard work!",,CalebBell/thermo,83

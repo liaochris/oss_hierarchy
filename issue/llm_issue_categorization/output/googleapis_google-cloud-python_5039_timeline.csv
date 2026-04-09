@@ -1,0 +1,36 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,EmilianoCervantes,2018-03-14T22:35:56Z,'_load_credentials_from_file' not finding file on Windows,https://github.com/googleapis/google-cloud-python/issues/5039,googleapis/google-cloud-python,5039
+IssueOpened,EmilianoCervantes,2018-03-14T22:35:56Z,"I followed the Sentiment Analysis tutorial: <https://cloud.google.com/natural-language/docs/sentiment-tutorial>
+
+I set up a Cloud Natural Language API project, the credentials.
+
+Next I run ""pip install --upgrade virtualenv"" and finally I installed Google Cloud Client Library for Python with ""pip install --upgrade google-cloud-language"".
+
+I copy-pasted the first code """"""Demonstrates how to make a simple call to the Natural Language API.""""""  
+It immediately marked an error.  
+[![image](https://user-images.githubusercontent.com/11279332/37434533-7c36e6e6-27a5-11e8-8260-c1d4f69dc831.png)](https://user-images.githubusercontent.com/11279332/37434533-7c36e6e6-27a5-11e8-8260-c1d4f69dc831.png)
+
+And it was the only one. Does anyone know if I have to upgrade something? (Although I would find it strange as I just installed everything the tutorial asked for)
+
+I'm currently on Windows 10, the other imports seem fine, I don't get errors from anything else.",https://github.com/googleapis/google-cloud-python/issues/5039,googleapis/google-cloud-python,5039
+IssueComment,EmilianoCervantes,2018-03-15T00:06:25Z,"I think is more of a problem with Visual Studio Code. Originally I ran it with the debug function of VSC, now I'm trying with the cmd and it executes the sentiment-analysis.py.",,googleapis/google-cloud-python,5039
+IssueComment,EmilianoCervantes,2018-03-15T00:10:05Z,"But now that I run my app.
+
+I opened a terminal, then run ""gcloud auth activate-service-account --key-file=""C:...\credentialsFile.json""  
+Next ""set GOOGLE\_APPLICATION\_CREDENTIALS=""C:...\credentialsFile.json""  
+And then I ran the app but got this new issue:
+
+File ""C:\Users\ovman\anaconda3\lib\site-packages\google\auth\_default.py"", line 67, in \_load\_credentials\_from\_file  
+'File {} was not found.'.format(filename))
+
+google.auth.exceptions.DefaultCredentialsError: File ""C:...\credentialsFile.json"" was not found.",,googleapis/google-cloud-python,5039
+IssueComment,chemelnucfin,2018-03-15T00:32:28Z,"Does this help?  
+[credentials from file](https://github.com/GoogleCloudPlatform/google-cloud-python/issues/4787#issuecomment-360347124)",,googleapis/google-cloud-python,5039
+LabeledEvent,tseaver,2018-03-15T01:35:56Z,type: question,,googleapis/google-cloud-python,5039
+LabeledEvent,tseaver,2018-03-15T01:35:56Z,api: language,,googleapis/google-cloud-python,5039
+LabeledEvent,tseaver,2018-03-15T17:59:59Z,auth,,googleapis/google-cloud-python,5039
+IssueComment,chemelnucfin,2018-03-26T16:28:13Z,"Hello, I'm going to close this issue. If you are still encountering problems, please do let us know.
+
+Thanks.",,googleapis/google-cloud-python,5039
+ClosedEvent,chemelnucfin,2018-03-26T16:28:14Z,Closed by chemelnucfin in ,,googleapis/google-cloud-python,5039
+AssignedEvent,JustinBeckwith,2021-02-01T21:31:26Z,JustinBeckwith assigned chemelnucfin,,googleapis/google-cloud-python,5039

@@ -11,7 +11,8 @@ import re
 import warnings
 
 from source.scrape.link_issue_pull_request.code.fetch_helpers import FetchGitHubPage
-from source.lib.helpers import MakeRepoNameSafe
+from source.lib.helpers import MakeRepoNameSafe, JsonSerialize
+from source.lib.JMSLab.SaveData import SaveData
 
 PROXY_NUM = 1
 
@@ -87,7 +88,9 @@ def Main():
     INDIR = Path('drive/output/scrape/extract_github_data/repo_level_data/pr')
     OUTDIR = Path('drive/output/scrape/link_issue_pull_request/linked_pull_request_to_issue')
     OUTDIR.mkdir(parents=True, exist_ok=True)
-    
+    LOG_PR_DIR = Path("output/scrape/link_issue_pull_request/linked_pull_request_to_issue/logs")
+    LOG_PR_DIR.mkdir(parents=True, exist_ok=True)
+
     parquet_files = glob.glob(str(INDIR / '*.parquet'))
     np.random.shuffle(parquet_files)
 
@@ -126,7 +129,12 @@ def Main():
         df_pr['pull_request_title'] = df_pr['linked_issue'].apply(lambda x: x[2] if isinstance(x, list) else x)
         df_pr['pull_request_text'] = df_pr['linked_issue'].apply(lambda x: x[3] if isinstance(x, list) else x)
 
-        df_pr.drop(columns=['linked_issue']).to_parquet(repo_file)
+        df_out = df_pr.drop(columns=['linked_issue'])
+        for col in ["issue_link", "other_links"]:
+            df_out[col] = df_out[col].apply(JsonSerialize)
+        pr_letter = "numeric" if safe_repo[0].isdigit() else safe_repo[0].lower()
+        SaveData(df_out, ["repo_name", "pr_number"], repo_file,
+                 LOG_PR_DIR / f"{pr_letter}.log", append=True)
         print(parquet_file + " done")
 
 if __name__ == '__main__':

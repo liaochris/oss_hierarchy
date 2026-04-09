@@ -1,0 +1,10 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,freecurve,2017-05-15T20:33:38Z,Issue #77 to reopen,https://github.com/aws/aws-parallelcluster/issues/185,aws/aws-parallelcluster,185
+IssueOpened,freecurve,2017-05-15T20:33:38Z,"in publish pending change the line to  
+pending=$(qstat -g d -s p -u '\*' | tail -n+3 | awk '$5 == ""qw"" || $5 == ""Rq"" {total = total+ $8} END {print total}')
+
+so that Rq jobs are counted as pending.
+
+Thank you!",https://github.com/aws/aws-parallelcluster/issues/185,aws/aws-parallelcluster,185
+IssueComment,bwbarrett,2017-06-12T16:23:46Z,"Closing this in favor of just repoening [#77](https://github.com/aws/aws-parallelcluster/issues/77), since this issue loses all the history.",,aws/aws-parallelcluster,185
+ClosedEvent,bwbarrett,2017-06-12T16:23:46Z,Closed by bwbarrett in ,,aws/aws-parallelcluster,185

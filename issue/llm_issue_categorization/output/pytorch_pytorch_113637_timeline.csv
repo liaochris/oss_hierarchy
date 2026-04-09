@@ -1,0 +1,227 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,Azyka,2023-11-14T10:07:03Z,Output mismatch of torch.Tensor.to with gpu inductor compiled when swapping output sequence,https://github.com/pytorch/pytorch/issues/113637,pytorch/pytorch,113637
+IssueOpened,Azyka,2023-11-14T10:07:03Z,"### 🐛 Describe the bug
+
+When model has multiple outputs, changing the sequence of the outputs should not affect their values. However, in this model:
+
+```
+class Model0(torch.nn.Module):
+    def forward(self, *args):
+        _args = args
+        getitem = _args[0]
+        max_1 = getitem.max(1)
+        getattr_1 = max_1.values
+        argmin = getattr_1.argmin(1)
+        neg = torch.neg(getattr_1)
+        to = neg.to(dtype = torch.int32)
+        return (argmin, to)
+```
+
+By swapping output sequence of `(argmin, to)` to `(to, argmin)`, the output of `torch.Tensor.to` differs for the same input in compiled execution. And it works properly in eager execution.  
+This mismatch is seen only on **cuda**.
+
+### Error logs
+
+Output of numpy.testing.assert\_allclose():
+
+```
+=========================
+torch_complie triggers assertion
+
+Not equal to tolerance rtol=1, atol=0
+at v4_0, v4_0
+Mismatched elements: 187 / 187 (100%)
+Max absolute difference: 256
+Max relative difference: 42.66666667
+ x: array([[249, 249, 249, 249, 249, 249, 249, 249, 249, 249, 249, 249, 249,
+        249, 249, 249, 249],
+       [249, 249, 249, 249, 249, 249, 249, 249, 249, 249, 249, 249, 249,...
+ y: array([[-7, -7, -7, -7, -7, -7, -7, -7, -7, -7, -7, -7, -7, -7, -7, -7,
+        -7],
+       [-7, -7, -7, -7, -7, -7, -7, -7, -7, -7, -7, -7, -7, -7, -7, -7,...
+=========================
+=========================
+torch_eager does not trigger assertion
+=========================
+```
+
+### Minified repro
+
+input data file:  
+[input\_data.zip](https://github.com/pytorch/pytorch/files/13347385/input_data.zip)
+
+```
+import numpy as np
+import pickle
+from numpy import testing
+import torch
+
+DEVICE='cuda'
+
+class Model0(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, *args):
+        _args = args
+        getitem = _args[0]
+        max_1 = getitem.max(1)
+        getattr_1 = max_1.values
+        argmin = getattr_1.argmin(1)
+        neg = torch.neg(getattr_1)
+        to = neg.to(dtype = torch.int32)
+        return (argmin, to)
+
+model_0 = Model0()
+output_names_0 = ['v5_0', 'v4_0']
+
+class Model1(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, *args):
+        _args = args
+        getitem = _args[0]
+        max_1 = getitem.max(1)
+        getattr_1 = max_1.values
+        argmin = getattr_1.argmin(1)
+        neg = torch.neg(getattr_1)
+        to = neg.to(dtype = torch.int32)
+        return (to, argmin)
+
+model_1 = Model1()
+output_names_1 = ['v4_0', 'v5_0']
+
+input_data = [v for _, v in pickle.load(open('0.pickle', 'rb')).items()]
+# input_data = [np.random.rand(11,24,17).astype(np.uint8)]
+
+optmodel_0 = torch.compile(model_0, fullgraph=True, backend='inductor', mode=None)
+model_out_0 = optmodel_0(*[torch.from_numpy(v).to(DEVICE) for v in input_data])
+model_out_0 = [v.to(DEVICE).detach() for v in model_out_0] if isinstance(model_out_0, tuple) else [model_out_0.to(DEVICE).detach()]
+model_out_0 = [v.cpu().resolve_conj().numpy() if v.is_conj() else v.cpu().numpy() for v in model_out_0]
+output_0 = dict(zip(output_names_0, model_out_0))
+
+optmodel_1 = torch.compile(model_1, fullgraph=True, backend='inductor', mode=None)
+model_out_1 = optmodel_1(*[torch.from_numpy(v).to(DEVICE) for v in input_data])
+model_out_1 = [v.to(DEVICE).detach() for v in model_out_1] if isinstance(model_out_1, tuple) else [model_out_1.to(DEVICE).detach()]
+model_out_1 = [v.cpu().resolve_conj().numpy() if v.is_conj() else v.cpu().numpy() for v in model_out_1]
+output_1 = dict(zip(output_names_1, model_out_1))
+output_name_dict = {'v4_0': 'v4_0', 'v5_0': 'v5_0'}
+
+print('=========================')
+try:
+    for tensor_name_0, tensor_name_1 in output_name_dict.items():
+        testing.assert_allclose(output_0[tensor_name_0], output_1[tensor_name_1], rtol=1, err_msg=f'at {tensor_name_0}, {tensor_name_1}')
+    print(""torch_complie does not trigger assertion"")
+except AssertionError as e:
+    print(""torch_complie triggers assertion"")
+    print(e)
+print('=========================')
+
+model_out_0 = model_0(*[torch.from_numpy(v).to(DEVICE) for v in input_data])
+model_out_0 = [v.to(DEVICE).detach() for v in model_out_0] if isinstance(model_out_0, tuple) else [model_out_0.to(DEVICE).detach()]
+model_out_0 = [v.cpu().resolve_conj().numpy() if v.is_conj() else v.cpu().numpy() for v in model_out_0]
+output_0 = dict(zip(output_names_0, model_out_0))
+
+model_out_1 = model_1(*[torch.from_numpy(v).to(DEVICE) for v in input_data])
+model_out_1 = [v.to(DEVICE).detach() for v in model_out_1] if isinstance(model_out_1, tuple) else [model_out_1.to(DEVICE).detach()]
+model_out_1 = [v.cpu().resolve_conj().numpy() if v.is_conj() else v.cpu().numpy() for v in model_out_1]
+output_1 = dict(zip(output_names_1, model_out_1))
+
+print('=========================')
+try:
+    for tensor_name_0, tensor_name_1 in output_name_dict.items():
+        testing.assert_allclose(output_0[tensor_name_0], output_1[tensor_name_1], rtol=1, err_msg=f'at {tensor_name_0}, {tensor_name_1}')
+    print(""torch_eager does not trigger assertion"")
+except AssertionError as e:
+    print(""torch_eager triggers assertion"")
+    print(e)
+print('=========================')
+```
+
+### Versions
+
+PyTorch version: 2.1.0+cu118  
+Is debug build: False  
+CUDA used to build PyTorch: 11.8  
+ROCM used to build PyTorch: N/A
+
+OS: Ubuntu 22.04.3 LTS (x86\_64)  
+GCC version: (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0  
+Clang version: Could not collect  
+CMake version: Could not collect  
+Libc version: glibc-2.35
+
+Python version: 3.10.12 (main, Jun 11 2023, 05:26:28) [GCC 11.4.0] (64-bit runtime)  
+Python platform: Linux-6.2.0-36-generic-x86\_64-with-glibc2.35  
+Is CUDA available: True  
+CUDA runtime version: Could not collect  
+CUDA\_MODULE\_LOADING set to: LAZY  
+GPU models and configuration: GPU 0: NVIDIA GeForce GTX 1660 SUPER  
+Nvidia driver version: 525.147.05  
+cuDNN version: Could not collect  
+HIP runtime version: N/A  
+MIOpen runtime version: N/A  
+Is XNNPACK available: True
+
+CPU:  
+Architecture: x86\_64  
+CPU op-mode(s): 32-bit, 64-bit  
+Address sizes: 39 bits physical, 48 bits virtual  
+Byte Order: Little Endian  
+CPU(s): 20  
+On-line CPU(s) list: 0-19  
+Vendor ID: GenuineIntel  
+Model name: 12th Gen Intel(R) Core(TM) i7-12700KF  
+CPU family: 6  
+Model: 151  
+Thread(s) per core: 2  
+Core(s) per socket: 12  
+Socket(s): 1  
+Stepping: 2  
+CPU max MHz: 5000.0000  
+CPU min MHz: 800.0000  
+BogoMIPS: 7219.20  
+Flags: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant\_tsc art arch\_perfmon pebs bts rep\_good nopl xtopology nonstop\_tsc cpuid aperfmperf tsc\_known\_freq pni pclmulqdq dtes64 monitor ds\_cpl vmx est tm2 ssse3 sdbg fma cx16 xtpr pdcm sse4\_1 sse4\_2 x2apic movbe popcnt tsc\_deadline\_timer aes xsave avx f16c rdrand lahf\_lm abm 3dnowprefetch cpuid\_fault epb ssbd ibrs ibpb stibp ibrs\_enhanced tpr\_shadow vnmi flexpriority ept vpid ept\_ad fsgsbase tsc\_adjust bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb intel\_pt sha\_ni xsaveopt xsavec xgetbv1 xsaves split\_lock\_detect avx\_vnni dtherm ida arat pln pts hwp hwp\_notify hwp\_act\_window hwp\_epp hwp\_pkg\_req hfi umip pku ospke waitpkg gfni vaes vpclmulqdq rdpid movdiri movdir64b fsrm md\_clear serialize arch\_lbr ibt flush\_l1d arch\_capabilities  
+Virtualization: VT-x  
+L1d cache: 512 KiB (12 instances)  
+L1i cache: 512 KiB (12 instances)  
+L2 cache: 12 MiB (9 instances)  
+L3 cache: 25 MiB (1 instance)  
+NUMA node(s): 1  
+NUMA node0 CPU(s): 0-19  
+Vulnerability Gather data sampling: Not affected  
+Vulnerability Itlb multihit: Not affected  
+Vulnerability L1tf: Not affected  
+Vulnerability Mds: Not affected  
+Vulnerability Meltdown: Not affected  
+Vulnerability Mmio stale data: Not affected  
+Vulnerability Retbleed: Not affected  
+Vulnerability Spec rstack overflow: Not affected  
+Vulnerability Spec store bypass: Mitigation; Speculative Store Bypass disabled via prctl  
+Vulnerability Spectre v1: Mitigation; usercopy/swapgs barriers and \_\_user pointer sanitization  
+Vulnerability Spectre v2: Mitigation; Enhanced IBRS, IBPB conditional, RSB filling, PBRSB-eIBRS SW sequence  
+Vulnerability Srbds: Not affected  
+Vulnerability Tsx async abort: Not affected
+
+Versions of relevant libraries:  
+[pip3] numpy==1.24.3  
+[pip3] onnx==1.14.1  
+[pip3] onnxruntime==1.15.1  
+[pip3] tf2onnx==1.15.1  
+[pip3] torch==2.1.0+cu118  
+[pip3] torchaudio==2.1.0+cu118  
+[pip3] torchvision==0.16.0+cu118  
+[pip3] triton==2.1.0  
+[conda] Could not collect
+
+cc [@ezyang](https://github.com/ezyang) [@msaroufim](https://github.com/msaroufim) [@wconstab](https://github.com/wconstab) [@bdhirsh](https://github.com/bdhirsh) [@anijain2305](https://github.com/anijain2305) [@zou3519](https://github.com/zou3519)",https://github.com/pytorch/pytorch/issues/113637,pytorch/pytorch,113637
+LabeledEvent,Azyka,2023-11-14T10:07:03Z,oncall: pt2,,pytorch/pytorch,113637
+LabeledEvent,ezyang,2023-11-21T19:53:43Z,triaged,,pytorch/pytorch,113637
+LabeledEvent,ezyang,2023-11-21T19:53:43Z,topic: fuzzer,,pytorch/pytorch,113637
+MentionedByIssue,Azyka,2023-11-22T06:19:57Z,,https://github.com/pytorch/pytorch/issues/114224,pytorch/pytorch,113637
+IssueComment,shunting314,2023-12-05T19:22:51Z,"Similar to a few other issues found by fuzzer, this one seems to not be the real issue
+
+* re-arrange return items will result in different fx graph and different fused kernels. That can slightly change the numerical
+* max/argmax is too sensitive to small numerical change",,pytorch/pytorch,113637
+ClosedEvent,shunting314,2023-12-05T19:22:51Z,Closed by shunting314 in ,,pytorch/pytorch,113637

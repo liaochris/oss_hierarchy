@@ -1,0 +1,122 @@
+diff --git a/doc/measure.rst b/doc/measure.rst
+index 45e83ac..e328654 100644
+--- a/doc/measure.rst
++++ b/doc/measure.rst
+@@ -21,7 +21,7 @@ Use :func:`skvideo.measure.ssim` to measure the perceptually quality difference
+ 
+ Use :func:`skvideo.measure.msssim` to measure the perceptually quality difference between two videos, considering only individual frames. Differs from ssim in that this function considers multiple scales.
+ 
+-Use :func:`skvideo.measure.mse` or :func:`skvideo.measure.psnr` to measure simple point-wise similarity between two videos.
++Use :func:`skvideo.measure.mse`, :func:`skvideo.measure.mad`, or :func:`skvideo.measure.psnr` to measure simple point-wise similarity between two videos.
+ 
+ No-Reference Quality Assessment
+ ---------------------------------
+diff --git a/doc/modules/measure.rst b/doc/modules/measure.rst
+index 0b7fa0f..c75ea0b 100644
+--- a/doc/modules/measure.rst
++++ b/doc/modules/measure.rst
+@@ -23,6 +23,7 @@ Functions
+    ssim
+    msssim
+    mse
++   mad
+    psnr
+    scenedet
+    brisque_features
+diff --git a/skvideo/measure/__init__.py b/skvideo/measure/__init__.py
+index 0b9cf8e..79862f5 100644
+--- a/skvideo/measure/__init__.py
++++ b/skvideo/measure/__init__.py
+@@ -7,6 +7,7 @@
+ from .strred import *
+ from .psnr import *
+ from .mse import *
++from .mad import *
+ from .scene import *
+ from .brisque import *
+ from .videobliinds import *
+@@ -17,6 +18,7 @@
+     'ssim',
+     'strred',
+     'mse',
++    'mad',
+     'psnr',
+     'scenedet',
+     'brisque_features',
+diff --git a/skvideo/measure/mad.py b/skvideo/measure/mad.py
+new file mode 100644
+index 0000000..95aad90
+--- /dev/null
++++ b/skvideo/measure/mad.py
+@@ -0,0 +1,50 @@
++from ..utils import *
++import numpy as np
++import scipy.ndimage
++
++
++def mad(referenceVideoData, distortedVideoData):
++    """Computes mean absolute deviation (MAD).
++
++    Both video inputs are compared frame-by-frame to obtain T
++    MAD measurements.
++
++    Parameters
++    ----------
++    referenceVideoData : ndarray
++        Reference video, ndarray of dimension (T, M, N, C), (T, M, N), (M, N, C), or (M, N),
++        where T is the number of frames, M is the height, N is width,
++        and C is number of channels.
++
++    distortedVideoData : ndarray
++        Distorted video, ndarray of dimension (T, M, N, C), (T, M, N), (M, N, C), or (M, N),
++        where T is the number of frames, M is the height, N is width,
++        and C is number of channels.
++
++    Returns
++    -------
++    mad_array : ndarray
++        The mad results, ndarray of dimension (T,), where T
++        is the number of frames
++
++    """
++
++    referenceVideoData = vshape(referenceVideoData)
++    distortedVideoData = vshape(distortedVideoData)
++
++    assert(referenceVideoData.shape == distortedVideoData.shape)
++
++    T, M, N, C = referenceVideoData.shape
++
++    assert C == 1, "mad called with videos containing %d channels. Please supply only the luminance channel" % (C,)
++
++    scores = np.zeros(T, dtype=np.float32)
++    for t in range(T):
++        referenceFrame = referenceVideoData[t].astype(np.float32)
++        distortedFrame = distortedVideoData[t].astype(np.float32)
++
++        mad = np.mean(np.abs(referenceFrame - distortedFrame))
++
++        scores[t] = mad
++
++    return scores
+diff --git a/skvideo/tests/test_measure.py b/skvideo/tests/test_measure.py
+index b192f31..99e3483 100644
+--- a/skvideo/tests/test_measure.py
++++ b/skvideo/tests/test_measure.py
+@@ -137,6 +137,16 @@ def test_measure_SSIM():
+ 
+     assert_almost_equal(avg_score, 1.0, decimal=15)
+ 
++def test_measure_MAD():
++    vidpaths = skvideo.datasets.fullreferencepair()
++    ref = skvideo.io.vread(vidpaths[0], as_grey=True)
++    dis = skvideo.io.vread(vidpaths[1], as_grey=True)
++
++    scores = skvideo.measure.mad(ref, dis)
++
++    avg_score = np.mean(scores)
++
++    assert_almost_equal(avg_score, 11.515880584716797, decimal=15)
+ 
+ def test_measure_MSE():
+     vidpaths = skvideo.datasets.fullreferencepair()

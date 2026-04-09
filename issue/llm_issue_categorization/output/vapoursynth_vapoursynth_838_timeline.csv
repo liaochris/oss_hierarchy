@@ -1,0 +1,58 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,rlaphoenix,2021-12-20T09:57:46Z,"Compatibility with ReadTheDocs dependency environment, missing wheel",https://github.com/vapoursynth/vapoursynth/issues/838,vapoursynth/vapoursynth,838
+IssueOpened,rlaphoenix,2021-12-20T09:57:46Z,"Hi,
+
+I'm currently trying to use Sphinx autoclass on my own custom class that has some type-hints to VapourSynth objects.  
+This is fine if I build on my own system, but I'm trying to use readthedocs which needs to import VapourSynth for those type-hints.
+
+How can I install VapourSynth on readthedocs, considering the `VapourSynth` PyPI package doesn't seem to help with that as it  
+tries to find a VapourSynth C Object.
+
+```
+Building wheels for collected packages: VapourSynth
+  Building wheel for VapourSynth (setup.py): started
+  Building wheel for VapourSynth (setup.py): finished with status 'error'
+  ERROR: Command errored out with exit status 1:
+   command: ../bin/python -u -c 'import io, os, sys, setuptools, tokenize; sys.argv[0] = '""'""'/tmp/pip-install-76wqdgjb/vapoursynth_72110e3e5a5c413f8094dad198e181e8/setup.py'""'""'; __file__='""'""'/tmp/pip-install-76wqdgjb/vapoursynth_72110e3e5a5c413f8094dad198e181e8/setup.py'""'""';f = getattr(tokenize, '""'""'open'""'""', open)(__file__) if os.path.exists(__file__) else io.StringIO('""'""'from setuptools import setup; setup()'""'""');code = f.read().replace('""'""'\r\n'""'""', '""'""'\n'""'""');f.close();exec(compile(code, __file__, '""'""'exec'""'""'))' bdist_wheel -d /tmp/pip-wheel-9n41xdlb
+       cwd: /tmp/pip-install-76wqdgjb/vapoursynth_72110e3e5a5c413f8094dad198e181e8/
+  Complete output (18 lines):
+  running bdist_wheel
+  running build
+  running build_ext
+  skipping 'src/cython/vapoursynth.c' Cython extension (up-to-date)
+  building 'vapoursynth' extension
+  creating build
+  creating build/temp.linux-x86_64-3.8
+  creating build/temp.linux-x86_64-3.8/src
+  creating build/temp.linux-x86_64-3.8/src/cython
+  gcc -pthread -Wno-unused-result -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -fPIC -I. -Isrc/cython -Isrc/vsscript -I/home/docs/.pyenv/versions/3.8.6/include/python3.8 -c src/cython/vapoursynth.c -o build/temp.linux-x86_64-3.8/src/cython/vapoursynth.o
+  src/cython/vapoursynth.c:60196:18: warning: ‘__pyx_f_11vapoursynth__vsscript_use_or_create_environment’ defined but not used [-Wunused-function]
+   static PyObject *__pyx_f_11vapoursynth__vsscript_use_or_create_environment(int __pyx_v_id) {
+                    ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  creating build/lib.linux-x86_64-3.8
+  gcc -pthread -shared -L/home/docs/.pyenv/versions/3.8.6/lib -L/home/docs/.pyenv/versions/3.8.6/lib build/temp.linux-x86_64-3.8/src/cython/vapoursynth.o -L. -Lbuild -lvapoursynth -o build/lib.linux-x86_64-3.8/vapoursynth.cpython-38-x86_64-linux-gnu.so
+  /usr/bin/ld: cannot find -lvapoursynth
+  collect2: error: ld returned 1 exit status
+  error: command 'gcc' failed with exit status 1
+  ----------------------------------------
+  ERROR: Failed building wheel for VapourSynth
+```
+
+It would be fantastic if I could do this with CI/CD pipelines like readthedocs.",https://github.com/vapoursynth/vapoursynth/issues/838,vapoursynth/vapoursynth,838
+IssueComment,rlaphoenix,2022-07-19T10:21:29Z,"For anyone else in this situation, this is what I've figured out about this situation.
+
+First of all, yes, this error is because the VapourSynth C++ Library is missing on readthedocs's build servers which isn't a surprise.  
+I've found out that in this situation the official stance is the usage of build.apt\_packages to pre-install any Debian APT package available from the official repo. They do not support PPA's/Community Repos so that immediately makes it a problem to install VapourSynth.
+
+I've also found out that we may not actually need the VapourSynth library in this scenario if the PyPI packages had wheels available for linux. Currently, the newer revision packages only have wheels for Windows Python 3.8 and 3.10. Since there's no wheels, PIP tries compiling it, which would require the VapourSynth library.
+
+So what then? How can we proceed if we cannot install the apt package from a PPA, nor have a wheel ready-made? We don't. That's the problem. The only way I found to just continue with the build without majorly breaking anything is using mocking. Specifically sphinx's `autodoc_mock_imports` in conf.py:
+
+```
+autodoc_mock_imports = ['vapoursynth']
+```
+
+With this change sphinx mocks the type-hints and so on so that it doesn't have any problems building the docs. This even works across stuff like `autoclass::`! The result might not be as high-fidelity with information as it would be without and is not an ideal solution. But it's a solution nonetheless.
+
+Since this isn't a real solution where a real solution is a possibility, I will not be closing this issue myself.",,vapoursynth/vapoursynth,838
+ClosedEvent,myrsloik,2023-09-24T19:21:14Z,Closed by myrsloik in ,,vapoursynth/vapoursynth,838

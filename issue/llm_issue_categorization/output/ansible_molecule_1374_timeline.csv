@@ -1,0 +1,126 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,dazzla76,2018-07-10T16:05:29Z,init param is not supported in API versions < 1.25,https://github.com/ansible/molecule/issues/1374,ansible/molecule,1374
+IssueOpened,dazzla76,2018-07-10T16:05:29Z,"# Issue Type
+
+* Bug report
+
+# Molecule and Ansible details
+
+```
+ansible --version
+ansible 2.6.1
+  config file = None
+  configured module search path = [u'/root/.ansible/plugins/modules', u'/usr/share/ansible/plugins/modules']
+  ansible python module location = /opt/ansible/venv/lib/python2.7/site-packages/ansible
+  executable location = /opt/ansible/venv/bin/ansible
+  python version = 2.7.12 (default, Nov  1 2016, 15:53:58) [GCC 4.8.5 20150623 (Red Hat 4.8.5-4)]
+```
+
+```
+molecule --version
+molecule, version 2.15.0
+```
+
+Molecule installation method (one of):
+
+* pip
+
+Ansible installation method (one of):
+
+* pip
+
+# Platform
+
+```
+cat /etc/redhat-release
+Red Hat Enterprise Linux Server release 7.4 (Maipo)
+```
+
+```
+docker version
+Client:
+ Version:         1.12.6
+ API version:     1.24
+ Package version: docker-1.12.6-71.git3e8e77d.el7.x86_64
+ Go version:      go1.8.3
+ Git commit:      3e8e77d/1.12.6
+ Built:           Wed Dec 13 12:18:58 2017
+ OS/Arch:         linux/amd64
+
+Server:
+ Version:         1.12.6
+ API version:     1.24
+ Package version: docker-1.12.6-71.git3e8e77d.el7.x86_64
+ Go version:      go1.8.3
+ Git commit:      3e8e77d/1.12.6
+ Built:           Wed Dec 13 12:18:58 2017
+ OS/Arch:         linux/amd64
+```
+
+# Desired Behavior
+
+Trying to run molecule --debug create should create a docker image as specified in role configuration
+
+# Actual Behaviour (Bug report only)
+
+We get the following ouput:
+
+```
+failed: [localhost] (item={'_ansible_parsed': True, '_ansible_item_result': True, '_ansible_item_label': {'image': u'registry.access.redhat.com/rhel7.4', 'name': u'kibana-test'}, u'ansible_job_id': u'475983007633.5575', 'failed': False, u'started': 1, 'changed': True, 'item': {'image': u'registry.access.redhat.com/rhel7.4', 'name': u'kibana-test'}, u'finished': 0, u'results_file': u'/root/.ansible_async/475983007633.5575', '_ansible_ignore_errors': None, '_ansible_no_log': False}) => {
+    ""ansible_job_id"": ""475983007633.5575"",
+    ""attempts"": 1,
+    ""changed"": false,
+    ""cmd"": ""/root/.ansible/tmp/ansible-tmp-1531238455.55-89151525447842/docker_container.py"",
+    ""data"": """",
+    ""finished"": 1,
+    ""invocation"": {
+        ""module_args"": {
+            ""jid"": ""475983007633.5575"",
+            ""mode"": ""status""
+        }
+    },
+    ""item"": {
+        ""ansible_job_id"": ""475983007633.5575"",
+        ""changed"": true,
+        ""failed"": false,
+        ""finished"": 0,
+        ""item"": {
+            ""image"": ""registry.access.redhat.com/rhel7.4"",
+            ""name"": ""kibana-test""
+        },
+        ""results_file"": ""/root/.ansible_async/475983007633.5575"",
+        ""started"": 1
+    },
+    ""msg"": ""Traceback (most recent call last):\n  File \""/root/.ansible/tmp/ansible-tmp-1531238455.55-89151525447842/async_wrapper.py\"", line 150, in _run_module\n    (filtered_outdata, json_warnings) = _filter_non_json_lines(outdata)\n  File \""/root/.ansible/tmp/ansible-tmp-1531238455.55-89151525447842/async_wrapper.py\"", line 91, in _filter_non_json_lines\n    raise ValueError('No start of json char found')\nValueError: No start of json char found\n"",
+    ""stderr"": ""Traceback (most recent call last):\n  File \""/tmp/ansible_v4qRxJ/ansible_module_docker_container.py\"", line 2081, in <module>\n    main()\n  File \""/tmp/ansible_v4qRxJ/ansible_module_docker_container.py\"", line 2076, in main\n    cm = ContainerManager(client)\n  File \""/tmp/ansible_v4qRxJ/ansible_module_docker_container.py\"", line 1703, in __init__\n    self.present(state)\n  File \""/tmp/ansible_v4qRxJ/ansible_module_docker_container.py\"", line 1723, in present\n    new_container = self.container_create(self.parameters.image, self.parameters.create_parameters)\n  File \""/tmp/ansible_v4qRxJ/ansible_module_docker_container.py\"", line 825, in create_parameters\n    host_config=self._host_config(),\n  File \""/tmp/ansible_v4qRxJ/ansible_module_docker_container.py\"", line 931, in _host_config\n    return self.client.create_host_config(**params)\n  File \""/opt/ansible/venv/lib/python2.7/site-packages/docker/api/container.py\"", line 612, in create_host_config\n    return HostConfig(*args, **kwargs)\n  File \""/opt/ansible/venv/lib/python2.7/site-packages/docker/types/containers.py\"", line 453, in __init__\n    raise host_config_version_error('init', '1.25')\ndocker.errors.InvalidVersion: init param is not supported in API versions < 1.25\n"",
+    ""stderr_lines"": [
+        ""Traceback (most recent call last):"",
+        ""  File \""/tmp/ansible_v4qRxJ/ansible_module_docker_container.py\"", line 2081, in <module>"",
+        ""    main()"",
+        ""  File \""/tmp/ansible_v4qRxJ/ansible_module_docker_container.py\"", line 2076, in main"",
+        ""    cm = ContainerManager(client)"",
+        ""  File \""/tmp/ansible_v4qRxJ/ansible_module_docker_container.py\"", line 1703, in __init__"",
+        ""    self.present(state)"",
+        ""  File \""/tmp/ansible_v4qRxJ/ansible_module_docker_container.py\"", line 1723, in present"",
+        ""    new_container = self.container_create(self.parameters.image, self.parameters.create_parameters)"",
+        ""  File \""/tmp/ansible_v4qRxJ/ansible_module_docker_container.py\"", line 825, in create_parameters"",
+        ""    host_config=self._host_config(),"",
+        ""  File \""/tmp/ansible_v4qRxJ/ansible_module_docker_container.py\"", line 931, in _host_config"",
+        ""    return self.client.create_host_config(**params)"",
+        ""  File \""/opt/ansible/venv/lib/python2.7/site-packages/docker/api/container.py\"", line 612, in create_host_config"",
+        ""    return HostConfig(*args, **kwargs)"",
+        ""  File \""/opt/ansible/venv/lib/python2.7/site-packages/docker/types/containers.py\"", line 453, in __init__"",
+        ""    raise host_config_version_error('init', '1.25')"",
+        ""docker.errors.InvalidVersion: init param is not supported in API versions < 1.25""
+    ]
+}
+fatal: [localhost]: FAILED! => {
+    ""censored"": ""the output has been hidden due to the fact that 'no_log: true' was specified for this result"",
+    ""changed"": false
+}
+```",https://github.com/ansible/molecule/issues/1374,ansible/molecule,1374
+IssueComment,retr0h,2018-07-10T17:45:11Z,See [#1353](https://github.com/ansible/molecule/issues/1353),,ansible/molecule,1374
+IssueComment,dazzla76,2018-07-10T18:31:00Z,"Thanks, I'll try it in Ansible 2.5",,ansible/molecule,1374
+LabeledEvent,retr0h,2018-07-10T20:00:55Z,question,,ansible/molecule,1374
+IssueComment,dazzla76,2018-07-11T13:19:44Z,All good on Ansible 2.5,,ansible/molecule,1374
+ClosedEvent,dazzla76,2018-07-11T13:19:45Z,Closed by dazzla76 in ,,ansible/molecule,1374

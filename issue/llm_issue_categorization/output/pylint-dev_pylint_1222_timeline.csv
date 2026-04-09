@@ -1,0 +1,30 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,kundor,2016-12-15T22:03:08Z,generate-rcfile does not include options given on the command line,https://github.com/pylint-dev/pylint/issues/1222,pylint-dev/pylint,1222
+IssueOpened,kundor,2016-12-15T22:03:08Z,"### Steps to reproduce
+
+1. `pylint -d RP0401 --generate-rcfile > .pylintrc`
+
+### Current behavior
+
+The generated rcfile does not disable report RP0401.
+
+The relevant line is
+
+```
+disable=hex-method,input-builtin,intern-builtin,long-suffix,reduce-builtin,next-method-called,execfile-builtin,map-builtin-not-iterating,getslice-method,dict-iter-method,old-raise-syntax,buffer-builtin,unpacking-in-except,zip-builtin-not-iterating,dict-view-method,parameter-unpacking,backtick,metaclass-assignment,standarderror-builtin,old-ne-operator,coerce-builtin,basestring-builtin,unicode-builtin,raw_input-builtin,file-builtin,old-division,oct-method,cmp-method,unichr-builtin,long-builtin,using-cmp-argument,old-octal-literal,xrange-builtin,filter-builtin-not-iterating,no-absolute-import,print-statement,nonzero-method,reload-builtin,round-builtin,suppressed-message,useless-suppression,coerce-method,import-star-module-level,cmp-builtin,delslice-method,setslice-method,indexing-exception,apply-builtin,range-builtin-not-iterating,raising-string
+```
+
+### Expected behavior
+
+The generated rcfile does disable report RP0401. That is, the above line should have `,RP0401` appended.
+
+### pylint --version output
+
+pylint 1.6.4,  
+astroid 1.4.8  
+Python 3.5.2 |Anaconda custom (64-bit)| (default, Jul 2 2016, 17:53:06)  
+[GCC 4.4.7 20120313 (Red Hat 4.4.7-1)]",https://github.com/pylint-dev/pylint/issues/1222,pylint-dev/pylint,1222
+IssueComment,PCManticore,2016-12-16T13:09:30Z,"That's because that code is not actually a message code that pylint emits, but a reporting section. Disabling report sections is currently supported through a hack in pylint: <https://github.com/PyCQA/pylint/blob/2beb5e650d689d4903676b5ca6d82a1806bbbe79/pylint/utils.py#L249>
+
+I don't think this is ever going to be more granular than it is right now, so I'm closing this issue.",,pylint-dev/pylint,1222
+ClosedEvent,PCManticore,2016-12-16T13:09:30Z,Closed by PCManticore in ,,pylint-dev/pylint,1222

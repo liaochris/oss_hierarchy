@@ -1,0 +1,17 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,kloczek,2023-12-07T14:47:15Z,RFE: is it possible to start making github releases?🤔,https://github.com/prompt-toolkit/python-prompt-toolkit/issues/1825,prompt-toolkit/python-prompt-toolkit,1825
+IssueOpened,kloczek,2023-12-07T14:47:15Z,"On create github release entry is created email notification to those whom have set in your repo the web UI Watch->Releases.  
+gh release can contain additional comments (li changelog) or additional assets like release tar balls (by default it contains only assets from git tag) however all those part are not obligatory.  
+In simplest variant gh release can be empty because subiekt of the sent email contains git tag name.
+
+I'm asking because my automation process uses those email notifications by trying to make preliminary automated upgrades of building packages, which allows saving some time on maintaining packaging procedures.  
+Probably other people may be interested to be instantly informed about release new version as well.
+
+Documentation and examples of generate gh releases:  
+<https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository>  
+<https://cli.github.com/manual/gh_release_upload/>  
+[jbms/sphinx-immaterial#282](https://github.com/jbms/sphinx-immaterial/pull/282)  
+<https://github.com/marketplace/actions/github-release>  
+<https://pgjones.dev/blog/trusted-plublishing-2023/>  
+[jbms/sphinx-immaterial#281 (comment)](https://github.com/jbms/sphinx-immaterial/issues/281#issuecomment-1700933026)  
+tox target to publish on pypi and make gh release <https://github.com/jaraco/skeleton/blob/928e9a86d61d3a660948bcba7689f90216cc8243/tox.ini#L42-L58>",https://github.com/prompt-toolkit/python-prompt-toolkit/issues/1825,prompt-toolkit/python-prompt-toolkit,1825

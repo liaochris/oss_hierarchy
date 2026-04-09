@@ -1,0 +1,112 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,CarlosAlbertoN,2020-07-24T20:05:32Z,RuntimeError: Not all necessary Java dependencies have been downloaded!,https://github.com/FraBle/python-sutime/issues/41,FraBle/python-sutime,41
+IssueOpened,CarlosAlbertoN,2020-07-24T20:05:32Z,"Hello!
+
+So, i'm trying to run python-sutime but i keep getting this error:
+
+`""RuntimeError: Not all necessary Java dependencies have been downloaded!""`
+
+The picture below are from my files after i had installed with maven:
+
+[![image](https://user-images.githubusercontent.com/59921302/88430609-1a37a480-cdcf-11ea-9764-6b9298c9225d.png)](https://user-images.githubusercontent.com/59921302/88430609-1a37a480-cdcf-11ea-9764-6b9298c9225d.png)
+
+Im using:
+
+* Python 3.6.9 and running in Google Colab
+* Apache Maven 3.6.0
+* Maven home: /usr/share/maven
+* Java version: 11.0.7, vendor: Ubuntu, runtime: /usr/lib/jvm/java-11-openjdk-amd64
+* Default locale: en\_US, platform encoding: UTF-8
+* OS name: ""linux"", version: ""4.19.104+"", arch: ""amd64"", family: ""unix""",,FraBle/python-sutime,41
+IssueComment,Utkichaps,2020-07-28T05:04:49.000Z,"In the source code for your sutime i.e. sutime.py, you have to change the versions of the jar files used. So you have to take care of these two files:  
+[![1](https://user-images.githubusercontent.com/33213537/88621136-51eb6880-d0bd-11ea-992d-da116cd261f0.jpg)](https://user-images.githubusercontent.com/33213537/88621136-51eb6880-d0bd-11ea-992d-da116cd261f0.jpg)  
+In your source sutime.py, make sure the jar versions listed here are the same as the jar versions you have downloaded.  
+[![2](https://user-images.githubusercontent.com/33213537/88621212-80694380-d0bd-11ea-972e-fe9703031e54.jpg)](https://user-images.githubusercontent.com/33213537/88621212-80694380-d0bd-11ea-972e-fe9703031e54.jpg)  
+If it isn't, the best thing you can do is copy the sutime.py file from this repo and replace your source sutime.py file with it.
+
+And also make sure that in your jars folder you have this version:  
+[![3](https://user-images.githubusercontent.com/33213537/88621309-b6a6c300-d0bd-11ea-9b0a-55231810fb2c.jpg)](https://user-images.githubusercontent.com/33213537/88621309-b6a6c300-d0bd-11ea-9b0a-55231810fb2c.jpg)",,FraBle/python-sutime,41
+IssueComment,carlosalbertonascimento,2020-07-29T14:28:12.000Z,"Thank you for the feedback!
+
+So, i have made the changes that you said but it's not running.
+
+[![image](https://user-images.githubusercontent.com/22133309/88812794-83803480-d18e-11ea-90d8-17bf4e05d676.png)](https://user-images.githubusercontent.com/22133309/88812794-83803480-d18e-11ea-90d8-17bf4e05d676.png)
+
+[![image](https://user-images.githubusercontent.com/22133309/88812845-91ce5080-d18e-11ea-8165-03a4cc33e1f6.png)](https://user-images.githubusercontent.com/22133309/88812845-91ce5080-d18e-11ea-8165-03a4cc33e1f6.png)",,FraBle/python-sutime,41
+IssueComment,Utkichaps,2020-07-29T17:20:05.000Z,"Aaah yes in your source sutime.py the last few lines of code are this:
+
+Change it to:
+
+The Java wrapper basically returns a java.lang.String. We have to convert that to a python str.
+
+Also it might be better to keep this issue open till the developers fix it, so that anyone else having the same issue will be able to apply this fix.",,FraBle/python-sutime,41
+MentionedByIssue,Utkichaps,2020-07-29T17:21:41.000Z,"Utkichaps mentioned this on Jul 29, 2020
+error in sutime.py #40",https://github.com/FraBle/python-sutime/issues/40,FraBle/python-sutime,41
+IssueComment,carlosalbertonascimento,2020-07-29T17:43:58.000Z,[@Utkichaps](https://github.com/Utkichaps) thank you! Now it's running. I'll keep the issue open.,,FraBle/python-sutime,41
+IssueComment,Feyorn,2020-08-05T14:01:14.000Z,"I am getting the same error. However I feel there might be some error with my steps so I'll mention them
+
+**I have Python, Java, Maven installed and ready**
+
+**I have created a new .py file. It is currently on my desktop where I have copied the following code:**  
+import os  
+import json  
+from sutime import SUTime  
+if **name** == '**main**':  
+test\_case = u'I need a desk for tomorrow from 2pm to 3pm'
+
+jar\_files = os.path.join(os.path.dirname(D:\python-sutime-master\sutime\jars'), 'jars')  
+sutime = SUTime(jars=jar\_files, mark\_time\_ranges=True)
+
+print(json.dumps(sutime.parse(test\_case), sort\_keys=True, indent=4))
+
+**However I am still getting the error mentioned above of not all necessary Java dependencies have been downloaded**
+
+Please let me know if someone can help",,FraBle/python-sutime,41
+IssueComment,CarlosAlbertoN,2020-08-05T14:44:03.000Z,"Hello, [@Feyorn](https://github.com/Feyorn) so i had a lot of problems trying to run as well and at the end i have a code running (finally).
+
+I have made a google colab with all the steps to make it run.
+
+Here it is: <https://colab.research.google.com/drive/1p0Y-9pnM60zHbURUyO7hJOJ72IKY5nKx?usp=sharing>
+
+Let me know if you have any questions.",,FraBle/python-sutime,41
+IssueComment,Feyorn,2020-08-05T15:55:10.000Z,"Hey [@CarlosAlbertoN](https://github.com/CarlosAlbertoN) , thank you for responding. I am still getting the same error, I am however listing the steps I followed in my Windows system:
+
+Removed the pip intsalled sutime
+
+From the git repo, copied the pom.xml to the folder called sutime within python-sutime.
+
+Copied the new sutime folder containing jars, pom.xml, test, *init* and sutime.py to the collection of my python libraries
+
+Using command prompt at the location of the new sutime file, I ran mvn dependency:copy-dependencies -DoutputDirectory=./jars -P english which was over 1GB of download.
+
+Once done, I ran the code where I replaced the **file** with the path of the sutime packaged file.
+
+However the error still persists. Thank you for your file, it was properly detailed. However if you can let me know if you find what error exists in my approach, that would be great. Thank you",,FraBle/python-sutime,41
+IssueComment,CarlosAlbertoN,2020-08-05T16:04:45.000Z,Try to open a new terminal and execute again the code:,,FraBle/python-sutime,41
+IssueComment,Feyorn,2020-08-05T16:22:17.000Z,"[@CarlosAlbertoN](https://github.com/CarlosAlbertoN) yeah, I tried that but the error didn't change",,FraBle/python-sutime,41
+IssueComment,CarlosAlbertoN,2020-08-05T16:25:54.000Z,"I see.  
+I didn't try to run in windows, so maybe i'm missing a step that i didn't face.  
+So, take a better look, maybe do the steps again.  
+Or you can try to use with google colab instead.",,FraBle/python-sutime,41
+IssueComment,Utkichaps,2020-08-06T08:00:19.000Z,[#42](https://github.com/FraBle/python-sutime/issues/42),,FraBle/python-sutime,41
+IssueComment,FraBle,2020-08-06T18:40:59.000Z,"Hey everyone, I'm sorry that you folks run into these issues. I've never expected that my little project gets so much traction after publishing it on GitHub.
+
+My life kept me very busy, but I have vacation planned for later this month and plan to spend some time addressing this issue as well as the other ones filed against this project.",,FraBle/python-sutime,41
+IssueComment,ajay9022,2020-10-05T15:09:28.000Z,"Hello, [@Feyorn](https://github.com/Feyorn) so i had a lot of problems trying to run as well and at the end i have a code running (finally).
+
+I have made a google colab with all the steps to make it run.
+
+Here it is: <https://colab.research.google.com/drive/1p0Y-9pnM60zHbURUyO7hJOJ72IKY5nKx?usp=sharing>
+
+Let me know if you have any questions.
+
+[@CarlosAlbertoN](https://github.com/CarlosAlbertoN) [@FraBle](https://github.com/FraBle) [@Utkichaps](https://github.com/Utkichaps) I downloaded and ran your notebook on my colab but it's throwing the same error as: RuntimeError: Not all necessary Java dependencies have been downloaded!
+
+Can you check what's going wrong?
+
+Also, do we need to update the sutime.py and use str as described in the above comments?",,FraBle/python-sutime,41
+MentionedByCommit,dmavroeidis,2021-01-26T17:59:56.000Z,"dmavroeidisadded a commit that references this issue on Jan 26, 2021Updated the path for the jar libraries. Fixes issue FraBle#41.5b1ea6f
+Updated the path for the jar libraries. Fixes issue #41.",https://github.com/dmavroeidis/python-sutime/commit/5b1ea6f6a9b288eb016b44a41b05a9c9098d9c3b,FraBle/python-sutime,41
+MentionedByCommit,dmavroeidis,2021-01-26T17:59:56.000Z,"dmavroeidisadded a commit that references this issue on Jan 26, 2021Updated the path for the jar libraries. Fixes issue FraBle#41.5b1ea6f",https://github.com/dmavroeidis/python-sutime/commit/5b1ea6f6a9b288eb016b44a41b05a9c9098d9c3b,FraBle/python-sutime,41
+MentionedByPR,dmavroeidis,2021-01-26T18:04:01.000Z,"dmavroeidis mentioned this on Jan 26, 2021
+Updated the path for the jar libraries. Fixes issue #41. #53",https://github.com/FraBle/python-sutime/pull/53,FraBle/python-sutime,41

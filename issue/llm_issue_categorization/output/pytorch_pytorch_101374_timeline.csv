@@ -1,0 +1,133 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,payphon,2023-05-15T00:01:45Z,[torch.compile] AssertionError about Pointwise in convolution_binary_inplace,https://github.com/pytorch/pytorch/issues/101374,pytorch/pytorch,101374
+IssueOpened,payphon,2023-05-15T00:01:45Z,"### 🐛 Describe the bug
+
+`torch.compile` raises AssertionError about `Pointwise` in `convolution_binary_inplace`
+
+```
+import torch
+
+torch.manual_seed(420)
+
+class Model(torch.nn.Module):
+
+    def __init__(self):
+        super().__init__()
+        self.conv = torch.nn.Conv2d(3, 8, (2, 3), stride=(1, 2), padding=0)
+
+    def forward(self, x):
+        v1 = self.conv(x)
+        v2 = v1 + torch.ones(v1.shape, dtype=torch.double)
+        return v2
+
+func = Model().to('cpu')
+
+x = torch.randn(1, 3, 64, 64)
+
+with torch.no_grad():
+    func = func.eval()
+    res1 = func(x) # without jit
+    print(res1)
+
+    jit_func = torch.compile(func)
+    res2 = jit_func(x)
+    # torch._dynamo.exc.BackendCompilerFailed: backend='inductor' raised:
+    # AssertionError: Pointwise(
+    #   'cpu',
+    #   torch.float64,
+    #   def inner_fn(index):
+    #       i0 = index
+    #       tmp0 = ops.load(arg1_1, i0)
+    #       tmp1 = ops.to_dtype(tmp0, torch.float64)
+    #       return tmp1
+    #   ,
+    #   ranges=[8],
+    #   origin_node=None,
+    #   origins={full, fn}
+    # )
+```
+
+### Versions
+
+Click to expand
+
+```
+Collecting environment information...
+PyTorch version: 2.1.0.dev20230514+cu118
+Is debug build: False
+CUDA used to build PyTorch: 11.8
+ROCM used to build PyTorch: N/A
+
+OS: Ubuntu 22.04.1 LTS (x86_64)
+GCC version: (Ubuntu 11.3.0-1ubuntu1~22.04) 11.3.0
+Clang version: 14.0.0-1ubuntu1
+CMake version: Could not collect
+Libc version: glibc-2.35
+
+Python version: 3.9.13 (main, Aug 25 2022, 23:26:10)  [GCC 11.2.0] (64-bit runtime)
+Python platform: Linux-5.19.5-051905-generic-x86_64-with-glibc2.35
+Is CUDA available: True
+CUDA runtime version: 11.5.119
+CUDA_MODULE_LOADING set to: LAZY
+GPU models and configuration: GPU 0: NVIDIA GeForce RTX 3060
+Nvidia driver version: 510.108.03
+cuDNN version: Could not collect
+HIP runtime version: N/A
+MIOpen runtime version: N/A
+Is XNNPACK available: True
+
+CPU:
+Architecture:                    x86_64
+CPU op-mode(s):                  32-bit, 64-bit
+Address sizes:                   46 bits physical, 48 bits virtual
+Byte Order:                      Little Endian
+CPU(s):                          24
+On-line CPU(s) list:             0-23
+Vendor ID:                       GenuineIntel
+Model name:                      12th Gen Intel(R) Core(TM) i9-12900K
+CPU family:                      6
+Model:                           151
+Thread(s) per core:              2
+Core(s) per socket:              16
+Socket(s):                       1
+Stepping:                        2
+CPU max MHz:                     6700.0000
+CPU min MHz:                     800.0000
+BogoMIPS:                        6374.40
+Flags:                           fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault cat_l2 invpcid_single cdp_l2 ssbd ibrs ibpb stibp ibrs_enhanced tpr_shadow vnmi flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdt_a rdseed adx smap clflushopt clwb intel_pt sha_ni xsaveopt xsavec xgetbv1 xsaves split_lock_detect avx_vnni dtherm ida arat pln pts hwp hwp_notify hwp_act_window hwp_epp hwp_pkg_req hfi umip pku ospke waitpkg gfni vaes vpclmulqdq tme rdpid movdiri movdir64b fsrm md_clear serialize pconfig arch_lbr ibt flush_l1d arch_capabilities
+Virtualization:                  VT-x
+L1d cache:                       640 KiB (16 instances)
+L1i cache:                       768 KiB (16 instances)
+L2 cache:                        14 MiB (10 instances)
+L3 cache:                        30 MiB (1 instance)
+NUMA node(s):                    1
+NUMA node0 CPU(s):               0-23
+Vulnerability Itlb multihit:     Not affected
+Vulnerability L1tf:              Not affected
+Vulnerability Mds:               Not affected
+Vulnerability Meltdown:          Not affected
+Vulnerability Mmio stale data:   Not affected
+Vulnerability Retbleed:          Not affected
+Vulnerability Spec store bypass: Mitigation; Speculative Store Bypass disabled via prctl
+Vulnerability Spectre v1:        Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Vulnerability Spectre v2:        Mitigation; Enhanced IBRS, IBPB conditional, RSB filling, PBRSB-eIBRS SW sequence
+Vulnerability Srbds:             Not affected
+Vulnerability Tsx async abort:   Not affected
+
+Versions of relevant libraries:
+[pip3] numpy==1.24.1
+[pip3] pytorch-triton==2.1.0+7d1a95b046
+[pip3] torch==2.1.0.dev20230514+cu118
+[pip3] torchaudio==2.1.0.dev20230514+cu118
+[pip3] torchvision==0.16.0.dev20230514+cu118
+[conda] numpy                     1.24.1                   pypi_0    pypi
+[conda] pytorch-triton            2.1.0+7d1a95b046          pypi_0    pypi
+[conda] torch                     2.1.0.dev20230514+cu118          pypi_0    pypi
+[conda] torchaudio                2.1.0.dev20230514+cu118          pypi_0    pypi
+[conda] torchvision               0.16.0.dev20230514+cu118          pypi_0    pypi
+```",https://github.com/pytorch/pytorch/issues/101374,pytorch/pytorch,101374
+AssignedEvent,XiaobingSuper,2023-05-15T01:59:38Z,XiaobingSuper assigned XiaobingSuper,,pytorch/pytorch,101374
+LabeledEvent,XiaobingSuper,2023-05-15T01:59:47Z,inductor_pattern_match,,pytorch/pytorch,101374
+LabeledEvent,XiaobingSuper,2023-05-15T02:51:42Z,module: cpu inductor,,pytorch/pytorch,101374
+LabeledEvent,XiaobingSuper,2023-05-15T05:59:38Z,triaged,,pytorch/pytorch,101374
+ClosedEvent,XiaobingSuper,2023-05-18T06:23:53Z,Closed by XiaobingSuper in ,,pytorch/pytorch,101374
