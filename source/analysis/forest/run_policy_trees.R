@@ -11,10 +11,12 @@ library(png)
 library(grid)
 library(grf)
 library(policytree)
+library(SaveData)
 
 source("source/lib/helpers.R")
-source("source/analysis/event_study_helpers.R")
-source("source/analysis/causal_forest_helpers.R")
+source("source/analysis/event_study/helpers.R")
+source("source/analysis/forest/helpers.R")
+source("source/analysis/constants.R")
 
 #######################################
 # 1. Major helpers (unchanged signatures)
@@ -137,7 +139,7 @@ RunEventStudyAndCollect <- function(base_df, df_bins, practice_mode, outcome_mod
         
         png(out_path)
         title_suffix <- paste0("\nSample: ", practice_mode$legend_title)
-        do.call(CompareES, list(es_list,
+        do.call(PlotEventStudyComparison, list(es_list,
                                 legend_labels = labels,
                                 legend_title  = "Resilience Subset",
                                 title = "",
@@ -182,7 +184,7 @@ ProcessTreeCombo <- function(x_for_tree,
                              rolling_panel_imp2,
                              estimation_type,
                              outcome_modes,
-                             norm_options,
+                             panels,
                              png_ordered,
                              coeffs_all,
                              OUTDIR_POLICYTREE_DATASTORE) {
@@ -215,16 +217,16 @@ ProcessTreeCombo <- function(x_for_tree,
     legend_labels = c("High", "Low"),
     legend_title = NULL,
     control_group = "nevertreated",
-    data = "df_panel_nevertreated",
+    data = "nevertreated",
     folder = file.path("output/analysis/event_study_personalization", dataset,
                        rolling_panel_imp2, paste("nevertreated", "policy_tree", tag_input, sep = "_"))
   )
   
-  tmp_full <- RunEventStudyAndCollect(base_df = get(practice_mode$data),
+  tmp_full <- RunEventStudyAndCollect(base_df = panels[[practice_mode$data]],
                                       df_bins = df_causal_forest_bins,
                                       practice_mode = practice_mode,
                                       outcome_modes = outcome_modes,
-                                      norm_options = norm_options,
+                                      norm_options = NORM_OPTIONS,
                                       rolling_label = paste0(rolling_panel_imp2, "_", tag_input),
                                       method_label = paste0(method, "_", tag_input),
                                       estimation_type = estimation_type,
@@ -247,26 +249,26 @@ ProcessTreeCombo <- function(x_for_tree,
     depth = depth_val,
     split_step = split_step_val,
     tag = tag_input,
-    seed = 420
+    seed = SEED
   )
-  
+
   practice_mode_kfold <- list(
     continuous_covariate = paste0("policy_tree_group_kfold_", tag_input),
     filters = list(list(col = paste0("policy_tree_group_kfold_", tag_input), vals = c(1, 0))),
     legend_labels = c("High", "Low"),
     legend_title = NULL,
     control_group = "nevertreated",
-    data = "df_panel_nevertreated",
+    data = "nevertreated",
     folder = file.path("output/analysis/event_study_personalization", dataset,
                        rolling_panel_imp2, paste("nevertreated", "policy_tree_kfold", tag_input, sep = "_"))
   )
   
   tmp_kfold <- RunEventStudyAndCollect(
-    base_df = get(practice_mode_kfold$data),
+    base_df = panels[[practice_mode_kfold$data]],
     df_bins = df_causal_forest_bins,
     practice_mode = practice_mode_kfold,
     outcome_modes = outcome_modes,
-    norm_options = norm_options,
+    norm_options = NORM_OPTIONS,
     rolling_label = paste0(rolling_panel_imp2, "_kfold_", tag_input),
     method_label = paste0(method, "_kfold_", tag_input),
     estimation_type = estimation_type,
@@ -284,25 +286,20 @@ ProcessTreeCombo <- function(x_for_tree,
 # 3. Main execution (cleaned)
 #######################################
 
-SEED <- 420
-set.seed(SEED)
-n_folds <- 10
-
-INDIR  <- "drive/output/derived/org_characteristics/org_panel"
+INDIR  <- "drive/output/derived/org_outcomes_practices/org_panel"
 INDIR_CF  <- "output/analysis/causal_forest_personalization"
-INDIR_YAML <- "source/derived/org_characteristics"
+INDIR_YAML <- "source/analysis/config"
 OUTDIR <- "output/analysis/event_study_personalization"
 OUTDIR_DATASTORE <- "drive/output/analysis/causal_forest_personalization"
 OUTDIR_POLICYTREE_DATASTORE <- "drive/output/analysis/policy_forest_personalization"
 dir_create(OUTDIR)
 
-DATASETS <- c("important_topk_exact1")
+DATASETS <- c("important_degree_top3")
 ESTIMATION_TYPES <- c("observed")
 exclude_outcomes <- c("num_downloads")
 
-norm_options <- c(TRUE)
-outcome_cfg <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
-org_practice_cfg <- yaml.load_file(file.path(INDIR_YAML, "covariate_organization.yaml"))
+outcome_cfg <- yaml.load_file(file.path(INDIR_YAML, "outcomes.yaml"))
+org_practice_cfg <- yaml.load_file(file.path(INDIR_YAML, "covariates.yaml"))
 
 png_ordered <- character(0)
 coeffs_all <- list()
@@ -314,40 +311,39 @@ tree_configs <- list(
 )
 
 for (dataset in DATASETS) {
-  for (use_imp in c(FALSE)) {
+  for (use_imputed in c(FALSE)) {
     for (rolling_panel in c("rolling5")) {
       rolling_period <- as.numeric(str_extract(rolling_panel, "\\d+$"))
-      rolling_panel_imp <- ifelse(use_imp, paste0(rolling_panel, "_imp"), rolling_panel)
+      rolling_panel_imp <- ifelse(use_imputed, paste0(rolling_panel, "_imp"), rolling_panel)
       
       for (method in c("lm_forest_nonlinear")) {
         message("Processing dataset: ", dataset, " (", rolling_panel, ")")
-        outdir_dataset <- file.path(OUTDIR, dataset)
-        dir_create(outdir_dataset, recurse = TRUE)
+        outdir_ds <- file.path(OUTDIR, dataset)
+        dir_create(outdir_ds, recurse = TRUE)
         
-        panel_dataset <- dataset %>%
-          gsub("_exact1", "", .) %>% gsub("_nuclearWhat", "", .) %>% gsub("_defaultWhat", "", .) %>%
-          gsub("_oneQual", "", .)
+        panel_dataset <- NormalizeDatasetName(dataset)
         
         df_panel <- read_parquet(file.path(INDIR, panel_dataset, paste0("panel_", rolling_panel, ".parquet")))
         all_outcomes <- unlist(lapply(outcome_cfg, function(x) x$main))
-        df_panel_common <- BuildCommonSample(df_panel, all_outcomes) %>%
+        panel <- BuildCommonSample(df_panel, all_outcomes) %>%
           filter(num_departures <= 1) %>%
           mutate(quasi_event_time = time_index - quasi_treatment_group)
         
         if (grepl("_exact1", dataset)) {
-          df_panel_common <- KeepSustainedImportant(df_panel_common, lb = 1, ub = 1)
+          panel <- KeepSustainedImportant(panel, lb = 1, ub = 1)
         } else if (grepl("_oneQual", dataset)) {
-          df_panel_common <- KeepSustainedImportant(df_panel_common)
+          panel <- KeepSustainedImportant(panel)
         }
         
-        df_panel_notyettreated <- df_panel_common %>% filter(num_departures == 1)
-        df_panel_nevertreated  <- df_panel_common %>% filter(num_departures <= 1)
-        
-        assign("df_panel_notyettreated", df_panel_notyettreated, envir = .GlobalEnv)
-        assign("df_panel_nevertreated",  df_panel_nevertreated,  envir = .GlobalEnv)
-        
-        outcome_modes <- BuildOutcomeModes(outcome_cfg, "nevertreated", outdir_dataset, norm_options, build_dir = FALSE)
-        org_practice_modes <- BuildOrgPracticeModes(org_practice_cfg, "nevertreated", outdir_dataset, build_dir = FALSE)
+        panel_notyettreated <- panel %>% filter(num_departures == 1)
+        panel_nevertreated  <- panel %>% filter(num_departures <= 1)
+        panels <- list(
+          nevertreated  = panel_nevertreated,
+          notyettreated = panel_notyettreated
+        )
+
+        outcome_modes <- BuildOutcomeModes(outcome_cfg, "nevertreated", outdir_ds, NORM_OPTIONS, build_dir = FALSE)
+        org_practice_modes <- BuildOrgPracticeModes(org_practice_cfg, "nevertreated", outdir_ds, build_dir = FALSE)
         org_practice_modes <- org_practice_modes[
           unlist(lapply(org_practice_modes, function(x) x$continuous_covariate != "prop_tests_passed"))]
         
@@ -357,12 +353,12 @@ for (dataset in DATASETS) {
           
           covars <- unlist(lapply(org_practice_modes, \(x) x$continuous_covariate))
           covars_imp <- paste0(covars, "_imp")
-          keep_names <- if (use_imp) paste0(c(covars, covars_imp), "_mean") else paste0(covars, "_mean")
+          feature_cols <- if (use_imputed) paste0(c(covars, covars_imp), "_mean") else paste0(covars, "_mean")
           
-          df_data <- CreateDataPanel(df_panel_common, method, split_var,
-                                     covars, rolling_period, n_folds, SEED)
+          df_data <- CreateDataPanel(panel, method, split_var,
+                                     covars, rolling_period, N_FOLDS, SEED)
           
-          candidate_covars <- if (use_imp) paste0(c(covars, covars_imp), "_mean") else paste0(covars, "_mean")
+          candidate_covars <- if (use_imputed) paste0(c(covars, covars_imp), "_mean") else paste0(covars, "_mean")
           candidate_covars <- intersect(colnames(df_data), candidate_covars)
           
           keep_cols <- candidate_covars[colSums(is.na(df_data %>% select(all_of(candidate_covars)))) < 200]
@@ -383,17 +379,7 @@ for (dataset in DATASETS) {
                           across(where(is.character), ~as.numeric(.))))
           x_num[is.na(x_num)] <- -1
           
-          pc_groups <- list(
-            collaboration = c("avg_members_per_problem_mean", "pct_members_multiple_mean",
-                              "proj_hhi_discussion_comment_mean", "proj_prob_hhi_issue_comment_mean",
-                              "proj_prob_hhi_pull_request_comment_mean"),
-            shared_knowledge = c("share_issue_and_pr_mean", "avg_unique_types_mean"),
-            discussion_vibes = c("response_rate_mean", "mean_days_to_respond_mean", "ov_sentiment_avg_mean",
-                                 "pos_sentiment_avg_mean", "neg_sentiment_avg_mean"),
-            welcoming = c("has_good_first_issue_mean", "has_contributing_guide_mean", "has_code_of_conduct_mean"),
-            routines = c("mean_has_reviewer_mean", "mean_has_tag_mean", "mean_has_assignee_mean",
-                         "has_codeowners_mean", "has_issue_template_mean", "has_pr_template_mean")
-          )
+          pc_groups <- PC_GROUPS
           
           pc_cols <- c()
           for (group_name in names(pc_groups)) {
@@ -459,7 +445,7 @@ for (dataset in DATASETS) {
                                             rolling_panel_imp2 = rolling_panel_imp2,
                                             estimation_type = estimation_type,
                                             outcome_modes = outcome_modes,
-                                            norm_options = norm_options,
+                                            panels = panels,
                                             png_ordered = png_ordered,
                                             coeffs_all = coeffs_all,
                                             OUTDIR_POLICYTREE_DATASTORE = OUTDIR_POLICYTREE_DATASTORE)
@@ -477,28 +463,12 @@ for (dataset in DATASETS) {
 }
 
 coeffs_df <- bind_rows(coeffs_all) %>% mutate(event_time = as.numeric(event_time))
-write_csv(coeffs_df, file.path(OUTDIR, paste0("policy_tree_all_coefficients.csv")))
+SaveData(coeffs_df,
+         c("dataset", "rolling", "category", "outcome", "normalize", "method",
+           "covar", "split_value", "estimation_type", "event_time"),
+         file.path(OUTDIR, "policy_tree_all_coefficients.csv"),
+         file.path(OUTDIR, "policy_tree_all_coefficients.log"),
+         sortbykey = FALSE)
 
 png_files <- png_ordered[!grepl("_hist_", png_ordered)]
-pdf(file.path(OUTDIR, paste0("policy_tree_results.pdf")), width = 11, height = 8.5)
-if (length(png_files) > 0) {
-  first_group <- png_files[1:min(4, length(png_files))]
-  imgs <- lapply(first_group, function(f) grid::rasterGrob(readPNG(f), interpolate = TRUE))
-  if (length(imgs) < 4) {
-    for (i in seq_len(4 - length(imgs))) imgs <- c(imgs, list(textGrob("")))
-  }
-  do.call(grid.arrange, c(imgs, ncol = 2))
-  
-  if (length(png_files) > 4) {
-    remaining <- png_files[-(1:4)]
-    for (i in seq(1, length(remaining), by = 4)) {
-      group_files <- remaining[i:min(i+3, length(remaining))]
-      imgs <- lapply(group_files, function(f) grid::rasterGrob(readPNG(f), interpolate = TRUE))
-      if (length(imgs) < 4) {
-        for (p in seq_len(4 - length(imgs))) imgs <- c(imgs, list(textGrob("")))
-      }
-      do.call(grid.arrange, c(imgs, ncol = 2))
-    }
-  }
-}
-dev.off()
+AggregatePngsToPdf(png_files, file.path(OUTDIR, "policy_tree_results.pdf"))

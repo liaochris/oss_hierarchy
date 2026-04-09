@@ -9,7 +9,9 @@ library(gridExtra)
 library(png)       
 library(grid)    
 source("source/lib/helpers.R")
-source("source/analysis/event_study_helpers.R")
+source("source/analysis/event_study/helpers.R")
+source("source/analysis/forest/helpers.R")
+source("source/analysis/constants.R")
 
 winsorize <- function(x, probs) {
   limits <- quantile(x, probs, na.rm = TRUE)
@@ -19,68 +21,54 @@ winsorize <- function(x, probs) {
 #######################################
 # 9. Main execution
 #######################################
-main <- function() {
-  SEED <- 420
-  set.seed(SEED)
-  
+Main <- function() {
   INDIR_CF  <- "output/analysis/causal_forest_personalization"
-  INDIR_YAML <- "source/derived/org_characteristics"
+  INDIR_YAML <- "source/analysis/config"
   OUTDIR <- "output/analysis/event_study_personalization"
   dir_create(OUTDIR)
-  
-  # "important_thresh_exact1"
-  # "important_topk_defaultWhat", "important_topk_exact1_defaultWhat","important_topk_oneQual_defaultWhat",
-  # "important_topk_nuclearWhat", "important_topk_exact1_nuclearWhat","important_topk_oneQual_nuclearWhat"
-  # "important_topk", ,"important_topk_oneQual", "important_thresh","important_thresh_oneQual"
-  DATASETS <-c( "important_topk_exact1")
+
+  DATASETS <- c("important_topk_exact1")
   ROLLING_PANELS <- c("rolling5")
   METHODS <- c("lm_forest", "lm_forest_nonlinear")
   exclude_outcomes <- c("num_downloads")
-  norm_options <- c(TRUE)
-  
-  # load outcome config once
-  outcome_cfg <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
+
+  outcome_cfg <- yaml.load_file(file.path(INDIR_YAML, "outcomes.yaml"))
   
   # GLOBAL collector for all histogram PNGs created during the whole run
   hist_files_global <- character(0)
   
   for (dataset in DATASETS) {
-    outdir_dataset <- file.path(OUTDIR, dataset)
-    dir_create(outdir_dataset, recurse = TRUE)
+    outdir_ds <- file.path(OUTDIR, dataset)
+    dir_create(outdir_ds, recurse = TRUE)
     for (rolling_panel in ROLLING_PANELS) {
       rolling_period <- as.numeric(str_extract(rolling_panel, "\\d+$"))
       for (method in METHODS) {
-        # ensure outdir_dataset exists early so aggregators can find files
+        # ensure outdir_ds exists early so aggregators can find files
         message("Processing dataset: ", dataset, " (", rolling_panel, ") method=", method)
         
-        panel_dataset <- gsub("_exact1", "", dataset)
-        panel_dataset <- gsub("_nuclearWhat", "", panel_dataset)
-        panel_dataset <- gsub("_defaultWhat", "", panel_dataset)
-        panel_dataset <- gsub("_oneQual", "", panel_dataset)
+        panel_dataset <- NormalizeDatasetName(dataset)
+        dataset_labels <- MakeDatasetLabels(dataset)
+        num_qualified_label   <- dataset_labels$num_qualified
+        What_estimation_label <- dataset_labels$what_estimation
         
-        num_qualified_label <- ifelse(grepl("_exact1", dataset), "num-qualified=1",
-                                      ifelse(grepl("_oneQual", dataset), "num-qualified>=1", "all obs"))
-        What_estimation_label <- ifelse(grepl("_nuclearWhat", dataset), "only cohort + exact time", 
-                                        ifelse(grepl("_defaultWhat", dataset), "default", "all treated cohorts + exact time matches"))
-        
-        df_panel <- read_parquet(file.path("drive/output/derived/org_characteristics/org_panel", 
+        df_panel <- read_parquet(file.path("drive/output/derived/org_outcomes_practices/org_panel", 
                                            panel_dataset, paste0("panel_", rolling_panel, ".parquet")))
         all_outcomes <- unlist(lapply(outcome_cfg, function(x) x$main))
-        df_panel_common <- BuildCommonSample(df_panel, all_outcomes)
+        panel <- BuildCommonSample(df_panel, all_outcomes)
         if (grepl("_exact1", dataset)) {
-          df_panel_common <- KeepSustainedImportant(df_panel_common, lb = 1, ub = 1)
+          panel <- KeepSustainedImportant(panel, lb = 1, ub = 1)
         } else if (grepl("_oneQual", dataset)) {
-          df_panel_common <- KeepSustainedImportant(df_panel_common)
+          panel <- KeepSustainedImportant(panel)
         } 
         
-        df_panel_notyettreated <- df_panel_common %>% filter(num_departures == 1)
-        df_panel_nevertreated  <- df_panel_common %>% filter(num_departures <= 1)
-        
-        assign("df_panel_notyettreated", df_panel_notyettreated, envir = .GlobalEnv)
-        assign("df_panel_nevertreated",  df_panel_nevertreated,  envir = .GlobalEnv)
-        
-        # build outcome_modes here (used below)
-        outcome_modes <- BuildOutcomeModes(outcome_cfg, "nevertreated", outdir_dataset, norm_options,
+        panel_notyettreated <- panel %>% filter(num_departures == 1)
+        panel_nevertreated  <- panel %>% filter(num_departures <= 1)
+        panels <- list(
+          nevertreated  = panel_nevertreated,
+          notyettreated = panel_notyettreated
+        )
+
+        outcome_modes <- BuildOutcomeModes(outcome_cfg, "nevertreated", outdir_ds, NORM_OPTIONS,
                                            build_dir = FALSE)
         
         coeffs_all <- list()
@@ -95,8 +83,8 @@ main <- function() {
             legend_labels = c("High", "Low"),
             legend_title = paste0("by Causal Forest ATT for ", split_var),
             control_group = control_group,
-            data = paste0("df_panel_",control_group),
-            folder = file.path(outdir_dataset, rolling_panel, "splits")  # put split outputs under outdir_dataset
+            data = control_group,
+            folder = file.path(outdir_ds, rolling_panel, "splits")  # put split outputs under outdir_ds
           )
           
           # read causal forest outputs (repo-level)
@@ -164,32 +152,7 @@ main <- function() {
       } 
     }  
   }  
-  #######################################
-  # FINAL: create a single aggregated PDF with ALL histograms collected across the run
-  #######################################
-  hist_files_global <- unique(hist_files_global)
-  hist_files_global <- hist_files_global[file.exists(hist_files_global)]
-  message("Total histogram PNGs collected: ", length(hist_files_global))
-  
-  if (length(hist_files_global) > 0) {
-    # create single PDF with 4 images per page (2x2)
-    out_pdf_all <- file.path(OUTDIR, "all_histograms_all_runs.pdf")
-    pdf(out_pdf_all, width = 11, height = 8.5)
-    n_per_page <- 4
-    chunks <- split(hist_files_global, ceiling(seq_along(hist_files_global)/n_per_page))
-    for (chunk in chunks) {
-      imgs <- lapply(chunk, function(f) grid::rasterGrob(readPNG(f), interpolate = TRUE))
-      # pad with blank grobs if chunk < n_per_page so layout is stable
-      if (length(imgs) < n_per_page) {
-        for (i in seq_len(n_per_page - length(imgs))) imgs <- c(imgs, list(textGrob("")))
-      }
-      do.call(grid.arrange, c(imgs, ncol = 2))
-    }
-    dev.off()
-    message("Wrote final aggregated histograms PDF: ", out_pdf_all)
-  } else {
-    message("No histogram PNGs collected during run; no final PDF created.")
-  }
+  AggregatePngsToPdf(hist_files_global, file.path(OUTDIR, "all_histograms_all_runs.pdf"))
 }
 
-main()
+Main()

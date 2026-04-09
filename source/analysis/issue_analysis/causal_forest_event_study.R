@@ -13,7 +13,7 @@ library(binsreg)
 library(RColorBrewer)
 
 source("source/lib/helpers.R")
-source("source/analysis/causal_forest_helpers.R")
+source("source/analysis/forest/helpers.R")
 
 #######################################
 # 2. Global Settings
@@ -21,9 +21,9 @@ source("source/analysis/causal_forest_helpers.R")
 SEED <- 420
 set.seed(SEED)
 
-INDIR       <- "drive/output/derived/org_characteristics/org_panel"
+INDIR       <- "drive/output/derived/org_outcomes_practices/org_panel"
 OUTDIR      <- "output/analysis/causal_forest_event_study"
-INDIR_YAML  <- "source/derived/org_characteristics"
+INDIR_YAML  <- "source/analysis/config"
 
 dir_create(OUTDIR)
 
@@ -338,15 +338,14 @@ RunForestEventStudy <- function(outcome, df_panel_common, org_practice_modes,
 #######################################
 # 5. Main Entry Point
 #######################################
-outcome_cfg <- yaml.load_file(file.path(INDIR_YAML, "outcome_organization.yaml"))
-org_practice_cfg <- yaml.load_file(file.path(INDIR_YAML, "covariate_organization.yaml"))
+outcome_cfg <- yaml.load_file(file.path(INDIR_YAML, "outcomes.yaml"))
+org_practice_cfg <- yaml.load_file(file.path(INDIR_YAML, "covariates.yaml"))
 
 # Define which outcomes to run
 OUTCOME_LIST <- c("pull_request_opened", "pull_request_merged",
                   "major_minor_release_count", "overall_new_release_count")
 
-# Loop over both important_topk and important_thresh
-for (variant in c("important_thresh")) {
+for (variant in c("important_degree_z2")) {
   outdir_outcome_ds <- file.path(OUTDIR_DS, variant)
   
   df_panel <- read_parquet(file.path(INDIR, variant, "panel.parquet"))

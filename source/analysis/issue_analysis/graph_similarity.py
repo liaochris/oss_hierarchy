@@ -1,32 +1,16 @@
 from joblib import Parallel, delayed
 import networkx as nx
 import numpy as np
-#from grakel import Graph
-#from grakel.kernels import WeisfeilerLehman, VertexHistogram
 from scipy.stats import entropy, wasserstein_distance, ks_2samp
 import math
 import argparse
+import pyarrow as pa
+import pyarrow.parquet as pq
 from source.derived.graph_structure.calculate_degree import CleanNodes
 import os
 import itertools
 import pandas as pd
 from pathlib import Path
-
-def ConvertNxToGrakel(graph, use_node_labels=False):
-    if use_node_labels:
-        node_labels = {n: str(graph.degree[n]) for n in graph.nodes()}
-    else:
-        node_labels = {n: None for n in graph.nodes()}
-    edges = [(u, v) for u, v in graph.edges()]
-    return Graph(node_labels, edges)
-
-def WeisfeilerLehmanSimilarity(graph1, graph2, n_iter=3):
-    g1 = ConvertNxToGrakel(graph1, use_node_labels=True)
-    g2 = ConvertNxToGrakel(graph2, use_node_labels=True)
-    wl_kernel = WeisfeilerLehman(n_iter=n_iter, base_kernel=VertexHistogram)
-    K = wl_kernel.fit_transform([g1, g2])
-    # Normalize kernel to [0,1]
-    return K[0, 1] / np.sqrt(K[0, 0] * K[1, 1])
 
 def HistogramSimilarity(graph1, graph2, bins=20, range=None):
     w1 = [d.get("weight", 1.0) for _, _, d in graph1.edges(data=True)]

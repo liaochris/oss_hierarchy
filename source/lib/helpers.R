@@ -18,28 +18,28 @@ NormalizeOutcome <- function(df, outcome) {
 }
 
 BuildOrgPracticeModes <- function(org_practice_cfg, control_group, outdir_dataset, build_dir) {
+  # YAML structure: category -> subcategory -> list(main = [...], other = [...])
+  # Folder path:    outdir_dataset / control_group / category / subcategory / outcome
   modes <- list()
-  for (org_practice in names(org_practice_cfg)) {
-    for (main_cat in names(org_practice_cfg[[org_practice]])) {
-      for (sub_cat in names(org_practice_cfg[[org_practice]][[main_cat]])) {
-        mains <- org_practice_cfg[[org_practice]][[main_cat]][[sub_cat]]$main
-        for (outcome in mains) {
-          folder <- file.path(outdir_dataset, control_group, org_practice, main_cat, sub_cat, outcome)
-          if (build_dir) {
-            dir_create(folder)
-          }
-          modes <- append(modes, list(
-            list(
-              continuous_covariate   = outcome,
-              filters                = list(list(col = paste0(outcome, "_2bin"), vals = c(1, 0))),
-              legend_labels          = c("High", "Low"),
-              legend_title           = outcome,
-              control_group          = control_group,
-              data                   = paste0("df_panel_", control_group),
-              folder                 = folder
-            )
-          ))
+  for (category in names(org_practice_cfg)) {
+    for (sub_cat in names(org_practice_cfg[[category]])) {
+      mains <- org_practice_cfg[[category]][[sub_cat]]$main
+      for (outcome in mains) {
+        folder <- file.path(outdir_dataset, control_group, category, sub_cat, outcome)
+        if (build_dir) {
+          dir_create(folder)
         }
+        modes <- append(modes, list(
+          list(
+            continuous_covariate   = outcome,
+            filters                = list(list(col = paste0(outcome, "_2bin"), vals = c(1, 0))),
+            legend_labels          = c("High", "Low"),
+            legend_title           = outcome,
+            control_group          = control_group,
+            data                   = control_group,
+            folder                 = folder
+          )
+        ))
       }
     }
   }
@@ -59,11 +59,11 @@ BuildCommonSample <- function(df, outcomes, max_time = 5) {
     ungroup()
 }
 
-KeepSustainedImportant <- function(df_panel_common, lb = 1, ub = Inf) {
-  repos_with_important <- df_panel_common %>% 
+KeepSustainedImportant <- function(panel, lb = 1, ub = Inf) {
+  repos_with_important <- panel %>%
     filter(time_index - quasi_treatment_group == 0 & num_important_qualified >= lb & num_important_qualified <= ub) %>%
     pull(repo_name)
-  df_panel_common %>% filter(repo_name %in% repos_with_important)
+  panel %>% filter(repo_name %in% repos_with_important)
 }
 
 BuildOutcomeModes <- function(outcome_cfg, control_group, outdir_dataset, norm_options, build_dir = TRUE) {
@@ -72,7 +72,7 @@ BuildOutcomeModes <- function(outcome_cfg, control_group, outdir_dataset, norm_o
     category  = cat,
     normalize = norm,
     control_group = control_group,
-    data      = paste0("df_panel_", control_group),
+    data      = control_group,
     file      = file.path(outdir_dataset, control_group, cat,
                           paste0(out, if (norm) "_norm", ".png"))
   )
