@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 import glob
@@ -12,7 +13,7 @@ import warnings
 from source.scrape.link_issue_pull_request.code.fetch_helpers import FetchGitHubPage
 from source.lib.helpers import MakeRepoNameSafe
 
-PROXY_NUM = 3
+PROXY_NUM = 1
 
 
 def ReadPRParquet(path):
@@ -28,13 +29,40 @@ def _FetchPullPage(session, repo, pr_number):
     url = f"https://github.com/{repo}/pull/{pr_number}"
     return FetchGitHubPage(session, url, PROXY_NUM)
 
+def _ExtractIssueLinks(content):
+    soup = BeautifulSoup(content, features="html.parser")
+    p = soup.find("p", string=lambda t: t and "Successfully merging this pull request may close these issues." in t)
+    span = p.find_next_sibling("span") if p else None
+    return [a["href"] for a in span.find_all("a", {"data-hovercard-type": "issue"})] if span else []
+
+def _ExtractGitHubLinks(content):
+    product_links = SoupStrainer('a')
+    soup = BeautifulSoup(content, parse_only=product_links, features="html.parser")
+    links = [a.get('href') for a in soup.find_all("a") if a.get('href')]
+    links = list(set(links))
+    url_pattern = re.compile(r'^https://github\.com/([^/]+)/([^/]+)/(issues|pull)/([^/]+)$')
+    pattern = re.compile(r'^/(.*)/(issues|pull)/(\d+)$')
+    return [g for g in links if pattern.match(g) or url_pattern.match(g)]
+
+def _ExtractPRTitle(content):
+    soup = BeautifulSoup(content, "html.parser")
+    title_span = soup.find(class_="markdown-title")
+    if title_span:
+        return title_span.get_text(strip=True)
+    header = soup.find("h1", class_=re.compile(r"prc-PageHeader-Title"))
+    if header:
+        return re.sub(r'#\d+$', '', header.get_text(strip=True)).strip()
+    return "missing"
+
+def _ExtractPRText(content):
+    product_text = SoupStrainer('div')
+    soup = BeautifulSoup(content, parse_only=product_text, features="html.parser")
+    text_nodes = soup.find_all("div", attrs={"class": 'comment-body'})
+    return text_nodes[0].text if len(text_nodes) > 0 else 'missing'
+
 def GrabPullRequestData(repo_name, pr_number):
     try:
-        product_links = SoupStrainer('a')
-        product_title = SoupStrainer('bdi')
-        product_text = SoupStrainer('div')
         sesh = requests.Session()
-
         resp, is_not_found, is_rate_limited = _FetchPullPage(sesh, repo_name, pr_number)
         if is_not_found:
             return [[], [], 'missing', 'missing']
@@ -43,38 +71,23 @@ def GrabPullRequestData(repo_name, pr_number):
             time.sleep(120)
             resp, is_not_found, is_rate_limited = _FetchPullPage(sesh, repo_name, pr_number)
 
-        soup_all = BeautifulSoup(resp.content, features="html.parser")
-        p = soup_all.find("p", string=lambda t: t and "Successfully merging this pull request may close these issues." in t)
-        span = p.find_next_sibling("span") if p else None
-        issue_links = [a["href"] for a in span.find_all("a", {"data-hovercard-type": "issue"})] if span else []
-
-        soup_links = BeautifulSoup(resp.content, parse_only=product_links, features="html.parser")
-        links = [a.get('href') for a in soup_links.find_all("a") if a.get('href')]
-        links = list(set(links))
-        url_pattern = re.compile(r'^https://github\.com/([^/]+)/([^/]+)/(issues|pull)/([^/]+)$')
-        pattern = re.compile(r'^/(.*)/(issues|pull)/(\d+)$')
-        github_links = [g for g in links if pattern.match(g) or url_pattern.match(g)]
-
-        soup_title = BeautifulSoup(resp.content, parse_only=product_title, features="html.parser")
-        title_nodes = soup_title.find_all("bdi", attrs={"class": 'js-issue-title'})
-        title = title_nodes[0].text if len(title_nodes) > 0 else 'missing'
-
-        soup_text = BeautifulSoup(resp.content, parse_only=product_text, features="html.parser")
-        text_nodes = soup_text.find_all("div", attrs={"class": 'comment-body'})
-        text = text_nodes[0].text if len(text_nodes) > 0 else 'missing'
+        issue_links = _ExtractIssueLinks(resp.content)
+        github_links = _ExtractGitHubLinks(resp.content)
+        title = _ExtractPRTitle(resp.content)
+        text = _ExtractPRText(resp.content)
 
         return [issue_links, github_links, title, text]
     except Exception as e:
         return str(e)
 
 def Main():
-    pandarallel.initialize(progress_bar=True)
+    pandarallel.initialize(progress_bar=True, nb_workers=5)
     warnings.filterwarnings("ignore")
 
     INDIR = Path('drive/output/scrape/extract_github_data/repo_level_data/pr')
     OUTDIR = Path('drive/output/scrape/link_issue_pull_request/linked_pull_request_to_issue')
     OUTDIR.mkdir(parents=True, exist_ok=True)
-
+    
     parquet_files = glob.glob(str(INDIR / '*.parquet'))
     np.random.shuffle(parquet_files)
 
@@ -99,13 +112,14 @@ def Main():
             ),
             axis=1
         )
-        df_pr['linked_issue'] = df_pr.parallel_apply(
-            lambda x: GrabPullRequestData(
-                x['repo_name'],
-                int(x['pr_number'])
-            ) if isinstance(x['linked_issue'], str) else x['linked_issue'],
-            axis=1
-        )
+        for retry in range(10):
+            df_pr['linked_issue'] = df_pr.parallel_apply(
+                lambda x: GrabPullRequestData(
+                    x['repo_name'],
+                    int(x['pr_number'])
+                ) if isinstance(x['linked_issue'], str) else x['linked_issue'],
+                axis=1
+            )
 
         df_pr['issue_link'] = df_pr['linked_issue'].apply(lambda x: x[0] if isinstance(x, list) else x)
         df_pr['other_links'] = df_pr['linked_issue'].apply(lambda x: x[1] if isinstance(x, list) else x)
