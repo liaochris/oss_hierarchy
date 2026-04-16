@@ -1,0 +1,149 @@
+\documentclass{beamer}
+\setbeameroption{hide notes}
+\usepackage{graphicx}
+\usepackage[abspath]{currfile}
+\usepackage{ifthen, pdftexcmds}
+
+\newcommand*{\dir}{.}
+
+\makeatletter
+\ifnum\pdf@strcmp{\currfilepath}{slides.tex}=0
+	\renewcommand*{\dir}{./../..}
+\fi
+\makeatother
+
+\AtBeginSection[]{
+\begin{frame}
+	\begin{beamercolorbox}[center]{title}
+	\usebeamerfont{title}\insertsectionhead
+	\end{beamercolorbox}
+\end{frame}
+}
+
+\title{Presentation title}
+\author{Author}
+\institute{Affiliation}
+\date{\today}
+
+\begin{document}
+
+\frame{\titlepage}
+
+% Analyses to do
+% 1. How to depict "best x practices" and how to show robustness to folds?
+    % Here's one idea: for best, show best 2- and 3-practice combinations (still don't konw how to reconcile with the fact that policy trees don't work well)
+    % Robustness: 32 block grid, ordered from highest to lowest ATT for general, then for each separate tree, use the same color grid and see whether colors typically align or not. Can also report average pairwise correlation. 
+% 2. How to have robustness to my abrupt departure assumption
+% 3. Rambachan Roth adjustment
+% 4. Compare to benchmark of "perfect prediction" group
+% 6. Still don't understand - why does policy tree fail??? is it related to too much variation in "best x practices" across trees?
+% What are the other interesting aspects of heterogeneity (length of time served, )
+
+% Notes on formatting slides
+% When the slide has multiple bullets each with their own subbullets, you should hide the subbullets when I transition
+% Also for the first bullet, you should highlight it when i first arrive on the slide, and things should be not highlighted until i transition to them
+% also when i say highlighted i eman like darker vs. lighter not actual highlight
+
+% Title: Organizational Resilience: Evidence from Open Source Software
+% INTRODUCTION
+    % 1-2 Slides, with Header: Motivation
+        % Just note the ideas down for now (anecdotes, facts, policy questions) - this slide is not finalized, make it clear it's not finalized
+        % Idea 1: Use paper motivaiton - cite myriad of interest by consulting and academics
+        % Idea 2: Say every organization faces disruptions (large ones like COVID to more local ones like departure of key members) - and wants to be able to withstand those
+    % 1 slide, with Header: Question
+        % Main bullet: What organizational practices predict increased organizational resilience?
+        % Two subbullets underneath to illustrate that the question has two components
+        % 1) Can we systematically predict, using organizational practices, which organizations are more resilient? 
+        % 2) Can we learn about which practices predict increased resilience? 
+    % 1 slide: Literature
+        % Economics: Resilience of invention teams (Jaravel), Academic teams (Waldinger) - I'm sure there are some others from the paper to deaths - please add them and cite them using just the author title thing. 
+        % Management: Large body of work (mostly case studies, surveys) examining what practices lead to organizational resilience. A few larger-scale empirical studies, don't look at practices, focus on firm-level aggregates like financial resources. please add them and cite them using just the author title thing. 
+        % Economics: The relationships between practices, or organizational structure and organizational performance (Bloom paper, older papers on complementarities, some of the other papers cited in ppt) please add them and cite them using just the author title thing. 
+    % 1 slide, with Header: This Paper
+        % Measuring resilience requires two aspects: a shock and an outcome
+        % Two subbullets: 
+        % 1) Shock: study resilience to the departures of key members in an organization
+        % 2) Outcome: Organizational ability to continue working on its primary task post-departure
+        % Empirical setting
+        % Three subbullets
+        % 1) I focus on an important industry - Open Source Software (OSS) development. 
+        % 2) Industry is unique in that detailed activity data are highly visible
+        % 3) I measure practices highlighted by the management literature + consulting firms as those that matter for organizational resilience
+    % 1 slide, with Header: Findings 
+        % 1. No single practicw where higher adoption predicts increased resilience
+        % 2. Combinations of practices do predict increased resilience
+        % TO INSERT: Which combinations? 
+% DATA
+% 1 slide, with Header: Institutional Background
+    % Here, I will include key facts about OSS... what is important for people to know
+    % Heterogeneity in organizations - small places with one leader to embedded with large organizations part of companies or non-profits, remote-only to having in-person component like irl organizations
+    % Broadly aligned on the same goal: maintain existing software, develop new features to improve it
+    % Think about something else that's valuable for people to know about OSS as organizations, based off my paper in source/paper/main.tex. Maybe that each organization's work is centered around its codebase? 
+% 1 slide, with Header: Sample
+    % Population: All major python libraries (major has footnote with definitino based on source/lib/globals.json)
+    % Timeframe: Activity from 2015-2025 although I aggregate all activity into 6-month periods
+    % Unit: One OSS org
+% Measurements
+    % Outcomes: Focus on outcomes related to software-development. 
+    % Two subbullets: In most organizations, to make a change, to the codebase, you open a pull request. 
+    % If the changes are to be incorporated, the pull request is merged into the codebase. Many merged pulls are bundled into new releases. 
+    % Include graphic from paper about pulls -> releases?
+    % Organizational Practices: 
+    % Two subbullets: 
+    % List each of the 5 categories. Include those really neat buttons at the buttom people have to link to tables describing each practice and PCA loading
+    % Use 1st PC to aggregate practices into a single score. 
+% Important members
+    % I model the network of interactions between members as an indirected graph
+    % I use graph centrality measures (be specific about the measure) to define the 3 most important members in ech period. 
+    % A departure is important if a member, in at least 3 consecutive periods, was in the top 3 and then left immediately (no further activity observed)
+% Filtering - only one departure, activity 5 periods before and after departure 
+
+% MODEL
+% Benchmark model for estimating resilience
+    % Key parameter that identifies resilience under THIS assumption
+    % Explain why abrupt departure are plausibly exogenous 
+% Show estimate of resilience for one outcome
+% Appendix links: all other outcomes... 
+
+% Estimate model separately for above/below-median values of practices
+    % Explain what key identifying parameter here is
+% Explain flaws of this (no combinations)
+
+% New model we're estimating - with the f_t(x)
+    % For prediction, what do we care about (\tau hat)
+    % For interpretability, what do we care about (how x affects \tau hat)
+% WOULD LIKE TO ESTIMATE THE BENCHMARK SO I KNOW HOW WELL MY PREDICTION IS DOING.... 
+
+% INTERPRETING THE MODEL
+% What I would ideally like to have (a lot of it isn't done yet)
+% best 2, 3-practice combos - plus robustness to doing this on all combinations of 9 folds
+% Is there a way to show that the policy tree isn't an effective way of summarizing this and how can I reconcile that??? I need to think more about the reason... 
+
+
+\section{Section}
+
+\begin{frame}
+\frametitle{Research question}
+\begin{itemize}
+	\item Point One 
+	\note{Notes on Main point}
+	\begin{itemize}
+		\item Sub Point
+		\item Sub Point  
+		\note{Notes on subpoint}
+	\end{itemize}
+ 	\item Point Two
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Results}
+\begin{centering}
+\medskip{}
+\par\end{centering}
+\begin{centering}
+%\includegraphics[width=0.7\linewidth]{\dir/output/analysis/plots/gdp_educ}\medskip{}
+\par\end{centering}
+\end{frame}
+
+\end{document}
