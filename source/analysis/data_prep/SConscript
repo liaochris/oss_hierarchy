@@ -1,0 +1,34 @@
+Import('*')
+
+from source.lib.helpers import LoadGlobals
+
+_cfg = LoadGlobals("../../../source/lib/pipeline_config.json")
+IMPORTANCE_TYPES     = _cfg["importance_types"]["run"]
+ROLLING_PERIODS      = [f"rolling{p}" for p in _cfg["rolling_periods"]["run"]]
+QUALIFIED_VARIANTS   = ["qualified_1", "qualified_2", "qualified_3", "qualified_any"]
+OUTPUT_FILES         = [
+    "panel_pc.parquet", "panel_pc.log",
+    "panel_pc_median.parquet", "panel_pc_median.log",
+    "pc1_metadata.csv", "pc1_metadata.log",
+    "pc1_excluded_vars.csv", "pc1_excluded_vars.log",
+]
+
+sources = [
+    '#source/analysis/data_prep/prepare_panel.py',
+    '#source/lib/pipeline_config.json',
+    '#source/analysis/config/pc_groups.json',
+]
+for importance_type in IMPORTANCE_TYPES:
+    for rolling_period in ROLLING_PERIODS:
+        sources.append(
+            f'#drive/output/derived/org_outcomes_practices/org_panel/{importance_type}/{rolling_period}/panel.parquet'
+        )
+
+targets = []
+for importance_type in IMPORTANCE_TYPES:
+    for rolling_period in ROLLING_PERIODS:
+        for variant in QUALIFIED_VARIANTS:
+            base = f'#output/analysis/data_prep/{importance_type}/{rolling_period}/{variant}'
+            targets.extend(f'{base}/{f}' for f in OUTPUT_FILES)
+
+env.Python(targets, sources)

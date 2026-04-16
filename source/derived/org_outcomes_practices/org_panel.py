@@ -8,8 +8,11 @@ from source.lib.JMSLab.SaveData import SaveData
 
 _globals = LoadGlobals("source/lib/globals.json")
 TIME_PERIOD     = _globals["time_period_months"]
-ROLLING_PERIODS = _globals["rolling_periods"]
 N_JOBS          = _globals["n_jobs"]
+
+_pipeline = LoadGlobals("source/lib/pipeline_config.json")
+IMPORTANCE_TYPES = _pipeline["importance_types"]["run"] + _pipeline["importance_types"]["extended"]
+ROLLING_PERIODS  = [f"rolling{p}" for p in _pipeline["rolling_periods"]["run"] + _pipeline["rolling_periods"]["extended"]]
 
 INDIR           = Path("drive/output/derived/action_data/repo_actions")
 INDIR_IMPORTANT = Path("output/derived/graph_structure/important_members")
@@ -51,35 +54,35 @@ DATASETS = {
 
 
 def Main():
-    rolling = f"rolling{ROLLING_PERIODS}"
     repo_files = [f.stem for f in INDIR.glob("*.parquet") if not f.stem.startswith("._")]
     random.shuffle(repo_files)
 
-    for importance_type in ["important_degree_top3", "important_degree_z2"]:
-        (OUTDIR / importance_type).mkdir(parents=True, exist_ok=True)
-        results = Parallel(n_jobs=N_JOBS)(
-            delayed(ProcessRepo)(repo, importance_type, rolling) for repo in repo_files
-        )
+    for importance_type in IMPORTANCE_TYPES:
+        for rolling in ROLLING_PERIODS:
+            (OUTDIR / importance_type / rolling).mkdir(parents=True, exist_ok=True)
+            results = Parallel(n_jobs=N_JOBS)(
+                delayed(ProcessRepo)(repo, importance_type, rolling) for repo in repo_files
+            )
 
-        valid = [(d, c) for d, c in results if d is not None]
-        if not valid:
-            print(f"No data for importance_type={importance_type}")
-            continue
+            valid = [(d, c) for d, c in results if d is not None]
+            if not valid:
+                print(f"No data for importance_type={importance_type}, rolling={rolling}")
+                continue
 
-        df_list, col_dicts = zip(*valid)
-        columns_dict = _BuildColumnsDict(col_dicts)
+            df_list, col_dicts = zip(*valid)
+            columns_dict = _BuildColumnsDict(col_dicts)
 
-        df_all = pd.concat(
-            [df.loc[:, ~df.columns.duplicated()] for df in df_list], axis=0
-        )
-        df_all = df_all[df_all["repo_name"].notna()]
-        df_all = _ProcessRepoFrame(df_all, columns_dict)
-        df_all = _AssignQuasiTreatment(df_all, SEED)
-        LOG_OUTDIR.mkdir(parents=True, exist_ok=True)
-        for col in ["important_actors", "important_qualified_actors", "dropouts_actors"]:
-            if col in df_all.columns:
-                df_all[col] = df_all[col].apply(JsonSerialize)
-        SaveData(df_all, ["repo_name", "time_period"], OUTDIR / importance_type / f"panel_{rolling}.parquet", LOG_OUTDIR / f"org_panel_{importance_type}.log")
+            df_all = pd.concat(
+                [df.loc[:, ~df.columns.duplicated()] for df in df_list], axis=0
+            )
+            df_all = df_all[df_all["repo_name"].notna()]
+            df_all = _ProcessRepoFrame(df_all, columns_dict)
+            df_all = _AssignQuasiTreatment(df_all, SEED)
+            LOG_OUTDIR.mkdir(parents=True, exist_ok=True)
+            for col in ["important_actors", "important_qualified_actors", "dropouts_actors"]:
+                if col in df_all.columns:
+                    df_all[col] = df_all[col].apply(JsonSerialize)
+            SaveData(df_all, ["repo_name", "time_period"], OUTDIR / importance_type / rolling / "panel.parquet", LOG_OUTDIR / f"org_panel_{importance_type}_{rolling}.log")
 
 
 def ProcessRepo(repo_name, importance_type, rolling):

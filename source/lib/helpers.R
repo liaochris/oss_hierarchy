@@ -18,12 +18,10 @@ NormalizeOutcome <- function(df, outcome) {
 }
 
 BuildOrgPracticeModes <- function(org_practice_cfg, control_group, outdir_dataset, build_dir) {
-  # YAML structure: category -> subcategory -> list(main = [...], other = [...])
-  # Folder path:    outdir_dataset / control_group / category / subcategory / outcome
   modes <- list()
   for (category in names(org_practice_cfg)) {
     for (sub_cat in names(org_practice_cfg[[category]])) {
-      mains <- org_practice_cfg[[category]][[sub_cat]]$main
+      mains <- org_practice_cfg[[category]][[sub_cat]]$run
       for (outcome in mains) {
         folder <- file.path(outdir_dataset, control_group, category, sub_cat, outcome)
         if (build_dir) {
@@ -78,7 +76,7 @@ BuildOutcomeModes <- function(outcome_cfg, control_group, outdir_dataset, norm_o
   )
   
   modes <- lapply(names(outcome_cfg), function(cat) {
-    outcomes <- outcome_cfg[[cat]]$main
+    outcomes <- outcome_cfg[[cat]]$run
     control_groups <- c(control_group)
     do.call(c, lapply(control_groups, function(control_group) {
       if (build_dir) {
