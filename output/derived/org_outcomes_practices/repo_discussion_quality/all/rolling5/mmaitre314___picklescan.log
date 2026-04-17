@@ -1,23 +1,33 @@
 File: drive/output/derived/org_outcomes_practices/repo_discussion_quality/all/rolling5/mmaitre314___picklescan.parquet
 
-MD5 hash: 87a6249b8bcdb8869f7f89f93169e2c8
+MD5 hash: 3672050bdfaaa5c2d530f06d4d4d6331
 
 Keys: time_period 
 
                                                                 type  count                 mean                  min                  25%                  50%                  75%                  max       std
 time_period                                           datetime64[ns]      6  2023-10-01 08:00:00  2022-07-01 00:00:00  2023-02-15 06:00:00  2023-10-01 00:00:00  2024-05-16 12:00:00  2025-01-01 00:00:00          
-response_rate                                                float64      6             0.333052             0.166667             0.338235             0.361656             0.373843                  0.4  0.084515
-mean_days_to_respond                                         float64      6             6.196465             0.132407             4.996593             5.849488             6.689056            13.666201  4.367138
-pos_sentiment_avg                                            float64      6             0.122721             0.093697             0.110118             0.124834             0.136209             0.147745    0.0202
-neg_sentiment_avg                                            float64      6             0.020119             0.003489             0.006268             0.014955             0.019767             0.062575  0.021902
-ov_sentiment_avg                                             float64      6              0.09704             0.061698             0.093548             0.097853             0.109346             0.119544   0.02011
+response_rate                                                float64      6             0.519219             0.416667             0.491133             0.548055             0.560885             0.565217  0.060637
+mean_days_to_respond                                         float64      6              6.11153             2.154711             4.042293             5.359083             6.495037            13.319253  3.875218
+pos_sentiment_avg                                            float64      6             0.130071             0.102644             0.114698             0.135986             0.145589             0.149415  0.020086
+neg_sentiment_avg                                            float64      6             0.024026             0.012247             0.014841             0.021428             0.026214               0.0486  0.013334
+ov_sentiment_avg                                             float64      6             0.124302             0.110454             0.117186             0.118123             0.128063              0.15086  0.014687
+response_rate_issue_comment                                  float64      6             0.601792                  0.5             0.528846             0.620192              0.65625             0.703704  0.084901
+response_rate_issue_opened                                   float64      6                  1.0                  1.0                  1.0                  1.0                  1.0                  1.0       0.0
 response_rate_pull_request_comment                           float64      6                0.425                  0.0                 0.15                  0.6                  0.6                 0.75   0.33429
 response_rate_pull_request_opened                            float64      6             0.270767             0.083333             0.205556             0.253968             0.321429                  0.5  0.140842
 response_rate_pull_request_review_comment                    float64      6             0.335185                  0.0                0.375               0.3875               0.4125             0.444444  0.166311
+mean_days_to_respond_issue_comment                           float64      6             3.400966             1.138342             2.459281             3.427077             4.752651             5.082106  1.570194
+mean_days_to_respond_issue_opened                            float64      6             9.554925             0.238466             8.622181             9.558657            10.876411            18.348086  5.804743
 mean_days_to_respond_pull_request_opened                     float64      6             0.078709              0.00353             0.067969             0.067969             0.116298             0.132407  0.048508
-mean_days_to_respond_to_last_comment                         float64      6             9.940805             0.132407             8.171627             10.02042            12.891593            18.067569   6.02079
+mean_days_to_respond_to_last_comment                         float64      6            10.692009             3.432207             7.964084            10.064784            12.644237            19.822375  5.560482
 mean_days_to_respond_pull_request_review_comment             float64      5            13.654779             7.178804            11.021935            13.718226            18.177465            18.177465  4.737709
 mean_days_to_respond_pull_request_comment                    float64      4             0.098403             0.098403             0.098403             0.098403             0.098403             0.098403       0.0
+issue_comment_pos_sentiment_avg                              float64      6             0.161783             0.120604             0.135509             0.167979             0.185199             0.198513  0.032704
+issue_comment_neg_sentiment_avg                              float64      6             0.029738             0.025375             0.025545             0.027866             0.033431             0.037263  0.005152
+issue_comment_ov_sentiment_avg                               float64      6             0.172674             0.095463             0.115515             0.168473             0.235008             0.248585  0.068172
+issue_opened_pos_sentiment_avg                               float64      6             0.104846             0.048333             0.067535             0.123213             0.136395             0.144553  0.044399
+issue_opened_neg_sentiment_avg                               float64      6             0.035658             0.020876             0.033758             0.037698             0.040427             0.043891  0.008165
+issue_opened_ov_sentiment_avg                                float64      6             0.162318              0.10382             0.138932             0.154142             0.165089             0.259205  0.052409
 pull_request_comment_pos_sentiment_avg                       float64      6             0.158507                  0.0             0.057063              0.22825              0.22825             0.266292   0.12366
 pull_request_comment_neg_sentiment_avg                       float64      6             0.024167                  0.0               0.0087               0.0348               0.0348               0.0406  0.018854
 pull_request_comment_ov_sentiment_avg                        float64      6             0.040753                  0.0             0.014671             0.058684             0.058684             0.068465  0.031794
@@ -43,5 +53,5 @@ avg_pull_request_comment_exclude_opener_count                float64      6     
 avg_pull_request_review_exclude_opener_count                 float64      6             1.795309             1.454545                  1.5               1.5625             1.675481                  3.0  0.596897
 avg_pull_request_review_comment_exclude_opener_count         float64      6             1.291599                  0.8             0.832386             0.899038             1.730769             2.333333  0.687343
 avg_all_disc_exclude_opener_count                            float64      6             3.474864             2.636364             2.736538             2.923077                 3.75             5.666667  1.183557
-clustering_coefficient                                       float64      6                  0.0                  0.0                  0.0                  0.0                  0.0                  0.0       0.0
+clustering_coefficient                                       float64      6              0.02493                  0.0             0.006412             0.027157             0.036366             0.056332  0.022089
 

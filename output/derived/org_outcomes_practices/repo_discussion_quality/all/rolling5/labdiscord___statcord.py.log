@@ -1,21 +1,25 @@
 File: drive/output/derived/org_outcomes_practices/repo_discussion_quality/all/rolling5/labdiscord___statcord.py.parquet
 
-MD5 hash: 324d47b8b2fc43c10e2aa836aab491c2
+MD5 hash: 969785baa9139abaa49c51a8677ded8d
 
 Keys: time_period 
 
                                                                 type  count                 mean                  min                  25%                  50%                  75%                  max        std
 time_period                                           datetime64[ns]     10  2022-04-01 12:00:00  2020-01-01 00:00:00  2021-02-15 06:00:00  2022-04-01 12:00:00  2023-05-16 18:00:00  2024-07-01 00:00:00           
-response_rate                                                float64      6             0.290741             0.222222             0.229167                 0.25               0.2875                  0.5   0.106381
-mean_days_to_respond                                         float64      6            48.477089             0.004769            13.364523            53.443785            76.076758           100.344345  41.650403
-pos_sentiment_avg                                            float64      6             0.121683             0.098312             0.115774             0.119946             0.121788             0.155111   0.018549
-neg_sentiment_avg                                            float64      6              0.09322             0.082297             0.084892             0.086737             0.098409             0.116974   0.013623
-ov_sentiment_avg                                             float64      6             0.047989              0.02307             0.043042             0.052475             0.054091             0.065386   0.014619
+response_rate                                                float64      6             0.418535             0.347826              0.35087                 0.38                0.475             0.555556   0.088522
+mean_days_to_respond                                         float64      6            26.596236             0.004769             6.738324            26.761296            44.343453            55.781884  23.749766
+pos_sentiment_avg                                            float64      6             0.123671             0.102114             0.117208             0.122328             0.124066             0.155111   0.017437
+neg_sentiment_avg                                            float64      6             0.091893              0.08172             0.085625             0.087046             0.095746             0.111746   0.011265
+ov_sentiment_avg                                             float64      6             0.053096             0.033065             0.050718             0.056813             0.057563             0.065386   0.011129
 response_rate_pull_request_comment                           float64      6             0.166667                  0.0                  0.0                  0.0                0.375                  0.5   0.258199
 response_rate_pull_request_opened                            float64      6             0.405556                  0.2                  0.3                  0.3                0.325                  1.0   0.294706
+response_rate_issue_comment                                  float64      5                 0.75                 0.75                 0.75                 0.75                 0.75                 0.75        0.0
+response_rate_issue_opened                                   float64      5                  1.0                  1.0                  1.0                  1.0                  1.0                  1.0        0.0
 response_rate_pull_request_review_comment                    float64      4             0.166667             0.166667             0.166667             0.166667             0.166667             0.166667        0.0
 mean_days_to_respond_pull_request_opened                     float64      6            53.444091             0.004769            17.817876            71.257199            71.257199           106.883414  43.633024
-mean_days_to_respond_to_last_comment                         float64      6              45.8523             0.004769            13.364523            53.443785            67.431109            96.123144  38.820135
+mean_days_to_respond_to_last_comment                         float64      6            35.884076             0.004769            10.696856            42.757998            53.947857            72.096071   29.84984
+mean_days_to_respond_issue_comment                           float64      5             0.022215             0.022215             0.022215             0.022215             0.022215             0.022215        0.0
+mean_days_to_respond_issue_opened                            float64      5             0.248588             0.248588             0.248588             0.248588             0.248588             0.248588        0.0
 mean_days_to_respond_pull_request_review_comment             float64      4             0.003542             0.003542             0.003542             0.003542             0.003542             0.003542        0.0
 mean_days_to_respond_pull_request_comment                    float64      2           143.975677           143.975677           143.975677           143.975677           143.975677           143.975677        0.0
 pull_request_comment_pos_sentiment_avg                       float64      6             0.339205             0.174889             0.289507               0.3596             0.418025               0.4375   0.102463
@@ -24,6 +28,12 @@ pull_request_comment_ov_sentiment_avg                        float64      6     
 pull_request_opened_pos_sentiment_avg                        float64      6             0.063742             0.013917             0.053839             0.079523             0.079523             0.084692   0.028318
 pull_request_opened_neg_sentiment_avg                        float64      6             0.128686             0.114841             0.114841             0.122608             0.143719              0.14905   0.016566
 pull_request_opened_ov_sentiment_avg                         float64      6             -0.00304            -0.099571            -0.019648             0.023861             0.032447             0.032447   0.053347
+issue_comment_pos_sentiment_avg                              float64      5             0.156875             0.136413             0.136413             0.170517             0.170517             0.170517   0.018679
+issue_comment_neg_sentiment_avg                              float64      5             0.074106              0.06444              0.06444              0.08055              0.08055              0.08055   0.008824
+issue_comment_ov_sentiment_avg                               float64      5             0.129025             0.112196             0.112196             0.140245             0.140245             0.140245   0.015363
+issue_opened_pos_sentiment_avg                               float64      5               0.0362                  0.0                  0.0                  0.0               0.0905               0.0905   0.049569
+issue_opened_neg_sentiment_avg                               float64      5              0.12756               0.1131               0.1131               0.1372               0.1372               0.1372     0.0132
+issue_opened_ov_sentiment_avg                                float64      5            -0.078202             -0.15044             -0.15044             -0.15044             0.030155             0.030155   0.098916
 pull_request_review_approved_pos_sentiment_avg               float64      5             0.214642             0.148143             0.172833             0.172833               0.2074                0.372    0.09046
 pull_request_review_approved_neg_sentiment_avg               float64      5                  0.0                  0.0                  0.0                  0.0                  0.0                  0.0        0.0
 pull_request_review_approved_ov_sentiment_avg                float64      5             0.163158             0.125829               0.1468               0.1468              0.17616               0.2202   0.036577

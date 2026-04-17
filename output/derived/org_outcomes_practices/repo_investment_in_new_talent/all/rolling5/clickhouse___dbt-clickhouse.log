@@ -1,14 +1,16 @@
 File: drive/output/derived/org_outcomes_practices/repo_investment_in_new_talent/all/rolling5/clickhouse___dbt-clickhouse.parquet
 
-MD5 hash: 174dcb0e89f98e08b2b04ac5d8700041
+MD5 hash: 83f6fab0b7275b99fe2eca2131f6efeb
 
 Keys: time_period 
 
-                                             type  count                 mean                  min                  25%                  50%                  75%                  max       std
-time_period                        datetime64[ns]      9  2022-12-31 13:20:00  2021-01-01 00:00:00  2022-01-01 00:00:00  2023-01-01 00:00:00  2024-01-01 00:00:00  2025-01-01 00:00:00          
-has_contributing_guide                    float64      9             0.222222                  0.0                  0.0                  0.0                  0.0                  1.0  0.440959
-has_code_of_conduct                       float64      9                  0.0                  0.0                  0.0                  0.0                  0.0                  0.0       0.0
-pull_request_merged_rate_weighted         float64      8             0.010896                  0.0                  0.0             0.009463             0.016349             0.032258   0.01161
-pull_request_review_rate_weighted         float64      8             0.050967                  0.0             0.026805             0.041667             0.064116             0.142857  0.043279
-any_activity_rate_weighted                float64      8             0.016287                  0.0                  0.0             0.019844             0.025893             0.037037   0.01456
+                                             type  count unique                 mean                  min                  25%                  50%                  75%                  max       std
+time_period                        datetime64[ns]      9         2022-12-31 13:20:00  2021-01-01 00:00:00  2022-01-01 00:00:00  2023-01-01 00:00:00  2024-01-01 00:00:00  2025-01-01 00:00:00          
+has_good_first_issue                         bool      9      1                                                                                                                                        
+pct_good_first_issue                      float64      9                         0.0                  0.0                  0.0                  0.0                  0.0                  0.0       0.0
+has_contributing_guide                    float64      9                    0.222222                  0.0                  0.0                  0.0                  0.0                  1.0  0.440959
+has_code_of_conduct                       float64      9                         0.0                  0.0                  0.0                  0.0                  0.0                  0.0       0.0
+pull_request_merged_rate_weighted         float64      8                    0.003337                  0.0                  0.0             0.003243             0.004936             0.009434  0.003398
+pull_request_review_rate_weighted         float64      8                    0.018784                  0.0             0.013869             0.016621             0.021822             0.041667   0.01223
+any_activity_rate_weighted                float64      8                    0.008812                  0.0                  0.0             0.011172             0.013715             0.019608  0.007821
 
