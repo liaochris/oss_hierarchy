@@ -1,149 +1,826 @@
-\documentclass{beamer}
+\documentclass[aspectratio=169]{beamer}
 \setbeameroption{hide notes}
 \usepackage{graphicx}
 \usepackage[abspath]{currfile}
 \usepackage{ifthen, pdftexcmds}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{appendixnumberbeamer}
+\usepackage[authoryear]{natbib}
+\usepackage{bibentry}
 
 \newcommand*{\dir}{.}
 
 \makeatletter
 \ifnum\pdf@strcmp{\currfilepath}{slides.tex}=0
-	\renewcommand*{\dir}{./../..}
+  \renewcommand*{\dir}{./../..}
 \fi
 \makeatother
 
 \AtBeginSection[]{
 \begin{frame}
-	\begin{beamercolorbox}[center]{title}
-	\usebeamerfont{title}\insertsectionhead
-	\end{beamercolorbox}
+  \begin{beamercolorbox}[center]{title}
+    \usebeamerfont{title}\insertsectionhead
+  \end{beamercolorbox}
 \end{frame}
 }
 
-\title{Presentation title}
-\author{Author}
-\institute{Affiliation}
-\date{\today}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}{
+  \leavevmode%
+  \hbox{%
+    \begin{beamercolorbox}[wd=.72\paperwidth,ht=2.8ex,dp=1.2ex,leftskip=1em]{author in head/foot}%
+      \usebeamerfont{author in head/foot}\insertsectionhead
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.28\paperwidth,ht=2.8ex,dp=1.2ex,rightskip=1em,sep=0pt,right]{author in head/foot}%
+      \usebeamerfont{author in head/foot}\insertframenumber{} / \inserttotalframenumber
+    \end{beamercolorbox}%
+  }%
+}
+\setbeamercovered{invisible}
+\hypersetup{
+  colorlinks=true,
+  citecolor=blue,
+  linkcolor=blue,
+  urlcolor=blue
+}
+
+\definecolor{dimtext}{RGB}{120,120,120}
+\newcommand<>{\focus}[1]{\temporal#2{{\color{white}#1}}{{\color{black}#1}}{{\color{black}#1}}}
+\newcommand{\draftnote}{\vspace{0.4em}{\footnotesize\color{dimtext}Draft slide; examples and framing are still being refined.}}
+\newcommand{\linkbutton}[2]{\hyperlink{#2}{\beamergotobutton{#1}}}
+\newcommand{\backbutton}[1]{\hyperlink{#1}{\beamergotobutton{Back}}}
+\newcommand{\plotplaceholder}[2][0.92\linewidth]{%
+  \fbox{\parbox[c][0.52\textheight][c]{#1}{\centering\small #2}}
+}
+
+\title{Organizational resilience: Evidence from open source software}
+\author{Chris Liao}
+\institute{University of Chicago} %@LLM: Please replace this with my email, cliao@hbs.edu
+\date{}
 
 \begin{document}
 
 \frame{\titlepage}
+\bibliographystyle{\dir/source/paper/aea}
+\nobibliography{\dir/source/paper/references}
 
 % Analyses to do
 % 1. How to depict "best x practices" and how to show robustness to folds?
-    % Here's one idea: for best, show best 2- and 3-practice combinations (still don't konw how to reconcile with the fact that policy trees don't work well)
-    % Robustness: 32 block grid, ordered from highest to lowest ATT for general, then for each separate tree, use the same color grid and see whether colors typically align or not. Can also report average pairwise correlation. 
+%    Here's one idea: for best, show best 2- and 3-practice combinations
+%    (still don't know how to reconcile with the fact that policy trees don't work well)
+%    Robustness: 32 block grid, ordered from highest to lowest ATT for general,
+%    then for each separate tree, use the same color grid and see whether colors
+%    typically align or not. Can also report average pairwise correlation.
 % 2. How to have robustness to my abrupt departure assumption
 % 3. Rambachan Roth adjustment
 % 4. Compare to benchmark of "perfect prediction" group
-% 6. Still don't understand - why does policy tree fail??? is it related to too much variation in "best x practices" across trees?
+% 6. Still don't understand - why does policy tree fail???
+%    Is it related to too much variation in "best x practices" across trees?
 % What are the other interesting aspects of heterogeneity (length of time served, )
 
 % Notes on formatting slides
-% When the slide has multiple bullets each with their own subbullets, you should hide the subbullets when I transition
-% Also for the first bullet, you should highlight it when i first arrive on the slide, and things should be not highlighted until i transition to them
-% also when i say highlighted i eman like darker vs. lighter not actual highlight
-
-% Title: Organizational Resilience: Evidence from Open Source Software
-% INTRODUCTION
-    % 1-2 Slides, with Header: Motivation
-        % Just note the ideas down for now (anecdotes, facts, policy questions) - this slide is not finalized, make it clear it's not finalized
-        % Idea 1: Use paper motivaiton - cite myriad of interest by consulting and academics
-        % Idea 2: Say every organization faces disruptions (large ones like COVID to more local ones like departure of key members) - and wants to be able to withstand those
-    % 1 slide, with Header: Question
-        % Main bullet: What organizational practices predict increased organizational resilience?
-        % Two subbullets underneath to illustrate that the question has two components
-        % 1) Can we systematically predict, using organizational practices, which organizations are more resilient? 
-        % 2) Can we learn about which practices predict increased resilience? 
-    % 1 slide: Literature
-        % Economics: Resilience of invention teams (Jaravel), Academic teams (Waldinger) - I'm sure there are some others from the paper to deaths - please add them and cite them using just the author title thing. 
-        % Management: Large body of work (mostly case studies, surveys) examining what practices lead to organizational resilience. A few larger-scale empirical studies, don't look at practices, focus on firm-level aggregates like financial resources. please add them and cite them using just the author title thing. 
-        % Economics: The relationships between practices, or organizational structure and organizational performance (Bloom paper, older papers on complementarities, some of the other papers cited in ppt) please add them and cite them using just the author title thing. 
-    % 1 slide, with Header: This Paper
-        % Measuring resilience requires two aspects: a shock and an outcome
-        % Two subbullets: 
-        % 1) Shock: study resilience to the departures of key members in an organization
-        % 2) Outcome: Organizational ability to continue working on its primary task post-departure
-        % Empirical setting
-        % Three subbullets
-        % 1) I focus on an important industry - Open Source Software (OSS) development. 
-        % 2) Industry is unique in that detailed activity data are highly visible
-        % 3) I measure practices highlighted by the management literature + consulting firms as those that matter for organizational resilience
-    % 1 slide, with Header: Findings 
-        % 1. No single practicw where higher adoption predicts increased resilience
-        % 2. Combinations of practices do predict increased resilience
-        % TO INSERT: Which combinations? 
-% DATA
-% 1 slide, with Header: Institutional Background
-    % Here, I will include key facts about OSS... what is important for people to know
-    % Heterogeneity in organizations - small places with one leader to embedded with large organizations part of companies or non-profits, remote-only to having in-person component like irl organizations
-    % Broadly aligned on the same goal: maintain existing software, develop new features to improve it
-    % Think about something else that's valuable for people to know about OSS as organizations, based off my paper in source/paper/main.tex. Maybe that each organization's work is centered around its codebase? 
-% 1 slide, with Header: Sample
-    % Population: All major python libraries (major has footnote with definitino based on source/lib/globals.json)
-    % Timeframe: Activity from 2015-2025 although I aggregate all activity into 6-month periods
-    % Unit: One OSS org
-% Measurements
-    % Outcomes: Focus on outcomes related to software-development. 
-    % Two subbullets: In most organizations, to make a change, to the codebase, you open a pull request. 
-    % If the changes are to be incorporated, the pull request is merged into the codebase. Many merged pulls are bundled into new releases. 
-    % Include graphic from paper about pulls -> releases?
-    % Organizational Practices: 
-    % Two subbullets: 
-    % List each of the 5 categories. Include those really neat buttons at the buttom people have to link to tables describing each practice and PCA loading
-    % Use 1st PC to aggregate practices into a single score. 
-% Important members
-    % I model the network of interactions between members as an indirected graph
-    % I use graph centrality measures (be specific about the measure) to define the 3 most important members in ech period. 
-    % A departure is important if a member, in at least 3 consecutive periods, was in the top 3 and then left immediately (no further activity observed)
-% Filtering - only one departure, activity 5 periods before and after departure 
-
-% MODEL
-% Benchmark model for estimating resilience
-    % Key parameter that identifies resilience under THIS assumption
-    % Explain why abrupt departure are plausibly exogenous 
-% Show estimate of resilience for one outcome
-% Appendix links: all other outcomes... 
-
-% Estimate model separately for above/below-median values of practices
-    % Explain what key identifying parameter here is
-% Explain flaws of this (no combinations)
-
-% New model we're estimating - with the f_t(x)
-    % For prediction, what do we care about (\tau hat)
-    % For interpretability, what do we care about (how x affects \tau hat)
-% WOULD LIKE TO ESTIMATE THE BENCHMARK SO I KNOW HOW WELL MY PREDICTION IS DOING.... 
-
-% INTERPRETING THE MODEL
-% What I would ideally like to have (a lot of it isn't done yet)
-% best 2, 3-practice combos - plus robustness to doing this on all combinations of 9 folds
-% Is there a way to show that the policy tree isn't an effective way of summarizing this and how can I reconcile that??? I need to think more about the reason... 
+% When the slide has multiple bullets each with their own subbullets, hide the
+% subbullets when I transition.
+% Also for the first bullet, highlight it when I first arrive on the slide, and
+% things should not be highlighted until I transition to them.
+% Also when I say highlighted I mean darker vs. lighter, not actual highlight.
+% All slides should be sentence case.
 
 
-\section{Section}
-
-\begin{frame}
-\frametitle{Research question}
+\begin{frame}{Motivation}
+\small
 \begin{itemize}
-	\item Point One 
-	\note{Notes on Main point}
-	\begin{itemize}
-		\item Sub Point
-		\item Sub Point  
-		\note{Notes on subpoint}
-	\end{itemize}
- 	\item Point Two
+  \item<1-> \focus<1>{Organizational resilience matters.}
+  \item<2-> \focus<2>{Every organization faces disruptions, from macroeconomic shocks like COVID to local shocks like the loss of a key member.}
+  \item<3-> \focus<3>{Resilient organizations can weather disruptions and continue functioning.}
 \end{itemize}
 \end{frame}
 
-\begin{frame}
-\frametitle{Results}
-\begin{centering}
-\medskip{}
-\par\end{centering}
-\begin{centering}
-%\includegraphics[width=0.7\linewidth]{\dir/output/analysis/plots/gdp_educ}\medskip{}
-\par\end{centering}
+
+\begin{frame}{What predicts resilience?}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{There is no shortage of advice on resilience.}
+\end{itemize}
+\focus<2>{\includegraphics[width=.7\linewidth]{\dir/source/talk/graphics/organizational_resilience_google.png}}
 \end{frame}
 
+\begin{frame}{What predicts resilience? (continued)}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{But most evidence is qualitative or observational.}
+  \begin{itemize}
+    \item<2-> \focus<2>{Case studies and surveys suggest that talent investment, communication, redundancy, and routines matter \citep{annarelli_strategic_2016,hillmann_organizational_2021}.}
+    \item<3-> \focus<3>{Findings may not generalize if highlighted practices are driven by setting-specific unobservables.}
+  \end{itemize}
+  \item<4-> \focus<4>{Existing quantitative work studies broad organizational attributes, such as social and environmental practices or financial resources, not specific practices \citep{ortiz-de-mandojana_long-term_2016,desjardine_bouncing_2019,gittell_relationships_2006}.}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Research question}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{What organizational practices predict increased organizational resilience?}
+  \begin{itemize}
+    \item<2-> \focus<2>{Can organizational practices alone predict which organizations are more resilient?}
+    \item<3-> \focus<3>{Which practices predict increased resilience?}
+  \end{itemize}
+
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}{This paper}
+\small
+\begin{itemize} 
+  \item<1-> \focus<1>{Measuring resilience requires two pieces.}
+  \begin{itemize}
+    \item<2-> \focus<2>{Shock: the abrupt departure of a key member from an organization.}
+    \item<3-> \focus<3>{Outcome: the organization's ability to keep doing its primary task after the departure.}
+  \end{itemize}
+  \item<4-> \focus<4>{The empirical setting is \textbf{open source software}.}
+  \begin{itemize}
+  \end{itemize}
+  \item<5-> \focus<5>{I study five categories of organizational practices that the existing literature suggests matter.}
+  \begin{itemize}
+    \item<6-> \focus<6>{Collaboration, knowledge redundancy, discussion quality, investment in new talent, and problem-solving routines.}
+  \end{itemize}
+\end{itemize}
+
+\end{frame}
+
+% SLIDES todo: add numbers
+\begin{frame}{Main findings}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{Key member departures cause large disruptions to organizations.}
+  \item<2-> \focus<2>{No single category of practices systematically predicts increased resilience to departures.}
+  \item<3-> \focus<3>{Combinations of practices do predict increased resilience to departures.}
+\end{itemize}
+\end{frame}
+
+% Notes for presentation
+% 1. Touched on work in management - will focus on economics work
+
+\begin{frame}{Related literature}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{Economics studies the effects of plausibly exogenous departures, but rarely observes organizational practices directly.}
+  \begin{itemize}
+    \item<1> Examples include Jaravel, ``Team-Specific Capital and Innovation,'' Jager et al., ``How Substitutable Are Workers?,'' and Waldinger, ``Quality Matters.''
+    \item<1> Related work on stars and collaborators includes Azoulay et al., ``Superstar Extinction'' and Khanna, ``Aftermath of a Tragedy.''
+  \end{itemize}
+  \item<3-> \focus<3>{This paper also connects to the literature on practices and performance.}
+  \begin{itemize}
+    \item<3> Bloom et al., ``Does Management Matter?'' and ``Do Management Interventions Last?'' show that practices can matter for firm outcomes.
+    \item<3> My setting shifts attention from performance in normal times to resilience after a disruption.
+  \end{itemize}
+\end{itemize} 
+\end{frame}
+
+% I think here I want to have a roadmap slide here
+% 1. Data and institutional background
+% 2. 
+
+\iffalse
+
+% DATA
+% 1 slide, with Header: Institutional Background
+%    Here, I will include key facts about OSS... what is important for people to know
+%    Heterogeneity in organizations - small places with one leader to embedded with large organizations part of companies or non-profits, remote-only to having in-person component like irl organizations
+%    Broadly aligned on the same goal: maintain existing software, develop new features to improve it
+%    Think about something else that's valuable for people to know about OSS as organizations, based off my paper in source/paper/main.tex. Maybe that each organization's work is centered around its codebase?
+\section{Data}
+
+\begin{frame}{Open source software as an organizational setting}
+\begin{columns}[T,onlytextwidth]
+  \begin{column}{0.58\textwidth}
+  \small
+  \begin{itemize}
+    \item OSS organizations range from small volunteer projects to teams embedded inside firms or nonprofits.
+    \item They vary in size, hierarchy, and governance, but they are broadly aligned around the same task: maintain an existing codebase and ship improvements to users.
+    \item Much of that work is observable on GitHub through issues, pull requests, reviews, merges, and releases.
+    \item In that sense, the codebase is the organizational core around which coordination happens.
+  \end{itemize}
+  \end{column}
+  \begin{column}{0.38\textwidth}
+  \centering
+  \IfFileExists{\dir/temp/boto_2020_1.png}{
+    \includegraphics[width=\linewidth]{\dir/temp/boto_2020_1.png}
+  }{
+    \plotplaceholder[\linewidth]{Insert the social-network example for \texttt{boto/boto3}.}
+  }
+  \end{column}
+\end{columns}
+\note{
+The key background points from the original outline are heterogeneity in OSS
+organizations and the shared goal of maintaining and improving a codebase.
+The line about the codebase being the organizational core is the extra bridge
+to emphasize from the paper.
+}
+\end{frame}
+
+% DATA
+% 1 slide, with Header: Sample
+%    Population: All major python libraries (major has footnote with definition based on source/lib/globals.json)
+%    Timeframe: Activity from 2015-2025 although I aggregate all activity into 6-month periods
+%    Unit: One OSS org
+\begin{frame}{Sample}
+\small
+\begin{itemize}
+  \item Population: OSS organizations developing widely-used Python libraries.\footnote{In the current paper draft, ``widely used'' means at least 10{,}000 monthly pip downloads in some month between 2015 and 2024.}
+  \item Time frame: 2015--2024 activity aggregated into six-month periods.
+  \item Unit of observation: one OSS organization, defined as the GitHub project responsible for one or more Python libraries.
+  \item Final analysis sample: 681 organizations after applying the departure and observation-window filters.
+\end{itemize}
+\note{
+The original outline called this slide "Sample."
+If the exact "major python libraries" wording changes, keep the population,
+timeframe, and unit of observation explicit.
+}
+\end{frame}
+
+% DATA
+% Measurements
+%    Outcomes: Focus on outcomes related to software-development.
+%    Two subbullets: In most organizations, to make a change to the codebase, you open a pull request.
+%    If the changes are to be incorporated, the pull request is merged into the codebase. Many merged pulls are bundled into new releases.
+%    Include graphic from paper about pulls -> releases?
+%    Organizational Practices:
+%    Two subbullets:
+%    List each of the 5 categories. Include those really neat buttons at the bottom people have to link to tables describing each practice and PCA loading
+%    Use 1st PC to aggregate practices into a single score.
+\begin{frame}[label=main-measures]{Outcomes and practices}
+\small
+\begin{columns}[T,onlytextwidth]
+  \begin{column}{0.48\textwidth}
+  \textbf{Outcomes}
+  \begin{itemize}
+    \item I focus on outcomes tied directly to software development and software release.
+    \item A typical workflow is:
+  \end{itemize}
+  \begin{center}
+    \textit{Pull requests opened} $\rightarrow$ \textit{pull requests merged} $\rightarrow$ \textit{software releases}
+  \end{center}
+  \begin{itemize}
+    \item Pull requests capture proposed and completed code changes; releases capture what users ultimately receive.
+  \end{itemize}
+  \end{column}
+  \begin{column}{0.48\textwidth}
+  \textbf{Organizational practices}
+  \begin{itemize}
+    \item Five categories: collaboration, knowledge redundancy, discussion quality, investment in new talent, and problem-solving routines.
+    \item Each category is built from several underlying measures.
+    \item I standardize those measures and aggregate them with the first principal component, so higher scores correspond to greater adoption.
+  \end{itemize}
+  \end{column}
+\end{columns}
+
+\medskip
+\centering
+{\scriptsize
+\linkbutton{Collaboration}{app-collaboration}\hspace{0.2em}
+\linkbutton{Knowledge}{app-knowledge}\hspace{0.2em}
+\linkbutton{Discussion}{app-discussion}
+\par\smallskip
+\linkbutton{New talent}{app-new-talent}\hspace{0.2em}
+\linkbutton{Routines}{app-routines}
+}
+\note{
+This slide should do two jobs from the original outline:
+explain the pull request to merge to release workflow, and introduce the five
+practice families with appendix links.
+If you later add the paper graphic for this workflow, it belongs here.
+}
+\end{frame}
+
+% DATA
+% Important members
+%    I model the network of interactions between members as an indirected graph
+%    I use graph centrality measures (be specific about the measure) to define the 3 most important members in each period.
+%    A departure is important if a member, in at least 3 consecutive periods, was in the top 3 and then left immediately (no further activity observed)
+\begin{frame}{Identifying important members}
+\begin{columns}[T,onlytextwidth]
+  \begin{column}{0.58\textwidth}
+  \small
+  \begin{itemize}
+    \item For each six-month period, I build an undirected weighted interaction graph from issue, pull-request, and review discussions.
+    \item A member's prominence is their degree centrality: the number of unique members they interact with during the period.
+    \item Single-period key members are the top three members by degree centrality, including ties.
+    \item A \textit{key member} is someone who remains in that top group for three consecutive periods.
+    \item An abrupt departure occurs when a key member is present in period $t$ and then shows no further observed activity afterward.
+  \end{itemize}
+  \end{column}
+  \begin{column}{0.38\textwidth}
+  \centering
+  \IfFileExists{\dir/temp/boto_2020_1.png}{
+    \includegraphics[width=\linewidth]{\dir/temp/boto_2020_1.png}
+  }{
+    \plotplaceholder[\linewidth]{Insert the social-network figure here.}
+  }
+  \end{column}
+\end{columns}
+\note{
+The original outline wanted specificity on the centrality measure.
+Be explicit in the talk that the measure here is degree centrality.
+}
+\end{frame}
+
+% DATA
+% Filtering - only one departure, activity 5 periods before and after departure
+\begin{frame}{Final analysis sample}
+\small
+\begin{itemize}
+  \item Treated organizations experience exactly one abrupt key-member departure during the sample window; control organizations never do.
+  \item Never-treated organizations are assigned a quasi-treatment date so that event time is defined consistently for treated and control organizations.
+  \item I require each organization to have exactly one key member at the quasi-treatment date, so comparisons are not driven by different organizational structures.
+  \item I also require at least five pre-periods and five post-periods of observed activity.
+\end{itemize}
+\note{
+This is the filtering slide from the original outline.
+Stress the one-departure restriction and the balanced pre/post activity window.
+}
+\end{frame}
+
+% MODEL
+% Benchmark model for estimating resilience
+%    Key parameter that identifies resilience under THIS assumption
+\section{Model}
+
+\begin{frame}{Baseline event study}
+\small
+\begin{equation*}
+Y_{i,t}^{SD} = \alpha_i + \lambda_t + \sum_{e \neq \infty}\sum_{k \neq -1} \delta_{e,k} Z_{i,t}^{e,k} + \varepsilon_{i,t}
+\end{equation*}
+
+\begin{itemize}
+  \item $Y_{i,t}^{SD}$ is a standardized outcome: pull requests opened, pull requests merged, or software releases. Standardization uses the five most recent pre-periods, so coefficients are in standard-deviation units.
+  \item $Z_{i,t}^{e,k}$ equals one when organization $i$ belongs to departure cohort $e$ and is at event time $k$ in period $t$.
+  \item $\alpha_i$ and $\lambda_t$ are organization and calendar-time fixed effects.
+  \item The weighted average of the cohort-specific coefficients, $\hat{\delta}_k$, is average resilience $k$ periods after departure under parallel trends and no anticipation.
+\end{itemize}
+\note{
+The original outline wanted the benchmark model and the parameter that maps to resilience.
+Make the identifying assumptions explicit when introducing the interpretation of $\hat{\delta}_k$.
+}
+\end{frame}
+
+% MODEL
+% Benchmark model for estimating resilience
+%    Explain why abrupt departure are plausibly exogenous
+\begin{frame}{Why abrupt departures are plausibly exogenous}
+\small
+\begin{itemize}
+  \item Existing survey evidence from Miller, ``Why Do Modern Open Source Contributors Become Inactive?'' points to job changes, graduation, marriage, and children as common reasons for abrupt exit.
+  \item Those are individual life transitions, not obvious responses to latent organizational decline or dissatisfaction with project leadership.
+  \item The no-anticipation assumption is also more plausible with six-month periods: organizations would need substantial advance notice to change behavior far enough in advance to matter in the pre-periods.
+  \item This does not make exogeneity automatic, but it makes abrupt timing more credible than broader notions of gradual disengagement.
+\end{itemize}
+\note{
+This is the exogeneity slide from the original outline.
+The Miller survey evidence is the anchor.
+If you later add more direct validation for abrupt-departure exogeneity, it slots here or in backup.
+}
+\end{frame}
+
+% MODEL
+% Show estimate of resilience for one outcome
+% Appendix links: all other outcomes...
+\begin{frame}[label=main-average]{Average resilience after departure}
+\begin{columns}[T,onlytextwidth]
+  \begin{column}{0.47\textwidth}
+  \small
+  \begin{itemize}
+    \item Main outcome for the talk: pull requests merged.
+    \item In the paper, a key-member departure lowers merged pull requests by about 0.82 standard deviations on average over the five post-periods.
+    \item The decline appears immediately and remains persistent over time.
+    \item Limited pre-trend evidence close to the departure date supports the identifying assumption.
+  \end{itemize}
+
+  \medskip
+  \centering
+  \linkbutton{Other outcomes}{app-average-outcomes}
+  \end{column}
+  \begin{column}{0.49\textwidth}
+  \plotplaceholder[\linewidth]{Insert the pull-requests-merged event-study figure from the paper here.}
+  \end{column}
+\end{columns}
+\note{
+The original outline called for showing one main outcome here and using appendix
+links for the others.
+Once the rendered talk asset is in place, this should be the main pull-requests-merged figure.
+}
+\end{frame}
+
+% MODEL / RESULTS
+% Estimate model separately for above/below-median values of practices
+%    Explain what key identifying parameter here is
+\section{Results}
+
+\begin{frame}[label=main-single]{Single practices have limited predictive power}
+\begin{columns}[T,onlytextwidth]
+  \begin{column}{0.47\textwidth}
+  \small
+  \begin{itemize}
+    \item Start with a simple test: split organizations into high- and low-collaboration groups using the median collaboration score.
+    \item Conditional on practice scores, pre-trends are broadly similar across the two groups.
+    \item More collaborative organizations are not more resilient on average; if anything, they can exhibit larger post-departure declines.
+    \item The implication is that collaboration is not a universal best practice by itself.
+  \end{itemize}
+
+  \medskip
+  \centering
+  \linkbutton{Other outcomes}{app-single-outcomes}
+  \end{column}
+  \begin{column}{0.49\textwidth}
+  \plotplaceholder[\linewidth]{Insert the collaboration split event-study figure for pull requests merged here.}
+  \end{column}
+\end{columns}
+\note{
+This is the first single-practice result slide from the original outline.
+Be clear that the comparison is above versus below median for a given practice,
+and that the estimand is subgroup-specific resilience rather than a causal effect of the practice.
+}
+\end{frame}
+
+% RESULTS
+% Explain flaws of this (no combinations)
+\begin{frame}{The same pattern holds across the other practice families}
+\small
+\begin{itemize}
+  \item Repeating the same above-versus-below-median exercise for knowledge redundancy, discussion quality, investment in new talent, and problem-solving routines leads to the same broad conclusion.
+  \item No single practice exhibits a stable monotone relationship with resilience across outcomes.
+  \item That null result is informative: if practices matter, they likely matter through interactions rather than through one-dimensional ``best practice'' rankings.
+\end{itemize}
+
+\medskip
+\centering
+\begin{tabular}{p{0.34\linewidth}p{0.48\linewidth}}
+\toprule
+Practice family & Main takeaway \\
+\midrule
+Knowledge redundancy & No clear high-versus-low resilience split on its own \\
+Discussion quality & No clear high-versus-low resilience split on its own \\
+Investment in new talent & No clear high-versus-low resilience split on its own \\
+Problem-solving routines & No clear high-versus-low resilience split on its own \\
+\bottomrule
+\end{tabular}
+\note{
+The original outline wanted a continuation slide for the other four practices.
+Its job is partly substantive and partly diagnostic:
+single-practice splits are not enough because they miss combinations.
+}
+\end{frame}
+
+% RESULTS
+% New model we're estimating - with the f_t(x)
+%    For prediction, what do we care about (\tau hat)
+%    For interpretability, what do we care about (how x affects \tau hat)
+\begin{frame}{Why move to machine learning?}
+\small
+\begin{equation*}
+Y_{i,t}^{SD} = \alpha_i + f_t(X_i) + \sum_{e \neq \infty}\sum_{k \neq -1} \delta_{e,k}(X_i) Z_{i,t}^{e,k} + \varepsilon_{i,t}
+\end{equation*}
+
+\begin{itemize}
+  \item Median splits hard-code one-practice-at-a-time thresholds and miss nonlinearities and interactions across practices.
+  \item The generalized random forest event study lets baseline outcomes vary flexibly with practices through $f_t(X_i)$ and lets resilience itself vary with practices through $\delta_{e,k}(X_i)$.
+  \item For prediction, the object of interest is the hold-out post-period effect $\hat{\psi}(X_i)$.
+  \item For interpretation, the object of interest is how combinations of practices move $\hat{\psi}(X_i)$ and therefore change the high-versus-low resilience split.
+  \item The key identifying assumptions are conditional parallel trends and conditional no anticipation.
+\end{itemize}
+\note{
+This slide should distinguish prediction from interpretation, exactly as in the original outline.
+Prediction is about the hold-out effect estimates.
+Interpretation is about how the practice vector moves those estimates.
+}
+\end{frame}
+
+% RESULTS
+% New model we're estimating - with the f_t(x)
+% WOULD LIKE TO ESTIMATE THE BENCHMARK SO I KNOW HOW WELL MY PREDICTION IS DOING....
+\begin{frame}{Combining practices out of sample}
+\small
+\begin{enumerate}
+  \item Estimate the generalized random forest event study using pre-departure organizational practice scores and pull requests merged as the training outcome.
+  \item Cross-fit the forest so that each organization's resilience prediction is out of sample.
+  \item Compute the doubly robust average post-period treatment effect, $\hat{\psi}(X_i)$, for each organization.
+  \item Classify organizations above the median of $\hat{\psi}(X_i)$ as high resilience and those below the median as low resilience.
+\end{enumerate}
+
+\begin{block}{Benchmark to finalize}
+\small
+Compare the forest split against an oracle or ``perfect prediction'' benchmark and report what share of the oracle gap the forest recovers.
+\end{block}
+\note{
+The benchmark comparison is still an open item from the original outline.
+Keep this framed as the procedure slide plus a reminder that the benchmark is still to be finalized.
+}
+\end{frame}
+
+\begin{frame}{Combining practices improves prediction}
+\begin{columns}[T,onlytextwidth]
+  \begin{column}{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{\dir/output/analysis/event_study_personalization/important_topk_exact1/rolling5_pc_median/nevertreated/pull_request_merged_norm_split_pull_request_merged_lm_forest_nonlinear_observed_att_dr_group_pc_median.png}
+
+  {\footnotesize Coarsened high/low practice scores}
+  \end{column}
+  \begin{column}{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{\dir/output/analysis/event_study_personalization/important_topk_exact1/rolling5_pc/nevertreated/pull_request_merged_norm_split_pull_request_merged_lm_forest_nonlinear_observed_att_dr_group_pc.png}
+
+  {\footnotesize Continuous practice scores}
+  \end{column}
+\end{columns}
+
+\medskip
+\small
+\begin{itemize}
+  \item Even binary high/low coarsenings of the five practices generate a large gap: about 1.99 standard deviations in merged pull requests between the high- and low-resilience groups.
+  \item Allowing the forest to split on the full continuous score distribution pushes that gap to about 2.16 standard deviations.
+  \item The large jump from single-practice tests to the forest split is the main evidence that interactions across practices matter.
+\end{itemize}
+\note{
+This is where the talk should make the predictive payoff concrete.
+If a benchmark slide is added later, this slide should compare the forest split to that benchmark.
+}
+\end{frame}
+
+% Analyses to do
+% 1. How to depict "best x practices" and how to show robustness to folds?
+% 2. How to have robustness to my abrupt departure assumption
+% 3. Rambachan Roth adjustment
+% 4. Compare to benchmark of "perfect prediction" group
+\begin{frame}{Benchmark and robustness checks}
+\small
+\begin{itemize}
+  \item \textbf{Benchmark:} compare the forest split with the oracle or perfect-prediction grouping and report the share of the oracle gap recovered.
+  \item \textbf{Fold robustness:} rank all 32 coarsened practice combinations within each fold, keep the ordering fixed, and report alignment or average pairwise correlations across folds.
+  \item \textbf{Departure-timing robustness:} test sensitivity to the abrupt-departure assumption and verify that nearby organizational outcomes are not moving before departure.
+  \item \textbf{Pre-trend robustness:} add Rambachan-Roth style sensitivity bounds for the main event-study comparisons.
+  \item \textbf{Dynamics:} compare short-run and long-run resilience groups to see whether the same practices support both.
+\end{itemize}
+\note{
+This slide is intentionally a forward-looking roadmap of unresolved empirical work.
+It consolidates several top-level analysis comments from the original file:
+benchmarking, fold robustness, abrupt-departure robustness, and Rambachan-Roth.
+}
+\end{frame}
+
+% INTERPRETING THE MODEL
+% What I would ideally like to have (a lot of it isn't done yet)
+\section{Interpretation}
+
+\begin{frame}{What the forest is using}
+\begin{columns}[T,onlytextwidth]
+  \begin{column}{0.46\textwidth}
+  \footnotesize
+  \textbf{Tree depth distribution}
+
+  \begin{tabular}{lr}
+  \toprule
+  Depth & Share \\
+  \midrule
+  1 & 0.334 \\
+  2 & 0.088 \\
+  3 & 0.265 \\
+  4 & 0.280 \\
+  5 & 0.032 \\
+  \bottomrule
+  \end{tabular}
+
+  \medskip
+  \textbf{Split frequency}
+
+  \begin{tabular}{lr}
+  \toprule
+  Practice & Frequency \\
+  \midrule
+  Collaboration & 0.21 \\
+  Knowledge redundancy & 0.35 \\
+  Discussion quality & 0.26 \\
+  Investment in new talent & 0.02 \\
+  Problem-solving routines & 0.16 \\
+  \bottomrule
+  \end{tabular}
+  \end{column}
+  \begin{column}{0.50\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{\dir/output/analysis/event_study_personalization/important_topk_exact1/heatmap_corr.png}
+
+  {\footnotesize Correlations across the five practice scores}
+  \end{column}
+\end{columns}
+
+\medskip
+\small
+Over half of the trees have depth three or greater, which is consistent with resilience being driven by interactions. The forest also uses several practice scores frequently, rather than relying on one dominant predictor.
+\note{
+Use this slide to motivate the interpretation section:
+the forest is using several practices and many trees are fairly deep, which is
+consistent with genuinely interactive structure.
+}
+\end{frame}
+
+% INTERPRETING THE MODEL
+% Is there a way to show that the policy tree isn't an effective way of summarizing this
+% and how can I reconcile that??? I need to think more about the reason...
+\begin{frame}{Why simple rules fall short}
+\begin{columns}[T,onlytextwidth]
+  \begin{column}{0.47\textwidth}
+  \small
+  \begin{itemize}
+    \item A shallow policy tree is attractive because it delivers a decision rule practitioners could actually use.
+    \item In practice, depth-1 through depth-3 trees leave substantial predictive power on the table.
+    \item The depth-1 tree is especially informative: even a data-driven split on one practice is not enough to recover the resilience gap.
+    \item Working interpretation: resilience depends on several interacting practices in a way that is hard to summarize with one short rule.
+  \end{itemize}
+  \end{column}
+  \begin{column}{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{\dir/output/analysis/event_study_personalization/important_topk_exact1/rolling5_pc/nevertreated_policy_tree_kfold_depth2_pc/pull_request_merged_norm_rolling5_pc_kfold_depth2_pc_lm_forest_nonlinear_kfold_depth2_pc_observed.png}
+  \end{column}
+\end{columns}
+\note{
+This slide corresponds directly to the original policy-tree concern.
+The open interpretive question is why the policy tree fails even though the forest succeeds.
+Possible explanation to explore: too much variation in which combinations look best across folds.
+}
+\end{frame}
+
+% INTERPRETING THE MODEL
+% best 2, 3-practice combos - plus robustness to doing this on all combinations of 9 folds
+\begin{frame}{Which combinations look most resilient?}
+\begin{columns}[T,onlytextwidth]
+  \begin{column}{0.60\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{\dir/output/analysis/event_study_personalization/important_topk_exact1/practice_combo.png}
+  \end{column}
+  \begin{column}{0.36\textwidth}
+  \small
+  \begin{itemize}
+    \item There is no single best practice that dominates on its own.
+    \item High collaboration appears most useful when paired with high knowledge redundancy or high discussion quality.
+    \item The combination of collaboration, knowledge redundancy, and discussion quality is especially resilient when paired with either investment in new talent or strong routines.
+    \item Remaining robustness exercise: check whether the ranking of the 32 coarsened combinations is stable across folds.
+  \end{itemize}
+  \end{column}
+\end{columns}
+\note{
+This slide is the placeholder for the original "best 2- and 3-practice combinations" idea.
+The remaining robustness check is to verify that the ranking of coarsened combinations is stable across folds.
+}
+\end{frame}
+
+\appendix
+
+\begin{frame}[label=app-collaboration]{Collaboration details}
+\footnotesize
+\begin{itemize}
+  \item Interpretation: higher scores mean work is shared across more members rather than concentrated in a small subset.
+  \item The first principal component explains 53.8\% of the variance in the underlying measures.
+\end{itemize}
+
+\begin{tabular}{p{0.58\linewidth}p{0.28\linewidth}}
+\toprule
+Measure & Higher score when \\
+\midrule
+Average participants per discussion & more people work on the same task \\
+Share of discussions with multiple participants & solo work is less common \\
+HHI of all discussions & participation is less concentrated \\
+HHI of issue threads & issue work is less concentrated \\
+HHI of pull-request threads & pull-request work is less concentrated \\
+\bottomrule
+\end{tabular}
+
+\medskip
+\backbutton{main-measures}
+\end{frame}
+
+\begin{frame}[label=app-knowledge]{Knowledge redundancy details}
+\footnotesize
+\begin{itemize}
+  \item Interpretation: higher scores mean more members can work across multiple problem types, so the organization loses less know-how when one person leaves.
+  \item The first principal component explains 91.6\% of the variance in the underlying measures.
+\end{itemize}
+
+\begin{tabular}{p{0.58\linewidth}p{0.28\linewidth}}
+\toprule
+Measure & Higher score when \\
+\midrule
+Share of members active in both issue and pull-request threads & more members span both problem domains \\
+Average number of unique activity types per member & members can contribute in more ways \\
+\bottomrule
+\end{tabular}
+
+\medskip
+\backbutton{main-measures}
+\end{frame}
+
+\begin{frame}[label=app-discussion]{Discussion quality details}
+\footnotesize
+\begin{itemize}
+  \item Interpretation: higher scores mean discussions are more responsive and more constructive.
+  \item The first principal component explains 47.7\% of the variance in the underlying measures.
+\end{itemize}
+
+\begin{tabular}{p{0.58\linewidth}p{0.28\linewidth}}
+\toprule
+Measure & Higher score when \\
+\midrule
+Share of threads that receive a response & fewer discussions are ignored \\
+Average days to first response & responses arrive more quickly \\
+Average overall sentiment & discussion tone is more positive \\
+Average positive sentiment & discussion tone is more positive \\
+Average negative sentiment & discussion tone is less negative \\
+\bottomrule
+\end{tabular}
+
+\medskip
+\backbutton{main-measures}
+\end{frame}
+
+\begin{frame}[label=app-new-talent]{Investment in new talent details}
+\footnotesize
+\begin{itemize}
+  \item Interpretation: higher scores mean the organization has more infrastructure for onboarding and integrating new contributors.
+  \item The first principal component explains 51.6\% of the variance in the underlying measures.
+\end{itemize}
+
+\begin{tabular}{p{0.58\linewidth}p{0.28\linewidth}}
+\toprule
+Measure & Higher score when \\
+\midrule
+``Good first issue'' labels & entry tasks are explicitly surfaced \\
+Contributing guide & new contributors receive written onboarding instructions \\
+Code of conduct & participation norms are formalized \\
+\bottomrule
+\end{tabular}
+
+\medskip
+\backbutton{main-measures}
+\end{frame}
+
+\begin{frame}[label=app-routines]{Problem-solving routines details}
+\footnotesize
+\begin{itemize}
+  \item Interpretation: higher scores mean the organization has more formal structure for allocating, reviewing, and documenting work.
+  \item The first principal component explains 35.9\% of the variance in the underlying measures.
+\end{itemize}
+
+\begin{tabular}{p{0.58\linewidth}p{0.28\linewidth}}
+\toprule
+Measure & Higher score when \\
+\midrule
+Task labeling & issues are categorized consistently \\
+Task assignment & owners are explicitly designated \\
+Review assignment & reviewers are explicitly designated \\
+Issue templates & reporting is standardized \\
+Pull-request templates & code changes are standardized \\
+Code ownership rules & responsibility is formalized \\
+\bottomrule
+\end{tabular}
+
+\medskip
+\backbutton{main-measures}
+\end{frame}
+
+\begin{frame}[label=app-average-outcomes]{Average resilience: other outcomes}
+\small
+\begin{itemize}
+  \item Pull requests opened fall by about 0.83 standard deviations on average over the five post-periods.
+  \item Pull requests merged fall by about 0.82 standard deviations on average over the five post-periods.
+  \item Software releases fall by about 0.47 standard deviations on average over the five post-periods.
+  \item Across outcomes, the common pattern is an immediate and persistent decline after the key member leaves.
+\end{itemize}
+
+\begin{block}{Figure to add}
+\small
+Use the three-panel event-study figure here once the rendered asset is available for the talk deck.
+\end{block}
+
+\backbutton{main-average}
+\end{frame}
+
+\begin{frame}[label=app-single-outcomes]{Single-practice results: other outcomes}
+\small
+\begin{itemize}
+  \item The collaboration result is not unique to one outcome: opened pull requests and releases also fail to show a simple ``more collaboration, more resilience'' pattern.
+  \item The same qualitative conclusion extends to knowledge redundancy, discussion quality, investment in new talent, and routines.
+  \item The main lesson from the single-practice exercise is therefore descriptive rather than causal: one-dimensional splits miss the way practices interact.
+\end{itemize}
+
+\begin{block}{Figure to add}
+\small
+Use the multi-outcome collaboration panel or the four-practice appendix grid here once the rendered assets are available for the talk deck.
+\end{block}
+
+\backbutton{main-single}
+\end{frame}
+\fi
 \end{document}
