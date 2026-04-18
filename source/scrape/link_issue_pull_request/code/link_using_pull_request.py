@@ -132,9 +132,8 @@ def Main():
         df_out = df_pr.drop(columns=['linked_issue'])
         for col in ["issue_link", "other_links"]:
             df_out[col] = df_out[col].apply(JsonSerialize)
-        pr_letter = "numeric" if safe_repo[0].isdigit() else safe_repo[0].lower()
         SaveData(df_out, ["repo_name", "pr_number"], repo_file,
-                 LOG_PR_DIR / f"{pr_letter}.log", append=True)
+                 LOG_PR_DIR / f"{safe_repo}.log", append=False)
         print(parquet_file + " done")
 
 if __name__ == '__main__':

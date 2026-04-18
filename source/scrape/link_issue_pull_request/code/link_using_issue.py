@@ -310,9 +310,8 @@ def Main(proxy_num: int):
         chunk_dfs = [pd.read_parquet(CHUNK_OUTDIR / f"{safe_repo}_chunk_{i:04d}.parquet") for i in range(len(chunks))]
         repo_df = pd.concat(chunk_dfs, ignore_index=True)
         repo_df["linked_pull_request"] = repo_df["linked_pull_request"].apply(JsonSerialize)
-        issue_letter = "numeric" if safe_repo[0].isdigit() else safe_repo[0].lower()
         SaveData(repo_df, ["repo_name", "issue_number"], repo_file,
-                 LOG_ISSUE_DIR / f"{issue_letter}.log", append=True)
+                 LOG_ISSUE_DIR / f"{safe_repo}.log", append=False)
 
         tl_dfs = [
             pd.read_parquet(CHUNK_TIMELINE_DIR / f"{safe_repo}_chunk_{i:04d}_timeline.parquet")
@@ -322,7 +321,7 @@ def Main(proxy_num: int):
         combined_tl = pd.concat(non_empty_tls, ignore_index=True) if non_empty_tls else pd.DataFrame()
         if not combined_tl.empty:
             SaveData(combined_tl, ["repo_name", "issue_number", "event_order"], timeline_file,
-                     LOG_TIMELINE_DIR / f"{issue_letter}.log", append=True)
+                     LOG_TIMELINE_DIR / f"{safe_repo}.log", append=False)
         else:
             combined_tl.to_parquet(timeline_file, engine="pyarrow", index=False)
 

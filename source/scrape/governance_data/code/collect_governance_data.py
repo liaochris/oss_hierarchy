@@ -17,16 +17,20 @@ def Main():
     INDIR = Path('output/scrape/extract_github_data')
     OUTDIR = Path("drive/output/scrape/governance_data")
     LOG_OUTDIR = Path("output/scrape/governance_data")
+    LOG_DIR = LOG_OUTDIR / "logs"
     TEMPDIR = Path("drive/temp/governance_data/repos")
     OUTDIR.mkdir(exist_ok=True, parents=True)
     LOG_OUTDIR.mkdir(exist_ok=True, parents=True)
+    LOG_DIR.mkdir(exist_ok=True, parents=True)
     TEMPDIR.mkdir(exist_ok=True, parents=True)
 
     df_repo_list = pd.read_csv(INDIR / 'repo_id_history_final.csv')
     repo_list = df_repo_list.query('latest_repo_name != "ERROR" & is_fork == 0')['repo_name'].unique().tolist()
 
     random.shuffle(repo_list)
-    START_DATE = LoadGlobals("source/lib/globals.json")['github_start_date']
+    globals_data = LoadGlobals("source/lib/globals.json")
+    START_DATE = globals_data['github_start_date']
+    n_jobs = globals_data["n_jobs"]
 
     gh_tokens = LoadTokens()
 
@@ -36,9 +40,9 @@ def Main():
         letter_groups.setdefault(first_char, []).append(repo)
 
     all_outputs = []
-    with concurrent.futures.ProcessPoolExecutor(max_workers=8) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=n_jobs) as executor:
         futures = [
-            executor.submit(ProcessLetterGroup, letter, repos, TEMPDIR, OUTDIR, LOG_OUTDIR, START_DATE, gh_tokens)
+            executor.submit(ProcessLetterGroup, letter, repos, TEMPDIR, OUTDIR, LOG_DIR, START_DATE, gh_tokens)
             for letter, repos in letter_groups.items()
         ]
         for future in concurrent.futures.as_completed(futures):
@@ -62,21 +66,21 @@ def LoadTokens():
     return tokens
 
 
-def ProcessLetterGroup(letter, repos, TEMPDIR, OUTDIR, LOG_OUTDIR, START_DATE, gh_tokens):
-    logfile = LOG_OUTDIR / f"{letter}.log"
+def ProcessLetterGroup(letter, repos, TEMPDIR, OUTDIR, LOG_DIR, START_DATE, gh_tokens):
     token_cycle = itertools.cycle(gh_tokens)
     results = []
     for repo in repos:
         owner, repo_name = repo.split("/", 1)
         token = next(token_cycle)
-        result = RepoOrgGovernanceHistory(owner, repo_name, TEMPDIR, OUTDIR, logfile, START_DATE, token)
+        result = RepoOrgGovernanceHistory(owner, repo_name, TEMPDIR, OUTDIR, LOG_DIR, START_DATE, token)
         if result:
             results.append(result)
     return results
 
 
-def RepoOrgGovernanceHistory(owner, repo, TEMPDIR, OUTDIR, logfile, START_DATE, GH_TOKEN):
+def RepoOrgGovernanceHistory(owner, repo, TEMPDIR, OUTDIR, LOG_DIR, START_DATE, GH_TOKEN):
     outfile = OUTDIR / f"{owner}___{repo}.parquet"
+    logfile = LOG_DIR / f"{outfile.stem}.log"
 
     if outfile.exists():
         print(f"Skipping {owner}/{repo}, output already exists: {outfile}")
@@ -120,7 +124,7 @@ def RepoOrgGovernanceHistory(owner, repo, TEMPDIR, OUTDIR, logfile, START_DATE, 
 
     if rows:
         df = pd.DataFrame(rows)
-        SaveData(df, ["repo", "source", "date", "commit", "file_path"], outfile, logfile, append=True)
+        SaveData(df, ["repo", "source", "date", "commit", "file_path"], outfile, logfile, append=False)
         print(f"Exported {len(df)} rows (repo + org defaults) to {outfile}")
         return str(outfile)
     else:
