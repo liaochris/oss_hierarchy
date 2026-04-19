@@ -1,0 +1,7 @@
+Import('*')
+
+slide_graphics = ['#source/talk/graphics/boto_2020_1.png', '#source/talk/graphics/organizational_resilience_google.png']
+target = ['#output/talk/slides.pdf']
+source = ['#source/talk/slides.tex',
+          '#source/paper/references.bib'] + slide_graphics
+env.Latex(target, source)
