@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-import json
 import os
 from pathlib import Path
 from google.cloud import bigquery
 from source.lib.JMSLab.SaveData import SaveData
-from source.lib.helpers import LoadGlobals
+from source.lib.helpers import LoadGlobalSettings
 
 def ExecuteQuery(query, project_id):
     client = bigquery.Client(project = project_id)
@@ -33,7 +32,7 @@ def Main():
         print("Need to set up GOOGLE_APPLICATION_CREDENTIALS environment variable")
         return
 
-    globals_data = LoadGlobals("source/lib/globals.json")
+    globals_data = LoadGlobalSettings()
     start_date = globals_data["pip_downloads_start_date"]
     end_date = globals_data["pip_downloads_end_date"]
 

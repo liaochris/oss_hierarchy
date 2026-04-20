@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 from google.cloud import bigquery
 from source.lib.JMSLab.SaveData import SaveData
-from source.lib.helpers import LoadGlobals
+from source.lib.helpers import LoadGlobalSettings
 
 def MapIDToName(bq_client, repo_names):
     names_lower = [n.lower() for n in repo_names]
@@ -121,7 +121,7 @@ def Main():
 
     INDIR = Path("output/scrape/pypi_site_info")
     OUTDIR = Path("output/scrape/extract_github_data")
-    globals_data = LoadGlobals("source/lib/globals.json")
+    globals_data = LoadGlobalSettings()
 
     initial_repo_df = pd.read_csv(INDIR / "linked_pypi_github.csv")
     initial_repos = initial_repo_df["github repository"].drop_duplicates().tolist()

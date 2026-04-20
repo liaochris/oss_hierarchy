@@ -14,8 +14,7 @@ from source.scrape.link_issue_pull_request.code.fetch_helpers import FetchGitHub
 from source.lib.helpers import MakeRepoNameSafe, JsonSerialize
 from source.lib.JMSLab.SaveData import SaveData
 
-PROXY_NUM = 1
-
+PROXY_NUM = 0
 
 def ReadPRParquet(path):
     cols = ['repo_name', 'pr_number']
@@ -81,8 +80,16 @@ def GrabPullRequestData(repo_name, pr_number):
     except Exception as e:
         return str(e)
 
+def FilterNewPRs(df_pr, repo_file):
+    existing = pd.read_parquet(repo_file, columns=['repo_name', 'pr_number']).drop_duplicates().dropna()
+    done_keys = set(zip(existing['repo_name'].astype(str), existing['pr_number'].astype(float).astype(int)))
+    is_new = ~df_pr.apply(
+        lambda x: (str(x['repo_name']), int(float(x['pr_number']))) in done_keys, axis=1
+    )
+    return df_pr[is_new]
+
 def Main():
-    pandarallel.initialize(progress_bar=True, nb_workers=5)
+    pandarallel.initialize(progress_bar=True, nb_workers=3)
     warnings.filterwarnings("ignore")
 
     INDIR = Path('drive/output/scrape/extract_github_data/repo_level_data/pr')
@@ -98,15 +105,18 @@ def Main():
         df_pr = ReadPRParquet(parquet_file)
         if df_pr.empty:
             continue
-        
+
         repo_name = df_pr['repo_name'].dropna().unique().tolist()[0]
         safe_repo = MakeRepoNameSafe(repo_name)
 
         assert(len(df_pr['repo_name'].dropna().unique().tolist()) == 1)
 
         repo_file = OUTDIR / f"{safe_repo}.parquet"
-        if repo_file.exists():
-            continue
+        is_update = repo_file.exists()
+        if is_update:
+            df_pr = FilterNewPRs(df_pr, repo_file)
+            if df_pr.empty:
+                continue
 
         df_pr['linked_issue'] = df_pr.parallel_apply(
             lambda x: GrabPullRequestData(
@@ -132,6 +142,10 @@ def Main():
         df_out = df_pr.drop(columns=['linked_issue'])
         for col in ["issue_link", "other_links"]:
             df_out[col] = df_out[col].apply(JsonSerialize)
+
+        if is_update:
+            df_out = pd.concat([pd.read_parquet(repo_file), df_out], ignore_index=True)
+
         SaveData(df_out, ["repo_name", "pr_number"], repo_file,
                  LOG_PR_DIR / f"{safe_repo}.log", append=False)
         print(parquet_file + " done")

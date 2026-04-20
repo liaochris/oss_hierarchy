@@ -4,7 +4,7 @@ from google.cloud import bigquery
 from pathlib import Path
 import pandas as pd
 from source.lib.JMSLab.SaveData import SaveData
-from source.lib.helpers import LoadGlobals
+from source.lib.helpers import LoadGlobalSettings
 from datetime import datetime
 
 def CreateDataset(client, dataset_name):
@@ -262,8 +262,8 @@ def GetIssueData(client, project_id, dataset_name, github_data_name, github_star
     FROM `{project_id}.{dataset_name}.{github_data_name}`
     WHERE type = "IssuesEvent"
     """
-    #issue_query = client.query(issue_sql, job_config=issue_config)
-    #issue_query.result()
+    issue_query = client.query(issue_sql, job_config=issue_config)
+    issue_query.result()
     GetSubsetData(client, project_id, dataset_name, "issue_data", github_start_date, github_end_date)
 
 def GetIssueCommentData(client, project_id, dataset_name, github_data_name, github_start_date, github_end_date):
@@ -306,8 +306,8 @@ def GetIssueCommentData(client, project_id, dataset_name, github_data_name, gith
     FROM `{project_id}.{dataset_name}.{github_data_name}`
     WHERE type = "IssueCommentEvent"
     """
-    #issue_comment_query = client.query(issue_comment_sql, job_config=issue_comment_config)
-    #issue_comment_query.result()
+    issue_comment_query = client.query(issue_comment_sql, job_config=issue_comment_config)
+    issue_comment_query.result()
     GetSubsetData(client, project_id, dataset_name, "issue_comment_data", github_start_date, github_end_date)
 
 
@@ -340,7 +340,7 @@ def Main():
         print("Need to set up GOOGLE_APPLICATION_CREDENTIALS environment variable")
         return
 
-    globals_data = LoadGlobals("source/lib/globals.json")
+    globals_data = LoadGlobalSettings()
     INDIR = Path("output/scrape/extract_github_data")
     project_id = globals_data.get("project_id")
     dataset_name = "source"
@@ -363,5 +363,4 @@ def Main():
 
 if __name__ == "__main__":
     Main()
-
 

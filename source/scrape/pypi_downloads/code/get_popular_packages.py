@@ -1,18 +1,13 @@
 #!/usr/bin/env python3
 import os
-import json
 import pandas as pd
 from datetime import datetime
 from source.lib.JMSLab.SaveData import SaveData
-from source.lib.helpers import LoadGlobals
-
-def LoadGlobals(json_path):
-    with open(json_path, "r", encoding="utf-8") as fh:
-        return json.load(fh)
+from source.lib.helpers import LoadGlobalSettings
 
 
 def Main():
-    globals_data = LoadGlobals("source/lib/globals.json")
+    globals_data = LoadGlobalSettings()
 
     min_downloads = int(globals_data["pip_min_monthly_donwloads"])
     lower_bound = datetime.fromisoformat(globals_data["pip_downloads_start_date"])

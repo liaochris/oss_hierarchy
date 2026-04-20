@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from source.lib.helpers import LoadGlobals
+from source.lib.helpers import LoadGlobalSettings
 from source.lib.JMSLab.SaveData import SaveData
 
 
@@ -28,7 +28,7 @@ def Main():
     repo_list = df_repo_list.query('latest_repo_name != "ERROR" & is_fork == 0')['repo_name'].unique().tolist()
 
     random.shuffle(repo_list)
-    globals_data = LoadGlobals("source/lib/globals.json")
+    globals_data = LoadGlobalSettings()
     START_DATE = globals_data['github_start_date']
     n_jobs = globals_data["n_jobs"]
 

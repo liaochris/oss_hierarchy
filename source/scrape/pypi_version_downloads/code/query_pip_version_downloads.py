@@ -4,7 +4,7 @@ import uuid
 from pathlib import Path
 import pandas as pd
 from google.cloud import bigquery
-from source.lib.helpers import LoadGlobals
+from source.lib.helpers import LoadGlobalSettings
 from source.lib.JMSLab.SaveData import SaveData
 from dateutil.relativedelta import relativedelta
 
@@ -138,7 +138,7 @@ def Main():
         print("Need to set up GOOGLE_APPLICATION_CREDENTIALS environment variable")
         return
 
-    globals_data = LoadGlobals("source/lib/globals.json")
+    globals_data = LoadGlobalSettings()
 
     project_id = globals_data.get("project_id")
     client = bigquery.Client(project=project_id)
@@ -150,8 +150,8 @@ def Main():
 
     python_projects = GetProjectList(INDIR)
 
-    python_downloads_start_date = pd.to_datetime("2024-03-01").date()
-    python_downloads_end_date = pd.to_datetime(globals_data['pip_downloads_end_date']).date()
+    python_downloads_start_date = pd.to_datetime(globals_data["pip_downloads_start_date"]).date()
+    python_downloads_end_date = pd.to_datetime(globals_data["pip_downloads_end_date"]).date()
 
     ExportAllProjectsChunked(
         client, python_projects, OUTDIR, LOG_DIR,
