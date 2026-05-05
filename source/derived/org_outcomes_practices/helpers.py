@@ -1,13 +1,13 @@
 from collections.abc import Iterable
 import pandas as pd
-import json
 
 
 def AddTypeBroad(df_actions):
-    df_actions["type_broad"] = df_actions["type"].apply(
-        lambda x: "pull request review"
-        if x.startswith("pull request review") and x != "pull request review comment" else x
+    mask = (
+        df_actions["type"].str.startswith("pull request review")
+        & (df_actions["type"] != "pull request review comment")
     )
+    df_actions["type_broad"] = df_actions["type"].where(~mask, "pull request review")
     return df_actions
 
 
@@ -23,10 +23,10 @@ def ConcatStatsByTimePeriod(*dfs):
 
 
 def LoadFilteredImportantMembers(repo_name, INDIR_IMPORTANT, INDIR_LIB, importance_type):
-    from source.lib.helpers import JsonDeserialize
-    importance_parameters_all = json.load(open(INDIR_LIB / "importance.json"))
+    from source.lib.helpers import JsonDeserialize, LoadImportanceSpecifications
+    importance_parameters_all = LoadImportanceSpecifications(INDIR_LIB / "project_config.json")
     if importance_type not in importance_parameters_all:
-        raise ValueError(f"importance_type '{importance_type}' not found in importance.json")
+        raise ValueError(f"importance_type '{importance_type}' not found in project_config.json")
 
     importance_parameters = importance_parameters_all[importance_type]
     df_important_members = pd.read_csv(INDIR_IMPORTANT / f"{repo_name}.csv")

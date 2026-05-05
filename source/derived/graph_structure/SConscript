@@ -1,8 +1,8 @@
 Import('*')
 
-from source.lib.helpers import LoadGlobals, MakeRepoNameSafe
+from source.lib.helpers import LoadGlobalSettings, MakeRepoNameSafe
 
-globals_data = LoadGlobals("../../../source/lib/globals.json")
+globals_data = LoadGlobalSettings("../../../source/lib/project_config.json")
 reference_repo = globals_data['reference_github_repo']
 ref = MakeRepoNameSafe(reference_repo)
 
@@ -48,7 +48,7 @@ env.Python(target, source)
 
 source = [
     '#source/derived/graph_structure/calculate_importance.py',
-    '#source/lib/importance.json',
+    '#source/lib/project_config.json',
     f'#drive/output/derived/graph_structure/graph_degrees/{ref}.parquet',
 ]
 target = [

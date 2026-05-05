@@ -4,6 +4,9 @@ import pandas as pd
 import json
 
 
+PROJECT_CONFIG_PATH = Path("source/lib/project_config.json")
+
+
 def CleanDirs(dirs, patterns=("*.parquet", "*.log")):
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)
@@ -33,6 +36,64 @@ def LoadGlobals(json_path):
     path = Path(json_path)
     with path.open("r", encoding="utf-8") as fh:
         return json.load(fh)
+
+
+def LoadProjectConfig(json_path=PROJECT_CONFIG_PATH):
+    return LoadGlobals(json_path)
+
+def LoadConfigBlock(block_name, json_path=PROJECT_CONFIG_PATH):
+    config = LoadProjectConfig(json_path)
+    if block_name in config:
+        return config[block_name]
+    if block_name == "pipeline_inputs":
+        return config
+    raise KeyError(f"Missing config block '{block_name}' in {json_path}")
+
+
+def LoadPipelineInputs(json_path=PROJECT_CONFIG_PATH):
+    return LoadConfigBlock("pipeline_inputs", json_path)
+
+
+def LoadImportanceSpecifications(json_path=PROJECT_CONFIG_PATH):
+    return LoadConfigBlock("importance_specifications", json_path)
+
+
+def LoadGlobalSettings(json_path=PROJECT_CONFIG_PATH):
+    return LoadConfigBlock("global_settings", json_path)
+
+
+def LoadAnalysisParameters(json_path=PROJECT_CONFIG_PATH):
+    return LoadConfigBlock("analysis_parameters", json_path)
+
+
+def LoadPlotSettings(json_path=PROJECT_CONFIG_PATH):
+    return LoadConfigBlock("plotting", json_path)
+
+
+def LoadFeatureVariables(json_path=PROJECT_CONFIG_PATH):
+    return LoadConfigBlock("feature_variables", json_path)
+
+
+def LoadOutcomeVariables(json_path=PROJECT_CONFIG_PATH):
+    return LoadConfigBlock("outcome_variables", json_path)
+
+
+def FlattenConfigValues(config_block, phases=("run",)):
+    values = []
+    for item in config_block.values():
+        if not isinstance(item, dict):
+            continue
+        if any(phase in item for phase in phases):
+            for phase in phases:
+                values.extend(item.get(phase, []))
+            continue
+        for nested_item in item.values():
+            if not isinstance(nested_item, dict):
+                continue
+            for phase in phases:
+                values.extend(nested_item.get(phase, []))
+    return values
+
 
 def MakeRepoNameSafe(repo_name):
     return repo_name.replace("/", "___")

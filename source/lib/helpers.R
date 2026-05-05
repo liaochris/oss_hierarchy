@@ -1,3 +1,66 @@
+`%||%` <- function(x, y) {
+  if (is.null(x)) y else x
+}
+
+LoadProjectConfig <- function(config_path) {
+  if (!file.exists(config_path)) {
+    stop("Unified project config not found at: ", config_path)
+  }
+  jsonlite::fromJSON(config_path, simplifyVector = TRUE)
+}
+
+ExtractConfigValues <- function(entry, include_extended = FALSE) {
+  values <- entry$run %||% character(0)
+  if (include_extended) {
+    values <- c(values, entry$extended %||% character(0))
+  }
+  unname(unlist(values, use.names = FALSE))
+}
+
+FlattenConfigValues <- function(config_block, include_extended = FALSE) {
+  unname(unlist(lapply(config_block, ExtractConfigValues,
+                       include_extended = include_extended), use.names = FALSE))
+}
+
+NormalizePCGroupName <- function(category_name) {
+  if (identical(category_name, "organizational_routines")) {
+    return("problem_solving_routines")
+  }
+  category_name
+}
+
+PCGroupFriendlyLabel <- function(group_name) {
+  label_map <- c(
+    collaboration = "Collaboration score",
+    shared_knowledge = "Knowledge level score",
+    discussion_quality = "Discussion quality score",
+    investment_in_new_talent = "Investment in new talent score",
+    problem_solving_routines = "Problem-solving routines score"
+  )
+  label_map[[group_name]] %||% paste(tools::toTitleCase(gsub("_", " ", group_name)), "score")
+}
+
+PCGroupSignFlip <- function(group_name) {
+  identical(group_name, "shared_knowledge")
+}
+
+PCGroupsConfig <- function(feature_cfg) {
+  groups <- lapply(names(feature_cfg), function(category_name) {
+    compat_name <- NormalizePCGroupName(category_name)
+    vars <- FlattenConfigValues(feature_cfg[[category_name]], include_extended = FALSE)
+    list(
+      vars = vars,
+      sign_flip = PCGroupSignFlip(compat_name),
+      friendly_label = PCGroupFriendlyLabel(compat_name)
+    )
+  })
+  names(groups) <- vapply(names(feature_cfg), NormalizePCGroupName, character(1))
+  groups
+}
+
+ForestTrainingOutcome <- function(pipeline_inputs) {
+  pipeline_inputs$forest_training_outcome
+}
 
 NormalizeOutcome <- function(df, outcome) {
   outcome_sym <- rlang::sym(outcome)
@@ -44,24 +107,24 @@ BuildOrgPracticeModes <- function(org_practice_cfg, control_group, outdir_datase
   modes
 }
 
-BuildCommonSample <- function(df, outcomes, max_time = 5) {
-  valid_repos <- lapply(outcomes, function(outcome) {
-    df_norm <- NormalizeOutcome(df, outcome)
-    unique(df_norm$repo_name)
-  })
-  keep_repos <- Reduce(intersect, valid_repos)
-  df %>% filter(repo_name %in% keep_repos) %>%
-    mutate(quasi_event_time = time_index - quasi_treatment_group) %>%
-    group_by(repo_id) %>%
-    filter(all(seq(-max_time, max_time) %in% quasi_event_time)) %>%
-    ungroup()
+QualifiedSampleLabel <- function(qualified_sample) {
+  if (grepl("^exact[0-9]+$", qualified_sample)) {
+    count <- sub("^exact", "", qualified_sample)
+    return(paste0("num-qualified=", count))
+  }
+  qualified_sample
 }
 
-KeepSustainedImportant <- function(panel, lb = 1, ub = Inf) {
-  repos_with_important <- panel %>%
-    filter(time_index - quasi_treatment_group == 0 & num_important_qualified >= lb & num_important_qualified <= ub) %>%
-    pull(repo_name)
-  panel %>% filter(repo_name %in% repos_with_important)
+PreparedSampleDir <- function(base_dir, importance_type, rolling_panel, qualified_sample, control_group) {
+  file.path(base_dir, importance_type, rolling_panel, qualified_sample, control_group)
+}
+
+LoadPreparedSample <- function(base_dir, importance_type, rolling_panel, qualified_sample, control_group,
+                               with_pc = FALSE) {
+  filename <- if (with_pc) "panel_PCA_median.parquet" else "panel.parquet"
+  path <- file.path(PreparedSampleDir(base_dir, importance_type, rolling_panel, qualified_sample, control_group),
+                    filename)
+  arrow::read_parquet(path)
 }
 
 BuildOutcomeModes <- function(outcome_cfg, control_group, outdir_dataset, norm_options, build_dir = TRUE) {
@@ -75,7 +138,7 @@ BuildOutcomeModes <- function(outcome_cfg, control_group, outdir_dataset, norm_o
                           paste0(out, if (norm) "_norm", ".png"))
   )
   
-  modes <- lapply(names(outcome_cfg), function(cat) {
+  modes <- lapply(names(Filter(is.list, outcome_cfg)), function(cat) {
     outcomes <- outcome_cfg[[cat]]$run
     control_groups <- c(control_group)
     do.call(c, lapply(control_groups, function(control_group) {
@@ -90,4 +153,3 @@ BuildOutcomeModes <- function(outcome_cfg, control_group, outdir_dataset, norm_o
   
   do.call(c, modes)
 }
-

@@ -89,7 +89,7 @@ def FilterNewPRs(df_pr, repo_file):
     return df_pr[is_new]
 
 def Main():
-    pandarallel.initialize(progress_bar=True, nb_workers=3)
+    pandarallel.initialize(progress_bar=True, nb_workers=8)
     warnings.filterwarnings("ignore")
 
     INDIR = Path('drive/output/scrape/extract_github_data/repo_level_data/pr')

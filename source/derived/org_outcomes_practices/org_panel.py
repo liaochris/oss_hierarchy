@@ -1,16 +1,25 @@
-import json, random
+import json
 from pathlib import Path
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from source.lib.helpers import JsonDeserialize, JsonSerialize, LoadGlobals, MakeRepoNameOriginal
+from source.lib.helpers import (
+    JsonDeserialize,
+    JsonSerialize,
+    LoadAnalysisParameters,
+    LoadGlobalSettings,
+    LoadImportanceSpecifications,
+    LoadPipelineInputs,
+    MakeRepoNameOriginal,
+)
 from source.lib.JMSLab.SaveData import SaveData
 
-_globals = LoadGlobals("source/lib/globals.json")
-TIME_PERIOD     = _globals["time_period_months"]
-N_JOBS          = _globals["n_jobs"]
+_global_settings = LoadGlobalSettings()
+_analysis_params = LoadAnalysisParameters()
+TIME_PERIOD      = _global_settings["time_period_months"]
+N_JOBS           = _global_settings["n_jobs"]
 
-_pipeline = LoadGlobals("source/lib/pipeline_config.json")
+_pipeline = LoadPipelineInputs()
 IMPORTANCE_TYPES = _pipeline["importance_types"]["run"] + _pipeline["importance_types"]["extended"]
 ROLLING_PERIODS  = [f"rolling{p}" for p in _pipeline["rolling_periods"]["run"] + _pipeline["rolling_periods"]["extended"]]
 
@@ -22,10 +31,8 @@ OUTDIR          = INDIR_CHARS / "org_panel"
 LOG_OUTDIR      = Path("output/derived/org_outcomes_practices")
 
 LAST_PERIOD     = "2024-07-01"
-SEED            = 420
-
-with open(INDIR_LIB / "importance.json") as f:
-    _importance_params = json.load(f)
+SEED            = _analysis_params["seed"]
+_importance_params = LoadImportanceSpecifications()
 
 DATASETS = {
     "outcomes": {
@@ -54,19 +61,18 @@ DATASETS = {
 
 
 def Main():
-    repo_files = [f.stem for f in INDIR.glob("*.parquet") if not f.stem.startswith("._")]
-    random.shuffle(repo_files)
+    repo_files = sorted(f.stem for f in INDIR.glob("*.parquet") if not f.stem.startswith("._"))
 
     for importance_type in IMPORTANCE_TYPES:
-        for rolling in ROLLING_PERIODS:
-            (OUTDIR / importance_type / rolling).mkdir(parents=True, exist_ok=True)
+        for rolling_period in ROLLING_PERIODS:
+            (OUTDIR / importance_type / rolling_period).mkdir(parents=True, exist_ok=True)
             results = Parallel(n_jobs=N_JOBS)(
-                delayed(ProcessRepo)(repo, importance_type, rolling) for repo in repo_files
+                delayed(ProcessRepo)(repo, importance_type, rolling_period) for repo in repo_files
             )
 
             valid = [(d, c) for d, c in results if d is not None]
             if not valid:
-                print(f"No data for importance_type={importance_type}, rolling={rolling}")
+                print(f"No data for importance_type={importance_type}, rolling={rolling_period}")
                 continue
 
             df_list, col_dicts = zip(*valid)
@@ -82,10 +88,10 @@ def Main():
             for col in ["important_actors", "important_qualified_actors", "dropouts_actors"]:
                 if col in df_all.columns:
                     df_all[col] = df_all[col].apply(JsonSerialize)
-            SaveData(df_all, ["repo_name", "time_period"], OUTDIR / importance_type / rolling / "panel.parquet", LOG_OUTDIR / f"org_panel_{importance_type}_{rolling}.log")
+            SaveData(df_all, ["repo_name", "time_period"], OUTDIR / importance_type / rolling_period / "panel.parquet", LOG_OUTDIR / f"org_panel_{importance_type}_{rolling_period}.log")
 
 
-def ProcessRepo(repo_name, importance_type, rolling):
+def ProcessRepo(repo_name, importance_type, rolling_period):
     dfs, cols = {}, {}
     csv_path = INDIR_IMPORTANT / f"{repo_name}.csv"
 
@@ -105,9 +111,9 @@ def ProcessRepo(repo_name, importance_type, rolling):
             if category == "outcomes":
                 path = base / f"{repo_name}.parquet"
             elif variant == "imp":
-                path = base / importance_type / rolling / f"{repo_name}.parquet"
+                path = base / importance_type / rolling_period / f"{repo_name}.parquet"
             else:
-                path = base / rolling / f"{repo_name}.parquet"
+                path = base / rolling_period / f"{repo_name}.parquet"
 
             df = _LoadParquetSafe(path)
             if df is not None:
@@ -172,7 +178,8 @@ def _ProcessRepoFrame(df_all, columns_dict):
     df_all["num_departures"] = df_all.groupby("repo_name")["num_dropouts"].transform("sum")
     df_all = _AssignTreatmentDate(df_all)
     df_all = _CreateTimeIndex(df_all)
-    df_all["repo_id"] = pd.factorize(df_all["repo_name"])[0] + 1
+    repo_id_map = {repo_name: i + 1 for i, repo_name in enumerate(sorted(df_all["repo_name"].unique()))}
+    df_all["repo_id"] = df_all["repo_name"].map(repo_id_map)
     df_all["treatment"] = (df_all["treatment_group"] >= df_all["time_index"]).astype(int)
     return df_all
 
@@ -269,6 +276,8 @@ def _AssignQuasiTreatment(df, seed):
         df[["repo_name", "treatment_group"]]
         .drop_duplicates()
         .assign(first_time_index=lambda d: d["repo_name"].map(first_time_index))
+        .sort_values(["repo_name", "treatment_group"], kind="stable")
+        .reset_index(drop=True)
     )
 
     def _draw_group(row):

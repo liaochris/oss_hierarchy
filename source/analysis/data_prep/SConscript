@@ -1,21 +1,23 @@
 Import('*')
 
-from source.lib.helpers import LoadGlobals
+from source.lib.helpers import LoadPipelineInputs
 
-_cfg = LoadGlobals("../../../source/lib/pipeline_config.json")
+_cfg = LoadPipelineInputs("../../../source/lib/project_config.json")
 IMPORTANCE_TYPES     = _cfg["importance_types"]["run"]
 ROLLING_PERIODS      = [f"rolling{p}" for p in _cfg["rolling_periods"]["run"]]
-QUALIFIED_VARIANTS   = ["qualified_1", "qualified_2", "qualified_3", "qualified_any"]
+QUALIFIED_SAMPLES    = _cfg["qualified_samples"]["run"]
+CONTROL_GROUPS       = _cfg["control_groups"]["run"]
 OUTPUT_FILES         = [
-    "panel_pc.parquet", "panel_pc.log",
-    "panel_pc_median.parquet", "panel_pc_median.log",
-    "pc1_metadata.csv", "pc1_metadata.log",
-    "pc1_excluded_vars.csv", "pc1_excluded_vars.log",
+    "panel.parquet", "panel.log",
+    "panel_PCA_median.parquet", "panel_PCA_median.log",
+    "PCA_metadata.csv", "PCA_metadata.log",
+    "PCA_excluded_vars.csv", "PCA_excluded_vars.log",
+    "pc_columns.json",
 ]
 
 sources = [
     '#source/analysis/data_prep/prepare_panel.py',
-    '#source/lib/pipeline_config.json',
+    '#source/lib/project_config.json',
     '#source/analysis/config/pc_groups.json',
 ]
 for importance_type in IMPORTANCE_TYPES:
@@ -27,8 +29,9 @@ for importance_type in IMPORTANCE_TYPES:
 targets = []
 for importance_type in IMPORTANCE_TYPES:
     for rolling_period in ROLLING_PERIODS:
-        for variant in QUALIFIED_VARIANTS:
-            base = f'#output/analysis/data_prep/{importance_type}/{rolling_period}/{variant}'
-            targets.extend(f'{base}/{f}' for f in OUTPUT_FILES)
+        for qualified_sample in QUALIFIED_SAMPLES:
+            for control_group in CONTROL_GROUPS:
+                base = f'#output/analysis/data_prep/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}'
+                targets.extend(f'{base}/{f}' for f in OUTPUT_FILES)
 
 env.Python(targets, sources)

@@ -1,11 +1,10 @@
-import json
 from pathlib import Path
 import glob
 import pandas as pd
 import numpy as np
 from joblib import Parallel, delayed
 from source.lib.JMSLab.SaveData import SaveData
-from source.lib.helpers import JsonSerialize
+from source.lib.helpers import JsonSerialize, LoadImportanceSpecifications
 
 INDIR = Path("drive/output/derived/graph_structure/graph_degrees")
 OUTDIR = Path("output/derived/graph_structure/important_members")
@@ -14,7 +13,7 @@ LOGDIR = Path("output/derived/graph_structure")
 
 def Main():
     files = sorted(glob.glob(str(INDIR / "*.parquet")))
-    configs = json.load(open("source/lib/importance.json"))
+    configs = LoadImportanceSpecifications()
 
     tasks = MakeTasks(files, configs)
 

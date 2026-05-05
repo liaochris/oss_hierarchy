@@ -107,7 +107,7 @@ def ParseJsonList(x, col):
     if isinstance(x, str):
         try:
             parsed = json.loads(x)
-            return [ele[col] for ele in parsed] if isinstance(parsed, list) else []
+            return [ele[col] for ele in parsed if isinstance(ele, dict) and col in ele] if isinstance(parsed, list) else []
         except (json.JSONDecodeError, TypeError):
             return []
     return []

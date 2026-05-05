@@ -1,9 +1,9 @@
 Import('*')
 
-from source.lib.helpers import LoadGlobals, MakeRepoNameSafe
+from source.lib.helpers import LoadGlobalSettings, LoadPipelineInputs, MakeRepoNameSafe
 
-_g      = LoadGlobals("../../../source/lib/globals.json")
-_cfg    = LoadGlobals("../../../source/lib/pipeline_config.json")
+_g      = LoadGlobalSettings("../../../source/lib/project_config.json")
+_cfg    = LoadPipelineInputs("../../../source/lib/project_config.json")
 ref     = MakeRepoNameSafe(_g['reference_github_repo'])
 rolling = f"rolling{_g['rolling_periods']}"
 
@@ -104,8 +104,7 @@ env.Python(
 panel_targets = []
 panel_sources = [
     '#source/derived/org_outcomes_practices/org_panel.py',
-    '#source/lib/importance.json',
-    '#source/lib/pipeline_config.json',
+    '#source/lib/project_config.json',
     f'#drive/output/derived/org_outcomes_practices/org_outcomes/{ref}.parquet',
     imp_members,
 ]

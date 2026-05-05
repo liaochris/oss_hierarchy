@@ -7,7 +7,7 @@ import numpy as np
 import itertools
 from datetime import datetime
 from joblib import Parallel, delayed
-from source.lib.helpers import CleanDirs, MakeRepoNameSafe, MakeRepoNameOriginal, ImputeTimePeriod, LoadGlobals, JsonSerialize
+from source.lib.helpers import CleanDirs, MakeRepoNameSafe, MakeRepoNameOriginal, ImputeTimePeriod, LoadGlobalSettings, JsonSerialize
 from source.lib.JMSLab.SaveData import SaveData
 
 INDIR_DATA = Path('drive/output/derived/action_data/repo_actions')
@@ -17,8 +17,8 @@ LOG_DIR = Path('output/derived/graph_structure')
 
 def Main():
     CleanOutputs()
-    globals_data = LoadGlobals("source/lib/globals.json")
-    time_period = 6
+    globals_data = LoadGlobalSettings()
+    time_period = globals_data["time_period_months"]
     repo_list = sorted({
         MakeRepoNameOriginal(f.stem)
         for f in INDIR_DATA.glob("*.parquet")
@@ -26,7 +26,7 @@ def Main():
     })
     time_periods = pd.date_range(globals_data["github_start_date"], globals_data["github_end_date"], freq="6MS").to_list()
 
-    results = Parallel(n_jobs=12)(
+    results = Parallel(n_jobs=globals_data["n_jobs"])(
         delayed(worker)(repo, time_periods, time_period, OUTDIR, INDIR_DATA) for repo in repo_list
     )
     all_logs = [log for logs in results for log in logs]

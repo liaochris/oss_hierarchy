@@ -1,19 +1,18 @@
-import json, random
+import random
 from pathlib import Path
 import pandas as pd
 from joblib import Parallel, delayed
-from source.lib.helpers import CleanDirs, ImputeTimePeriod, LoadGlobals
+from source.lib.helpers import CleanDirs, ImputeTimePeriod, LoadGlobalSettings, LoadImportanceSpecifications
 from source.derived.org_outcomes_practices.helpers import AddTypeBroad, ApplyRolling, ConcatStatsByTimePeriod, FilterOnImportant, LoadBotList, LoadFilteredImportantMembers
 from source.lib.JMSLab.SaveData import SaveData
 
-_globals        = LoadGlobals("source/lib/globals.json")
+_globals        = LoadGlobalSettings()
 TIME_PERIOD     = _globals["time_period_months"]
 ROLLING_PERIODS = _globals["rolling_periods"]
 N_JOBS          = _globals["n_jobs"]
 RUN_EXTENSIONS  = _globals["run_extensions"]
 
-with open(Path("source/lib") / "importance.json") as f:
-    _importance_params = json.load(f)
+_importance_params = LoadImportanceSpecifications()
 PRIMARY_SUBSET    = "all"
 EXTENSION_SUBSETS = list(_importance_params.keys())
 

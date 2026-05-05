@@ -17,7 +17,6 @@ INDIR = Path("output/scrape/extract_github_data")
 OUTDIR = Path("drive/output/scrape/extract_github_data/repo_level_data")
 OUTDIR_LOG = Path("output/scrape/extract_github_data/repo_level_data")
 STAGE_ROOT = Path("drive/temp/scrape/extract_github_data/repo_level_data_stage")
-CHUNK_SIZE = 100_000
 PARQUET_COMPRESSION = "snappy"
 CATEGORIES = [
     {
@@ -195,17 +194,17 @@ def DiscoverPaths(globs_list):
 
 
 def BuildRepoParts(paths, keep_cols, repo_lookup, parts_dir, category_name, max_workers):
-    results = StageChunkedCategoryData(paths, keep_cols, repo_lookup, parts_dir, category_name, max_workers)
+    results = StageCategoryFiles(paths, keep_cols, repo_lookup, parts_dir, category_name, max_workers)
     return sorted({repo_name for repo_names in results for repo_name in repo_names})
 
 
-def StageChunkedCategoryData(paths, keep_cols, repo_lookup, parts_dir, category_name, max_workers):
+def StageCategoryFiles(paths, keep_cols, repo_lookup, parts_dir, category_name, max_workers):
     jobs = [
-        (str(path), keep_cols, repo_lookup, str(parts_dir), idx, CHUNK_SIZE)
+        (str(path), keep_cols, repo_lookup, str(parts_dir), idx)
         for idx, path in enumerate(paths, start=1)
     ]
     return RunParallel(
-        StageOneChunkedFile,
+        StageOneFile,
         jobs,
         max_workers,
         progress_items=[path.name for path in paths],
@@ -213,86 +212,57 @@ def StageChunkedCategoryData(paths, keep_cols, repo_lookup, parts_dir, category_
     )
 
 
-def StageOneChunkedFile(path_str, keep_cols, repo_lookup, parts_dir_str, source_idx, chunk_size):
-    return StageSourceFile(Path(path_str), keep_cols, repo_lookup, Path(parts_dir_str), source_idx, chunk_size)
+def StageOneFile(path_str, keep_cols, repo_lookup, parts_dir_str, source_idx):
+    return StageSourceFile(Path(path_str), keep_cols, repo_lookup, Path(parts_dir_str), source_idx)
 
 
-def StageSourceFile(path, keep_cols, repo_lookup, parts_dir, source_idx, chunk_size):
-    try:
-        rows_written, repo_names, rows_seen = StageSourceFileOnce(
-            path, keep_cols, repo_lookup, parts_dir, source_idx, chunk_size, force_python=False,
-        )
-    except pd.errors.ParserError:
-        RemoveSourceParts(parts_dir, source_idx)
-        try:
-            rows_written, repo_names, _ = StageSourceFileOnce(
-                path, keep_cols, repo_lookup, parts_dir, source_idx, chunk_size, force_python=True,
-            )
-        except Exception:
-            RemoveSourceParts(parts_dir, source_idx)
-            return []
-        return sorted(repo_names)
-    if rows_seen == 0 or (rows_seen > 0 and rows_written == 0):
-        RemoveSourceParts(parts_dir, source_idx)
-        try:
-            rows_written, repo_names, _ = StageSourceFileOnce(
-                path, keep_cols, repo_lookup, parts_dir, source_idx, chunk_size, force_python=True,
-            )
-        except Exception:
-            RemoveSourceParts(parts_dir, source_idx)
-            return []
+def StageSourceFile(path, keep_cols, repo_lookup, parts_dir, source_idx):
+    _, repo_names, _ = StageSourceFileOnce(
+        path, keep_cols, repo_lookup, parts_dir, source_idx,
+    )
     return sorted(repo_names)
 
 
 def RemoveSourceParts(parts_dir, source_idx):
-    for old_part in parts_dir.glob(f"*/{source_idx:05d}_*.parquet"):
+    for old_part in parts_dir.glob(f"*/{source_idx:05d}.parquet"):
         old_part.unlink(missing_ok=True)
 
 
-def StageSourceFileOnce(path, keep_cols, repo_lookup, parts_dir, source_idx, chunk_size, force_python):
+def StageSourceFileOnce(path, keep_cols, repo_lookup, parts_dir, source_idx):
     import pyarrow.parquet as pq
 
     schema = GetArrowSchema(keep_cols)
-    rows_seen = 0
+    df = ReadRawGitHub(path, keep_cols)
+    rows_seen = len(df)
     rows_written = 0
     repo_names = set()
-    for chunk_idx, chunk in enumerate(ReadRawGitHubChunks(path, keep_cols, chunk_size, force_python), start=1):
-        rows_seen += len(chunk)
-        staged_chunk = PrepareSourceChunk(chunk, keep_cols, repo_lookup)
-        if staged_chunk is None or staged_chunk.empty:
-            continue
-        for repo_name, repo_df in staged_chunk.groupby("safe_repo_name", sort=False, dropna=False):
+    staged = PrepareSourceData(df, keep_cols, repo_lookup)
+    if staged is not None and not staged.empty:
+        for repo_name, repo_df in staged.groupby("safe_repo_name", sort=False, dropna=False):
             if repo_name is None or pd.isna(repo_name):
                 continue
             repo_dir = parts_dir / str(repo_name)
             repo_dir.mkdir(parents=True, exist_ok=True)
             table = MakeArrowTable(repo_df.drop(columns=["safe_repo_name"]).reset_index(drop=True), schema)
-            pq.write_table(table, repo_dir / f"{source_idx:05d}_{chunk_idx:05d}.parquet", compression=PARQUET_COMPRESSION)
+            pq.write_table(table, repo_dir / f"{source_idx:05d}.parquet", compression=PARQUET_COMPRESSION)
             repo_names.add(str(repo_name))
-        rows_written += len(staged_chunk)
+        rows_written = len(staged)
     return rows_written, repo_names, rows_seen
 
 
-def ReadRawGitHubChunks(path, keep_cols, chunk_size, force_python=False):
+def ReadRawGitHub(path, keep_cols):
     import csv as _csv
     _csv.field_size_limit(10_000_000)
-    kwargs = {**READ_CSV_KWARGS, "usecols": lambda col: col in keep_cols, "chunksize": chunk_size}
-    python_kwargs = {k: v for k, v in kwargs.items() if k != "low_memory"}
-    if force_python:
-        reader = pd.read_csv(path, engine="python", **python_kwargs)
-    else:
-        try:
-            reader = pd.read_csv(path, **kwargs)
-        except Exception:
-            reader = pd.read_csv(path, engine="python", **python_kwargs)
-    for chunk in reader:
-        for col in keep_cols:
-            if col not in chunk.columns:
-                chunk[col] = pd.NA
-        yield chunk[keep_cols]
+    kwargs = {k: v for k, v in READ_CSV_KWARGS.items() if k != "low_memory"}
+    kwargs["usecols"] = lambda col: col in keep_cols
+    df = pd.read_csv(path, engine="python", **kwargs)
+    for col in keep_cols:
+        if col not in df.columns:
+            df[col] = pd.NA
+    return df[keep_cols]
 
 
-def PrepareSourceChunk(df, keep_cols, repo_lookup):
+def PrepareSourceData(df, keep_cols, repo_lookup):
     if df.empty:
         return None
 

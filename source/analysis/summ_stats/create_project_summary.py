@@ -1,3 +1,5 @@
+import json
+
 import pandas as pd
 from pathlib import Path
 import glob
@@ -14,6 +16,11 @@ def Main():
     INDIR_PR = Path("drive/output/scrape/extract_github_data/repo_level_data/pr")
     INDIR_ISSUE_LINKED = Path("drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request")
     INDIR_PR_LINKED = Path("drive/output/scrape/link_issue_pull_request/linked_pull_request_to_issue")
+    INDIR_GRAPH_LOG = Path("output/derived/graph_structure/exported_graphs_log.csv")
+    INDIR_ORG_PANEL = Path("drive/output/derived/org_outcomes_practices/org_panel/important_degree_top3/rolling5/panel.parquet")
+    INDIR_EXACT1 = Path("output/analysis/data_prep/important_degree_top3/rolling5/exact1/nevertreated/panel.parquet")
+    INDIR_EXACT2 = Path("output/analysis/data_prep/important_degree_top3/rolling5/exact2/nevertreated/panel.parquet")
+    INDIR_EXACT3 = Path("output/analysis/data_prep/important_degree_top3/rolling5/exact3/nevertreated/panel.parquet")
     OUTDIR = Path("output/analysis/summ_stats")
 
     OUTDIR.mkdir(parents=True, exist_ok=True)
@@ -27,8 +34,17 @@ def Main():
     issue_linked_files = set(Path(f).stem.lower() for f in glob.glob(str(INDIR_ISSUE_LINKED / "*.parquet")))
     pr_linked_files = set(Path(f).stem.lower() for f in glob.glob(str(INDIR_PR_LINKED / "*.parquet")))
 
-    df_summary = BuildSummary(df_popular, df_linked, df_repo_history, issue_files, pr_files,
-                              issue_linked_files, pr_linked_files)
+    df_graph_log = pd.read_csv(INDIR_GRAPH_LOG)
+    df_org_panel = pd.read_parquet(INDIR_ORG_PANEL)
+    df_exact1 = pd.read_parquet(INDIR_EXACT1)
+    df_exact2 = pd.read_parquet(INDIR_EXACT2)
+    df_exact3 = pd.read_parquet(INDIR_EXACT3)
+
+    df_summary = BuildSummary(
+        df_popular, df_linked, df_repo_history,
+        issue_files, pr_files, issue_linked_files, pr_linked_files,
+        df_graph_log, df_org_panel, df_exact1, df_exact2, df_exact3
+    )
 
     SaveData(
         df_summary,
@@ -40,8 +56,9 @@ def Main():
     ExportSummaryTable(df_summary, OUTDIR / "summary_table.txt")
 
 
-def BuildSummary(df_popular, df_linked, df_repo_history, issue_files, pr_files,
-                 issue_linked_files, pr_linked_files):
+def BuildSummary(df_popular, df_linked, df_repo_history,
+                 issue_files, pr_files, issue_linked_files, pr_linked_files,
+                 df_graph_log, df_org_panel, df_exact1, df_exact2, df_exact3):
     df = df_popular.rename(columns={"project": "package"}).copy()
     df = df.dropna(subset=["package"])
 
@@ -71,8 +88,65 @@ def BuildSummary(df_popular, df_linked, df_repo_history, issue_files, pr_files,
     df["has_issue_linked"] = safe_repo.isin(issue_linked_files)
     df["has_pr_linked"] = safe_repo.isin(pr_linked_files)
 
-    return df[["package", "pypi_github_link", "pypi_has_github_link", "unique_repo", "in_archive",
-               "has_issues", "has_prs", "has_both", "has_issue_linked", "has_pr_linked"]]
+    df_graph = BuildGraphPeriodCounts(df_graph_log)
+    df_org_flags = BuildOrgPanelFlags(df_org_panel)
+    df_balanced = BuildBalancedPanelFlags(df_exact1, df_exact2, df_exact3)
+
+    df = df.merge(df_graph, left_on="unique_repo", right_on="repo", how="left").drop(columns=["repo"])
+    df = df.merge(df_org_flags, left_on="unique_repo", right_on="repo_name", how="left").drop(columns=["repo_name"])
+    df = df.merge(df_balanced, left_on="unique_repo", right_on="repo_name", how="left").drop(columns=["repo_name"])
+
+    return df[[
+        "package", "pypi_github_link", "pypi_has_github_link", "unique_repo",
+        "in_archive", "has_issues", "has_prs", "has_both", "has_issue_linked", "has_pr_linked",
+        "num_graph_periods",
+        "num_departures_degree_top3", "is_treated_degree_top3",
+        "num_important_qualified_degree_top3_at_treatment",
+        "in_exact1_degree_top3_sample", "in_exact2_degree_top3_sample", "in_exact3_degree_top3_sample",
+        "in_complete_panel_exact1_degree_top3", "in_complete_panel_exact2_degree_top3", "in_complete_panel_exact3_degree_top3",
+    ]]
+
+
+def BuildGraphPeriodCounts(df_graph_log):
+    df = df_graph_log[["repo", "per_period_exported"]].copy()
+    df["num_graph_periods"] = df["per_period_exported"].apply(
+        lambda x: len(json.loads(x)) if pd.notna(x) and x != "{}" else 0
+    )
+    return df[["repo", "num_graph_periods"]]
+
+
+def BuildOrgPanelFlags(df_org_panel):
+    panel = df_org_panel[["repo_name", "time_index", "quasi_treatment_group", "num_important_qualified", "num_departures"]].copy()
+
+    # num_departures is cumulative — take max per repo for total departures
+    departures = panel.groupby("repo_name")["num_departures"].max().reset_index()
+    departures = departures.rename(columns={"num_departures": "num_departures_degree_top3"})
+    departures["is_treated_degree_top3"] = departures["num_departures_degree_top3"] == 1
+
+    at_treatment = panel[panel["time_index"] == panel["quasi_treatment_group"]][["repo_name", "num_important_qualified"]].drop_duplicates("repo_name")
+    at_treatment = at_treatment.rename(columns={"num_important_qualified": "num_important_qualified_degree_top3_at_treatment"})
+
+    result = departures.merge(at_treatment, on="repo_name", how="left")
+
+    n = result["num_important_qualified_degree_top3_at_treatment"]
+    result["in_exact1_degree_top3_sample"] = n == 1
+    result["in_exact2_degree_top3_sample"] = n == 2
+    result["in_exact3_degree_top3_sample"] = n == 3
+
+    return result
+
+
+def BuildBalancedPanelFlags(df_exact1, df_exact2, df_exact3):
+    repos1 = set(df_exact1["repo_name"].unique())
+    repos2 = set(df_exact2["repo_name"].unique())
+    repos3 = set(df_exact3["repo_name"].unique())
+
+    all_repos = repos1 | repos2 | repos3
+    df = pd.DataFrame({"repo_name": sorted(all_repos)})
+    df["in_complete_panel_exact1_degree_top3"] = df["repo_name"].isin(repos1)
+    df["in_complete_panel_exact2_degree_top3"] = df["repo_name"].isin(repos2)
+    df["in_complete_panel_exact3_degree_top3"] = df["repo_name"].isin(repos3)
+    return df
 
 
 def ExportSummaryTable(df, outfile):
@@ -87,6 +161,13 @@ def ExportSummaryTable(df, outfile):
         ("  with both", df_repos["has_both"].sum()),
         ("  with issue linked", df_repos["has_issue_linked"].sum()),
         ("  with PR linked", df_repos["has_pr_linked"].sum()),
+        ("  with graph data (any period)", (df_repos["num_graph_periods"] > 0).sum()),
+        ("  degree_top3: in exact1 sample", df_repos["in_exact1_degree_top3_sample"].sum()),
+        ("  degree_top3: in exact2 sample", df_repos["in_exact2_degree_top3_sample"].sum()),
+        ("  degree_top3: in exact3 sample", df_repos["in_exact3_degree_top3_sample"].sum()),
+        ("  degree_top3: complete panel exact1", df_repos["in_complete_panel_exact1_degree_top3"].sum()),
+        ("  degree_top3: complete panel exact2", df_repos["in_complete_panel_exact2_degree_top3"].sum()),
+        ("  degree_top3: complete panel exact3", df_repos["in_complete_panel_exact3_degree_top3"].sum()),
     ]
     lines = []
     for label, count in summary_rows:
