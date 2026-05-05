@@ -1,0 +1,51 @@
+Import('*')
+
+from source.lib.helpers import LoadPipelineInputs
+
+_cfg = LoadPipelineInputs("../../../source/lib/project_config.json")
+IMPORTANCE_TYPES  = _cfg["importance_types"]["run"]
+ROLLING_PERIODS   = [f"rolling{p}" for p in _cfg["rolling_periods"]["run"]]
+QUALIFIED_SAMPLES = _cfg["qualified_samples"]["run"]
+CONTROL_GROUPS    = _cfg["control_groups"]["run"]
+COVAR_TYPES       = _cfg["feature_sets"]["run"]
+FOREST_OUTCOME   = _cfg["forest_training_outcome"]
+
+INDIR_PREP = "#output/analysis/data_prep"
+OUTDIR     = "#output/analysis/event_study_forest"
+
+AGGREGATED_SAMPLES = {"exact_1_2": ["exact1", "exact2"]}
+
+sources = [
+    "#source/analysis/event_study_forest/fit_cate.R",
+    "#source/lib/event_study_forest.R",
+    "#source/lib/helpers.R",
+    "#source/lib/constants.R",
+    "#source/lib/forest_helpers.R",
+    "#source/lib/project_config.json",
+    "#source/analysis/config/pc_groups.json",
+]
+NON_AGGREGATED_SAMPLES = [s for s in QUALIFIED_SAMPLES if s not in AGGREGATED_SAMPLES]
+
+for importance_type in IMPORTANCE_TYPES:
+    for rolling_period in ROLLING_PERIODS:
+        for qualified_sample in NON_AGGREGATED_SAMPLES:
+            for control_group in CONTROL_GROUPS:
+                sources += [
+                    f"{INDIR_PREP}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel_PCA_median.parquet",
+                    f"{INDIR_PREP}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/pc_columns.json",
+                ]
+
+targets = []
+for importance_type in IMPORTANCE_TYPES:
+    for rolling_period in ROLLING_PERIODS:
+        for qualified_sample in NON_AGGREGATED_SAMPLES:
+            for control_group in CONTROL_GROUPS:
+                for covar_type in COVAR_TYPES:
+                    base = f"{OUTDIR}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/{covar_type}"
+                    targets += [
+                        f"{base}/{FOREST_OUTCOME}_repo_att_event_study_forest.parquet",
+                        f"{base}/{FOREST_OUTCOME}_repo_att_event_study_forest.log",
+                        f"{base}/{FOREST_OUTCOME}_cohort_time_repo_coeffs_event_study_forest.parquet",
+                    ]
+
+env.R(targets, sources)

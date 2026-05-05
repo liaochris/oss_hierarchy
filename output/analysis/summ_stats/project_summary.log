@@ -1,18 +1,28 @@
 File: output/analysis/summ_stats/project_summary.parquet
 
-MD5 hash: e913368143c65996deaffecb9bc66ab6
+MD5 hash: d6b187131d072d5af4fae671157d6df2
 
 Keys: package 
 
-                        type  count  unique
-package               object  49721   49721
-pypi_github_link      object  49721   30401
-pypi_has_github_link    bool  49721       2
-unique_repo           object  21648   17289
-in_archive              bool  49721       2
-has_issues              bool  49721       2
-has_prs                 bool  49721       2
-has_both                bool  49721       2
-has_issue_linked        bool  49721       2
-has_pr_linked           bool  49721       2
+                                                     type  count unique      mean       std  min  25%  50%   75%   max
+package                                            object  49721  49721                                               
+pypi_github_link                                   object  49721  30401                                               
+pypi_has_github_link                                 bool  49721      2                                               
+unique_repo                                        object  32869  27383                                               
+in_archive                                           bool  49721      2                                               
+has_issues                                           bool  49721      2                                               
+has_prs                                              bool  49721      2                                               
+has_both                                             bool  49721      2                                               
+has_issue_linked                                     bool  49721      2                                               
+has_pr_linked                                        bool  49721      2                                               
+num_graph_periods                                 float64  26968         8.711399  5.985226  0.0  4.0  7.0  13.0  21.0
+num_departures_degree_top3                        float64  26968         0.186517  0.495458  0.0  0.0  0.0   0.0   6.0
+is_treated_degree_top3                             object  26968      2                                               
+num_important_qualified_degree_top3_at_treatment  float64  25938         0.632354  0.885819  0.0  0.0  0.0   1.0   5.0
+in_exact1_degree_top3_sample                       object  26968      2                                               
+in_exact2_degree_top3_sample                       object  26968      2                                               
+in_exact3_degree_top3_sample                       object  26968      2                                               
+in_complete_panel_exact1_degree_top3               object   1230      2                                               
+in_complete_panel_exact2_degree_top3               object   1230      2                                               
+in_complete_panel_exact3_degree_top3               object   1230      2                                               
 
