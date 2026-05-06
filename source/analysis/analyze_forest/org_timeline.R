@@ -30,21 +30,7 @@ Main <- function() {
   invisible(NULL)
 }
 
-LoadPanelData <- function(importance_type, rolling_panel, qualified_sample, control_group) {
-  if (qualified_sample %in% names(AGGREGATED_SAMPLES)) {
-    sub_panels <- lapply(AGGREGATED_SAMPLES[[qualified_sample]], function(s)
-      LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel, s, control_group))
-    sub_panels <- Filter(function(p) nrow(p) > 0, sub_panels)
-    if (length(sub_panels) == 0) return(tibble())
-    bind_rows(sub_panels)
-  } else {
-    LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel, qualified_sample, control_group)
-  }
-}
-
 PlotOrgTimeline <- function(panel, outdir_ds) {
-  # Each repo gets one quasi-treatment date and at most one treatment date;
-  # "Observed" counts every panel row to show the full time coverage
   quasi_dates    <- panel %>%
     group_by(repo_name) %>%
     mutate(quasi_treatment_date = time_period[time_index == quasi_treatment_group][1]) %>%
@@ -60,13 +46,12 @@ PlotOrgTimeline <- function(panel, outdir_ds) {
     pull(treatment_date)
 
   counts <- bind_rows(
-    tibble(date = panel$time_period,    type = "Observed"),
-    tibble(date = quasi_dates,          type = "Quasi-Treatment Date"),
-    tibble(date = treatment_dates,      type = "Treatment Date")
+    tibble(date = quasi_dates,     type = "Quasi-Treatment Date"),
+    tibble(date = treatment_dates, type = "Treatment Date")
   ) %>%
     group_by(date, type) %>%
     summarise(count = n(), .groups = "drop") %>%
-    mutate(type = factor(type, levels = c("Observed", "Quasi-Treatment Date", "Treatment Date")))
+    mutate(type = factor(type, levels = c("Quasi-Treatment Date", "Treatment Date")))
 
   ggplot(counts, aes(x = date, y = count, fill = type)) +
     geom_col(color = "black", linewidth = 0.3, position = "identity", alpha = 1) +

@@ -7,22 +7,6 @@ source("source/analysis/analyze_forest/helpers.R")
 INDIR_CF <- "output/analysis/event_study_forest"
 OUTDIR   <- "output/analysis/event_study_forest"
 
-PRACTICE_VARS <- c(
-  "collaboration_principal_component1",
-  "shared_knowledge_principal_component1",
-  "discussion_quality_principal_component1",
-  "investment_in_new_talent_principal_component1",
-  "problem_solving_routines_principal_component1"
-)
-
-PRACTICE_LABELS <- c(
-  "collaboration_principal_component1"            = "Collaboration",
-  "shared_knowledge_principal_component1"         = "Knowledge level",
-  "discussion_quality_principal_component1"       = "Discussion quality",
-  "investment_in_new_talent_principal_component1" = "Investment in new talent",
-  "problem_solving_routines_principal_component1" = "Problem-solving routines"
-)
-
 Main <- function() {
   for (importance_type in IMPORTANCE_TYPES) {
     for (qualified_sample in QUALIFIED_SAMPLES) {
@@ -34,13 +18,9 @@ Main <- function() {
           forest_data <- LoadForestData(INDIR_CF, importance_type, rolling_panel, qualified_sample, control_group)
           if (is.null(forest_data)) next
 
-          pc_cols  <- colnames(forest_data$df)[grepl("_principal_component1$", colnames(forest_data$df))]
-          pc_medians <- sapply(pc_cols, function(col) median(forest_data$df[[col]], na.rm = TRUE))
-
-          df_bins <- forest_data$df %>%
-            mutate(across(all_of(pc_cols),
-                          ~ ifelse(.x > pc_medians[cur_column()], "high", "low"),
-                          .names = "{.col}"))
+          pc_cols   <- colnames(forest_data$df)[grepl("_principal_component1$", colnames(forest_data$df))]
+          binarized <- BinarizePCScores(forest_data$df, pc_cols)
+          df_bins   <- binarized$df
 
           df_summary <- df_bins %>%
             group_by(across(all_of(pc_cols))) %>%
@@ -121,7 +101,7 @@ PlotHighLowGrid <- function(df_summary, practice_vars) {
     scale_y_discrete(limits = rev(rank_levels)) +
     scale_x_discrete(
       labels  = function(x) vapply(x, function(xx) {
-        lbl <- PRACTICE_LABELS[xx]; if (!is.na(lbl)) lbl else xx
+        lbl <- PC_LABELS[xx]; if (!is.na(lbl)) lbl else xx
       }, FUN.VALUE = character(1)),
       expand  = expansion(add = c(0.2, 0.2))
     )

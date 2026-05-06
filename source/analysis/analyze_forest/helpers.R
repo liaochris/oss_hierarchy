@@ -3,7 +3,6 @@ library(arrow)
 library(fs)
 library(jsonlite)
 library(knitr)
-library(grf)
 
 source("source/lib/helpers.R")
 source("source/lib/forest_helpers.R")
@@ -11,10 +10,11 @@ source("source/lib/constants.R")
 
 INDIR_PREP <- "output/analysis/data_prep"
 
-# Loads the merged causal-forest ATT parquet for one loop combination.
-# For aggregated samples (e.g. exact_1_2), reads each sub-sample's parquet and
-# row-binds them; also returns the sub-sample data frames for fold comparisons.
-# Returns NULL if no data are available.
+PC_LABELS <- setNames(
+  vapply(names(PC_GROUPS), function(g) sub(" score$", "", PCGroupFriendlyLabel(g)), character(1)),
+  paste0(names(PC_GROUPS), "_principal_component1")
+)
+
 LoadForestData <- function(indir_cf, importance_type, rolling_panel,
                            qualified_sample, control_group, covar_type_dir = "pc1") {
   split_var <- FOREST_TRAINING_OUTCOME
@@ -40,6 +40,26 @@ LoadForestData <- function(indir_cf, importance_type, rolling_panel,
     if (is.null(df)) return(NULL)
     list(df = df, sub_dfs = NULL)
   }
+}
+
+LoadPanelData <- function(importance_type, rolling_panel, qualified_sample, control_group) {
+  if (qualified_sample %in% names(AGGREGATED_SAMPLES)) {
+    sub_panels <- lapply(AGGREGATED_SAMPLES[[qualified_sample]], function(s)
+      LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel, s, control_group))
+    sub_panels <- Filter(function(p) nrow(p) > 0, sub_panels)
+    if (length(sub_panels) == 0) return(tibble())
+    bind_rows(sub_panels)
+  } else {
+    LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel, qualified_sample, control_group)
+  }
+}
+
+BinarizePCScores <- function(df, pc_cols) {
+  medians <- sapply(pc_cols, function(col) median(df[[col]], na.rm = TRUE))
+  df_bin  <- df %>% mutate(across(all_of(pc_cols),
+                                   ~ ifelse(.x > medians[cur_column()], "high", "low"),
+                                   .names = "{.col}"))
+  list(df = df_bin, medians = medians)
 }
 
 ComputeOutcomeStats <- function(panel_df, outcome_cols = c("pull_request_opened", "pull_request_merged", "overall_new_release_count")) {
@@ -98,8 +118,8 @@ CreatePracticeComboTables <- function(df_bins, practice_vars, outdir_ds) {
         group_by(across(all_of(vars))) %>%
         summarize(att_dr_mean = mean(att_dr, na.rm = TRUE), count = n(), .groups = "drop") %>%
         arrange(-att_dr_mean) %>%
-        mutate(rank = row_number(),
-               pattern        = apply(as.data.frame(cur_group())[vars], 1, paste, collapse = "-"),
+        mutate(rank           = row_number(),
+               pattern        = apply(as.matrix(pick(all_of(vars))), 1, paste, collapse = "-"),
                practice_subset = paste(vars, collapse = " x ")) %>%
         select(practice_subset, pattern, rank, att_dr_mean, count)
     })
@@ -107,11 +127,11 @@ CreatePracticeComboTables <- function(df_bins, practice_vars, outdir_ds) {
               file.path(outdir_ds, paste0("practice_combo_k", k, "_table.csv")))
 
     rows_high <- lapply(combos, function(vars) {
-      grp       <- df_bins %>%
+      grp      <- df_bins %>%
         group_by(across(all_of(vars))) %>%
         summarize(att_dr_mean = mean(att_dr, na.rm = TRUE), count = n(), .groups = "drop")
-      all_high  <- grp %>% filter(if_all(all_of(vars), ~ .x == "high"))
-      others    <- grp %>% filter(!if_all(all_of(vars), ~ .x == "high"))
+      all_high <- grp %>% filter(if_all(all_of(vars), ~ .x == "high"))
+      others   <- grp %>% filter(!if_all(all_of(vars), ~ .x == "high"))
       if (nrow(all_high) == 0) return(NULL)
       att_others <- if (nrow(others) > 0 && sum(others$count) > 0)
         sum(others$att_dr_mean * others$count) / sum(others$count) else NA_real_
@@ -127,8 +147,8 @@ CreatePracticeComboTables <- function(df_bins, practice_vars, outdir_ds) {
 }
 
 PlotGradientGrid <- function(df_summary, practice_vars, fixed_rank_order = NULL) {
-  mat         <- as.matrix(df_summary[practice_vars])
-  df_summary  <- df_summary %>%
+  mat        <- as.matrix(df_summary[practice_vars])
+  df_summary <- df_summary %>%
     mutate(combo_key   = apply(mat, 1, function(r) paste(toupper(substr(r, 1, 1)), collapse = "-")),
            forest_rank = row_number(desc(att_dr_mean)))
 
@@ -251,14 +271,6 @@ ExportVariableImportanceTex <- function(fold_rds_paths, outdir_ds) {
   existing <- fold_rds_paths[file.exists(fold_rds_paths)]
   if (length(existing) == 0) return(invisible(NULL))
 
-  pretty <- c(
-    "collaboration_principal_component1"            = "Collaboration (PC1)",
-    "shared_knowledge_principal_component1"         = "Knowledge Level (PC1)",
-    "discussion_quality_principal_component1"       = "Discussion Quality (PC1)",
-    "investment_in_new_talent_principal_component1" = "Investment in New Talent (PC1)",
-    "problem_solving_routines_principal_component1" = "Problem-Solving Routines (PC1)"
-  )
-
   varimp_df <- bind_rows(lapply(existing, function(path) {
     forest <- readRDS(path)
     vi     <- variable_importance(forest)
@@ -268,7 +280,8 @@ ExportVariableImportanceTex <- function(fold_rds_paths, outdir_ds) {
     summarize(importance = mean(importance, na.rm = TRUE), .groups = "drop") %>%
     arrange(-importance) %>%
     mutate(rank  = row_number(),
-           label = ifelse(variable %in% names(pretty), pretty[variable], variable))
+           label = ifelse(variable %in% names(PC_LABELS),
+                          paste0(PC_LABELS[variable], " (PC1)"), variable))
 
   out_tbl    <- varimp_df %>% transmute(Rank = rank, Variable = label, `Mean Split Share` = sprintf("%.4f", importance))
   latex_body <- as.character(knitr::kable(out_tbl, format = "latex", booktabs = TRUE, linesep = ""))

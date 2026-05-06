@@ -7,14 +7,6 @@ source("source/analysis/analyze_forest/helpers.R")
 INDIR_CF <- "output/analysis/event_study_forest"
 OUTDIR   <- "output/analysis/event_study_forest"
 
-PRACTICE_LABELS <- c(
-  "collaboration_principal_component1"            = "Collaboration",
-  "shared_knowledge_principal_component1"         = "Knowledge level",
-  "discussion_quality_principal_component1"       = "Discussion quality",
-  "investment_in_new_talent_principal_component1" = "Investment in new talent",
-  "problem_solving_routines_principal_component1" = "Problem-solving routines"
-)
-
 Main <- function() {
   for (importance_type in IMPORTANCE_TYPES) {
     for (qualified_sample in QUALIFIED_SAMPLES) {
@@ -39,7 +31,7 @@ PlotPCCorrelationHeatmap <- function(df_cf, outdir_ds) {
 
   corr_tidy <- df_cf %>%
     select(all_of(pc_cols)) %>%
-    rename(!!!setNames(pc_cols, PRACTICE_LABELS[pc_cols])) %>%
+    rename(!!!setNames(pc_cols, PC_LABELS[pc_cols])) %>%
     cor(use = "pairwise.complete.obs") %>%
     as.data.frame() %>%
     tibble::rownames_to_column("var1") %>%

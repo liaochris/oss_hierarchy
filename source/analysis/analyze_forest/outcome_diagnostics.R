@@ -1,7 +1,6 @@
 library(tidyverse)
 library(arrow)
 library(fs)
-library(knitr)
 
 source("source/analysis/analyze_forest/helpers.R")
 
@@ -22,7 +21,6 @@ Main <- function() {
           panel <- LoadPanelData(importance_type, rolling_panel, qualified_sample, control_group)
           if (nrow(panel) == 0) next
 
-          # Restrict the panel to repos that appear in the causal forest output
           analysis_panel <- panel %>% filter(repo_name %in% forest_data$df$repo_name)
 
           outcome_stats <- ComputeOutcomeStats(analysis_panel)
@@ -38,18 +36,6 @@ Main <- function() {
     }
   }
   invisible(NULL)
-}
-
-LoadPanelData <- function(importance_type, rolling_panel, qualified_sample, control_group) {
-  if (qualified_sample %in% names(AGGREGATED_SAMPLES)) {
-    sub_panels <- lapply(AGGREGATED_SAMPLES[[qualified_sample]], function(s)
-      LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel, s, control_group))
-    sub_panels <- Filter(function(p) nrow(p) > 0, sub_panels)
-    if (length(sub_panels) == 0) return(tibble())
-    bind_rows(sub_panels)
-  } else {
-    LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel, qualified_sample, control_group)
-  }
 }
 
 Main()
