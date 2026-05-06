@@ -3,15 +3,16 @@
 #######################################
 library(tidyverse)     
 library(arrow)       
-library(yaml)   
 library(fs)       
 library(gridExtra)    
 library(png)       
 library(grid)    
 source("source/lib/helpers.R")
-source("source/analysis/event_study/helpers.R")
-source("source/analysis/forest/helpers.R")
-source("source/analysis/constants.R")
+source("source/lib/event_study_helpers.R")
+source("source/lib/forest_helpers.R")
+source("source/lib/constants.R")
+
+INDIR_PREP <- "output/analysis/data_prep"
 
 winsorize <- function(x, probs) {
   limits <- quantile(x, probs, na.rm = TRUE)
@@ -22,61 +23,46 @@ winsorize <- function(x, probs) {
 # 9. Main execution
 #######################################
 Main <- function() {
-  INDIR_CF  <- "output/analysis/causal_forest_personalization"
-  INDIR_YAML <- "source/analysis/config"
-  OUTDIR <- "output/analysis/event_study_personalization"
+  INDIR_CF  <- "output/analysis/event_study_forest"
+  OUTDIR <- "output/analysis/event_study_forest"
   dir_create(OUTDIR)
 
-  DATASETS <- c("important_topk_exact1")
-  ROLLING_PANELS <- c("rolling5")
-  METHODS <- c("lm_forest", "lm_forest_nonlinear")
+  ROLLING_PANELS <- ROLLING_LABELS
+  METHODS <- c("lm_forest")
   exclude_outcomes <- c("num_downloads")
 
-  outcome_cfg <- yaml.load_file(file.path(INDIR_YAML, "outcomes.yaml"))
+  project_cfg <- LoadProjectConfig(PROJECT_CONFIG_PATH)
+  outcome_cfg <- project_cfg$outcome_variables
   
   # GLOBAL collector for all histogram PNGs created during the whole run
   hist_files_global <- character(0)
   
-  for (dataset in DATASETS) {
-    outdir_ds <- file.path(OUTDIR, dataset)
-    dir_create(outdir_ds, recurse = TRUE)
-    for (rolling_panel in ROLLING_PANELS) {
-      rolling_period <- as.numeric(str_extract(rolling_panel, "\\d+$"))
-      for (method in METHODS) {
-        # ensure outdir_ds exists early so aggregators can find files
-        message("Processing dataset: ", dataset, " (", rolling_panel, ") method=", method)
-        
-        panel_dataset <- NormalizeDatasetName(dataset)
-        dataset_labels <- MakeDatasetLabels(dataset)
-        num_qualified_label   <- dataset_labels$num_qualified
-        What_estimation_label <- dataset_labels$what_estimation
-        
-        df_panel <- read_parquet(file.path("drive/output/derived/org_outcomes_practices/org_panel", 
-                                           panel_dataset, paste0("panel_", rolling_panel, ".parquet")))
-        all_outcomes <- unlist(lapply(outcome_cfg, function(x) x$main))
-        panel <- BuildCommonSample(df_panel, all_outcomes)
-        if (grepl("_exact1", dataset)) {
-          panel <- KeepSustainedImportant(panel, lb = 1, ub = 1)
-        } else if (grepl("_oneQual", dataset)) {
-          panel <- KeepSustainedImportant(panel)
-        } 
-        
-        panel_notyettreated <- panel %>% filter(num_departures == 1)
-        panel_nevertreated  <- panel %>% filter(num_departures <= 1)
-        panels <- list(
-          nevertreated  = panel_nevertreated,
-          notyettreated = panel_notyettreated
-        )
+  for (importance_type in IMPORTANCE_TYPES) {
+    for (qualified_sample in QUALIFIED_SAMPLES) {
+      num_qualified_label <- QualifiedSampleLabel(qualified_sample)
+      for (control_group in CONTROL_GROUPS) {
+        outdir_ds <- file.path(OUTDIR, importance_type, qualified_sample, control_group)
+        dir_create(outdir_ds, recurse = TRUE)
+        for (rolling_panel in ROLLING_PANELS) {
+          rolling_period <- as.numeric(str_extract(rolling_panel, "\\d+$"))
+          for (method in METHODS) {
+            message("Processing dataset: ", importance_type, " (", rolling_panel, "/", qualified_sample, "/", control_group, ") method=", method)
+            
+            panel <- LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel, qualified_sample, control_group)
+            if (nrow(panel) == 0) {
+              next
+            }
+            panels <- list()
+            panels[[control_group]] <- panel
 
-        outcome_modes <- BuildOutcomeModes(outcome_cfg, "nevertreated", outdir_ds, NORM_OPTIONS,
-                                           build_dir = FALSE)
+            outcome_modes <- BuildOutcomeModes(outcome_cfg, control_group, outdir_ds, NORM_OPTIONS,
+                                               build_dir = FALSE)
         
         coeffs_all <- list()
         
-        # Use the second outcome_mode as split_mode (as you were doing)
-        for (split_mode in list(outcome_modes[[2]])) {
+        forest_outcome_modes <- Filter(function(m) m$outcome == FOREST_TRAINING_OUTCOME, outcome_modes)
+        for (split_mode in forest_outcome_modes) {
           split_var <- split_mode$outcome
-          control_group <- "nevertreated"
           practice_mode <- list(
             continuous_covariate = "att_group",
             filters = list(list(col = "att_group", vals = c("high", "low"))),
@@ -89,7 +75,7 @@ Main <- function() {
           
           # read causal forest outputs (repo-level)
           df_causal_forest_bins <- read_parquet(
-            file.path(INDIR_CF, dataset, rolling_panel, 
+            file.path(INDIR_CF, importance_type, rolling_panel, qualified_sample, control_group, "all_covariates",
                       paste0(split_var, "_repo_att_", method, ".parquet")),
             stringsAsFactors = FALSE)
           
@@ -101,12 +87,11 @@ Main <- function() {
             # Diagnostics: ATT + ES plots using ggsave()
             # -------------------------
             title <- paste0("Causal Forest ATT ", split_var, "\n", rolling_panel, " (", method, ") estimated on ", estimation_type,
-                            "\nSample: ", num_qualified_label, "\nWhat method: ", What_estimation_label)
+                            "\nSample: ", num_qualified_label, "\nControl group: ", control_group)
             # 1) ATT distribution (column 'att') with both groups, legend title "Causal Forest ATT Group"
             hist_att_path <- file.path(
               practice_mode$folder, paste0("split_", split_mode$outcome, "_", method, "_", estimation_type, "_hist_att.png"))
             df_causal_forest_bins_type <- df_causal_forest_bins %>%
-              filter(type == estimation_type) %>%
               mutate(att_wins = winsorize(att, c(0, 1)))
             p_att <- ggplot(df_causal_forest_bins_type, aes(x = att_wins, fill = att_group, color = att_group)) +
               geom_histogram(position = "stack", alpha = 0.5, bins = 40) +
@@ -151,8 +136,10 @@ Main <- function() {
         } 
       } 
     }  
-  }  
-  AggregatePngsToPdf(hist_files_global, file.path(OUTDIR, "all_histograms_all_runs.pdf"))
+	  }
+		}
+	}
+	AggregatePngsToPdf(hist_files_global, file.path(OUTDIR, "all_histograms_all_runs.pdf"))
 }
 
 Main()

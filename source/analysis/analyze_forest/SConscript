@@ -1,0 +1,126 @@
+Import('*')
+
+from source.lib.helpers import LoadPipelineInputs
+
+_cfg = LoadPipelineInputs("../../../source/lib/project_config.json")
+IMPORTANCE_TYPES  = _cfg["importance_types"]["run"]
+ROLLING_PERIODS   = [f"rolling{p}" for p in _cfg["rolling_periods"]["run"]]
+QUALIFIED_SAMPLES = _cfg["qualified_samples"]["run"]
+CONTROL_GROUPS    = _cfg["control_groups"]["run"]
+FOREST_OUTCOME    = _cfg["forest_training_outcome"]
+
+INDIR_PREP = "#output/analysis/data_prep"
+INDIR_CF   = "#output/analysis/event_study_forest"
+OUTDIR     = "#output/analysis/event_study_forest"
+COVAR_TYPE = "pc1"
+
+AGGREGATED_SAMPLES     = {"exact_1_2": ["exact1", "exact2"]}
+NON_AGGREGATED_SAMPLES = [s for s in QUALIFIED_SAMPLES if s not in AGGREGATED_SAMPLES]
+
+SHARED_LIBS = [
+    "#source/analysis/analyze_forest/helpers.R",
+    "#source/lib/helpers.R",
+    "#source/lib/constants.R",
+    "#source/lib/forest_helpers.R",
+    "#source/lib/project_config.json",
+]
+
+def forest_parquet(it, rp, qs, cg):
+    return f"{INDIR_CF}/{it}/{rp}/{qs}/{cg}/{COVAR_TYPE}/{FOREST_OUTCOME}_repo_att_event_study_forest.parquet"
+
+def panel_parquet(it, rp, qs, cg):
+    return f"{INDIR_PREP}/{it}/{rp}/{qs}/{cg}/panel_PCA_median.parquet"
+
+def outbase(it, rp, qs, cg):
+    return f"{OUTDIR}/{it}/{rp}/{qs}/{cg}"
+
+# Forest parquets for all sample combinations (aggregated samples read sub-sample parquets)
+seen = set()
+all_forest_inputs = []
+for it in IMPORTANCE_TYPES:
+    for rp in ROLLING_PERIODS:
+        for qs in QUALIFIED_SAMPLES:
+            for cg in CONTROL_GROUPS:
+                srcs = [forest_parquet(it, rp, sub, cg) for sub in AGGREGATED_SAMPLES.get(qs, [qs])]
+                for s in srcs:
+                    if s not in seen:
+                        all_forest_inputs.append(s)
+                        seen.add(s)
+
+# Panel parquets for non-aggregated samples (aggregated samples load sub-panels inside R)
+all_panel_inputs = [
+    panel_parquet(it, rp, qs, cg)
+    for it in IMPORTANCE_TYPES
+    for rp in ROLLING_PERIODS
+    for qs in NON_AGGREGATED_SAMPLES
+    for cg in CONTROL_GROUPS
+]
+
+# --- pc_correlation_heatmap ---
+heatmap_targets = [
+    f"{outbase(it, rp, qs, cg)}/heatmap_corr.png"
+    for it in IMPORTANCE_TYPES
+    for rp in ROLLING_PERIODS
+    for qs in QUALIFIED_SAMPLES
+    for cg in CONTROL_GROUPS
+]
+env.R(heatmap_targets,
+      ["#source/analysis/analyze_forest/pc_correlation_heatmap.R"] + SHARED_LIBS + all_forest_inputs)
+
+# --- practice_combinations ---
+combo_targets = [
+    f"{outbase(it, rp, qs, cg)}/{fname}"
+    for it in IMPORTANCE_TYPES
+    for rp in ROLLING_PERIODS
+    for qs in QUALIFIED_SAMPLES
+    for cg in CONTROL_GROUPS
+    for fname in [
+        "practice_combo.png",
+        "practice_combo_gradient.png",
+        "practice_combo_k2_table.csv",
+        "practice_combo_k2_high_table.csv",
+        "practice_combo_k3_table.csv",
+        "practice_combo_k3_high_table.csv",
+    ]
+]
+env.R(combo_targets,
+      ["#source/analysis/analyze_forest/practice_combinations.R"] + SHARED_LIBS + all_forest_inputs)
+
+# --- fold_comparisons (aggregated samples only; drive RDS files are read at runtime) ---
+fold_targets = [
+    f"{outbase(it, rp, qs, cg)}/{fname}"
+    for it in IMPORTANCE_TYPES
+    for rp in ROLLING_PERIODS
+    for qs in AGGREGATED_SAMPLES
+    for cg in CONTROL_GROUPS
+    for fname in [
+        "cross_forest_grid.png",
+        "fold_corr_att.png",
+        "fold_corr_rank.png",
+        "variable_importance.tex",
+    ]
+]
+env.R(fold_targets,
+      ["#source/analysis/analyze_forest/fold_comparisons.R"] + SHARED_LIBS + all_forest_inputs)
+
+# --- outcome_diagnostics ---
+outcome_targets = [
+    f"{outbase(it, rp, qs, cg)}/outcome_summary_table.tex"
+    for it in IMPORTANCE_TYPES
+    for rp in ROLLING_PERIODS
+    for qs in QUALIFIED_SAMPLES
+    for cg in CONTROL_GROUPS
+]
+env.R(outcome_targets,
+      ["#source/analysis/analyze_forest/outcome_diagnostics.R"] + SHARED_LIBS + all_forest_inputs + all_panel_inputs)
+
+# --- org_timeline ---
+timeline_targets = [
+    f"{outbase(it, rp, qs, cg)}/hist_org_count.png"
+    for it in IMPORTANCE_TYPES
+    for rp in ROLLING_PERIODS
+    for qs in QUALIFIED_SAMPLES
+    for cg in CONTROL_GROUPS
+]
+env.R(timeline_targets,
+      ["#source/analysis/analyze_forest/org_timeline.R"] + SHARED_LIBS + all_forest_inputs + all_panel_inputs)
