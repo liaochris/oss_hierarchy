@@ -1,18 +1,40 @@
 Import('*')
 
-from source.lib.helpers import LoadGlobalSettings, MakeRepoNameSafe
+import re
+
+from source.lib.helpers import LoadGlobalSettings, LoadPipelineInputs, MakeRepoNameSafe
 
 globals_data = LoadGlobalSettings("../../../source/lib/project_config.json")
+pipeline_cfg = LoadPipelineInputs("../../../source/lib/project_config.json")
 reference_repo = globals_data['reference_github_repo']
 reference_repo_safe_name = MakeRepoNameSafe(reference_repo)
+importance_type = pipeline_cfg["importance_types"]["run"][0]
+rolling_label = f"rolling{pipeline_cfg['rolling_periods']['run'][0]}"
+control_group = pipeline_cfg["control_groups"]["run"][0]
+PYTHON_HELPER_DEPS = [
+    '#source/lib/helpers.py',
+    '#source/lib/JMSLab/SaveData.py',
+]
+CONFIG_DEPS = [
+    '#source/lib/project_config.json',
+]
+exact_samples = sorted(
+    [sample for sample in pipeline_cfg["qualified_samples"]["run"] if re.fullmatch(r"exact\\d+", sample)],
+    key=lambda sample: int(sample.removeprefix("exact"))
+)
 
 summary_source = [
     '#source/analysis/summ_stats/create_project_summary.py',
+    '#output/derived/graph_structure/exported_graphs_log.csv',
     '#output/scrape/pypi_downloads/popular_python_packages.csv',
     '#output/scrape/pypi_site_info/linked_pypi_github.csv',
     '#output/scrape/extract_github_data/repo_id_history_final.csv',
     f'#drive/output/scrape/extract_github_data/repo_level_data/issue/{reference_repo_safe_name}.parquet',
     f'#drive/output/scrape/extract_github_data/repo_level_data/pr/{reference_repo_safe_name}.parquet',
+] + PYTHON_HELPER_DEPS + CONFIG_DEPS
+summary_source += [
+    f'#output/analysis/data_prep/{importance_type}/{rolling_label}/{sample}/{control_group}/panel.parquet'
+    for sample in exact_samples
 ]
 summary_target = [
     '#output/analysis/summ_stats/project_summary.parquet',

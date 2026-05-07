@@ -10,7 +10,7 @@ QUALIFIED_SAMPLES = _cfg["qualified_samples"]["run"]
 CONTROL_GROUPS    = _cfg["control_groups"]["run"]
 
 _outcomes_cfg = LoadOutcomeVariables("../../../source/lib/project_config.json")
-with open("../../../source/analysis/config/pc_groups.json") as fh:
+with open("../../../source/lib/pc_groups.json") as fh:
     _pc_groups_cfg = json.load(fh)
 
 OUTCOMES = [outcome for category_cfg in _outcomes_cfg.values() for outcome in category_cfg.get("run", [])]
@@ -19,25 +19,29 @@ CATEGORIES = {
     for category, category_cfg in _outcomes_cfg.items()
     for outcome in category_cfg.get("run", [])
 }
-PCA_GROUPS = list(_pc_groups_cfg.keys())
+PC_GROUP_NAMES = list(_pc_groups_cfg.keys())
 
 OUTDIR    = "#output/analysis/event_study"
 INDIR_PREP = "#output/analysis/data_prep"
-
-sources = [
-    "#source/analysis/event_study/estimate_resilience.R",
+R_HELPER_DEPS = [
     "#source/lib/event_study_helpers.R",
     "#source/lib/constants.R",
     "#source/lib/helpers.R",
-    "#source/lib/project_config.json",
-    "#source/analysis/config/pc_groups.json",
 ]
+CONFIG_DEPS = [
+    "#source/lib/project_config.json",
+    "#source/lib/pc_groups.json",
+]
+
+sources = [
+    "#source/analysis/event_study/estimate_resilience.R",
+] + R_HELPER_DEPS + CONFIG_DEPS
 for importance_type in IMPORTANCE_TYPES:
     for rolling_period in ROLLING_PERIODS:
         for qualified_sample in QUALIFIED_SAMPLES:
             for control_group in CONTROL_GROUPS:
                 base = f"{INDIR_PREP}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}"
-                sources += [f"{base}/panel.parquet", f"{base}/panel_PCA_median.parquet"]
+                sources += [f"{base}/panel.parquet", f"{base}/panel_with_pc_scores.parquet"]
 
 targets = [
     f"{OUTDIR}/all_estimates.csv",
@@ -50,8 +54,8 @@ for importance_type in IMPORTANCE_TYPES:
                 base = f"{OUTDIR}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}"
                 for outcome in OUTCOMES:
                     targets.append(f"{base}/full_sample/{CATEGORIES[outcome]}/{outcome}.png")
-                for pc_group_name in PCA_GROUPS:
+                for pc_group_name in PC_GROUP_NAMES:
                     for outcome in OUTCOMES:
-                        targets.append(f"{base}/PCA/{CATEGORIES[outcome]}/{pc_group_name}_{outcome}_principal_component1_split.png")
+                        targets.append(f"{base}/pc_score/{CATEGORIES[outcome]}/{pc_group_name}_{outcome}_pc_score_split.png")
 
 env.R(targets, sources)

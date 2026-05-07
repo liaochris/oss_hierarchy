@@ -4,9 +4,9 @@ library(fs)
 
 source("source/analysis/analyze_forest/helpers.R")
 
-INDIR_CF    <- "output/analysis/event_study_forest"
-INDIR_CF_DS <- "drive/output/analysis/event_study_forest"
-OUTDIR      <- "output/analysis/event_study_forest"
+INDIR_FOREST    <- "output/analysis/event_study_forest"
+INDIR_FOREST_DS <- "drive/output/analysis/event_study_forest"
+OUTDIR          <- "output/analysis/event_study_forest"
 
 Main <- function() {
   for (importance_type in IMPORTANCE_TYPES) {
@@ -18,32 +18,32 @@ Main <- function() {
           outdir_ds      <- file.path(OUTDIR, importance_type, rolling_panel, qualified_sample, control_group)
           dir_create(outdir_ds, recurse = TRUE)
 
-          forest_data <- LoadForestData(INDIR_CF, importance_type, rolling_panel, qualified_sample, control_group)
-          if (is.null(forest_data)) next
+          forest_results_data <- LoadForestResults(INDIR_FOREST, importance_type, rolling_panel, qualified_sample, control_group)
+          if (is.null(forest_results_data)) next
 
-          pc_cols   <- colnames(forest_data$df)[grepl("_principal_component1$", colnames(forest_data$df))]
-          binarized <- BinarizePCScores(forest_data$df, pc_cols)
+          pc_score_cols <- colnames(forest_results_data$df)[grepl("_pc_score$", colnames(forest_results_data$df))]
+          binarized <- BinarizePCScores(forest_results_data$df, pc_score_cols)
           df_bins   <- binarized$df
-          sub_bins  <- lapply(forest_data$sub_dfs, function(sub_df)
-            sub_df %>% mutate(across(all_of(pc_cols),
+          sub_bins  <- lapply(forest_results_data$sub_dfs, function(sub_df)
+            sub_df %>% mutate(across(all_of(pc_score_cols),
                                      ~ ifelse(.x > binarized$medians[cur_column()], "high", "low"))))
 
-          df_summary <- df_bins %>%
-            group_by(across(all_of(pc_cols))) %>%
+          combo_summary <- df_bins %>%
+            group_by(across(all_of(pc_score_cols))) %>%
             summarize(att_dr_mean = mean(att_dr, na.rm = TRUE), count = n(), .groups = "drop") %>%
             arrange(-att_dr_mean) %>%
             mutate(rank = row_number())
 
           fold_summaries <- BuildFoldSummaries(
-            forest_data$sub_dfs, sub_bins, pc_cols, rolling_period,
+            forest_results_data$sub_dfs, sub_bins, pc_score_cols, rolling_period,
             importance_type, rolling_panel, control_group
           )
           if (length(fold_summaries) == 0) next
 
-          PlotCrossForestGrid(df_summary, fold_summaries, pc_cols, outdir_ds)
-          ComputeFoldCorrelations(df_summary, fold_summaries, pc_cols, outdir_ds)
+          PlotCrossForestGrid(combo_summary, fold_summaries, pc_score_cols, outdir_ds)
+          ComputeFoldCorrelations(combo_summary, fold_summaries, pc_score_cols, outdir_ds)
 
-          agg_fold_paths <- unlist(lapply(names(forest_data$sub_dfs), function(s)
+          agg_fold_paths <- unlist(lapply(names(forest_results_data$sub_dfs), function(s)
             FoldRdsPaths(importance_type, rolling_panel, s, control_group, rolling_period)))
           ExportVariableImportanceTex(agg_fold_paths, outdir_ds)
         }
@@ -53,7 +53,7 @@ Main <- function() {
   invisible(NULL)
 }
 
-BuildFoldSummaries <- function(sub_dfs, sub_bins, pc_cols, rolling_period,
+BuildFoldSummaries <- function(sub_dfs, sub_bins, pc_score_cols, rolling_period,
                                importance_type, rolling_panel, control_group) {
   lapply(seq_len(N_FOLDS), function(fold_i) {
     fold_rows <- Map(function(s, sub_cont, sub_bin) {
@@ -71,7 +71,7 @@ BuildFoldSummaries <- function(sub_dfs, sub_bins, pc_cols, rolling_period,
     if (length(fold_rows) == 0) return(NULL)
 
     bind_rows(fold_rows) %>%
-      group_by(across(all_of(pc_cols))) %>%
+      group_by(across(all_of(pc_score_cols))) %>%
       summarize(att_dr_mean = mean(fold_att, na.rm = TRUE), count = n(), .groups = "drop") %>%
       arrange(-att_dr_mean) %>%
       mutate(rank = row_number())
@@ -79,8 +79,8 @@ BuildFoldSummaries <- function(sub_dfs, sub_bins, pc_cols, rolling_period,
 }
 
 FoldRdsPaths <- function(importance_type, rolling_panel, sample, control_group, rolling_period,
-                         covar_type_dir = "pc1") {
-  file.path(INDIR_CF_DS, importance_type, rolling_panel, sample, control_group, covar_type_dir,
+                         covar_type_dir = "pc_score") {
+  file.path(INDIR_FOREST_DS, importance_type, rolling_panel, sample, control_group, covar_type_dir,
             paste0("event_study_forest_", FOREST_TRAINING_OUTCOME, "_rolling", rolling_period,
                    "_fold", seq_len(N_FOLDS), ".rds"))
 }

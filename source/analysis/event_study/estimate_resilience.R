@@ -16,7 +16,7 @@ Main <- function() {
 
   project_cfg <- LoadProjectConfig(PROJECT_CONFIG_PATH)
   outcome_cfg <- project_cfg$outcome_variables
-  PCA_cfg <- PCGroupsConfig(project_cfg$feature_variables)
+  pc_group_cfg <- PCGroupsConfig(project_cfg$feature_variables)
 
   coeffs_all <- list()
 
@@ -40,9 +40,9 @@ Main <- function() {
                   importance_type, rolling_panel, qualified_sample, control_group))
             }
 
-            if ("pc" %in% EVENT_STUDY_SPLITS) {
+            if ("pc_score" %in% EVENT_STUDY_SPLITS) {
               coeffs_all <- c(coeffs_all,
-                RunAggregatedPCAEventStudies(sub_samples, outcome_specs, PCA_cfg, outdir_slice,
+                RunAggregatedPCScoreEventStudies(sub_samples, outcome_specs, pc_group_cfg, outdir_slice,
                   importance_type, rolling_panel, qualified_sample, control_group))
             }
           } else {
@@ -54,11 +54,11 @@ Main <- function() {
                   importance_type, rolling_panel, qualified_sample, control_group))
             }
 
-            if ("pc" %in% EVENT_STUDY_SPLITS) {
-              panel_PCA <- LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel,
-                qualified_sample, control_group, with_pc = TRUE)
+            if ("pc_score" %in% EVENT_STUDY_SPLITS) {
+              panel_with_pc_scores <- LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel,
+                qualified_sample, control_group, with_pc_scores = TRUE)
               coeffs_all <- c(coeffs_all,
-                RunPCAEventStudies(panel_PCA, outcome_specs, PCA_cfg, outdir_slice,
+                RunPCScoreEventStudies(panel_with_pc_scores, outcome_specs, pc_group_cfg, outdir_slice,
                   importance_type, rolling_panel, qualified_sample, control_group))
             }
           }
@@ -138,23 +138,23 @@ RunAggregatedFullSampleEventStudies <- function(sub_samples, outcome_specs, outd
   })
 }
 
-RunPCAEventStudies <- function(panel_PCA, outcome_specs, PCA_cfg, outdir_slice,
-                               importance_type, rolling_panel, qualified_sample, control_group) {
+RunPCScoreEventStudies <- function(panel_with_pc_scores, outcome_specs, pc_group_cfg, outdir_slice,
+                                   importance_type, rolling_panel, qualified_sample, control_group) {
   coeffs <- list()
-  outdir_PCA <- file.path(outdir_slice, "PCA")
-  PCA_groups <- BuildPCAGroups(panel_PCA, PCA_cfg)
+  outdir_pc_score <- file.path(outdir_slice, "pc_score")
+  pc_groups <- BuildPCScoreGroups(panel_with_pc_scores, pc_group_cfg)
 
   for (spec in outcome_specs) {
-    for (pc_group_name in names(PCA_groups)) {
-      split_group <- PCA_groups[[pc_group_name]]
-      panel_low  <- panel_PCA %>% filter(repo_name %in% split_group$repo_low)
-      panel_high <- panel_PCA %>% filter(repo_name %in% split_group$repo_high)
+    for (pc_group_name in names(pc_groups)) {
+      split_group <- pc_groups[[pc_group_name]]
+      panel_low  <- panel_with_pc_scores %>% filter(repo_name %in% split_group$repo_low)
+      panel_high <- panel_with_pc_scores %>% filter(repo_name %in% split_group$repo_high)
 
       es_low  <- FitEventStudy(panel_low,  spec$outcome, control_group, "sa", title = "", normalize = spec$normalize)
       es_high <- FitEventStudy(panel_high, spec$outcome, control_group, "sa", title = "", normalize = spec$normalize)
 
-      out_path <- file.path(outdir_PCA, spec$category,
-        paste0(pc_group_name, "_", spec$outcome, "_principal_component1_split.png"))
+      out_path <- file.path(outdir_pc_score, spec$category,
+        paste0(pc_group_name, "_", spec$outcome, "_pc_score_split.png"))
       dir_create(dirname(out_path), recurse = TRUE)
       png(out_path)
       PlotEventStudyComparison(list(es_low, es_high),
@@ -165,7 +165,7 @@ RunPCAEventStudies <- function(panel_PCA, outcome_specs, PCA_cfg, outdir_slice,
       for (split_side in list(list(label = "low", es = es_low), list(label = "high", es = es_high))) {
         coeffs[[length(coeffs) + 1]] <- CollectEstimateRows(
           split_side$es$results, importance_type, rolling_panel, qualified_sample, control_group,
-          split_type = "pc", split_covar = paste0(pc_group_name, "_score"), split_value = split_side$label,
+          split_type = "pc_score", split_covar = paste0(pc_group_name, "_pc_score"), split_value = split_side$label,
           category = spec$category, outcome = spec$outcome, normalize = spec$normalize)
       }
     }
@@ -174,26 +174,26 @@ RunPCAEventStudies <- function(panel_PCA, outcome_specs, PCA_cfg, outdir_slice,
   coeffs
 }
 
-RunAggregatedPCAEventStudies <- function(sub_samples, outcome_specs, PCA_cfg, outdir_slice,
-                                         importance_type, rolling_panel,
-                                         aggregated_sample, control_group) {
-  sub_pca_panels <- lapply(sub_samples, function(s)
-    LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel, s, control_group, with_pc = TRUE))
-  sub_pca_groups <- lapply(sub_pca_panels, BuildPCAGroups, PCA_cfg)
-  outdir_PCA     <- file.path(outdir_slice, "PCA")
+RunAggregatedPCScoreEventStudies <- function(sub_samples, outcome_specs, pc_group_cfg, outdir_slice,
+                                             importance_type, rolling_panel,
+                                             aggregated_sample, control_group) {
+  sub_pc_score_panels <- lapply(sub_samples, function(s)
+    LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel, s, control_group, with_pc_scores = TRUE))
+  sub_pc_score_groups <- lapply(sub_pc_score_panels, BuildPCScoreGroups, pc_group_cfg)
+  outdir_pc_score     <- file.path(outdir_slice, "pc_score")
 
   coeffs <- list()
   for (spec in outcome_specs) {
-    for (pc_group_name in names(PCA_cfg)) {
-      friendly_label <- PCA_cfg[[pc_group_name]]$friendly_label
+    for (pc_group_name in names(pc_group_cfg)) {
+      friendly_label <- pc_group_cfg[[pc_group_name]]$friendly_label
 
       agg_by_side <- setNames(lapply(c("low", "high"), function(split_side) {
         repo_field      <- paste0("repo_", split_side)
         sub_side_panels <- mapply(
-          function(pca_panel, pca_groups) {
-            pca_panel %>% filter(repo_name %in% pca_groups[[pc_group_name]][[repo_field]])
+          function(panel_with_pc_scores, pc_groups) {
+            panel_with_pc_scores %>% filter(repo_name %in% pc_groups[[pc_group_name]][[repo_field]])
           },
-          sub_pca_panels, sub_pca_groups, SIMPLIFY = FALSE
+          sub_pc_score_panels, sub_pc_score_groups, SIMPLIFY = FALSE
         )
         side_obs_counts <- vapply(sub_side_panels, nrow, integer(1))
         side_results    <- lapply(sub_side_panels, function(panel)
@@ -202,8 +202,8 @@ RunAggregatedPCAEventStudies <- function(sub_samples, outcome_specs, PCA_cfg, ou
         WeightedAggregateCoefMatrix(side_results, side_obs_counts)
       }), c("low", "high"))
 
-      out_path <- file.path(outdir_PCA, spec$category,
-        paste0(pc_group_name, "_", spec$outcome, "_principal_component1_split.png"))
+      out_path <- file.path(outdir_pc_score, spec$category,
+        paste0(pc_group_name, "_", spec$outcome, "_pc_score_split.png"))
       dir_create(dirname(out_path), recurse = TRUE)
       png(out_path)
       PlotEventStudyComparison(
@@ -215,7 +215,7 @@ RunAggregatedPCAEventStudies <- function(sub_samples, outcome_specs, PCA_cfg, ou
       for (split_side in c("low", "high")) {
         coeffs[[length(coeffs) + 1]] <- CollectEstimateRows(
           agg_by_side[[split_side]], importance_type, rolling_panel, aggregated_sample, control_group,
-          split_type = "pc", split_covar = paste0(pc_group_name, "_score"),
+          split_type = "pc_score", split_covar = paste0(pc_group_name, "_pc_score"),
           split_value = split_side,
           category = spec$category, outcome = spec$outcome, normalize = spec$normalize)
       }
@@ -225,17 +225,17 @@ RunAggregatedPCAEventStudies <- function(sub_samples, outcome_specs, PCA_cfg, ou
   coeffs
 }
 
-BuildPCAGroups <- function(panel_PCA, PCA_cfg) {
-  groups <- lapply(names(PCA_cfg), function(group_name) {
-    col_name <- paste0(group_name, "_principal_component1_binary")
-    scores <- panel_PCA %>% distinct(repo_name, .data[[col_name]])
+BuildPCScoreGroups <- function(panel_with_pc_scores, pc_group_cfg) {
+  groups <- lapply(names(pc_group_cfg), function(group_name) {
+    col_name <- paste0(group_name, "_pc_score_binary")
+    scores <- panel_with_pc_scores %>% distinct(repo_name, .data[[col_name]])
     list(
       repo_low  = scores %>% filter(.data[[col_name]] == 0) %>% pull(repo_name),
       repo_high = scores %>% filter(.data[[col_name]] == 1) %>% pull(repo_name),
-      friendly_label = PCA_cfg[[group_name]]$friendly_label
+      friendly_label = pc_group_cfg[[group_name]]$friendly_label
     )
   })
-  names(groups) <- names(PCA_cfg)
+  names(groups) <- names(pc_group_cfg)
   groups
 }
 

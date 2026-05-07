@@ -288,7 +288,7 @@ ProcessTreeCombo <- function(x_for_tree,
 #######################################
 
 INDIR  <- "drive/output/derived/org_outcomes_practices/org_panel"
-INDIR_CF  <- "output/analysis/event_study_forest"
+INDIR_FOREST <- "output/analysis/event_study_forest"
 OUTDIR <- "output/analysis/event_study_forest"
 OUTDIR_DATASTORE <- "drive/output/analysis/event_study_forest"
 OUTDIR_POLICYTREE_DATASTORE <- "drive/output/analysis/policy_forest_personalization"
@@ -318,7 +318,7 @@ for (importance_type in IMPORTANCE_TYPES) {
           rolling_period <- as.numeric(str_extract(rolling_panel, "\\d+$"))
           rolling_panel_imp <- ifelse(use_imputed, paste0(rolling_panel, "_imp"), rolling_panel)
           
-          for (method in c("lm_forest")) {
+          for (method in c("event_study_forest")) {
             message("Processing dataset: ", importance_type, " (", rolling_panel, "/", qualified_sample, "/", control_group, ")")
             panel <- LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel, qualified_sample, control_group)
             if (nrow(panel) == 0) {
@@ -370,47 +370,47 @@ for (importance_type in IMPORTANCE_TYPES) {
           
           pc_groups_cfg <- PCGroupsConfig()
           
-          principal_component_cols <- c()
+          pc_score_cols <- c()
           for (pc_group_name in names(pc_groups_cfg)) {
             vars <- pc_groups_cfg[[pc_group_name]]$vars
             group_x <- x_repo %>% select(all_of(vars))
             pc_res <- prcomp(group_x, center = TRUE, scale. = TRUE)
-            pc1_scores <- pc_res$x[, 1]
-            principal_component_col <- paste0(pc_group_name, "_principal_component1")
-            if (isTRUE(pc_groups_cfg[[pc_group_name]]$sign_flip)) { pc1_scores <- -pc1_scores }
-            x_repo[[principal_component_col]] <- pc1_scores
-            principal_component_cols <- c(principal_component_cols, principal_component_col)
+            pc_score <- pc_res$x[, 1]
+            pc_score_col <- paste0(pc_group_name, "_pc_score")
+            if (isTRUE(pc_groups_cfg[[pc_group_name]]$sign_flip)) { pc_score <- -pc_score }
+            x_repo[[pc_score_col]] <- pc_score
+            pc_score_cols <- c(pc_score_cols, pc_score_col)
             loadings_vec <- pc_res$rotation[vars, 1]
             loadings_str <- paste(paste0(vars, sprintf("%+.3f", loadings_vec)), collapse = ", ")
-            message("PC1 ", pc_group_name, " loadings: ", substr(loadings_str, 1, 200))
+            message("PC score ", pc_group_name, " loadings: ", substr(loadings_str, 1, 200))
           }
-          x_policy_num <- x_repo %>% select(all_of(principal_component_cols)) %>% mutate(across(everything(), ~as.numeric(.)))
+          x_policy_num <- x_repo %>% select(all_of(pc_score_cols)) %>% mutate(across(everything(), ~as.numeric(.)))
           x_policy_mat <- as.matrix(x_policy_num)
           x_default_mat <- as.matrix(x_num)
           
           df_repo_data <- df_data %>% select(repo_id, repo_name, quasi_treatment_group, treatment_group, fold) %>% distinct()
           
           for (estimation_type in ESTIMATION_TYPES) {
-            for (with_PCA in list(TRUE,  "median")) {
+            for (pc_score_mode in list(TRUE,  "median")) {
 
-              covar_type_dir <- ifelse(identical(with_PCA, "median"),
-                                       "pc1_binary",
-                                       ifelse(isTRUE(with_PCA), "pc1", "all_covariates"))
+              covar_type_dir <- ifelse(identical(pc_score_mode, "median"),
+                                       "pc_score_binary",
+                                       ifelse(isTRUE(pc_score_mode), "pc_score", "all_covariates"))
 
               rolling_panel_imp2 <- file.path(rolling_panel_imp, covar_type_dir)
               
               df_causal_forest_bins <- read_parquet(
-                file.path(INDIR_CF, dataset_output, rolling_panel_imp2,
-                          paste0(split_var, "_repo_att_", method, ".parquet")))
+                file.path(INDIR_FOREST, dataset_output, rolling_panel_imp2,
+                          paste0(split_var, "_repo_att_event_study_forest.parquet")))
               
               for (tc in tree_configs) {
                 depth_val <- tc$depth
                 split_step_val <- tc$split_step
                 tag_val <- tc$tag
                 
-                x_for_tree <- if (covar_type_dir == "pc1") {
+                x_for_tree <- if (covar_type_dir == "pc_score") {
                   x_policy_mat
-                } else if (covar_type_dir == "pc1_binary") {
+                } else if (covar_type_dir == "pc_score_binary") {
                   apply(x_policy_mat, 2, \(v) as.integer(v > median(v, na.rm = TRUE)))
                 } else {
                   x_default_mat

@@ -7,19 +7,25 @@ IMPORTANCE_TYPES     = _cfg["importance_types"]["run"]
 ROLLING_PERIODS      = [f"rolling{p}" for p in _cfg["rolling_periods"]["run"]]
 QUALIFIED_SAMPLES    = _cfg["qualified_samples"]["run"]
 CONTROL_GROUPS       = _cfg["control_groups"]["run"]
+PYTHON_HELPER_DEPS   = [
+    '#source/lib/helpers.py',
+    '#source/lib/JMSLab/SaveData.py',
+]
+CONFIG_DEPS          = [
+    '#source/lib/project_config.json',
+    '#source/lib/pc_groups.json',
+]
 OUTPUT_FILES         = [
     "panel.parquet", "panel.log",
-    "panel_PCA_median.parquet", "panel_PCA_median.log",
-    "PCA_metadata.csv", "PCA_metadata.log",
-    "PCA_excluded_vars.csv", "PCA_excluded_vars.log",
-    "pc_columns.json",
+    "panel_with_pc_scores.parquet", "panel_with_pc_scores.log",
+    "pc_score_metadata.csv", "pc_score_metadata.log",
+    "pc_score_excluded_vars.csv", "pc_score_excluded_vars.log",
+    "pc_score_columns.json",
 ]
 
 sources = [
     '#source/analysis/data_prep/prepare_panel.py',
-    '#source/lib/project_config.json',
-    '#source/analysis/config/pc_groups.json',
-]
+] + PYTHON_HELPER_DEPS + CONFIG_DEPS
 for importance_type in IMPORTANCE_TYPES:
     for rolling_period in ROLLING_PERIODS:
         sources.append(

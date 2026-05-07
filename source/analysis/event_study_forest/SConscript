@@ -12,18 +12,22 @@ FOREST_OUTCOME   = _cfg["forest_training_outcome"]
 
 INDIR_PREP = "#output/analysis/data_prep"
 OUTDIR     = "#output/analysis/event_study_forest"
+R_HELPER_DEPS = [
+    "#source/lib/event_study_forest.R",
+    "#source/lib/helpers.R",
+    "#source/lib/constants.R",
+    "#source/lib/forest_helpers.R",
+]
+CONFIG_DEPS = [
+    "#source/lib/project_config.json",
+    "#source/lib/pc_groups.json",
+]
 
 AGGREGATED_SAMPLES = {"exact_1_2": ["exact1", "exact2"]}
 
 sources = [
     "#source/analysis/event_study_forest/fit_cate.R",
-    "#source/lib/event_study_forest.R",
-    "#source/lib/helpers.R",
-    "#source/lib/constants.R",
-    "#source/lib/forest_helpers.R",
-    "#source/lib/project_config.json",
-    "#source/analysis/config/pc_groups.json",
-]
+] + R_HELPER_DEPS + CONFIG_DEPS
 NON_AGGREGATED_SAMPLES = [s for s in QUALIFIED_SAMPLES if s not in AGGREGATED_SAMPLES]
 
 for importance_type in IMPORTANCE_TYPES:
@@ -31,8 +35,8 @@ for importance_type in IMPORTANCE_TYPES:
         for qualified_sample in NON_AGGREGATED_SAMPLES:
             for control_group in CONTROL_GROUPS:
                 sources += [
-                    f"{INDIR_PREP}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel_PCA_median.parquet",
-                    f"{INDIR_PREP}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/pc_columns.json",
+                    f"{INDIR_PREP}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel_with_pc_scores.parquet",
+                    f"{INDIR_PREP}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/pc_score_columns.json",
                 ]
 
 targets = []

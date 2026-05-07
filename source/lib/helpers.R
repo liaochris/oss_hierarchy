@@ -120,8 +120,8 @@ PreparedSampleDir <- function(base_dir, importance_type, rolling_panel, qualifie
 }
 
 LoadPreparedSample <- function(base_dir, importance_type, rolling_panel, qualified_sample, control_group,
-                               with_pc = FALSE) {
-  filename <- if (with_pc) "panel_PCA_median.parquet" else "panel.parquet"
+                               with_pc_scores = FALSE) {
+  filename <- if (with_pc_scores) "panel_with_pc_scores.parquet" else "panel.parquet"
   path <- file.path(PreparedSampleDir(base_dir, importance_type, rolling_panel, qualified_sample, control_group),
                     filename)
   arrow::read_parquet(path)

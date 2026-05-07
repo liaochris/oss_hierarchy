@@ -23,12 +23,12 @@ winsorize <- function(x, probs) {
 # 9. Main execution
 #######################################
 Main <- function() {
-  INDIR_CF  <- "output/analysis/event_study_forest"
+  INDIR_FOREST <- "output/analysis/event_study_forest"
   OUTDIR <- "output/analysis/event_study_forest"
   dir_create(OUTDIR)
 
   ROLLING_PANELS <- ROLLING_LABELS
-  METHODS <- c("lm_forest")
+  METHODS <- c("event_study_forest")
   exclude_outcomes <- c("num_downloads")
 
   project_cfg <- LoadProjectConfig(PROJECT_CONFIG_PATH)
@@ -75,8 +75,8 @@ Main <- function() {
           
           # read causal forest outputs (repo-level)
           df_causal_forest_bins <- read_parquet(
-            file.path(INDIR_CF, importance_type, rolling_panel, qualified_sample, control_group, "all_covariates",
-                      paste0(split_var, "_repo_att_", method, ".parquet")),
+            file.path(INDIR_FOREST, importance_type, rolling_panel, qualified_sample, control_group, "all_covariates",
+                      paste0(split_var, "_repo_att_event_study_forest.parquet")),
             stringsAsFactors = FALSE)
           
           covar <- practice_mode$continuous_covariate

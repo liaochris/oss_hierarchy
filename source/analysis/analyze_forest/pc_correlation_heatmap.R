@@ -4,8 +4,8 @@ library(fs)
 
 source("source/analysis/analyze_forest/helpers.R")
 
-INDIR_CF <- "output/analysis/event_study_forest"
-OUTDIR   <- "output/analysis/event_study_forest"
+INDIR_FOREST <- "output/analysis/event_study_forest"
+OUTDIR       <- "output/analysis/event_study_forest"
 
 Main <- function() {
   for (importance_type in IMPORTANCE_TYPES) {
@@ -15,10 +15,8 @@ Main <- function() {
           outdir_ds <- file.path(OUTDIR, importance_type, rolling_panel, qualified_sample, control_group)
           dir_create(outdir_ds, recurse = TRUE)
 
-          forest_data <- LoadForestData(INDIR_CF, importance_type, rolling_panel, qualified_sample, control_group)
-          if (is.null(forest_data)) next
-
-          PlotPCCorrelationHeatmap(forest_data$df, outdir_ds)
+          forest_results_data <- LoadForestResults(INDIR_FOREST, importance_type, rolling_panel, qualified_sample, control_group)
+          PlotPCScoreCorrelationHeatmap(forest_results_data$df, outdir_ds)
         }
       }
     }
@@ -26,12 +24,12 @@ Main <- function() {
   invisible(NULL)
 }
 
-PlotPCCorrelationHeatmap <- function(df_cf, outdir_ds) {
-  pc_cols <- colnames(df_cf)[grepl("_principal_component1$", colnames(df_cf))]
+PlotPCScoreCorrelationHeatmap <- function(forest_results, outdir_ds) {
+  pc_score_cols <- colnames(forest_results)[grepl("_pc_score$", colnames(forest_results))]
 
-  corr_tidy <- df_cf %>%
-    select(all_of(pc_cols)) %>%
-    rename(!!!setNames(pc_cols, PC_LABELS[pc_cols])) %>%
+  corr_tidy <- forest_results %>%
+    select(all_of(pc_score_cols)) %>%
+    rename(!!!setNames(pc_score_cols, PC_LABELS[pc_score_cols])) %>%
     cor(use = "pairwise.complete.obs") %>%
     as.data.frame() %>%
     tibble::rownames_to_column("var1") %>%

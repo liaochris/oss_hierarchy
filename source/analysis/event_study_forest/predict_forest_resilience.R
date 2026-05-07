@@ -9,9 +9,9 @@ source("source/lib/event_study_helpers.R")
 source("source/lib/forest_helpers.R")
 source("source/lib/constants.R")
 
-INDIR_PREP <- "output/analysis/data_prep"
-INDIR_CF   <- "output/analysis/event_study_forest"
-OUTDIR     <- "output/analysis/event_study_forest"
+INDIR_PREP   <- "output/analysis/data_prep"
+INDIR_FOREST <- "output/analysis/event_study_forest"
+OUTDIR       <- "output/analysis/event_study_forest"
 
 SPLIT_CONFIGS <- list(
   split_full_avg = list(col = "att_dr_group",   label = "Average DR ATT (all periods)"),
@@ -60,26 +60,26 @@ AddDRSplitColumns <- function(df_cf) {
     )
 }
 
-LoadCFIfExists <- function(importance_type, rolling_panel, qualified_sample, control_group, covar_type) {
-  cf_path <- file.path(INDIR_CF, importance_type, rolling_panel,
-                        qualified_sample, control_group, covar_type,
-                        paste0(FOREST_TRAINING_OUTCOME, "_repo_att_event_study_forest.parquet"))
-  if (!file.exists(cf_path)) return(NULL)
-  read_parquet(cf_path) %>% AddDRSplitColumns()
+LoadForestResultsIfExists <- function(importance_type, rolling_panel, qualified_sample, control_group, covar_type) {
+  forest_results_path <- file.path(INDIR_FOREST, importance_type, rolling_panel,
+                                   qualified_sample, control_group, covar_type,
+                                   paste0(FOREST_TRAINING_OUTCOME, "_repo_att_event_study_forest.parquet"))
+  if (!file.exists(forest_results_path)) return(NULL)
+  read_parquet(forest_results_path) %>% AddDRSplitColumns()
 }
 
-RunSplitEventStudies <- function(panel, df_cf, split_cfg, outcome_modes, control_group,
-                                  qualified_sample, covar_type,
-                                  outdir_split, coeffs_acc) {
+RunSplitEventStudies <- function(panel, forest_results, split_cfg, outcome_modes, control_group,
+                                 qualified_sample, covar_type,
+                                 outdir_split, coeffs_acc) {
   split_col <- split_cfg$col
-  if (!split_col %in% colnames(df_cf)) return(coeffs_acc)
+  if (!split_col %in% colnames(forest_results)) return(coeffs_acc)
 
   for (estimation_type in c("observed")) {
-    df_splits <- df_cf %>%
+    repo_splits <- forest_results %>%
       select(repo_name, !!split_col)
 
     for (outcome_mode in outcome_modes) {
-      base_df <- panel %>% left_join(df_splits, by = "repo_name")
+      base_df <- panel %>% left_join(repo_splits, by = "repo_name")
 
       for (norm in NORM_OPTIONS) {
         norm_str <- ifelse(norm, "_norm", "")
@@ -128,14 +128,14 @@ RunSplitEventStudies <- function(panel, df_cf, split_cfg, outcome_modes, control
   coeffs_acc
 }
 
-RunAggregatedSplitEventStudies <- function(sub_panels, sub_df_cfs, split_cfg,
-                                            outcome_modes, control_group,
-                                            qualified_sample, covar_type,
-                                            outdir_split, coeffs_acc) {
-  split_col         <- split_cfg$col
-  has_split_col     <- vapply(sub_df_cfs, function(df) split_col %in% colnames(df), logical(1))
-  usable_panels     <- sub_panels[has_split_col]
-  usable_df_cfs     <- sub_df_cfs[has_split_col]
+RunAggregatedSplitEventStudies <- function(sub_panels, sub_forest_results, split_cfg,
+                                           outcome_modes, control_group,
+                                           qualified_sample, covar_type,
+                                           outdir_split, coeffs_acc) {
+  split_col            <- split_cfg$col
+  has_split_col        <- vapply(sub_forest_results, function(df) split_col %in% colnames(df), logical(1))
+  usable_panels        <- sub_panels[has_split_col]
+  usable_forest_results <- sub_forest_results[has_split_col]
   if (length(usable_panels) == 0) return(coeffs_acc)
 
   for (outcome_mode in outcome_modes) {
@@ -143,12 +143,12 @@ RunAggregatedSplitEventStudies <- function(sub_panels, sub_df_cfs, split_cfg,
       norm_str <- ifelse(norm, "_norm", "")
 
       agg_results_by_group <- lapply(c("high", "low"), function(grp) {
-        group_filtered_panels <- mapply(function(panel, df_cf) {
-          df_cf %>%
+        group_filtered_panels <- mapply(function(panel, forest_results) {
+          forest_results %>%
             select(repo_name, !!split_col) %>%
             { left_join(panel, ., by = "repo_name") } %>%
             filter(.data[[split_col]] == grp)
-        }, usable_panels, usable_df_cfs, SIMPLIFY = FALSE)
+        }, usable_panels, usable_forest_results, SIMPLIFY = FALSE)
 
         sub_results <- lapply(group_filtered_panels, function(p) {
           tryCatch(
@@ -218,10 +218,10 @@ Main <- function() {
             sub_panels  <- lapply(sub_samples, function(s)
               LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel, s, control_group))
 
-            for (covar_type in c("all_covariates", "pc1", "pc1_binary")) {
-              sub_df_cfs <- lapply(sub_samples, function(s)
-                LoadCFIfExists(importance_type, rolling_panel, s, control_group, covar_type))
-              if (all(vapply(sub_df_cfs, is.null, logical(1)))) next
+            for (covar_type in c("all_covariates", "pc_score", "pc_score_binary")) {
+              sub_forest_results <- lapply(sub_samples, function(s)
+                LoadForestResultsIfExists(importance_type, rolling_panel, s, control_group, covar_type))
+              if (all(vapply(sub_forest_results, is.null, logical(1)))) next
 
               base_outdir <- file.path(OUTDIR, importance_type, rolling_panel,
                                         qualified_sample, control_group, covar_type)
@@ -229,7 +229,7 @@ Main <- function() {
               for (split_name in names(SPLIT_CONFIGS)) {
                 outdir_split <- file.path(base_outdir, split_name)
                 coeffs_all   <- RunAggregatedSplitEventStudies(
-                  sub_panels, sub_df_cfs, SPLIT_CONFIGS[[split_name]],
+                  sub_panels, sub_forest_results, SPLIT_CONFIGS[[split_name]],
                   outcome_modes, control_group,
                   qualified_sample, covar_type,
                   outdir_split, coeffs_all
@@ -241,10 +241,10 @@ Main <- function() {
                                         qualified_sample, control_group)
             if (nrow(panel) == 0) next
 
-            for (covar_type in c("all_covariates", "pc1", "pc1_binary")) {
-              df_cf <- LoadCFIfExists(importance_type, rolling_panel,
-                                      qualified_sample, control_group, covar_type)
-              if (is.null(df_cf)) next
+            for (covar_type in c("all_covariates", "pc_score", "pc_score_binary")) {
+              forest_results <- LoadForestResultsIfExists(importance_type, rolling_panel,
+                                                          qualified_sample, control_group, covar_type)
+              if (is.null(forest_results)) next
 
               base_outdir <- file.path(OUTDIR, importance_type, rolling_panel,
                                         qualified_sample, control_group, covar_type)
@@ -252,7 +252,7 @@ Main <- function() {
               for (split_name in names(SPLIT_CONFIGS)) {
                 outdir_split <- file.path(base_outdir, split_name)
                 coeffs_all   <- RunSplitEventStudies(
-                  panel, df_cf, SPLIT_CONFIGS[[split_name]],
+                  panel, forest_results, SPLIT_CONFIGS[[split_name]],
                   outcome_modes, control_group,
                   qualified_sample, covar_type,
                   outdir_split, coeffs_all

@@ -16,7 +16,6 @@ from source.lib.JMSLab.SaveData import SaveData
 
 INDIR = Path("drive/output/derived/org_outcomes_practices/org_panel")
 OUTDIR = Path("output/analysis/data_prep")
-INDIR_CONFIG = Path("source/analysis/config")
 INDIR_LIB = Path("source/lib")
 
 _analysis_params = LoadAnalysisParameters(INDIR_LIB / "project_config.json")
@@ -33,7 +32,7 @@ CONTROL_GROUPS = _pipeline_cfg["control_groups"]["run"]
 
 
 def Main():
-    with open(INDIR_CONFIG / "pc_groups.json", encoding="utf-8") as fh:
+    with open(INDIR_LIB / "pc_groups.json", encoding="utf-8") as fh:
         pc_groups_cfg = json.load(fh)
     outcome_cfg = LoadOutcomeVariables(INDIR_LIB / "project_config.json")
     active_outcomes = FlattenConfigValues(outcome_cfg, phases=("run",))
@@ -50,9 +49,9 @@ def ProcessDataset(importance_type, rolling_period, active_outcomes, pc_groups_c
     for qualified_sample in QUALIFIED_SAMPLES:
         for control_group in CONTROL_GROUPS:
             prepared_panel = BuildPreparedSample(panel, active_outcomes, qualified_sample, control_group)
-            repo_scores, metadata, excluded_vars = ComputeRepoPCAScores(prepared_panel, pc_groups_cfg)
+            repo_pc_scores, pc_loading_metadata, pc_excluded_vars = ComputeRepoPCScores(prepared_panel, pc_groups_cfg)
             SaveSampleOutputs(
-                prepared_panel, repo_scores, metadata, excluded_vars,
+                prepared_panel, repo_pc_scores, pc_loading_metadata, pc_excluded_vars,
                 OUTDIR / importance_type / rolling_period / qualified_sample / control_group,
             )
 
@@ -120,16 +119,16 @@ def GetOutcomeValidRepos(panel, outcome):
     return df.loc[np.isfinite(normalized), "repo_name"].unique()
 
 
-def ComputeRepoPCAScores(panel, pc_groups_cfg):
+def ComputeRepoPCScores(panel, pc_groups_cfg):
     if panel.empty:
-        return EmptyPCAOutputs()
+        return EmptyPCScoreOutputs()
 
     baseline = panel[panel["quasi_event_time"] == -1].copy()
     all_group_vars = {v for cfg in pc_groups_cfg.values() for v in cfg["vars"]}
     present_vars = [v for v in all_group_vars if v in baseline.columns]
 
     if not present_vars:
-        return EmptyPCAOutputs(baseline)
+        return EmptyPCScoreOutputs(baseline)
 
     na_counts = baseline[present_vars].isna().sum()
     valid_vars = {v for v in present_vars if na_counts[v] < MAX_BASELINE_NA_COUNT}
@@ -146,11 +145,11 @@ def ComputeRepoPCAScores(panel, pc_groups_cfg):
     )
 
     if not valid_vars:
-        scores, empty_meta, _ = EmptyPCAOutputs(baseline)
+        scores, empty_meta, _ = EmptyPCScoreOutputs(baseline)
         return scores, empty_meta, excluded_vars
 
-    repo_means = baseline.groupby("repo_name")[sorted(valid_vars)].mean()
-    result = repo_means.reset_index()[["repo_name"]]
+    repo_feature_means = baseline.groupby("repo_name")[sorted(valid_vars)].mean()
+    repo_pc_scores = repo_feature_means.reset_index()[["repo_name"]]
     metadata_rows = []
 
     for pc_group_name, cfg in pc_groups_cfg.items():
@@ -158,7 +157,7 @@ def ComputeRepoPCAScores(panel, pc_groups_cfg):
         if len(present) < 2:
             continue
 
-        x = repo_means[present].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=float)
+        x = repo_feature_means[present].apply(pd.to_numeric, errors="coerce").to_numpy(dtype=float)
         complete_mask = ~np.isnan(x).any(axis=1)
         if complete_mask.sum() < 2:
             continue
@@ -166,13 +165,13 @@ def ComputeRepoPCAScores(panel, pc_groups_cfg):
         scaler = StandardScaler()
         x_scaled = scaler.fit_transform(x[complete_mask])
         pca = PCA(n_components=1)
-        pc1 = pca.fit_transform(x_scaled).ravel()
+        pc_score = pca.fit_transform(x_scaled).ravel()
 
         if cfg["sign_flip"]:
-            pc1 = -pc1
+            pc_score = -pc_score
 
-        scores = np.full(len(repo_means), np.nan)
-        scores[complete_mask] = pc1
+        group_scores = np.full(len(repo_feature_means), np.nan)
+        group_scores[complete_mask] = pc_score
 
         loadings = pca.components_[0]
         if cfg["sign_flip"]:
@@ -181,20 +180,20 @@ def ComputeRepoPCAScores(panel, pc_groups_cfg):
         for var_name, loading in zip(present, loadings):
             metadata_rows.append({
                 "group": pc_group_name, "var": var_name, "loading": loading,
-                "variance_explained_principal_component1": pca.explained_variance_ratio_[0] * 100,
+                "variance_explained_pc_score": pca.explained_variance_ratio_[0] * 100,
             })
 
-        result[f"{pc_group_name}_principal_component1"] = pd.Series(scores, index=result.index)
+        repo_pc_scores[f"{pc_group_name}_pc_score"] = pd.Series(group_scores, index=repo_pc_scores.index)
 
-    metadata = (
+    pc_loading_metadata = (
         pd.DataFrame(metadata_rows)
         if metadata_rows
-        else pd.DataFrame(columns=["group", "var", "loading", "variance_explained_principal_component1"])
+        else pd.DataFrame(columns=["group", "var", "loading", "variance_explained_pc_score"])
     )
-    return result, metadata, excluded_vars
+    return repo_pc_scores, pc_loading_metadata, excluded_vars
 
 
-def EmptyPCAOutputs(baseline=None):
+def EmptyPCScoreOutputs(baseline=None):
     scores = (
         baseline[["repo_name"]].drop_duplicates().reset_index(drop=True)
         if baseline is not None
@@ -202,47 +201,47 @@ def EmptyPCAOutputs(baseline=None):
     )
     return (
         scores,
-        pd.DataFrame(columns=["group", "var", "loading", "variance_explained_principal_component1"]),
+        pd.DataFrame(columns=["group", "var", "loading", "variance_explained_pc_score"]),
         pd.DataFrame(columns=["group", "var", "na_count"]),
     )
 
 
-def SaveSampleOutputs(panel, repo_scores, metadata, excluded_vars, outdir):
+def SaveSampleOutputs(panel, repo_pc_scores, pc_loading_metadata, pc_excluded_vars, outdir):
     outdir.mkdir(parents=True, exist_ok=True)
 
-    repo_binary        = CoarsenScoresToAboveBelowMedian(repo_scores)
-    pc_cols_continuous = [c for c in repo_scores.columns if c != "repo_name"]
-    pc_cols_binary     = [c for c in repo_binary.columns  if c != "repo_name"]
-    panel_PCA_median   = (
+    repo_pc_score_binary = CoarsenScoresToAboveBelowMedian(repo_pc_scores)
+    pc_score_cols = [c for c in repo_pc_scores.columns if c != "repo_name"]
+    pc_score_binary_cols = [c for c in repo_pc_score_binary.columns if c != "repo_name"]
+    panel_with_pc_scores = (
         panel
-        .merge(repo_scores, on="repo_name", how="left")
-        .merge(repo_binary, on="repo_name", how="left")
+        .merge(repo_pc_scores, on="repo_name", how="left")
+        .merge(repo_pc_score_binary, on="repo_name", how="left")
     )
 
-    with open(outdir / "pc_columns.json", "w", encoding="utf-8") as fh:
-        json.dump({"pc1": pc_cols_continuous, "pc1_binary": pc_cols_binary}, fh, indent=2)
+    with open(outdir / "pc_score_columns.json", "w", encoding="utf-8") as fh:
+        json.dump({"pc_score": pc_score_cols, "pc_score_binary": pc_score_binary_cols}, fh, indent=2)
 
     SaveData(panel, ["repo_name", "time_index"], outdir / "panel.parquet", outdir / "panel.log")
-    SaveData(panel_PCA_median, ["repo_name", "time_index"],
-             outdir / "panel_PCA_median.parquet", outdir / "panel_PCA_median.log")
-    SaveData(metadata, ["group", "var"], outdir / "PCA_metadata.csv", outdir / "PCA_metadata.log")
-    SaveData(excluded_vars, ["group", "var"],
-             outdir / "PCA_excluded_vars.csv", outdir / "PCA_excluded_vars.log")
+    SaveData(panel_with_pc_scores, ["repo_name", "time_index"],
+             outdir / "panel_with_pc_scores.parquet", outdir / "panel_with_pc_scores.log")
+    SaveData(pc_loading_metadata, ["group", "var"], outdir / "pc_score_metadata.csv", outdir / "pc_score_metadata.log")
+    SaveData(pc_excluded_vars, ["group", "var"],
+             outdir / "pc_score_excluded_vars.csv", outdir / "pc_score_excluded_vars.log")
 
 
-def CoarsenScoresToAboveBelowMedian(repo_scores):
-    if repo_scores.empty:
-        return repo_scores.copy()
+def CoarsenScoresToAboveBelowMedian(repo_pc_scores):
+    if repo_pc_scores.empty:
+        return repo_pc_scores.copy()
 
-    score_cols = [col for col in repo_scores.columns if col != "repo_name"]
-    binary = repo_scores[["repo_name"]].copy()
-    for col in score_cols:
-        median_val = repo_scores[col].median()
-        binary[f"{col}_binary"] = np.where(
-            repo_scores[col].isna(), np.nan,
-            np.where(repo_scores[col] > median_val, 1.0, 0.0),
+    pc_score_cols = [col for col in repo_pc_scores.columns if col != "repo_name"]
+    repo_pc_score_binary = repo_pc_scores[["repo_name"]].copy()
+    for col in pc_score_cols:
+        median_val = repo_pc_scores[col].median()
+        repo_pc_score_binary[f"{col}_binary"] = np.where(
+            repo_pc_scores[col].isna(), np.nan,
+            np.where(repo_pc_scores[col] > median_val, 1.0, 0.0),
         )
-    return binary
+    return repo_pc_score_binary
 
 
 if __name__ == "__main__":

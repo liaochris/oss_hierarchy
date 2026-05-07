@@ -12,18 +12,18 @@ INDIR_PREP <- "output/analysis/data_prep"
 
 PC_LABELS <- setNames(
   vapply(names(PC_GROUPS), function(g) sub(" score$", "", PCGroupFriendlyLabel(g)), character(1)),
-  paste0(names(PC_GROUPS), "_principal_component1")
+  paste0(names(PC_GROUPS), "_pc_score")
 )
 
-LoadForestData <- function(indir_cf, importance_type, rolling_panel,
-                           qualified_sample, control_group, covar_type_dir = "pc1") {
+LoadForestResults <- function(indir_forest, importance_type, rolling_panel,
+                              qualified_sample, control_group, covar_type_dir = "pc_score") {
   split_var <- FOREST_TRAINING_OUTCOME
 
   if (qualified_sample %in% names(AGGREGATED_SAMPLES)) {
     sub_sample_names <- AGGREGATED_SAMPLES[[qualified_sample]]
     sub_dfs <- setNames(
       lapply(sub_sample_names, function(s) {
-        path <- file.path(indir_cf, importance_type, rolling_panel, s, control_group,
+        path <- file.path(indir_forest, importance_type, rolling_panel, s, control_group,
                           covar_type_dir, paste0(split_var, "_repo_att_event_study_forest.parquet"))
         tryCatch(read_parquet(path), error = function(e) NULL)
       }),
@@ -33,7 +33,7 @@ LoadForestData <- function(indir_cf, importance_type, rolling_panel,
     if (length(sub_dfs) == 0) return(NULL)
     list(df = bind_rows(sub_dfs), sub_dfs = sub_dfs)
   } else {
-    path <- file.path(indir_cf, importance_type, rolling_panel, qualified_sample,
+    path <- file.path(indir_forest, importance_type, rolling_panel, qualified_sample,
                       control_group, covar_type_dir,
                       paste0(split_var, "_repo_att_event_study_forest.parquet"))
     df <- tryCatch(read_parquet(path), error = function(e) NULL)
@@ -42,7 +42,7 @@ LoadForestData <- function(indir_cf, importance_type, rolling_panel,
   }
 }
 
-LoadPanelData <- function(importance_type, rolling_panel, qualified_sample, control_group) {
+LoadAnalysisPanel <- function(importance_type, rolling_panel, qualified_sample, control_group) {
   if (qualified_sample %in% names(AGGREGATED_SAMPLES)) {
     sub_panels <- lapply(AGGREGATED_SAMPLES[[qualified_sample]], function(s)
       LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel, s, control_group))
@@ -69,24 +69,24 @@ ComputeOutcomeStats <- function(panel_df, outcome_cols = c("pull_request_opened"
   })
 }
 
-BuildLatexAndSave <- function(outcome_stats, pct_treated, num_projects, num_periods, outdir_ds) {
+BuildLatexAndSave <- function(outcome_stats, pct_treated, num_repos, num_periods, outdir_ds) {
   outcome_display <- outcome_stats %>%
     transmute(Outcome = outcome,
               Mean    = formatC(mean,   format = "f", digits = 3),
               Median  = ifelse(is.na(median), "", formatC(median, format = "f", digits = 3)),
               SD      = formatC(sd,     format = "f", digits = 3))
 
-  avg_periods <- if (num_projects > 0) as.numeric(num_periods) / as.numeric(num_projects) else NA_real_
+  avg_periods <- if (num_repos > 0) as.numeric(num_periods) / as.numeric(num_repos) else NA_real_
   avg_periods_str <- if (!is.na(avg_periods)) {
-    sprintf("%s/%s = %s", as.character(num_periods), as.character(num_projects),
+    sprintf("%s/%s = %s", as.character(num_periods), as.character(num_repos),
             formatC(avg_periods, format = "f", digits = 2))
   } else {
-    sprintf("%s/%s", as.character(num_periods), as.character(num_projects))
+    sprintf("%s/%s", as.character(num_periods), as.character(num_repos))
   }
 
   summary_df <- tibble(
-    Outcome = c("PctTreated", "NumProjects", "AvgPeriods"),
-    Mean    = c(formatC(pct_treated, format = "f", digits = 3), as.character(num_projects), avg_periods_str),
+    Outcome = c("PctTreated", "NumRepos", "AvgPeriods"),
+    Mean    = c(formatC(pct_treated, format = "f", digits = 3), as.character(num_repos), avg_periods_str),
     Median  = c("", "", ""),
     SD      = c("", "", "")
   )
@@ -109,24 +109,24 @@ BuildLatexAndSave <- function(outcome_stats, pct_treated, num_projects, num_peri
   writeLines(paste0(full_lines, collapse = "\n"), file.path(outdir_ds, "outcome_summary_table.tex"))
 }
 
-CreatePracticeComboTables <- function(df_bins, practice_vars, outdir_ds) {
+CreatePCScoreComboTables <- function(df_bins, pc_split_cols, outdir_ds) {
   for (k in c(2, 3)) {
-    combos <- combn(practice_vars, k, simplify = FALSE)
+    combos <- combn(pc_split_cols, k, simplify = FALSE)
 
-    rows_all <- lapply(combos, function(vars) {
+    combo_rows_all <- lapply(combos, function(vars) {
       df_bins %>%
         group_by(across(all_of(vars))) %>%
         summarize(att_dr_mean = mean(att_dr, na.rm = TRUE), count = n(), .groups = "drop") %>%
         arrange(-att_dr_mean) %>%
-        mutate(rank           = row_number(),
-               pattern        = apply(as.matrix(pick(all_of(vars))), 1, paste, collapse = "-"),
-               practice_subset = paste(vars, collapse = " x ")) %>%
-        select(practice_subset, pattern, rank, att_dr_mean, count)
+        mutate(rank = row_number(),
+               pattern = apply(as.matrix(pick(all_of(vars))), 1, paste, collapse = "-"),
+               pc_score_subset = paste(vars, collapse = " x ")) %>%
+        select(pc_score_subset, pattern, rank, att_dr_mean, count)
     })
-    write_csv(bind_rows(rows_all) %>% arrange(-att_dr_mean),
-              file.path(outdir_ds, paste0("practice_combo_k", k, "_table.csv")))
+    write_csv(bind_rows(combo_rows_all) %>% arrange(-att_dr_mean),
+              file.path(outdir_ds, paste0("pc_score_combo_k", k, "_table.csv")))
 
-    rows_high <- lapply(combos, function(vars) {
+    combo_rows_high <- lapply(combos, function(vars) {
       grp      <- df_bins %>%
         group_by(across(all_of(vars))) %>%
         summarize(att_dr_mean = mean(att_dr, na.rm = TRUE), count = n(), .groups = "drop")
@@ -135,30 +135,30 @@ CreatePracticeComboTables <- function(df_bins, practice_vars, outdir_ds) {
       if (nrow(all_high) == 0) return(NULL)
       att_others <- if (nrow(others) > 0 && sum(others$count) > 0)
         sum(others$att_dr_mean * others$count) / sum(others$count) else NA_real_
-      tibble(practice_subset = paste(vars, collapse = " x "),
-             att_high        = all_high$att_dr_mean,
+      tibble(pc_score_subset = paste(vars, collapse = " x "),
+             att_high = all_high$att_dr_mean,
              att_others_wavg = att_others,
-             difference      = all_high$att_dr_mean - att_others,
-             count_high      = all_high$count)
+             difference = all_high$att_dr_mean - att_others,
+             count_high = all_high$count)
     })
-    write_csv(bind_rows(rows_high) %>% arrange(-difference),
-              file.path(outdir_ds, paste0("practice_combo_k", k, "_high_table.csv")))
+    write_csv(bind_rows(combo_rows_high) %>% arrange(-difference),
+              file.path(outdir_ds, paste0("pc_score_combo_k", k, "_high_table.csv")))
   }
 }
 
-PlotGradientGrid <- function(df_summary, practice_vars, fixed_rank_order = NULL) {
-  mat        <- as.matrix(df_summary[practice_vars])
-  df_summary <- df_summary %>%
+PlotPCScoreGradientGrid <- function(combo_summary, pc_split_cols, fixed_rank_order = NULL) {
+  mat <- as.matrix(combo_summary[pc_split_cols])
+  combo_summary <- combo_summary %>%
     mutate(combo_key   = apply(mat, 1, function(r) paste(toupper(substr(r, 1, 1)), collapse = "-")),
-           forest_rank = row_number(desc(att_dr_mean)))
+           combo_rank = row_number(desc(att_dr_mean)))
 
   df_plot <- if (!is.null(fixed_rank_order)) {
-    df_summary %>% mutate(row_pos = match(combo_key, fixed_rank_order)) %>% filter(!is.na(row_pos))
+    combo_summary %>% mutate(row_pos = match(combo_key, fixed_rank_order)) %>% filter(!is.na(row_pos))
   } else {
-    df_summary %>% mutate(row_pos = forest_rank)
+    combo_summary %>% mutate(row_pos = combo_rank)
   }
 
-  ggplot(df_plot, aes(x = 1, y = row_pos, fill = forest_rank)) +
+  ggplot(df_plot, aes(x = 1, y = row_pos, fill = combo_rank)) +
     geom_tile(color = "grey80", linewidth = 0.3, width = 1, height = 1) +
     scale_fill_gradient(low = "white", high = "black", limits = c(1, 32), guide = "none") +
     scale_y_reverse(breaks = c(1, 8, 16, 24, 32), expand = c(0, 0)) +
@@ -173,7 +173,7 @@ PlotGradientGrid <- function(df_summary, practice_vars, fixed_rank_order = NULL)
           plot.margin  = margin(2, 2, 2, 2, "pt"))
 }
 
-LoadFoldSummary <- function(fold_rds_path, df_continuous, df_bins, practice_vars) {
+LoadFoldSummary <- function(fold_rds_path, df_continuous, df_bins, pc_split_cols) {
   forest     <- readRDS(fold_rds_path)
   x_all      <- as.matrix(df_continuous %>% select(all_of(colnames(forest$X.orig))))
   tau_hat    <- predict(forest, newdata = x_all, drop = TRUE)$predictions
@@ -181,15 +181,15 @@ LoadFoldSummary <- function(fold_rds_path, df_continuous, df_bins, practice_vars
 
   df_bins %>%
     mutate(fold_att = tau_scalar) %>%
-    group_by(across(all_of(practice_vars))) %>%
+    group_by(across(all_of(pc_split_cols))) %>%
     summarize(att_dr_mean = mean(fold_att, na.rm = TRUE), count = n(), .groups = "drop") %>%
     arrange(-att_dr_mean) %>%
     mutate(rank = row_number())
 }
 
-PlotCrossForestGrid <- function(df_summary, fold_summaries, practice_vars, outdir_ds) {
+PlotCrossForestGrid <- function(combo_summary, fold_summaries, pc_split_cols, outdir_ds) {
   ComboKeys <- function(df) {
-    mat <- as.matrix(df[practice_vars])
+    mat <- as.matrix(df[pc_split_cols])
     apply(mat, 1, function(r) paste(toupper(substr(r, 1, 1)), collapse = "-"))
   }
   full_keys <- ComboKeys(fold_summaries[[1]] %>% arrange(-att_dr_mean))
@@ -198,15 +198,15 @@ PlotCrossForestGrid <- function(df_summary, fold_summaries, practice_vars, outdi
     fs <- fold_summaries[[i]]
     fs %>%
       mutate(combo_key   = ComboKeys(.),
-             forest_rank = rank(-att_dr_mean, ties.method = "first"),
+             combo_rank = rank(-att_dr_mean, ties.method = "first"),
              row_pos     = match(combo_key, full_keys),
              x_pos       = i) %>%
       filter(!is.na(row_pos)) %>%
-      select(x_pos, row_pos, forest_rank)
+      select(x_pos, row_pos, combo_rank)
   }))
 
   n_folds <- length(fold_summaries)
-  p <- ggplot(df_all, aes(x = x_pos, y = row_pos, fill = forest_rank)) +
+  p <- ggplot(df_all, aes(x = x_pos, y = row_pos, fill = combo_rank)) +
     geom_tile(color = "grey80", linewidth = 0.2, width = 1, height = 1) +
     scale_fill_gradient(low = "white", high = "black", limits = c(1, 32), guide = "none") +
     scale_x_continuous(breaks = seq_len(n_folds), labels = paste0("F", seq_len(n_folds)), expand = c(0, 0)) +
@@ -228,12 +228,12 @@ PlotCrossForestGrid <- function(df_summary, fold_summaries, practice_vars, outdi
          dpi = 300)
 }
 
-ComputeFoldCorrelations <- function(df_summary, fold_summaries, practice_vars, outdir_ds) {
+ComputeFoldCorrelations <- function(combo_summary, fold_summaries, pc_split_cols, outdir_ds) {
   ComboKeys <- function(df) {
-    mat <- as.matrix(df[practice_vars])
+    mat <- as.matrix(df[pc_split_cols])
     apply(mat, 1, function(r) paste(toupper(substr(r, 1, 1)), collapse = "-"))
   }
-  full_keys <- ComboKeys(df_summary %>% arrange(-att_dr_mean))
+  full_keys <- ComboKeys(combo_summary %>% arrange(-att_dr_mean))
 
   att_mat <- sapply(fold_summaries, function(fs) {
     fs$combo_key <- ComboKeys(fs)
@@ -281,7 +281,7 @@ ExportVariableImportanceTex <- function(fold_rds_paths, outdir_ds) {
     arrange(-importance) %>%
     mutate(rank  = row_number(),
            label = ifelse(variable %in% names(PC_LABELS),
-                          paste0(PC_LABELS[variable], " (PC1)"), variable))
+                          paste0(PC_LABELS[variable], " (PC Score)"), variable))
 
   out_tbl    <- varimp_df %>% transmute(Rank = rank, Variable = label, `Mean Split Share` = sprintf("%.4f", importance))
   latex_body <- as.character(knitr::kable(out_tbl, format = "latex", booktabs = TRUE, linesep = ""))

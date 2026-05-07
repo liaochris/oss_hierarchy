@@ -1,14 +1,18 @@
 import json
+import re
 
 import pandas as pd
 from pathlib import Path
 import glob
 
-from source.lib.helpers import MakeRepoNameSafe
+from source.lib.helpers import LoadPipelineInputs, MakeRepoNameSafe
 from source.lib.JMSLab.SaveData import SaveData
 
 
 def Main():
+    pipeline_cfg = LoadPipelineInputs("source/lib/project_config.json")
+    analysis_spec = BuildAnalysisSpec(pipeline_cfg)
+
     INDIR_PYPI = Path("output/scrape/pypi_downloads")
     INDIR_LINK = Path("output/scrape/pypi_site_info")
     INDIR_REPO = Path("output/scrape/extract_github_data")
@@ -17,10 +21,7 @@ def Main():
     INDIR_ISSUE_LINKED = Path("drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request")
     INDIR_PR_LINKED = Path("drive/output/scrape/link_issue_pull_request/linked_pull_request_to_issue")
     INDIR_GRAPH_LOG = Path("output/derived/graph_structure/exported_graphs_log.csv")
-    INDIR_ORG_PANEL = Path("drive/output/derived/org_outcomes_practices/org_panel/important_degree_top3/rolling5/panel.parquet")
-    INDIR_EXACT1 = Path("output/analysis/data_prep/important_degree_top3/rolling5/exact1/nevertreated/panel.parquet")
-    INDIR_EXACT2 = Path("output/analysis/data_prep/important_degree_top3/rolling5/exact2/nevertreated/panel.parquet")
-    INDIR_EXACT3 = Path("output/analysis/data_prep/important_degree_top3/rolling5/exact3/nevertreated/panel.parquet")
+    INDIR_ORG_PANEL = Path("drive/output/derived/org_outcomes_practices/org_panel") / analysis_spec["importance_type"] / analysis_spec["rolling_label"] / "panel.parquet"
     OUTDIR = Path("output/analysis/summ_stats")
 
     OUTDIR.mkdir(parents=True, exist_ok=True)
@@ -36,14 +37,15 @@ def Main():
 
     df_graph_log = pd.read_csv(INDIR_GRAPH_LOG)
     df_org_panel = pd.read_parquet(INDIR_ORG_PANEL)
-    df_exact1 = pd.read_parquet(INDIR_EXACT1)
-    df_exact2 = pd.read_parquet(INDIR_EXACT2)
-    df_exact3 = pd.read_parquet(INDIR_EXACT3)
+    exact_sample_panels = {
+        sample: pd.read_parquet(analysis_spec["prepared_panel_paths"][sample])
+        for sample in analysis_spec["exact_samples"]
+    }
 
     df_summary = BuildSummary(
         df_popular, df_linked, df_repo_history,
         issue_files, pr_files, issue_linked_files, pr_linked_files,
-        df_graph_log, df_org_panel, df_exact1, df_exact2, df_exact3
+        df_graph_log, df_org_panel, analysis_spec["exact_samples"], exact_sample_panels
     )
 
     SaveData(
@@ -58,7 +60,7 @@ def Main():
 
 def BuildSummary(df_popular, df_linked, df_repo_history,
                  issue_files, pr_files, issue_linked_files, pr_linked_files,
-                 df_graph_log, df_org_panel, df_exact1, df_exact2, df_exact3):
+                 df_graph_log, df_org_panel, exact_samples, exact_sample_panels):
     df = df_popular.rename(columns={"project": "package"}).copy()
     df = df.dropna(subset=["package"])
 
@@ -89,12 +91,15 @@ def BuildSummary(df_popular, df_linked, df_repo_history,
     df["has_pr_linked"] = safe_repo.isin(pr_linked_files)
 
     df_graph = BuildGraphPeriodCounts(df_graph_log)
-    df_org_flags = BuildOrgPanelFlags(df_org_panel)
-    df_balanced = BuildBalancedPanelFlags(df_exact1, df_exact2, df_exact3)
+    df_org_flags = BuildOrgPanelFlags(df_org_panel, exact_samples)
+    df_balanced = BuildBalancedPanelFlags(exact_samples, exact_sample_panels)
 
     df = df.merge(df_graph, left_on="unique_repo", right_on="repo", how="left").drop(columns=["repo"])
     df = df.merge(df_org_flags, left_on="unique_repo", right_on="repo_name", how="left").drop(columns=["repo_name"])
     df = df.merge(df_balanced, left_on="unique_repo", right_on="repo_name", how="left").drop(columns=["repo_name"])
+
+    sample_flag_cols = [f"in_{sample}_degree_top3_sample" for sample in exact_samples]
+    complete_panel_cols = [f"in_complete_panel_{sample}_degree_top3" for sample in exact_samples]
 
     return df[[
         "package", "pypi_github_link", "pypi_has_github_link", "unique_repo",
@@ -102,9 +107,30 @@ def BuildSummary(df_popular, df_linked, df_repo_history,
         "num_graph_periods",
         "num_departures_degree_top3", "is_treated_degree_top3",
         "num_important_qualified_degree_top3_at_treatment",
-        "in_exact1_degree_top3_sample", "in_exact2_degree_top3_sample", "in_exact3_degree_top3_sample",
-        "in_complete_panel_exact1_degree_top3", "in_complete_panel_exact2_degree_top3", "in_complete_panel_exact3_degree_top3",
+        *sample_flag_cols,
+        *complete_panel_cols,
     ]]
+
+
+def BuildAnalysisSpec(pipeline_cfg):
+    importance_type = pipeline_cfg["importance_types"]["run"][0]
+    rolling_label = f"rolling{pipeline_cfg['rolling_periods']['run'][0]}"
+    control_group = pipeline_cfg["control_groups"]["run"][0]
+    exact_samples = sorted(
+        [sample for sample in pipeline_cfg["qualified_samples"]["run"] if re.fullmatch(r"exact\d+", sample)],
+        key=lambda sample: int(sample.removeprefix("exact"))
+    )
+    prepared_panel_paths = {
+        sample: Path("output/analysis/data_prep") / importance_type / rolling_label / sample / control_group / "panel.parquet"
+        for sample in exact_samples
+    }
+    return {
+        "importance_type": importance_type,
+        "rolling_label": rolling_label,
+        "control_group": control_group,
+        "exact_samples": exact_samples,
+        "prepared_panel_paths": prepared_panel_paths,
+    }
 
 
 def BuildGraphPeriodCounts(df_graph_log):
@@ -115,7 +141,7 @@ def BuildGraphPeriodCounts(df_graph_log):
     return df[["repo", "num_graph_periods"]]
 
 
-def BuildOrgPanelFlags(df_org_panel):
+def BuildOrgPanelFlags(df_org_panel, exact_samples):
     panel = df_org_panel[["repo_name", "time_index", "quasi_treatment_group", "num_important_qualified", "num_departures"]].copy()
 
     # num_departures is cumulative — take max per repo for total departures
@@ -129,23 +155,22 @@ def BuildOrgPanelFlags(df_org_panel):
     result = departures.merge(at_treatment, on="repo_name", how="left")
 
     n = result["num_important_qualified_degree_top3_at_treatment"]
-    result["in_exact1_degree_top3_sample"] = n == 1
-    result["in_exact2_degree_top3_sample"] = n == 2
-    result["in_exact3_degree_top3_sample"] = n == 3
+    for sample in exact_samples:
+        qualified_count = int(sample.removeprefix("exact"))
+        result[f"in_{sample}_degree_top3_sample"] = n == qualified_count
 
     return result
 
 
-def BuildBalancedPanelFlags(df_exact1, df_exact2, df_exact3):
-    repos1 = set(df_exact1["repo_name"].unique())
-    repos2 = set(df_exact2["repo_name"].unique())
-    repos3 = set(df_exact3["repo_name"].unique())
-
-    all_repos = repos1 | repos2 | repos3
+def BuildBalancedPanelFlags(exact_samples, exact_sample_panels):
+    repos_by_sample = {
+        sample: set(panel_df["repo_name"].unique())
+        for sample, panel_df in exact_sample_panels.items()
+    }
+    all_repos = set().union(*repos_by_sample.values()) if repos_by_sample else set()
     df = pd.DataFrame({"repo_name": sorted(all_repos)})
-    df["in_complete_panel_exact1_degree_top3"] = df["repo_name"].isin(repos1)
-    df["in_complete_panel_exact2_degree_top3"] = df["repo_name"].isin(repos2)
-    df["in_complete_panel_exact3_degree_top3"] = df["repo_name"].isin(repos3)
+    for sample in exact_samples:
+        df[f"in_complete_panel_{sample}_degree_top3"] = df["repo_name"].isin(repos_by_sample[sample])
     return df
 
 
@@ -162,13 +187,21 @@ def ExportSummaryTable(df, outfile):
         ("  with issue linked", df_repos["has_issue_linked"].sum()),
         ("  with PR linked", df_repos["has_pr_linked"].sum()),
         ("  with graph data (any period)", (df_repos["num_graph_periods"] > 0).sum()),
-        ("  degree_top3: in exact1 sample", df_repos["in_exact1_degree_top3_sample"].sum()),
-        ("  degree_top3: in exact2 sample", df_repos["in_exact2_degree_top3_sample"].sum()),
-        ("  degree_top3: in exact3 sample", df_repos["in_exact3_degree_top3_sample"].sum()),
-        ("  degree_top3: complete panel exact1", df_repos["in_complete_panel_exact1_degree_top3"].sum()),
-        ("  degree_top3: complete panel exact2", df_repos["in_complete_panel_exact2_degree_top3"].sum()),
-        ("  degree_top3: complete panel exact3", df_repos["in_complete_panel_exact3_degree_top3"].sum()),
     ]
+    exact_sample_cols = sorted(
+        [col for col in df_repos.columns if re.fullmatch(r"in_exact\d+_degree_top3_sample", col)],
+        key=lambda col: int(re.search(r"exact(\d+)", col).group(1))
+    )
+    complete_panel_cols = sorted(
+        [col for col in df_repos.columns if re.fullmatch(r"in_complete_panel_exact\d+_degree_top3", col)],
+        key=lambda col: int(re.search(r"exact(\d+)", col).group(1))
+    )
+    for col in exact_sample_cols:
+        sample = re.search(r"(exact\d+)", col).group(1)
+        summary_rows.append((f"  degree_top3: in {sample} sample", df_repos[col].sum()))
+    for col in complete_panel_cols:
+        sample = re.search(r"(exact\d+)", col).group(1)
+        summary_rows.append((f"  degree_top3: complete panel {sample}", df_repos[col].sum()))
     lines = []
     for label, count in summary_rows:
         lines.append(f"{label}\t{count:>8,}")

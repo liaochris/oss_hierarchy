@@ -34,14 +34,14 @@ Main <- function() {
 
           covars <- unlist(lapply(practice_modes, function(x) x$continuous_covariate))
 
-          pc_columns_path <- file.path(INDIR_PREP, importance_type, rolling_panel,
-                                        qualified_sample, control_group, "pc_columns.json")
-          pc_columns <- fromJSON(pc_columns_path)
+          pc_score_columns_path <- file.path(INDIR_PREP, importance_type, rolling_panel,
+                                             qualified_sample, control_group, "pc_score_columns.json")
+          pc_score_columns <- fromJSON(pc_score_columns_path)
 
           for (covar_type in COVAR_TYPES) {
-            needs_pc <- covar_type %in% c("pc1", "pc1_binary")
-            panel    <- LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel,
-                                           qualified_sample, control_group, with_pc = needs_pc)
+            needs_pc_scores <- covar_type %in% c("pc_score", "pc_score_binary")
+            panel <- LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel,
+                                        qualified_sample, control_group, with_pc_scores = needs_pc_scores)
             marg_dist <- ComputeCohortTimeDist(panel)
 
             outdir_datastore <- file.path(OUTDIR_DATASTORE, importance_type, rolling_panel,
@@ -58,7 +58,7 @@ Main <- function() {
               base_feature_cols <- base_feature_cols[na_counts < NA_THRESHOLD]
               df_data           <- df_data[complete.cases(df_data %>% select(all_of(base_feature_cols))), ]
 
-              feature_cols <- SelectFeatureColumns(df_data, base_feature_cols, covar_type, pc_columns)
+              feature_cols <- SelectFeatureColumns(df_data, base_feature_cols, covar_type, pc_score_columns)
 
               pipeline <- NewEventStudyForestPipeline(outcome_mode$outcome, rolling_period)
               pipeline <- PrepareData(pipeline, df_data, feature_cols, marg_dist)
@@ -74,11 +74,11 @@ Main <- function() {
 }
 
 
-SelectFeatureColumns <- function(df_data, base_feature_cols, covar_type, pc_columns) {
+SelectFeatureColumns <- function(df_data, base_feature_cols, covar_type, pc_score_columns) {
   switch(covar_type,
     all_covariates = base_feature_cols,
-    pc1            = intersect(pc_columns$pc1,        colnames(df_data)),
-    pc1_binary     = intersect(pc_columns$pc1_binary, colnames(df_data))
+    pc_score       = intersect(pc_score_columns$pc_score,               colnames(df_data)),
+    pc_score_binary = intersect(pc_score_columns$pc_score_binary, colnames(df_data))
   )
 }
 
