@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 from google.cloud import bigquery
 from source.lib.JMSLab.SaveData import SaveData
-from source.lib.helpers import LoadGlobalSettings
+from source.lib.python.config_loaders import LoadGlobalSettings
 
 def MapIDToName(bq_client, repo_names):
     names_lower = [n.lower() for n in repo_names]

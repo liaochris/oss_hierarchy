@@ -1,8 +1,8 @@
 Import('*')
 
-from source.lib.helpers import LoadPipelineInputs
+from source.lib.python.config_loaders import LoadPipelineInputs
 
-_cfg = LoadPipelineInputs("../../../source/lib/project_config.json")
+_cfg = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
 IMPORTANCE_TYPES  = _cfg["importance_types"]["run"]
 ROLLING_PERIODS   = [f"rolling{p}" for p in _cfg["rolling_periods"]["run"]]
 QUALIFIED_SAMPLES = _cfg["qualified_samples"]["run"]
@@ -12,22 +12,21 @@ FOREST_OUTCOME   = _cfg["forest_training_outcome"]
 
 INDIR_PREP = "#output/analysis/data_prep"
 OUTDIR     = "#output/analysis/event_study_forest"
-R_HELPER_DEPS = [
-    "#source/lib/event_study_forest.R",
-    "#source/lib/helpers.R",
-    "#source/lib/constants.R",
-    "#source/lib/forest_helpers.R",
-]
-CONFIG_DEPS = [
-    "#source/lib/project_config.json",
-    "#source/lib/pc_groups.json",
-]
 
 AGGREGATED_SAMPLES = {"exact_1_2": ["exact1", "exact2"]}
 
 sources = [
     "#source/analysis/event_study_forest/fit_cate.R",
-] + R_HELPER_DEPS + CONFIG_DEPS
+    "#source/lib/R/event_study_forest.R",
+    "#source/lib/R/config_loaders.R",
+    "#source/lib/R/analysis_utils.R",
+    "#source/lib/R/constants.R",
+    "#source/lib/R/forest_helpers.R",
+    "#source/lib/config/pipeline_inputs.json",
+    "#source/lib/config/feature_variables.json",
+    "#source/lib/config/analysis_parameters.json",
+    "#source/lib/pc_groups.json",
+]
 NON_AGGREGATED_SAMPLES = [s for s in QUALIFIED_SAMPLES if s not in AGGREGATED_SAMPLES]
 
 for importance_type in IMPORTANCE_TYPES:

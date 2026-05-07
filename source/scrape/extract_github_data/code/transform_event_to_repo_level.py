@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from source.lib.helpers import LoadGlobalSettings, MakeRepoNameSafe
+from source.lib.python.config_loaders import LoadGlobalSettings
+from source.lib.python.repo_utils import MakeRepoNameSafe
 from source.lib.JMSLab.SaveData import SaveData
 
 

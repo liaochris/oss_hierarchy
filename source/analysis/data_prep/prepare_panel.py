@@ -6,25 +6,20 @@ import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-from source.lib.helpers import (
-    FlattenConfigValues,
-    LoadAnalysisParameters,
-    LoadOutcomeVariables,
-    LoadPipelineInputs,
-)
+from source.lib.python.config_loaders import FlattenConfigValues, LoadAnalysisParameters, LoadOutcomeVariables, LoadPipelineInputs
 from source.lib.JMSLab.SaveData import SaveData
 
 INDIR = Path("drive/output/derived/org_outcomes_practices/org_panel")
 OUTDIR = Path("output/analysis/data_prep")
 INDIR_LIB = Path("source/lib")
 
-_analysis_params = LoadAnalysisParameters(INDIR_LIB / "project_config.json")
+_analysis_params = LoadAnalysisParameters()
 
 MAX_BASELINE_NA_COUNT = _analysis_params["pc_inclusion_na_threshold"]
 MAX_EVENT_TIME = _analysis_params["max_event_time"]
 MIN_EVENT_TIME = -MAX_EVENT_TIME
 
-_pipeline_cfg = LoadPipelineInputs(INDIR_LIB / "project_config.json")
+_pipeline_cfg = LoadPipelineInputs()
 IMPORTANCE_TYPES = _pipeline_cfg["importance_types"]["run"]
 ROLLING_PERIODS = [f"rolling{p}" for p in _pipeline_cfg["rolling_periods"]["run"]]
 QUALIFIED_SAMPLES = _pipeline_cfg["qualified_samples"]["run"]
@@ -34,7 +29,7 @@ CONTROL_GROUPS = _pipeline_cfg["control_groups"]["run"]
 def Main():
     with open(INDIR_LIB / "pc_groups.json", encoding="utf-8") as fh:
         pc_groups_cfg = json.load(fh)
-    outcome_cfg = LoadOutcomeVariables(INDIR_LIB / "project_config.json")
+    outcome_cfg = LoadOutcomeVariables()
     active_outcomes = FlattenConfigValues(outcome_cfg, phases=("run",))
     for importance_type in IMPORTANCE_TYPES:
         for rolling_period in ROLLING_PERIODS:

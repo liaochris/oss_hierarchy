@@ -3,7 +3,7 @@ import os
 import pandas as pd
 from datetime import datetime
 from source.lib.JMSLab.SaveData import SaveData
-from source.lib.helpers import LoadGlobalSettings
+from source.lib.python.config_loaders import LoadGlobalSettings
 
 
 def Main():

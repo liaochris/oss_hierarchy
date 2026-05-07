@@ -4,9 +4,10 @@ library(fs)
 library(jsonlite)
 library(knitr)
 
-source("source/lib/helpers.R")
-source("source/lib/forest_helpers.R")
-source("source/lib/constants.R")
+source("source/lib/R/config_loaders.R")
+source("source/lib/R/analysis_utils.R")
+source("source/lib/R/forest_helpers.R")
+source("source/lib/R/constants.R")
 
 INDIR_PREP <- "output/analysis/data_prep"
 

@@ -4,7 +4,8 @@ import pandas as pd
 import numpy as np
 from joblib import Parallel, delayed
 from source.lib.JMSLab.SaveData import SaveData
-from source.lib.helpers import JsonSerialize, LoadImportanceSpecifications
+from source.lib.python.data_utils import JsonSerialize
+from source.lib.python.config_loaders import LoadImportanceSpecifications
 
 INDIR = Path("drive/output/derived/graph_structure/graph_degrees")
 OUTDIR = Path("output/derived/graph_structure/important_members")

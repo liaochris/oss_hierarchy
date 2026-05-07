@@ -5,7 +5,9 @@ import numpy as np
 import random
 from joblib import Parallel, delayed
 from source.lib.JMSLab.SaveData import SaveData
-from source.lib.helpers import CleanDirs, JsonDeserialize, JsonSerialize, MakeRepoNameSafe
+from source.lib.python.filesystem_utils import CleanDirs
+from source.lib.python.data_utils import JsonDeserialize, JsonSerialize
+from source.lib.python.repo_utils import MakeRepoNameSafe
 
 INDIR_REPO = Path('drive/output/scrape/extract_github_data/repo_level_data')
 INDIR_LINK = Path('drive/output/scrape/link_issue_pull_request')

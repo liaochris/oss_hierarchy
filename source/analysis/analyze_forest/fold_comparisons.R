@@ -6,7 +6,7 @@ source("source/analysis/analyze_forest/helpers.R")
 
 INDIR_FOREST    <- "output/analysis/event_study_forest"
 INDIR_FOREST_DS <- "drive/output/analysis/event_study_forest"
-OUTDIR          <- "output/analysis/event_study_forest"
+OUTDIR          <- "output/analysis/analyze_forest"
 
 Main <- function() {
   for (importance_type in IMPORTANCE_TYPES) {

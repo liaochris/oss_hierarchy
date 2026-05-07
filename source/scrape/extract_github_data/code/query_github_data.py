@@ -4,7 +4,7 @@ from google.cloud import bigquery
 from pathlib import Path
 import pandas as pd
 from source.lib.JMSLab.SaveData import SaveData
-from source.lib.helpers import LoadGlobalSettings
+from source.lib.python.config_loaders import LoadGlobalSettings
 from datetime import datetime
 
 def CreateDataset(client, dataset_name):

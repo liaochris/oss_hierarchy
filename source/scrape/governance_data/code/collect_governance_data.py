@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from source.lib.helpers import LoadGlobalSettings
+from source.lib.python.config_loaders import LoadGlobalSettings
 from source.lib.JMSLab.SaveData import SaveData
 
 

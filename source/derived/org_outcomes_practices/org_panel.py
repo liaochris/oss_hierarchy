@@ -3,15 +3,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from source.lib.helpers import (
-    JsonDeserialize,
-    JsonSerialize,
-    LoadAnalysisParameters,
-    LoadGlobalSettings,
-    LoadImportanceSpecifications,
-    LoadPipelineInputs,
-    MakeRepoNameOriginal,
-)
+from source.lib.python.data_utils import JsonDeserialize, JsonSerialize
+from source.lib.python.config_loaders import LoadAnalysisParameters, LoadGlobalSettings, LoadImportanceSpecifications, LoadPipelineInputs
+from source.lib.python.repo_utils import MakeRepoNameOriginal
 from source.lib.JMSLab.SaveData import SaveData
 
 _global_settings = LoadGlobalSettings()
@@ -171,6 +165,7 @@ def _ProcessRepoFrame(df_all, columns_dict):
         "has_good_first_issue", "has_contributing_guide", "has_code_of_conduct",
     ])
     df_all = _FillListCols(df_all, ["important_actors", "important_qualified_actors", "dropouts_actors"])
+    df_all = _FilterDeparturesByActionData(df_all)
 
     mask = df_all["time_period"] >= pd.Timestamp("2016-01-01")
     df_all.loc[mask, ["issue_template_count"]] = df_all.loc[mask, ["issue_template_count"]].fillna(0)
@@ -237,6 +232,35 @@ def _FillListCols(df, cols):
     for col in [c for c in cols if c in df.columns]:
         df[col] = df[col].apply(lambda x: JsonDeserialize(x, default=[]) if pd.notna(x) else [])
     return df
+
+
+def _FilterDeparturesByActionData(df):
+    """Remove from dropouts_actors any actor who still has action-data activity after their dropout period."""
+    segments = []
+    for repo_name, repo_df in df.groupby("repo_name", sort=False):
+        if (repo_df["num_dropouts"] == 0).all():
+            segments.append(repo_df)
+            continue
+        safe_name = repo_name.replace("/", "___")
+        action_path = INDIR / f"{safe_name}.parquet"
+        if not action_path.exists():
+            segments.append(repo_df)
+            continue
+        try:
+            action_df = pd.read_parquet(action_path, columns=["actor_id", "created_at"])
+            action_df["created_at"] = pd.to_datetime(action_df["created_at"])
+            repo_df = repo_df.copy()
+            for idx in repo_df.index[repo_df["num_dropouts"] > 0]:
+                period = repo_df.at[idx, "time_period"]
+                next_start = period + pd.DateOffset(months=TIME_PERIOD)
+                future_actors = set(action_df.loc[action_df["created_at"] >= next_start, "actor_id"])
+                confirmed = [a for a in repo_df.at[idx, "dropouts_actors"] if a not in future_actors]
+                repo_df.at[idx, "dropouts_actors"] = confirmed
+                repo_df.at[idx, "num_dropouts"] = len(confirmed)
+        except Exception:
+            pass
+        segments.append(repo_df)
+    return pd.concat(segments, ignore_index=True)
 
 
 def _AssignTreatmentDate(df):

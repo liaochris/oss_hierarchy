@@ -23,8 +23,9 @@ def ConcatStatsByTimePeriod(*dfs):
 
 
 def LoadFilteredImportantMembers(repo_name, INDIR_IMPORTANT, INDIR_LIB, importance_type):
-    from source.lib.helpers import JsonDeserialize, LoadImportanceSpecifications
-    importance_parameters_all = LoadImportanceSpecifications(INDIR_LIB / "project_config.json")
+    from source.lib.python.data_utils import JsonDeserialize
+    from source.lib.python.config_loaders import LoadImportanceSpecifications
+    importance_parameters_all = LoadImportanceSpecifications(INDIR_LIB / "config" / "importance_specifications.json")
     if importance_type not in importance_parameters_all:
         raise ValueError(f"importance_type '{importance_type}' not found in project_config.json")
 

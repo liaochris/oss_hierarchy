@@ -5,12 +5,13 @@ import pandas as pd
 from pathlib import Path
 import glob
 
-from source.lib.helpers import LoadPipelineInputs, MakeRepoNameSafe
+from source.lib.python.config_loaders import LoadPipelineInputs
+from source.lib.python.repo_utils import MakeRepoNameSafe
 from source.lib.JMSLab.SaveData import SaveData
 
 
 def Main():
-    pipeline_cfg = LoadPipelineInputs("source/lib/project_config.json")
+    pipeline_cfg = LoadPipelineInputs()
     analysis_spec = BuildAnalysisSpec(pipeline_cfg)
 
     INDIR_PYPI = Path("output/scrape/pypi_downloads")

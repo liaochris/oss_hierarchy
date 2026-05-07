@@ -1,8 +1,9 @@
 Import('*')
 
-from source.lib.helpers import LoadGlobalSettings, MakeRepoNameSafe
+from source.lib.python.config_loaders import LoadGlobalSettings
+from source.lib.python.repo_utils import MakeRepoNameSafe
 
-globals_data = LoadGlobalSettings("../../../source/lib/project_config.json")
+globals_data = LoadGlobalSettings("../../../source/lib/config/global_settings.json")
 reference_repo = globals_data['reference_github_repo']
 reference_repo_safe_name = MakeRepoNameSafe(reference_repo)
 

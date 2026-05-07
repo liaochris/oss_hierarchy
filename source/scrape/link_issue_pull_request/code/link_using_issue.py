@@ -23,7 +23,8 @@ import argparse
 from source.scrape.link_issue_pull_request.code.create_issue_timeline_json import HtmlTextToTimelineJSON
 from source.scrape.link_issue_pull_request.code.create_issue_timeline_dom import HtmlTextToTimelineDOM
 from source.scrape.link_issue_pull_request.code.fetch_helpers import FetchGitHubPage
-from source.lib.helpers import MakeRepoNameSafe, JsonSerialize
+from source.lib.python.repo_utils import MakeRepoNameSafe
+from source.lib.python.data_utils import JsonSerialize
 from source.lib.JMSLab.SaveData import SaveData
 
 

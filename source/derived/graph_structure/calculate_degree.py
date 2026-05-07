@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from joblib import Parallel, delayed
-from source.lib.helpers import CleanDirs
+from source.lib.python.filesystem_utils import CleanDirs
 from source.lib.JMSLab.SaveData import SaveData
 
 INDIR_INTERACTIONS = Path("drive/output/derived/graph_structure/interactions")

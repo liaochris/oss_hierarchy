@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from google.cloud import bigquery
 from source.lib.JMSLab.SaveData import SaveData
-from source.lib.helpers import LoadGlobalSettings
+from source.lib.python.config_loaders import LoadGlobalSettings
 
 def ExecuteQuery(query, project_id):
     client = bigquery.Client(project = project_id)

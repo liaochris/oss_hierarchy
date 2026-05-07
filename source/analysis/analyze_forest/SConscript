@@ -1,8 +1,8 @@
 Import('*')
 
-from source.lib.helpers import LoadPipelineInputs
+from source.lib.python.config_loaders import LoadPipelineInputs
 
-_cfg = LoadPipelineInputs("../../../source/lib/project_config.json")
+_cfg = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
 IMPORTANCE_TYPES  = _cfg["importance_types"]["run"]
 ROLLING_PERIODS   = [f"rolling{p}" for p in _cfg["rolling_periods"]["run"]]
 QUALIFIED_SAMPLES = _cfg["qualified_samples"]["run"]
@@ -11,20 +11,23 @@ FOREST_OUTCOME    = _cfg["forest_training_outcome"]
 
 INDIR_PREP   = "#output/analysis/data_prep"
 INDIR_FOREST = "#output/analysis/event_study_forest"
-OUTDIR       = "#output/analysis/event_study_forest"
+OUTDIR       = "#output/analysis/analyze_forest"
 COVAR_TYPE   = "pc_score"
 
 AGGREGATED_SAMPLES     = {"exact_1_2": ["exact1", "exact2"]}
 NON_AGGREGATED_SAMPLES = [s for s in QUALIFIED_SAMPLES if s not in AGGREGATED_SAMPLES]
 
-SHARED_R_HELPERS = [
+SHARED_LIBS = [
     "#source/analysis/analyze_forest/helpers.R",
-    "#source/lib/helpers.R",
-    "#source/lib/constants.R",
-    "#source/lib/forest_helpers.R",
-]
-CONFIG_DEPS = [
-    "#source/lib/project_config.json",
+    "#source/lib/R/config_loaders.R",
+    "#source/lib/R/analysis_utils.R",
+    "#source/lib/R/constants.R",
+    "#source/lib/R/forest_helpers.R",
+    "#source/lib/config/pipeline_inputs.json",
+    "#source/lib/config/feature_variables.json",
+    "#source/lib/config/outcome_variables.json",
+    "#source/lib/config/analysis_parameters.json",
+    "#source/lib/config/plotting.json",
 ]
 
 def forest_parquet(imp, roll, samp, ctrl):
@@ -47,7 +50,7 @@ def all_combos(samples=None):
     ]
 
 def run_r(script, targets, inputs):
-    env.R(targets, [f"#source/analysis/analyze_forest/{script}"] + SHARED_R_HELPERS + CONFIG_DEPS + inputs)
+    env.R(targets, [f"#source/analysis/analyze_forest/{script}"] + SHARED_LIBS + inputs)
 
 all_forest_inputs = list(dict.fromkeys(
     forest_parquet(imp, roll, sub, ctrl)

@@ -4,9 +4,11 @@ library(fs)
 library(jsonlite)
 library(SaveData)
 
-source("source/lib/helpers.R")
-source("source/lib/event_study_helpers.R")
-source("source/lib/constants.R")
+source("source/lib/R/config_loaders.R")
+source("source/lib/R/pc_groups.R")
+source("source/lib/R/analysis_utils.R")
+source("source/lib/R/event_study_helpers.R")
+source("source/lib/R/constants.R")
 
 INDIR_PREP <- "output/analysis/data_prep"
 
@@ -92,17 +94,22 @@ BuildOutcomeSpecs <- function(outcome_cfg, norm_options) {
 
 RunFullSampleEventStudies <- function(panel, outcome_specs, outdir_slice,
                                       importance_type, rolling_panel, qualified_sample, control_group) {
-  coeffs <- list()
-  outdir_base <- file.path(outdir_slice, "full_sample")
+  coeffs            <- list()
+  outdir_base       <- file.path(outdir_slice, "full_sample")
+  plot_specs_by_norm <- list(norm = list(), raw = list())
 
   for (spec in outcome_specs) {
     es <- FitEventStudy(panel, spec$outcome, control_group, "sa", title = "", normalize = spec$normalize)
-    out_path <- file.path(outdir_base, spec$category, paste0(spec$outcome, ".png"))
+    norm_label <- ifelse(spec$normalize, "norm", "raw")
+    out_path <- file.path(outdir_base, norm_label, paste0(spec$outcome, ".png"))
     dir_create(dirname(out_path), recurse = TRUE)
-    png(out_path)
-    PlotEventStudyComparison(list(es), title = "", legend_labels = NULL,
-      add_comparison = FALSE, ylim = YLIM_DEFAULT)
-    dev.off()
+    plot_specs_by_norm[[norm_label]][[length(plot_specs_by_norm[[norm_label]]) + 1]] <- list(
+      es_list = list(es),
+      out_path = out_path,
+      legend_labels = NULL,
+      legend_title = NULL,
+      add_comparison = FALSE
+    )
 
     coeffs[[length(coeffs) + 1]] <- CollectEstimateRows(
       es$results, importance_type, rolling_panel, qualified_sample, control_group,
@@ -110,6 +117,7 @@ RunFullSampleEventStudies <- function(panel, outcome_specs, outdir_slice,
       category = spec$category, outcome = spec$outcome, normalize = spec$normalize)
   }
 
+  lapply(plot_specs_by_norm, PlotEventStudyBatch)
   coeffs
 }
 
@@ -120,22 +128,31 @@ RunAggregatedFullSampleEventStudies <- function(sub_samples, outcome_specs, outd
     LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel, s, control_group))
   obs_counts  <- vapply(sub_panels, nrow, integer(1))
   outdir_base <- file.path(outdir_slice, "full_sample")
+  coeffs      <- list()
+  plot_specs_by_norm <- list(norm = list(), raw = list())
 
-  lapply(outcome_specs, function(spec) {
+  for (spec in outcome_specs) {
     sub_results <- lapply(sub_panels, function(panel)
       FitEventStudy(panel, spec$outcome, control_group, "sa",
                     normalize = spec$normalize, title = "")$results)
     agg_mat  <- WeightedAggregateCoefMatrix(sub_results, obs_counts)
-    out_path <- file.path(outdir_base, spec$category, paste0(spec$outcome, ".png"))
+    norm_label <- ifelse(spec$normalize, "norm", "raw")
+    out_path <- file.path(outdir_base, norm_label, paste0(spec$outcome, ".png"))
     dir_create(dirname(out_path), recurse = TRUE)
-    png(out_path)
-    PlotEventStudyComparison(list(list(results = agg_mat)), title = "",
-      legend_labels = NULL, add_comparison = FALSE, ylim = YLIM_DEFAULT)
-    dev.off()
-    CollectEstimateRows(agg_mat, importance_type, rolling_panel, aggregated_sample,
+    plot_specs_by_norm[[norm_label]][[length(plot_specs_by_norm[[norm_label]]) + 1]] <- list(
+      es_list = list(list(results = agg_mat)),
+      out_path = out_path,
+      legend_labels = NULL,
+      legend_title = NULL,
+      add_comparison = FALSE
+    )
+    coeffs[[length(coeffs) + 1]] <- CollectEstimateRows(agg_mat, importance_type, rolling_panel, aggregated_sample,
       control_group, split_type = "full_sample", split_covar = "", split_value = "",
       category = spec$category, outcome = spec$outcome, normalize = spec$normalize)
-  })
+  }
+
+  lapply(plot_specs_by_norm, PlotEventStudyBatch)
+  coeffs
 }
 
 RunPCScoreEventStudies <- function(panel_with_pc_scores, outcome_specs, pc_group_cfg, outdir_slice,
@@ -143,6 +160,7 @@ RunPCScoreEventStudies <- function(panel_with_pc_scores, outcome_specs, pc_group
   coeffs <- list()
   outdir_pc_score <- file.path(outdir_slice, "pc_score")
   pc_groups <- BuildPCScoreGroups(panel_with_pc_scores, pc_group_cfg)
+  plot_specs_by_norm <- list(norm = list(), raw = list())
 
   for (spec in outcome_specs) {
     for (pc_group_name in names(pc_groups)) {
@@ -153,14 +171,17 @@ RunPCScoreEventStudies <- function(panel_with_pc_scores, outcome_specs, pc_group
       es_low  <- FitEventStudy(panel_low,  spec$outcome, control_group, "sa", title = "", normalize = spec$normalize)
       es_high <- FitEventStudy(panel_high, spec$outcome, control_group, "sa", title = "", normalize = spec$normalize)
 
-      out_path <- file.path(outdir_pc_score, spec$category,
+      norm_label <- ifelse(spec$normalize, "norm", "raw")
+      out_path <- file.path(outdir_pc_score, norm_label,
         paste0(pc_group_name, "_", spec$outcome, "_pc_score_split.png"))
       dir_create(dirname(out_path), recurse = TRUE)
-      png(out_path)
-      PlotEventStudyComparison(list(es_low, es_high),
-        legend_labels = c("Low", "High"), legend_title = split_group$friendly_label,
-        ylim = c(-2.25, 1.5))
-      dev.off()
+      plot_specs_by_norm[[norm_label]][[length(plot_specs_by_norm[[norm_label]]) + 1]] <- list(
+        es_list = list(es_low, es_high),
+        out_path = out_path,
+        legend_labels = c("Low", "High"),
+        legend_title = split_group$friendly_label,
+        add_comparison = TRUE
+      )
 
       for (split_side in list(list(label = "low", es = es_low), list(label = "high", es = es_high))) {
         coeffs[[length(coeffs) + 1]] <- CollectEstimateRows(
@@ -171,6 +192,7 @@ RunPCScoreEventStudies <- function(panel_with_pc_scores, outcome_specs, pc_group
     }
   }
 
+  lapply(plot_specs_by_norm, PlotEventStudyBatch)
   coeffs
 }
 
@@ -181,6 +203,7 @@ RunAggregatedPCScoreEventStudies <- function(sub_samples, outcome_specs, pc_grou
     LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel, s, control_group, with_pc_scores = TRUE))
   sub_pc_score_groups <- lapply(sub_pc_score_panels, BuildPCScoreGroups, pc_group_cfg)
   outdir_pc_score     <- file.path(outdir_slice, "pc_score")
+  plot_specs_by_norm  <- list(norm = list(), raw = list())
 
   coeffs <- list()
   for (spec in outcome_specs) {
@@ -202,15 +225,17 @@ RunAggregatedPCScoreEventStudies <- function(sub_samples, outcome_specs, pc_grou
         WeightedAggregateCoefMatrix(side_results, side_obs_counts)
       }), c("low", "high"))
 
-      out_path <- file.path(outdir_pc_score, spec$category,
+      norm_label <- ifelse(spec$normalize, "norm", "raw")
+      out_path <- file.path(outdir_pc_score, norm_label,
         paste0(pc_group_name, "_", spec$outcome, "_pc_score_split.png"))
       dir_create(dirname(out_path), recurse = TRUE)
-      png(out_path)
-      PlotEventStudyComparison(
-        lapply(agg_by_side, function(m) list(results = m)),
-        legend_labels = c("Low", "High"), legend_title = friendly_label,
-        ylim = c(-2.25, 1.5))
-      dev.off()
+      plot_specs_by_norm[[norm_label]][[length(plot_specs_by_norm[[norm_label]]) + 1]] <- list(
+        es_list = lapply(agg_by_side, function(m) list(results = m)),
+        out_path = out_path,
+        legend_labels = c("Low", "High"),
+        legend_title = friendly_label,
+        add_comparison = TRUE
+      )
 
       for (split_side in c("low", "high")) {
         coeffs[[length(coeffs) + 1]] <- CollectEstimateRows(
@@ -222,6 +247,7 @@ RunAggregatedPCScoreEventStudies <- function(sub_samples, outcome_specs, pc_grou
     }
   }
 
+  lapply(plot_specs_by_norm, PlotEventStudyBatch)
   coeffs
 }
 
