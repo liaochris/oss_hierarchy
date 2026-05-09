@@ -15,8 +15,7 @@ OUTDIR           <- "output/analysis/event_study_forest"
 OUTDIR_DATASTORE <- "drive/output/analysis/event_study_forest"
 
 Main <- function() {
-  project_cfg      <- LoadProjectConfig(PROJECT_CONFIG_PATH)
-  org_practice_cfg <- project_cfg$feature_variables
+  org_practice_cfg <- feature_variables
 
   for (importance_type in IMPORTANCE_TYPES) {
     for (qualified_sample in QUALIFIED_SAMPLES) {

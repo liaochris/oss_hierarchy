@@ -23,7 +23,11 @@ N_FOLDS        <- analysis_parameters$n_folds
 N_TREES        <- analysis_parameters$trees_in_forest_event_study
 MAX_EVENT_TIME <- analysis_parameters$max_event_time
 MIN_EVENT_TIME <- -MAX_EVENT_TIME
-PNG_NCOL       <- plot_settings$png_ncol
+YLIM_NORM        <- unlist(plot_settings$ylim_norm,        use.names = FALSE)
+YLIM_RAW         <- unlist(plot_settings$ylim_raw,         use.names = FALSE)
+YLIM_FOREST_NORM <- unlist(plot_settings$ylim_forest_norm, use.names = FALSE)
+YLIM_FOREST_RAW  <- unlist(plot_settings$ylim_forest_raw,  use.names = FALSE)
+PNG_NCOL         <- plot_settings$png_ncol
 
 IMPORTANCE_TYPES       <- ExtractConfigValues(pipeline_inputs$importance_types)
 ROLLING_LABELS         <- paste0("rolling", ExtractConfigValues(pipeline_inputs$rolling_periods))

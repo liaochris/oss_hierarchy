@@ -17,7 +17,8 @@ PC_LABELS <- setNames(
 )
 
 LoadForestResults <- function(indir_forest, importance_type, rolling_panel,
-                              qualified_sample, control_group, covar_type_dir = "pc_score") {
+                              qualified_sample, control_group, norm_label,
+                              covar_type_dir = "pc_score") {
   split_var <- FOREST_TRAINING_OUTCOME
 
   if (qualified_sample %in% names(AGGREGATED_SAMPLES)) {
@@ -25,7 +26,7 @@ LoadForestResults <- function(indir_forest, importance_type, rolling_panel,
     sub_dfs <- setNames(
       lapply(sub_sample_names, function(s) {
         path <- file.path(indir_forest, importance_type, rolling_panel, s, control_group,
-                          covar_type_dir, paste0(split_var, "_repo_att_event_study_forest.parquet"))
+                          covar_type_dir, norm_label, paste0(split_var, "_repo_att_event_study_forest.parquet"))
         tryCatch(read_parquet(path), error = function(e) NULL)
       }),
       sub_sample_names
@@ -35,7 +36,7 @@ LoadForestResults <- function(indir_forest, importance_type, rolling_panel,
     list(df = bind_rows(sub_dfs), sub_dfs = sub_dfs)
   } else {
     path <- file.path(indir_forest, importance_type, rolling_panel, qualified_sample,
-                      control_group, covar_type_dir,
+                      control_group, covar_type_dir, norm_label,
                       paste0(split_var, "_repo_att_event_study_forest.parquet"))
     df <- tryCatch(read_parquet(path), error = function(e) NULL)
     if (is.null(df)) return(NULL)

@@ -12,10 +12,12 @@ Main <- function() {
     for (qualified_sample in QUALIFIED_SAMPLES) {
       for (control_group in CONTROL_GROUPS) {
         for (rolling_panel in ROLLING_LABELS) {
-          outdir_ds <- file.path(OUTDIR, importance_type, rolling_panel, qualified_sample, control_group)
-          dir_create(outdir_ds, recurse = TRUE)
+          for (norm_option in NORM_OPTIONS) {
+            norm_label <- ifelse(norm_option, "norm", "raw")
+            outdir_ds <- file.path(OUTDIR, importance_type, rolling_panel, qualified_sample, control_group, norm_label)
+            dir_create(outdir_ds, recurse = TRUE)
 
-          forest_results_data <- LoadForestResults(INDIR_FOREST, importance_type, rolling_panel, qualified_sample, control_group)
+            forest_results_data <- LoadForestResults(INDIR_FOREST, importance_type, rolling_panel, qualified_sample, control_group, norm_label)
           if (is.null(forest_results_data)) next
 
           pc_score_cols <- colnames(forest_results_data$df)[grepl("_pc_score$", colnames(forest_results_data$df))]
@@ -38,6 +40,7 @@ Main <- function() {
 
           p_gradient <- PlotPCScoreGradientGrid(combo_summary, pc_score_cols)
           ggsave(file.path(outdir_ds, "pc_score_combo_gradient.png"), p_gradient, width = 3, height = 12, dpi = 300)
+          }
         }
       }
     }

@@ -12,11 +12,14 @@ Main <- function() {
     for (qualified_sample in QUALIFIED_SAMPLES) {
       for (control_group in CONTROL_GROUPS) {
         for (rolling_panel in ROLLING_LABELS) {
-          outdir_ds <- file.path(OUTDIR, importance_type, rolling_panel, qualified_sample, control_group)
-          dir_create(outdir_ds, recurse = TRUE)
+          for (norm_option in NORM_OPTIONS) {
+            norm_label <- ifelse(norm_option, "norm", "raw")
+            outdir_ds <- file.path(OUTDIR, importance_type, rolling_panel, qualified_sample, control_group, norm_label)
+            dir_create(outdir_ds, recurse = TRUE)
 
-          forest_results_data <- LoadForestResults(INDIR_FOREST, importance_type, rolling_panel, qualified_sample, control_group)
-          PlotPCScoreCorrelationHeatmap(forest_results_data$df, outdir_ds)
+            forest_results_data <- LoadForestResults(INDIR_FOREST, importance_type, rolling_panel, qualified_sample, control_group, norm_label)
+            PlotPCScoreCorrelationHeatmap(forest_results_data$df, outdir_ds)
+          }
         }
       }
     }

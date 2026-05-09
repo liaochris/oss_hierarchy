@@ -199,15 +199,14 @@ RunAggregatedSplitEventStudies <- function(sub_panels, sub_forest_results, split
 
 Main <- function() {
   dir_create(OUTDIR)
-  project_cfg <- LoadProjectConfig(PROJECT_CONFIG_PATH)
-  outcome_cfg <- project_cfg$outcome_variables
+
   coeffs_all  <- list()
 
   for (importance_type in IMPORTANCE_TYPES) {
     for (qualified_sample in QUALIFIED_SAMPLES) {
       for (control_group in CONTROL_GROUPS) {
         for (rolling_panel in ROLLING_LABELS) {
-          outcome_modes <- BuildOutcomeModes(outcome_cfg, control_group, outdir = NULL,
+          outcome_modes <- BuildOutcomeModes(outcome_variables, control_group, outdir = NULL,
                                               NORM_OPTIONS, build_dir = FALSE)
 
           if (qualified_sample %in% names(AGGREGATED_SAMPLES)) {

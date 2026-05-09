@@ -16,15 +16,13 @@ Main <- function() {
   OUTDIR <- "output/analysis/event_study"
   dir_create(OUTDIR)
 
-  project_cfg <- LoadProjectConfig(PROJECT_CONFIG_PATH)
-  outcome_cfg <- project_cfg$outcome_variables
-  pc_group_cfg <- PCGroupsConfig(project_cfg$feature_variables)
+
 
   coeffs_all <- list()
 
   for (importance_type in IMPORTANCE_TYPES) {
     for (rolling_panel in ROLLING_LABELS) {
-      outcome_specs <- BuildOutcomeSpecs(outcome_cfg, NORM_OPTIONS)
+      outcome_specs <- BuildOutcomeSpecs(outcome_variables, NORM_OPTIONS)
 
       for (qualified_sample in QUALIFIED_SAMPLES) {
         for (control_group in CONTROL_GROUPS) {
@@ -44,7 +42,7 @@ Main <- function() {
 
             if ("pc_score" %in% EVENT_STUDY_SPLITS) {
               coeffs_all <- c(coeffs_all,
-                RunAggregatedPCScoreEventStudies(sub_samples, outcome_specs, pc_group_cfg, outdir_slice,
+                RunAggregatedPCScoreEventStudies(sub_samples, outcome_specs, pc_groups_cfg, outdir_slice,
                   importance_type, rolling_panel, qualified_sample, control_group))
             }
           } else {
@@ -60,7 +58,7 @@ Main <- function() {
               panel_with_pc_scores <- LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel,
                 qualified_sample, control_group, with_pc_scores = TRUE)
               coeffs_all <- c(coeffs_all,
-                RunPCScoreEventStudies(panel_with_pc_scores, outcome_specs, pc_group_cfg, outdir_slice,
+                RunPCScoreEventStudies(panel_with_pc_scores, outcome_specs, pc_groups_cfg, outdir_slice,
                   importance_type, rolling_panel, qualified_sample, control_group))
             }
           }
@@ -85,9 +83,9 @@ Main <- function() {
   )
 }
 
-BuildOutcomeSpecs <- function(outcome_cfg, norm_options) {
-  purrr::flatten(lapply(names(outcome_cfg), function(category)
-    purrr::flatten(lapply(outcome_cfg[[category]]$run, function(outcome)
+BuildOutcomeSpecs <- function(outcome_variables, norm_options) {
+  purrr::flatten(lapply(names(outcome_variables), function(category)
+    purrr::flatten(lapply(outcome_variables[[category]]$run, function(outcome)
       lapply(norm_options, function(normalize)
         list(category = category, outcome = outcome, normalize = normalize))))))
 }

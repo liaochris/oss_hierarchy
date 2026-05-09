@@ -9,19 +9,17 @@ ROLLING_PERIODS   = [f"rolling{p}" for p in _cfg["rolling_periods"]["run"]]
 QUALIFIED_SAMPLES = _cfg["qualified_samples"]["run"]
 CONTROL_GROUPS    = _cfg["control_groups"]["run"]
 
+_analysis_cfg = LoadPipelineInputs("../../../source/lib/config/analysis_parameters.json")
+NORM_LABELS = ["norm" if n else "raw" for n in _analysis_cfg["norm_options"]]
+
 _outcomes_cfg = LoadOutcomeVariables("../../../source/lib/config/outcome_variables.json")
 with open("../../../source/lib/pc_groups.json") as fh:
     _pc_groups_cfg = json.load(fh)
 
-OUTCOMES = [outcome for category_cfg in _outcomes_cfg.values() for outcome in category_cfg.get("run", [])]
-CATEGORIES = {
-    outcome: category
-    for category, category_cfg in _outcomes_cfg.items()
-    for outcome in category_cfg.get("run", [])
-}
+OUTCOMES       = [outcome for category_cfg in _outcomes_cfg.values() for outcome in category_cfg.get("run", [])]
 PC_GROUP_NAMES = list(_pc_groups_cfg.keys())
 
-OUTDIR    = "#output/analysis/event_study"
+OUTDIR     = "#output/analysis/event_study"
 INDIR_PREP = "#output/analysis/data_prep"
 
 sources = [
@@ -54,10 +52,11 @@ for importance_type in IMPORTANCE_TYPES:
         for qualified_sample in QUALIFIED_SAMPLES:
             for control_group in CONTROL_GROUPS:
                 base = f"{OUTDIR}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}"
-                for outcome in OUTCOMES:
-                    targets.append(f"{base}/full_sample/{CATEGORIES[outcome]}/{outcome}.png")
-                for pc_group_name in PC_GROUP_NAMES:
+                for norm_label in NORM_LABELS:
                     for outcome in OUTCOMES:
-                        targets.append(f"{base}/pc_score/{CATEGORIES[outcome]}/{pc_group_name}_{outcome}_pc_score_split.png")
+                        targets.append(f"{base}/full_sample/{norm_label}/{outcome}.png")
+                    for pc_group_name in PC_GROUP_NAMES:
+                        for outcome in OUTCOMES:
+                            targets.append(f"{base}/pc_score/{norm_label}/{pc_group_name}_{outcome}_pc_score_split.png")
 
 env.R(targets, sources)
