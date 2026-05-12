@@ -18,6 +18,31 @@ def RelativeTrajectoryError(pred_traj, obs_traj, k_set):
     return np.sqrt(np.mean(squared_relative_errors))
 
 
+def BaselineNormalizedError(pred_traj, obs_traj, k_set, baseline):
+    if baseline == 0 or np.isnan(baseline):
+        return np.nan
+    signed_pct_errors = [
+        100.0 * (pred_traj.get(event_time, 0.0) - obs_traj.get(event_time, 0.0)) / baseline
+        for event_time in k_set
+    ]
+    if not signed_pct_errors:
+        return np.nan
+    return np.mean(signed_pct_errors)
+
+
+def MeanRelativeError(pred_traj, obs_traj, k_set):
+    signed_relatives = []
+    for event_time in k_set:
+        predicted = pred_traj.get(event_time, np.nan)
+        observed  = obs_traj.get(event_time, 0.0)
+        if np.isnan(predicted) or predicted == 0:
+            return np.nan
+        signed_relatives.append((predicted - observed) / predicted)
+    if not signed_relatives:
+        return np.nan
+    return np.mean(signed_relatives)
+
+
 def RawTrajectoryError(pred_traj, obs_traj, k_set):
     squared_errors = [
         (pred_traj.get(event_time, 0.0) - obs_traj.get(event_time, 0.0)) ** 2
@@ -85,7 +110,10 @@ def SharePartitionError(p_hat, p_obs_traj, singleton_members, other_members, kno
 
 
 def WeightedStageAggregate(per_stage_errors, weights):
-    total_sq = sum(weights.get(s, 0.0) * v ** 2 for s, v in per_stage_errors.items() if not np.isnan(v))
+    valid = [(s, v) for s, v in per_stage_errors.items() if not np.isnan(v)]
+    if not valid:
+        return np.nan
+    total_sq = sum(weights.get(s, 0.0) * v ** 2 for s, v in valid)
     return np.sqrt(total_sq)
 
 
@@ -98,8 +126,13 @@ def CrossOrgRootMeanSquare(per_org_values):
 
 
 def CrossOrgMedian(per_org_values):
-    vals = [v for v in per_org_values if not np.isnan(v)]
-    return float(np.median(vals)) if vals else np.nan
+    valid_values = [v for v in per_org_values if not np.isnan(v)]
+    return float(np.median(valid_values)) if valid_values else np.nan
+
+
+def CrossOrgMean(per_org_values):
+    valid_values = [v for v in per_org_values if not np.isnan(v)]
+    return float(np.mean(valid_values)) if valid_values else np.nan
 
 
 def ComputeIndividualShares(panel, ell):
@@ -198,6 +231,19 @@ def ComponentCorrectedShares(p_hat, p_obs_k, singleton_members, other_members, l
 
 
 def ModelPredictionCombos(cfg):
+    for importance_type, qualified_sample, control_group in product(
+        cfg["importance_types"]["run"],
+        cfg["qualified_samples"]["run"],
+        cfg["control_groups"]["run"],
+    ):
+        yield {
+            "importance_type":  importance_type,
+            "qualified_sample": qualified_sample,
+            "control_group":    control_group,
+        }
+
+
+def ModelPredictionCombosWithRolling(cfg):
     for importance_type, qualified_sample, control_group in product(
         cfg["importance_types"]["run"],
         cfg["qualified_samples"]["run"],

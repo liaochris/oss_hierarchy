@@ -13,8 +13,8 @@ rolling_periods   = [f"rolling{p}" for p in _cfg["rolling_periods"]["run"]]
 qualified_samples = _cfg["qualified_samples"]["run"]
 control_groups    = _cfg["control_groups"]["run"]
 
-combos     = list(product(importance_types, rolling_periods, qualified_samples, control_groups))
 combos_iqc = list(product(importance_types, qualified_samples, control_groups))
+combos     = list(product(importance_types, rolling_periods, qualified_samples, control_groups))
 
 helpers_deps = [
     '#source/analysis/model_prediction/helpers.py',
@@ -30,32 +30,33 @@ member_panel_sentinels = [
     for importance_type, qualified_sample, control_group in combos_iqc
 ]
 
+first_rolling_period = rolling_periods[0]
 panel_sources = [
-    f'#output/analysis/data_prep/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel.parquet'
-    for importance_type, rolling_period, qualified_sample, control_group in combos
+    f'#output/analysis/data_prep/{importance_type}/{first_rolling_period}/{qualified_sample}/{control_group}/panel.parquet'
+    for importance_type, qualified_sample, control_group in combos_iqc
 ]
 
 problem_flow_targets = []
 problem_flow_data    = []
-for importance_type, rolling_period, qualified_sample, control_group in combos:
-    base = f'#drive/output/analysis/model_prediction/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}'
+for importance_type, qualified_sample, control_group in combos_iqc:
+    base = f'#drive/output/analysis/model_prediction/{importance_type}/{qualified_sample}/{control_group}'
     problem_flow_targets += [
         f'{base}/problem_flow_selection.parquet',
         f'{base}/problem_flow_selection.log',
-        f'#output/analysis/model_prediction/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/tables/problem_flow_selection.tex',
-        f'#output/analysis/model_prediction/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/recommended_config.json',
+        f'#output/analysis/model_prediction/{importance_type}/{qualified_sample}/{control_group}/tables/problem_flow_selection.tex',
+        f'#output/analysis/model_prediction/{importance_type}/{qualified_sample}/{control_group}/recommended_config.json',
     ]
     problem_flow_data.append(f'{base}/problem_flow_selection.parquet')
 
 problem_flow_plot_targets = [
-    f'#output/analysis/model_prediction/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/plots/problem_flow_fan.png'
-    for importance_type, rolling_period, qualified_sample, control_group in combos
+    f'#output/analysis/model_prediction/{importance_type}/{qualified_sample}/{control_group}/plots/problem_flow_error_by_k.png'
+    for importance_type, qualified_sample, control_group in combos_iqc
 ] + [
-    f'#output/analysis/model_prediction/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/plots/problem_flow_error_dist.png'
-    for importance_type, rolling_period, qualified_sample, control_group in combos
+    f'#output/analysis/model_prediction/{importance_type}/{qualified_sample}/{control_group}/plots/problem_flow_winner_density.png'
+    for importance_type, qualified_sample, control_group in combos_iqc
 ] + [
-    f'#output/analysis/model_prediction/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/plots/problem_flow_error_by_k.png'
-    for importance_type, rolling_period, qualified_sample, control_group in combos
+    f'#output/analysis/model_prediction/{importance_type}/{qualified_sample}/{control_group}/plots/problem_flow_winner_density_symlog.png'
+    for importance_type, qualified_sample, control_group in combos_iqc
 ]
 
 env.Python(
