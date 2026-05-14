@@ -1,0 +1,513 @@
+\documentclass[source/paper/main.tex]{subfiles}
+\begin{document}
+
+\section{Model}
+\subsection{Baseline model}
+
+Time is discrete and indexed by $t$.
+Each time period $t$, the project $i$ faces a latent number of problems $N_{i,t} \sim~ F_{it}(\cdot)$ where $F_{it}$ is some discrete probability mass function. 
+Each problem is characterized by states. 
+Within period $t$, let $X_{nt}^{(s)} \in \{\ell,o,r,m\}$ denote the state of problem $n$ after stage $s$ of the pull-request process, where $s \in \{0,1,2,3\}$ indexes stages within the period.
+
+Each problem passes through the following stages:
+\begin{enumerate}
+    \item leads to an opened pull request,
+    \item pull request is reviewed,
+    \item pull request is merged.
+\end{enumerate}
+
+The state space is
+\begin{itemize}
+    \item $\ell$: latent problem for which no pull request has been opened,
+    \item $o$: pull request opened to address the problem,
+    \item $r$: opened pull request reviewed,
+    \item $m$: reviewed pull request merged.
+\end{itemize}
+State $m$ is absorbing.
+
+I will characterize the within-period stage transition structure for any problem in project $i$ at time $t$ by 
+$$
+\pi_{i,t} =
+\begin{pmatrix}
+1-\pi_{i,t}^o & \pi_{i,t}^o & 0 & 0 \\
+0 & 1-\pi_{i,t}^r & \pi_{i,t}^r & 0 \\
+0 & 0 & 1-\pi_{i,t}^m & \pi_{i,t}^m \\
+0 & 0 & 0 & 1
+\end{pmatrix}. 
+$$
+This characterization invokes Assumptions~\ref{asm:exchangeability} (Problem exchangeability), \ref{asm:independence} (Problem independence), and \ref{asm:memoryless} (Memoryless stage transitions).
+
+Here, $\pi_{i,t}^o$ is the probability that a latent problem leads to an opened pull request, $\pi_{i,t}^r$ is the probability that an opened pull request is reviewed, and $\pi_{i,t}^m$ is the probability that a reviewed pull request is merged. 
+The complementary probabilities $1-\pi_{i,t}^o$, $1-\pi_{i,t}^r$, and $1-\pi_{i,t}^m$ should be interpreted broadly. 
+For example, a reviewed pull request could be left unmerged because the requested improvements were never implemented or because the reviewer deemed that the pull request's changes would not improve the software.
+
+Hence, in each period $t$, there will be 
+\begin{enumerate}
+    \item $N_{i,t}^o = N_{i,t} \cdot \pi_{i,t}^o$ opened pull requests,
+    \item $N_{i,t}^r = N_{i,t}^o \cdot \pi_{i,t}^r$ reviewed pull requests, and
+    \item $N_{i,t}^m = N_{i,t}^r \cdot \pi_{i,t}^m$ merged pull requests.
+\end{enumerate}
+
+My goal is to predict how organizational activity changes when a member leaves. To do that, I need a model of how individual actions contribute to organizational outcomes. 
+
+\subsubsection{Opening, review, and merge as person-specific Bernoulli actions}
+Each member $j \in \mathcal J$ contributes to organizational activity by opening, reviewing and merging pull requests. 
+For a given latent problem, at most one member can open the pull request. 
+Any number of members can review an opened pull request.
+For any reviewed pull request, at most one member can merge it.
+
+For any latent problem in time period $t$, let $p_{j,t}^o$ denote the probability that member $j$ is the unique member who opens a pull request to address the problem. Hence, I can define the probability that no member opens a pull request,
+$$ p_{\emptyset}^o = 1-\sum_{j\in\mathcal J} p_{j,t}^o. $$
+which satisfies $ p_{j,t}^o \geq 0 $ and $ \sum_{j\in\mathcal J}p_{j,t}^o \leq 1. $
+
+For each latent problem, the identity of the opening member is a draw from a categorical distribution over $\mathcal{J} \cup \{\emptyset\}$: member $j$ opens the pull request with probability $p_{j,t}^o$, and no member opens it with probability $p_{\emptyset}^o$. Since draws are independent across problems (Assumption~\ref{asm:problem-invariant}), the joint count vector follows a multinomial distribution:
+$$ \left( {A_{j,t}^o}_{j\in\mathcal J}, A_{0t}^o \right) \mid N_{i,t} \sim \text{Multinomial}\left(N_{i,t}; {p_{j,t}^o}_{j\in\mathcal J}, p_{\emptyset}^o \right). $$
+
+This additionally invokes Assumption~\ref{asm:problem-invariant} (Problem-invariant member probabilities).
+Hence, the probability that a latent problem leads to an opened pull request is
+$$ \pi_{i,t}^o = \sum_{j\in\mathcal J}p_{j,t}^o. $$
+
+
+I model the quantity of pull requests reviewed by member $j$ in period $t$, $A_{j,t}^r$, as $N_{i,t}^o$ draws from a Binomial distribution:
+$$A_{j,t}^r \mid N_{i,t}^o \sim \text{Binomial}(N_{i,t}^o,, p_{j,t}^r),$$
+where $p_{j,t}^r$ is member $j$'s probability of reviewing a given opened pull request. 
+This also invokes Assumptions~\ref{asm:problem-invariant} (Problem-invariant member probabilities) and~\ref{asm:review-independence} (Independent review decisions).
+Hence, the probability that an opened pull request is reviewed by at least one member is
+$$ \pi_{i,t}^r = 1-\prod_{j\in\mathcal J}(1-p_{j,t}^r). $$
+
+
+For any reviewed pull request at time $t$, let $p_{j,t}^m$ denote the probability that member $j$ is the unique member who merges it. Hence, I can define the probability that no member merges a pull request,
+$$ p_{\emptyset}^m = 1-\sum_{j\in\mathcal J} p_{j,t}^m. $$
+which satisfies $ p_{j,t}^m \geq 0 $ and $ \sum_{j\in\mathcal J}p_{j,t}^m \leq 1. $
+For each reviewed pull request, the identity of the merging member is a draw from a categorical distribution over $\mathcal{J} \cup \{0\}$: member $j$ merges it with probability $p_{j,t}^m$, and no member merges it with probability $p_{0,t}^m$. By the same independence argument as for opening, the joint count vector follows a multinomial distribution:
+$$ \left( {A_{j,t}^m}_{j\in\mathcal J}, A_{0t}^m \right) \mid N_{i,t}^r \sim \text{Multinomial}\left(N_{i,t}^r; {p_{j,t}^m}_{j\in\mathcal J}, p_{0,t}^m \right). $$
+Hence, the probability that a reviewed pull request is merged is $$ \pi_{i,t}^m = \sum_{j\in\mathcal J}p_{j,t}^m. $$
+This also invokes Assumption~\ref{asm:problem-invariant} (Problem-invariant member probabilities).
+
+
+\subsection{Prediction}
+My goal is to predict, after a member $j^*$ departs in time period $t$, within an organization, the next-period $(t+1)$ quantity of
+\begin{enumerate}
+    \item pull requests opened ($N_{i,t+1}^o$),
+    \item pull requests reviewed ($N_{i,t+1}^r$), and
+    \item pull requests merged ($N_{i,t+1}^m$)
+\end{enumerate}
+I do that by fitting a model of the latent problem flow and member-level probabilities on organizational pre-period data, and then using the fitted model to predict counterfactual next-period activity after removing member $j^*$.
+
+I impose two modeling choices to identify and estimate the latent problem flow:
+\begin{enumerate}
+    \item \textbf{Normalization of unobserved fraction}: $p_{\emptyset,t}^o = 0$ during the pre-periods, so every latent problem generates an opened pull request. This directly identifies the latent problem count from observed data, since $N_{i,t} = N_{i,t}^o$.
+    \item \textbf{Time-invariant latent flow}: $F_{i,t} = F_i$, so pre-period opening counts $\{N_{i,t}^o\}_{t<0}$ are i.i.d.\ draws from $F_i$, which I estimate by maximum likelihood.
+\end{enumerate}
+
+I evaluate three fitting approaches, each applied organization-by-organization on pre-period opening counts by maximum likelihood:
+\begin{enumerate}
+    \item \textbf{Poisson/ZIP}: fit both Poisson and ZIP for each organization; select between them using AIC.
+    \item \textbf{Negative binomial}: fit a negative binomial for each organization.
+    \item \textbf{Best of all three}: fit all three candidates and select the best-fitting distribution for each organization using AIC.
+\end{enumerate}
+Since pre-period lengths are the same across organizations, AIC is directly comparable across organizations and approaches without normalization. For each approach, I report the cross-organization distribution of AIC. To compare approaches, I report the cross-organization distribution of pairwise AIC differences (e.g., approach 1 minus approach 2 per organization), with the median AIC difference as a summary statistic. I also store the empirical versus fitted PMF for each organization as an auxiliary visual check.
+
+% Question for Jesse: Since pre-period lengths are the same across organizations, AIC is directly comparable both within and across organizations. Does it make more sense to select a distributional family separately for each organization (approaches 3), or to impose a common family across all organizations (approach 1, 2)? Is the majority-vote rule --- adopt the family that wins for more than half of organizations --- a reasonable way to select a common family?}
+
+I impose three additional modeling choices governing member probabilities:
+\begin{enumerate}
+    \item \textbf{Stationary member probabilities}: $p_{j,t}^s = p_j^s$ for all $t$ and all $s$. Under stationarity, pre-period observations pool cleanly across periods for estimation, and the counterfactual after departure is the model evaluated at the same probabilities with member $j^*$ removed.
+    \item \textbf{Fixed membership}: the membership set $\mathcal{J}$ is fixed across periods, with no entry or exit other than the focal departure $j^*$.
+\end{enumerate}
+Note that the remaining members' probabilities are unchanged after the departure. This is follows directly from the Assumption~\ref{asm:problem-invariant} (Problem-invariant member probabilities).
+
+I use one estimation approach for member probabilities:
+\begin{enumerate}
+    \item \textbf{Pooled pre-period shares}: all member probabilities are identified by pooled pre-period shares, requiring no numerical optimization. For opening and merging, the MLE under a stationary multinomial is $\hat{p}_j^o = \frac{\sum_t A_{j,t}^o}{\sum_t N_{i,t}^o}$ and $\hat{p}_j^m = \frac{\sum_t A_{j,t}^m}{\sum_t N_{i,t}^r}$. For reviewing, the Binomial MLE is $\hat{p}_j^r = \frac{\sum_t A_{j,t}^r}{\sum_t N_{i,t}^o}$.
+\end{enumerate}
+For opening and merging, I evaluate fit via AIC. For each organization, I compute the multinomial log-likelihood of each pre-period's member counts under the pooled fitted shares $\hat{p}_j^o$ (respectively $\hat{p}_j^m$), sum across pre-periods to obtain $\ell_i^o = \sum_t \log p(A_{j,t}^o \mid N_{i,t}^o, \hat{p}_j^o)$, and set $\text{AIC}_i^o = -2\ell_i^o + 2(|\mathcal{J}|-1)$. This yields one AIC per organization. I report the cross-organization distribution of AIC, with the median as a summary statistic. I also store the empirical versus fitted member share distribution for each organization and period as an auxiliary visual check.
+
+For reviewing, fit evaluation has two components. First, I compute AIC analogously: for each organization, I sum the per-member Binomial log-likelihoods across members and pre-periods, $\ell_i^r = \sum_t \sum_j \log p(A_{j,t}^r \mid N_{i,t}^o, \hat{p}_j^r)$, and set $\text{AIC}_i^r = -2\ell_i^r + 2|\mathcal{J}|$, yielding one AIC per organization. I report the cross-organization distribution of AIC with the median as a summary statistic. Second, I check whether the implied aggregate review probability $\hat{\pi}^r = 1-\prod_{j\in\mathcal{J}}(1-\hat{p}_j^r)$ matches the observed per-period review rate $\tilde{\pi}_t^r = N_{i,t}^r / N_{i,t}^o$, reporting the cross-organization distribution of the mean squared deviation between $\hat{\pi}^r$ and $\tilde{\pi}_t^r$ across pre-periods, with the median as a summary statistic.
+
+
+% next steps
+% 1. Reread the full doc and see where I should amke improvements
+% 2. Formalize the comments for Jesse
+% 3. Write out the different sources of prediction error, and how I can figure out how important each component is?
+
+%- ASK JESSE: is how i'm presenting things here clear?
+%- ASK JESSE: how do I know when good is good enough? I won't get perfect prediction performance. I don't even know if I"ll be distributionally good enough. 
+
+
+
+%MODELLING choices I will not make now but might be good to incorporate
+%- model entry/exit from the org 
+%- Is there a way to penalize big p's?
+%- find ways to loosen assumptions - I feel like I have 5 structural ones + the modelling ones above.  - ACTUALLY UPON FURTHER REFLECTION, I THINK I SHOULD THINK ABOUT HOW I"M GOING TO VARY THE MODEL BASED ON WHAT I"M FAILING TO PREDICT WELL. THE TRICKY THING HERE IS THAT I ONLY HAVE ONE OBSERVATION FOR "HOW WELL I"M PREDICTING". SO I HAVE TO THINK ABOUT HOW DISTRIBUTIONALLY ACROSS ORGS MODELLING CHOICES IMPROVE PREDICTIVE PERFORMANCE??? 
+
+
+I use the following notation for fitted and predicted quantities. Let $\hat{p}_j^s$ denote the estimated member probability for member $j$ at stage $s \in \{o, r, m\}$, computed from pooled pre-period shares as described above. Let $\hat{F}_i$ denote the fitted latent flow distribution for organization $i$, and let $\hat{N}_i$ denote the corresponding point estimate (the mean of $\hat{F}_i$ draws). Let $\hat{\pi}_i^{s,(-j^*)}$ denote the counterfactual stage-$s$ completion probability after removing member $j^*$, constructed from the $\hat{p}_j^s$. Finally, let $\hat{N}_{i,t+1}^s$ denote the predicted count of stage-$s$ activity in the next period $t+1$.
+
+Under this model, the counterfactual stage-completion probabilities and implied counts after removing member $j^*$ are as follows.
+
+\begin{enumerate}
+    \item $$ \hat{\pi}_i^{o,(-j^*)} = \sum_{j\in\mathcal J\setminus\{j^*\}}\hat{p}_j^o, $$ so the counterfactual number of pull requests opened is $$ \hat{N}_{i,t+1}^o = \hat{N}_i\,\hat{\pi}_i^{o,(-j^*)}. $$
+    \item The counterfactual review probability is
+    $$ \hat{\pi}_i^{r,(-j^*)} = 1-\prod_{j\in\mathcal J\setminus\{j^*\}}(1-\hat{p}_j^r), $$ so the counterfactual number of pull requests reviewed is $$ \hat{N}_{i,t+1}^r = \hat{N}_i\,\hat{\pi}_i^{o,(-j^*)}\hat{\pi}_i^{r,(-j^*)}. $$
+    \item The counterfactual merge probability is $$ \hat{\pi}_i^{m,(-j^*)} = \sum_{j\in\mathcal J\setminus\{j^*\}}\hat{p}_j^m, $$ so the counterfactual number of pull requests merged is $$ \hat{N}_{i,t+1}^m = \hat{N}_i\,\hat{\pi}_i^{o,(-j^*)}\hat{\pi}_i^{r,(-j^*)}\hat{\pi}_i^{m,(-j^*)}. $$
+\end{enumerate}
+
+
+\subsubsection{Putting everything together}
+
+
+\label{sec:stage_decomposition_baseline}
+
+The stage-completion probabilities defined above together imply
+$$
+E[Q_t^m \mid N_{i,t}]
+=
+N_{i,t} \pi_{i,t}^o \pi_{i,t}^r \pi_{i,t}^m.
+$$
+
+Now define member $j$'s marginal contribution at each stage as the change in the stage-completion probability when $j$ is removed:
+$$
+\Delta_o^{(j)}
+\equiv
+\pi_{i,t}^o - \pi_{i,t}^o^{(-j)}
+=
+p_{j,t}^{o}\prod_{j\in\mathcal J\setminus\{j\}}(1-p_{j,t}^{o}),
+$$
+$$
+\Delta_r^{(j)}
+\equiv
+\pi_{i,t}^r - \pi_{i,t}^r^{(-j)}
+=
+p_{j,t}^{r}\prod_{j\in\mathcal J\setminus\{j\}}(1-p_{j,t}^{r}),
+$$
+$$
+\Delta_m^{(j)}
+\equiv
+\pi_{i,t}^m - \pi_{i,t}^m^{(-j)}
+=
+p_{j,t}^{m}\prod_{j\in\mathcal J\setminus\{j\}}(1-p_{j,t}^{m}).
+$$
+
+Suppose member $j$ leaves before period $t+1$ and is not replaced, and suppose $N_{i,t}=N_{t+1}=N$. Then
+$$
+E[Q_{t+1}^m \mid N]
+=
+N \pi_{i,t}^o^{(-j)} \pi_{i,t}^r^{(-j)} \pi_{i,t}^m^{(-j)}
+=
+N(\pi_{i,t}^o-\Delta_o^{(j)})(\pi_{i,t}^r-\Delta_r^{(j)})(\pi_{i,t}^m-\Delta_m^{(j)}).
+$$
+Therefore,
+$$
+E[Q_{t+1}^m \mid N] - E[Q_t^m \mid N]
+=
+-N\Big[
+\Delta_o^{(j)}(\pi_{i,t}^r-\Delta_r^{(j)})(\pi_{i,t}^m-\Delta_m^{(j)})
++\Delta_r^{(j)}\pi_{i,t}^o(\pi_{i,t}^m-\Delta_m^{(j)})
++\Delta_m^{(j)}\pi_{i,t}^o \pi_{i,t}^r
+\Big].
+$$
+
+The three terms correspond to member $j$'s marginal contribution at the opening, review, and merge stages:
+\begin{enumerate}
+    \item $-N\,\Delta_o^{(j)}(\pi_{i,t}^r-\Delta_r^{(j)})(\pi_{i,t}^m-\Delta_m^{(j)})$ captures the loss from problems that would have been opened because member $j$ acts at the opening stage, and that would then have been reviewed and merged without member $j$'s involvement at those later stages.
+
+    \item $-N\,\pi_{i,t}^o\Delta_r^{(j)}(\pi_{i,t}^m-\Delta_m^{(j)})$ captures the loss from pull requests that would have been opened (by anyone), then reviewed because member $j$ acts at the review stage, and then merged without member $j$'s involvement at the merge stage.
+
+    \item $-N\,\pi_{i,t}^o \pi_{i,t}^r \Delta_m^{(j)}$ captures the loss from pull requests that would have been opened and reviewed (by anyone), and then merged because member $j$ acts at the merge stage.
+\end{enumerate}
+
+\subsection{Structural assumptions}
+
+\begin{assumption}[Problem exchangeability]
+\label{asm:exchangeability}
+Problems are indistinguishable: for any two problems $n$ and $n'$ and any states $x,y \in \{\ell,o,r,m\}$,
+$$
+\Pr(X_{n,t}^{(s+1)}=y \mid X_{n,t}^{(s)}=x)
+=
+\Pr(X_{n',t}^{(s+1)}=y \mid X_{n',t}^{(s)}=x).
+$$
+Conditional on being in the same state, any two problems have the same probability of advancing to the next stage.
+\end{assumption}
+
+\begin{assumption}[Problem independence]
+\label{asm:independence}
+Conditional on current states, problems evolve independently of one another:
+$$
+\Pr(X_{1,t}^{(s+1)}=x_1,\dots,X_{N_{i,t},t}^{(s+1)}=x_{N_{i,t}}\mid X_{1,t}^{(s)},\dots,X_{N_{i,t},t}^{(s)})
+=
+\prod_{n=1}^{N_{i,t}}\Pr(X_{n,t}^{(s+1)}=x_n\mid X_{n,t}^{(s)}).
+$$
+\end{assumption}
+
+\begin{assumption}[Memoryless stage transitions]
+\label{asm:memoryless}
+A problem's next stage depends only on its current stage, not its history:
+$$
+\Pr(X_{n,t}^{(s+1)}=y \mid X_{n,t}^{(s)},X_{n,t}^{(s-1)},\dots)
+=
+\Pr(X_{n,t}^{(s+1)}=y \mid X_{n,t}^{(s)}).
+$$
+\end{assumption}
+
+\begin{assumption}[Problem-invariant member probabilities]
+\label{asm:problem-invariant}
+A member's probability of acting does not vary across problems within a period --- $p_{j,t}^s$ is the same regardless of which particular problem is being acted on. This is distinct from Assumption~\ref{asm:exchangeability}, which describes the distribution problems are drawn from: even if problems differed objectively, this rules out members selectively targeting particular problems.
+\end{assumption}
+
+Assumptions \ref{asm:exchangeability}--\ref{asm:problem-invariant} imply that every problem follows the same stage-transition matrix $P$ so that, for every problem $n$,
+$$
+\Pr(X_{n,t}^{(s+1)}=y \mid X_{n,t}^{(s)}=x)=P_{xy}.
+$$
+
+\begin{assumption}[Independent review decisions]
+\label{asm:review-independence}
+Conditional on an opened pull request, each member $j$ independently decides whether to review it. Whether member $j$ reviews a pull request does not affect whether member $j'$ does so. Since each such decision is a Bernoulli trial, independence across members implies $A_{j,t}^r \mid N_{i,t}^o \sim \text{Binomial}(N_{i,t}^o, p_{j,t}^r)$.
+\end{assumption}
+
+\subsection{Measurement and empirical implementation}
+
+This subsection lays out how the model is taken to data. We separate two roles for organizations. \emph{Control organizations} (never-treated) are used to fit the four counterfactual inputs: an estimation sample for member-level shares, a contributor partition, a latent-problem model, and a latent flow $\hat N$. \emph{Treated organizations} (those experiencing a member departure) are used to evaluate predictions. Throughout, we distinguish member-level shares $p_i^s$ from aggregate stage probabilities $\pi^s$: the latter is the model-implied probability that a stage completes, built from the former via the latent-problem model.
+
+\subsubsection{Error metrics and notation}
+\label{sec:error_metrics}
+
+This subsubsection collects the generic error-measurement primitives used in the next two subsubsections (fitting on controls and evaluation on treated organizations). The presentation here is purely mathematical: every input is a generic predicted or observed object indexed by an organization $u$, post-event-time $k=0,\ldots,K$, and---where applicable---an outcome $d\in\mathcal D$. The pre-event window is $k=-L,\ldots,-1$, with per-period count $Q_{u,k}^d$ and pre-event mean
+$$
+\bar Q_{u,\mathrm{pre}}^d
+=
+\frac{1}{L}\sum_{k=-L}^{-1}Q_{u,k}^d.
+$$
+
+\paragraph{Scaled RMSE.} For a generic predicted trajectory $\hat Z_{u,k}^d$ and target $Z_{u,k}^d$ over $k=0,\ldots,K$,
+$$
+\mathcal R_u^d(\hat Z,Z;\rho)
+=
+\left[
+\frac{1}{K+1}\sum_{k=0}^{K}
+\bigl(\rho_u^d(\hat Z_{u,k}^d-Z_{u,k}^d)\bigr)^2
+\right]^{1/2}.
+$$
+For count-valued outcomes, set $\rho_u^d=1/\bar Q_{u,\mathrm{pre}}^d$, so the metric measures error in pre-event count units. For probability- or share-valued outcomes, set $\rho_u^d=1$.
+
+\paragraph{Aggregate weighted error.} Combine across outcomes $d\in\mathcal D$:
+$$
+\mathcal R_u^{\mathrm{agg}}
+=
+\left[
+\sum_{d\in\mathcal D}w_u^d\bigl(\mathcal R_u^d\bigr)^2
+\right]^{1/2}.
+$$
+We report results under both pre- and post-event activity weights:
+$$
+w_{u,\mathrm{pre}}^d
+=
+\frac{\sum_{k=-L}^{-1}Q_{u,k}^d}
+{\sum_{d'\in\mathcal D}\sum_{k=-L}^{-1}Q_{u,k}^{d'}},
+\qquad
+w_{u,\mathrm{post}}^d
+=
+\frac{\sum_{k=0}^{K}Q_{u,k}^d}
+{\sum_{d'\in\mathcal D}\sum_{k=0}^{K}Q_{u,k}^{d'}}.
+$$
+
+\paragraph{Normalized mean error.} For directional bias (signed),
+$$
+\mathrm{NME}_u^d
+=
+\frac{1}{K+1}\sum_{k=0}^{K}\rho_u^d(\hat Z_{u,k}^d-Z_{u,k}^d).
+$$
+
+\paragraph{Share error over a partition.} A second primitive measures discrepancy between a fitted and observed share vector over a finite partition. Let $\mathcal G$ be a finite cell set with $|\mathcal G|$ cells, $\hat P=(\hat P_g)_{g\in\mathcal G}$ a fitted share vector that sums to a constant across $\mathcal G$, and $\tilde P_{g,k}$ an observed share trajectory over the same cells across $k=0,\ldots,K$. Define
+$$
+\mathcal R^p(\hat P,\tilde P;\mathcal G)
+=
+\left[
+\frac{1}{K+1}\sum_{k=0}^{K}\sum_{g\in\mathcal G}
+\bigl(\hat P_g-\tilde P_{g,k}\bigr)^2
+\right]^{1/2},
+$$
+with per-cell variant
+$$
+\bar{\mathcal R}^p(\hat P,\tilde P;\mathcal G)
+=
+\left[
+\frac{1}{(K+1)|\mathcal G|}\sum_{k=0}^{K}\sum_{g\in\mathcal G}
+\bigl(\hat P_g-\tilde P_{g,k}\bigr)^2
+\right]^{1/2}.
+$$
+Dividing by $|\mathcal G|$ rescales the per-cell version so its magnitude is comparable across partitions of different granularity.
+
+\subsubsection{Fitting counterfactual inputs}
+\label{sec:fitting}
+
+The model's counterfactual predictions require four fitted objects: (i) an estimation sample for member-level shares $\hat p_i^s$, (ii) a contributor partition $\mathcal G_{u,c}^s$ that determines which contributors are tracked individually and which are pooled, (iii) a latent-problem model that aggregates member-level shares to stage-level $\hat\pi_u^s$, and (iv) the latent problem flow $\hat N_u$. Each is fit on never-treated organizations using a pseudo-departure date.
+
+Fix a stage $s\in\{o,r,m\}$. Let $A_{u,i,k}^s$ denote member $i$'s stage-$s$ actions at organization $u$ in period $k$, with $A_{u,k}^s\equiv\sum_{i\in\mathcal I_u}A_{u,i,k}^s$. Table~\ref{tab:model_fit} lists the candidate specifications for each object; selection among candidates is by the control-organization fit metrics defined below.
+
+\begin{table}[h]
+\caption{Candidate specifications for the four fitted objects}
+\label{tab:model_fit}
+\centering
+\begin{tabular}{p{3.4cm}p{10cm}}
+\toprule
+Object & Candidates \\
+\midrule
+\textbf{Estimation sample for $\hat p_i^s$} &
+Pooled across $L$ pre-periods: $\hat p_{u,i}^{s,\mathrm{pool}}=\dfrac{\sum_{k=-L}^{-1}A_{u,i,k}^s}{\sum_{k=-L}^{-1}A_{u,k}^s}$.\newline
+Last pre-period: $\hat p_{u,i}^{s,\mathrm{last}}=A_{u,i,-1}^s/A_{u,-1}^s$. \\[10pt]
+\textbf{Contributor partition $\mathcal G_{u,c}^s$} &
+All contributors (one cell per member); top 5 across all activity (top-5 individuals plus an ``other'' cell); union of stage-specific top-5 groups; smallest top-$K$ covering 80\% of all activity; union of stage-specific top-$K$ groups covering 80\% in each stage. Each cell is an individual contributor or the ``other'' aggregate. \\[10pt]
+\textbf{Latent-problem model} &
+Share-normalized opening: $\hat\pi_u^o=\sum_{i\in\mathcal I_u}\hat p_{u,i}^o=1$, with counterfactual $\hat\pi_u^{o,(-j)}=1-\hat p_{u,j}^o$.\newline
+Independent-Bernoulli aggregation for review and merge: $\hat\pi_u^{s,(-j)}=1-\prod_{i\neq j}(1-\hat p_{u,i}^s)$, $s\in\{r,m\}$. \\[10pt]
+\textbf{Latent flow $\hat N_u$} &
+Pre-period average: $\hat N_u^{\mathrm{avg}}=\frac{1}{L}\sum_{k=-L}^{-1}Q_{u,k}^o$.\newline
+Last pre-period: $\hat N_u^{\mathrm{last}}=Q_{u,-1}^o$. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Modeling latent problems.} Under the share-normalized opening model, $\hat\pi_u^o=1$ in every pre-period, so observed pre-period openings $Q_{u,k}^o$ identify $N_{u,k}$ directly. The identification issue arises only after removing $j$, when $\hat\pi_u^{o,(-j)}<1$ and observed openings reflect the joint product $N_u\,\hat\pi_u^{o,(-j)}$. For review and merge stages, $\hat p_i^r$ and $\hat p_i^m$ describe the conditional distribution of who acts given that someone does; the independent-Bernoulli aggregation translates these into stage-completion probabilities.
+
+\paragraph{Calibration on control organizations.} Index a candidate estimation sample by $a\in\{\mathrm{pool},\mathrm{last}\}$ and a candidate contributor partition by $c$. For each control organization with a pseudo-departure date $k=0$, define observed post-period cell shares
+$$
+\tilde p_{u,g,k}^{s}(c)
+=
+\frac{A_{u,g,k}^{s}(c)}{A_{u,k}^{s}},
+\qquad
+A_{u,g,k}^{s}(c)
+=
+\sum_{i\in g}A_{u,i,k}^{s}.
+$$
+The fit error for member-level shares at stage $s$ is the partition-share error from \S\ref{sec:error_metrics} applied to fitted vs.\ observed cell shares:
+$$
+\mathcal R_u^{p,s}(a,c)
+=
+\mathcal R^p\bigl(\hat p_{u,\cdot}^{s}(a,c),\,\tilde p_{u,\cdot,k}^{s}(c);\,\mathcal G_{u,c}^s\bigr),
+$$
+with per-cell variant $\bar{\mathcal R}_u^{p,s}(a,c)=\bar{\mathcal R}^p(\hat p_{u,\cdot}^{s}(a,c),\,\tilde p_{u,\cdot,k}^{s}(c);\,\mathcal G_{u,c}^s)$. We aggregate across stages using both pre- and post-event activity weights based on $A_{u,k}^s$:
+$$
+\mathcal R_u^{p,\mathrm{agg}}(a,c)
+=
+\left[
+\sum_{s\in\{o,r,m\}}w_u^s\bigl(\mathcal R_u^{p,s}(a,c)\bigr)^2
+\right]^{1/2},
+\qquad
+w_{u,\mathrm{pre}}^s
+=
+\frac{\sum_{k=-L}^{-1}A_{u,k}^s}{\sum_{s'}\sum_{k=-L}^{-1}A_{u,k}^{s'}},
+$$
+with analogous post-event weights. Selection over $(a,c)$ minimizes $\mathcal R_u^{p,\mathrm{agg}}$ averaged across the control set.
+
+For latent flow $\hat N_u$, selection uses first-post-period opening error. With control set $\mathcal C$,
+$$
+\mathcal R^{N}
+=
+\left[
+\frac{1}{|\mathcal C|}\sum_{u\in\mathcal C}
+\left(\frac{\hat N_u-Q_{u,0}^o}{\bar Q_{u,\mathrm{pre}}^o}\right)^2
+\right]^{1/2}.
+$$
+We also report the unnormalized RMSE alongside, and overlay the cross-organization distribution of $\hat N$ over event time as a visual check that the chosen rule is broadly consistent with the data.
+
+\paragraph{Plots.} For each candidate specification in Table~\ref{tab:model_fit}, plot the cross-organization distribution of the relevant error metric: $\mathcal R_u^{p,s}$ per stage and the aggregate $\mathcal R_u^{p,\mathrm{agg}}$ for the share-fit candidates, and $(\hat N_u-Q_{u,0}^o)/\bar Q_{u,\mathrm{pre}}^o$ for the $\hat N$ candidates.
+
+\todo[inline]{Joint optimization. Each of the four objects is currently tuned separately. A joint alternative would minimize a single objective on controls that combines targets across objects --- candidates include member-level $p_i^s$, aggregate $\pi^s$, count outcomes $Q^s$, transition rates, opening flow $N\pi_o$, or a weighted combination. More rigorous, but less transparent and harder to diagnose; pursue as an extension if time permits.}
+
+\subsubsection{Evaluating departure predictions}
+
+Given the fitted objects from \S\ref{sec:fitting}, the model predicts post-departure activity at a treated organization $u$ for $k\geq 0$:
+$$
+\hat Q_{u,k}^{o,(-j)}
+=
+\hat N_u\,\hat\pi_u^{o,(-j)},
+$$
+$$
+\hat Q_{u,k}^{r,(-j)}
+=
+\hat N_u\,\hat\pi_u^{o,(-j)}\,\hat\pi_u^{r,(-j)},
+$$
+$$
+\hat Q_{u,k}^{m,(-j)}
+=
+\hat N_u\,\hat\pi_u^{o,(-j)}\,\hat\pi_u^{r,(-j)}\,\hat\pi_u^{m,(-j)}.
+$$
+Evaluation proceeds in five steps.
+
+\paragraph{1. Count prediction error.} Report $\mathcal R_u^d$ from \S\ref{sec:error_metrics} for each $d\in\{o,r,m\}$ on treated organizations, plus the aggregate $\mathcal R_u^{\mathrm{agg}}$ under both pre- and post-event weights. Plot the cross-organization distribution of each $\mathcal R_u^d$ and of $\mathcal R_u^{\mathrm{agg}}$ across treated organizations.
+
+\paragraph{2. Treated individual-share diagnostic.} The fit-on-controls diagnostic from \S\ref{sec:fitting} measures how well $\hat p_i^s$ tracks future shares on never-treated organizations. We also want to know how well it tracks shares on the treated organizations themselves, restricting to remaining members. Let $\mathcal G_{u,c}^{s,(-j)}$ denote the contributor cells after removing departed member $j$. Renormalize the fitted treated pre-period composition over remaining cells, and form observed post-period composition over the same restricted set:
+$$
+\hat\omega_{u,g}^{s,(-j)}(a,c)
+=
+\frac{\hat p_{u,g}^{s}(a,c)}{\sum_{h\in\mathcal G_{u,c}^{s,(-j)}}\hat p_{u,h}^{s}(a,c)},
+\qquad
+\tilde\omega_{u,g,k}^{s,\mathrm{post}}(c)
+=
+\frac{A_{u,g,k}^{s}(c)}{\sum_{h\in\mathcal G_{u,c}^{s,(-j)}}A_{u,h,k}^{s}(c)}.
+$$
+Apply the partition-share error from \S\ref{sec:error_metrics}:
+$$
+\mathcal R_{u,\mathrm{treated}}^{p,s}(a,c)
+=
+\mathcal R^p\bigl(\hat\omega_{u,\cdot}^{s,(-j)}(a,c),\,\tilde\omega_{u,\cdot,k}^{s,\mathrm{post}}(c);\,\mathcal G_{u,c}^{s,(-j)}\bigr),
+$$
+with per-cell variant $\bar{\mathcal R}_{u,\mathrm{treated}}^{p,s}$ analogous. This individual-level diagnostic is reported separately from the outcome-relevant aggregate $\pi^s$ error: it asks whether composition among remaining members is stable, not whether stage-completion probabilities themselves are correct. Plot the cross-organization distribution per stage.
+
+\paragraph{3. Implied aggregate stage rates.} Define implied (data-side) rates
+$$
+\tilde\pi_{u,k}^{o\mid\hat N}
+=
+\frac{Q_{u,k}^o}{\hat N_u},
+\qquad
+\tilde\pi_{u,k}^{r}
+=
+\frac{Q_{u,k}^r}{Q_{u,k}^o},
+\qquad
+\tilde\pi_{u,k}^{m}
+=
+\frac{Q_{u,k}^m}{Q_{u,k}^r}.
+$$
+Note that $\tilde\pi_{u,k}^{o\mid\hat N}$ is \emph{not} observed true $\pi_{i,t}^o$; it is the opening probability implied by observed openings under the chosen $\hat N_u$. Values exceeding $1$ flag $\hat N_u$ as too small for observed openings. Plot each $\tilde\pi_{u,k}^{s}$ over event time $k$ across treated organizations and overlay the model's $\hat\pi_u^{s,(-j)}$ as a reference.
+
+\paragraph{4. Progressive oracle attribution.} To localize where the model loses accuracy, hold $\hat N_u$ fixed and substitute oracle (implied) stage rates one stage at a time. The substitutions are:
+$$
+\hat Q_{\mathrm{oracle}\,o}^{o}=Q^o,
+$$
+$$
+\hat Q_{\mathrm{oracle}\,o}^{r}
+=
+\hat N_u\,\tilde\pi_{u,k}^{o\mid\hat N}\,\hat\pi_u^{r,(-j)},
+\qquad
+\hat Q_{\mathrm{oracle}\,o,r}^{r}=Q^r,
+$$
+$$
+\hat Q_{\mathrm{oracle}\,o}^{m}
+=
+\hat N_u\,\tilde\pi_{u,k}^{o\mid\hat N}\,\hat\pi_u^{r,(-j)}\,\hat\pi_u^{m,(-j)},
+$$
+$$
+\hat Q_{\mathrm{oracle}\,o,r}^{m}
+=
+\hat N_u\,\tilde\pi_{u,k}^{o\mid\hat N}\,\tilde\pi_{u,k}^{r}\,\hat\pi_u^{m,(-j)},
+\qquad
+\hat Q_{\mathrm{oracle}\,o,r,m}^{m}=Q^m.
+$$
+Re-evaluate $\mathcal R_u^d$ and $\mathcal R_u^{\mathrm{agg}}$ at each oracle level. The drop in error attributable to each substitution localizes the dominant misfit: a large drop from feeding in $\tilde\pi^{o\mid\hat N}$ implicates $\hat N_u$ (since under the share-normalized opening model the only way the opening prediction can be wrong is via $\hat N_u$, given $\hat\pi_u^{o,(-j)}=1-\hat p_{u,j}^o$ is identified by pre-period shares); a large drop from $\tilde\pi^{r}$ implicates the review-stage independent-Bernoulli aggregation; and so on. Plot the cross-organization distribution of $\mathcal R_u^{\mathrm{agg}}$ at each oracle level.
+
+\paragraph{5. Stage decomposition.} The predicted decline in merges decomposes into opening, review, and merge channels (\S\ref{sec:stage_decomposition_baseline}). Compare actual stage quantities $Q_{u,k}^o,Q_{u,k}^r,Q_{u,k}^m$ and stage failures $Q_{u,k}^o-Q_{u,k}^r$ and $Q_{u,k}^r-Q_{u,k}^m$ to predicted counterparts using $\mathcal R_u^d$ from \S\ref{sec:error_metrics}. The failure-quantity comparison is a stricter test than the stage-level counts: the model must correctly predict not only how many pull requests reach each stage but also where in the funnel they drop out. Plot the cross-organization distribution of $\mathcal R_u^d$ across the six quantities.
+
+\subsection{Extensions}
+
+\begin{enumerate}
+    \item \textbf{Relax Assumption 1.} Problems need not come from an identical distribution. For example, the identity of the pull request opener may affect the probability that the pull request is eventually merged.
+
+    \item \textbf{Relax Assumption 2.} Problems need not evolve independently. For example, one pull request being merged may increase the likelihood that followup problems are opened or closed.
+
+    \item \textbf{Relax Assumption 4.} Member-specific probabilities may vary over time. For example, one could model $\pi_{i,t}^{o}$, $\pi_{i,t}^{r}$, and $\pi_{i,t}^{m}$ as draws from member-specific distributions, although this may require more data than are currently available.
+
+    \item \textbf{Relax Assumption 5.} Members' actions within a stage need not be independent. For example, reviewers may coordinate so that one person's review makes another person's review less likely, or a member's departure may induce other members to increase their probabilities of acting. This extension would replace the independent-Bernoulli benchmark with a model that allows for coordination and/or organizational adaptation.
+\end{enumerate}
+
+\end{document}
