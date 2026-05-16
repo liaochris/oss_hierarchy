@@ -35,5 +35,9 @@ for importance_type in IMPORTANCE_TYPES:
             for control_group in CONTROL_GROUPS:
                 base = f'#output/analysis/data_prep/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}'
                 targets.extend(f'{base}/{f}' for f in OUTPUT_FILES)
+targets += [
+    '#output/autofill/panel_autofill.tex',
+    '#output/autofill/pc_autofill.tex',
+]
 
 env.Python(targets, sources)

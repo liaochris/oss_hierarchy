@@ -8,10 +8,12 @@ from sklearn.preprocessing import StandardScaler
 
 from source.lib.python.config_loaders import FlattenConfigValues, LoadAnalysisParameters, LoadOutcomeVariables, LoadPipelineInputs
 from source.lib.JMSLab.SaveData import SaveData
+from source.lib.JMSLab.autofill import GenerateAutofillMacros
 
 INDIR = Path("drive/output/derived/org_outcomes_practices/org_panel")
 OUTDIR = Path("output/analysis/data_prep")
 INDIR_LIB = Path("source/lib")
+AUTOFILL_OUTDIR = Path("output/autofill")
 
 _analysis_params = LoadAnalysisParameters()
 
@@ -38,8 +40,6 @@ def Main():
 
 def ProcessDataset(importance_type, rolling_period, active_outcomes, pc_groups_cfg):
     panel = pd.read_parquet(INDIR / importance_type / rolling_period / "panel.parquet")
-    print([c for c in panel.columns if "issue" in c or "release" in c])
-    print(active_outcomes)
 
     for qualified_sample in QUALIFIED_SAMPLES:
         for control_group in CONTROL_GROUPS:
@@ -49,6 +49,11 @@ def ProcessDataset(importance_type, rolling_period, active_outcomes, pc_groups_c
                 prepared_panel, repo_pc_scores, pc_loading_metadata, pc_excluded_vars,
                 OUTDIR / importance_type / rolling_period / qualified_sample / control_group,
             )
+            if (importance_type == IMPORTANCE_TYPES[0]
+                    and rolling_period == ROLLING_PERIODS[0]
+                    and qualified_sample == "exact_1_2"
+                    and control_group == CONTROL_GROUPS[0]):
+                GenerateCanonicalAutofill(prepared_panel, pc_loading_metadata)
 
 
 def BuildPreparedSample(panel, active_outcomes, qualified_sample, control_group):
@@ -222,6 +227,36 @@ def SaveSampleOutputs(panel, repo_pc_scores, pc_loading_metadata, pc_excluded_va
     SaveData(pc_loading_metadata, ["group", "var"], outdir / "pc_score_metadata.csv", outdir / "pc_score_metadata.log")
     SaveData(pc_excluded_vars, ["group", "var"],
              outdir / "pc_score_excluded_vars.csv", outdir / "pc_score_excluded_vars.log")
+
+
+def GenerateCanonicalAutofill(panel, pc_loading_metadata):
+    AUTOFILL_OUTDIR.mkdir(parents=True, exist_ok=True)
+
+    NumOrgs = str(panel["repo_name"].nunique())
+    SampleStart = str(int(panel["time_period"].min().year))
+    SampleEnd = str(int(panel["time_period"].max().year))
+    GenerateAutofillMacros(
+        ["NumOrgs", "SampleStart", "SampleEnd"],
+        "{}",
+        str(AUTOFILL_OUTDIR / "panel_autofill.tex"),
+    )
+
+    variance = (
+        pc_loading_metadata.drop_duplicates("group")
+        .set_index("group")["variance_explained_pc_score"]
+    )
+    CollabVarianceExplained = variance.get("collaboration", float("nan"))
+    KnowledgeVarianceExplained = variance.get("shared_knowledge", float("nan"))
+    DiscussionVarianceExplained = variance.get("discussion_quality", float("nan"))
+    TalentVarianceExplained = variance.get("investment_in_new_talent", float("nan"))
+    RoutinesVarianceExplained = variance.get("problem_solving_routines", float("nan"))
+    GenerateAutofillMacros(
+        ["CollabVarianceExplained", "KnowledgeVarianceExplained",
+         "DiscussionVarianceExplained", "TalentVarianceExplained",
+         "RoutinesVarianceExplained"],
+        "{:.1f}",
+        str(AUTOFILL_OUTDIR / "pc_autofill.tex"),
+    )
 
 
 def CoarsenScoresToAboveBelowMedian(repo_pc_scores):

@@ -75,10 +75,22 @@ combo_targets = [
     for c in AllCombos()
     for fname in ["pc_score_combo.png", "pc_score_combo_gradient.png",
                   "pc_score_combo_k2_table.csv", "pc_score_combo_k2_high_table.csv",
-                  "pc_score_combo_k3_table.csv", "pc_score_combo_k3_high_table.csv"]
+                  "pc_score_combo_k3_table.csv", "pc_score_combo_k3_high_table.csv",
+                  "pc_score_combo_k2_top3_tablefill.txt",
+                  "pc_score_combo_k3_top3_tablefill.txt"]
 ]
 combo_sources = ["#source/analysis/analyze_forest/pc_score_combinations.R"] + SHARED_LIBS + all_forest_inputs
 env.R(combo_targets, combo_sources)
+
+_canonical = "important_degree_top3/rolling5/exact_1_2/nevertreated/norm"
+env.Tablefill(
+    '#output/tables/pc_score_combo_k2_top3.tex',
+    ['#source/tables/pc_score_combo_k2_top3.tex',
+     f'#output/analysis/analyze_forest/{_canonical}/pc_score_combo_k2_top3_tablefill.txt'])
+env.Tablefill(
+    '#output/tables/pc_score_combo_k3_top3.tex',
+    ['#source/tables/pc_score_combo_k3_top3.tex',
+     f'#output/analysis/analyze_forest/{_canonical}/pc_score_combo_k3_top3_tablefill.txt'])
 
 fold_targets = [
     f"{BaseOutdir(*c)}/{fname}"

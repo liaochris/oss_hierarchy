@@ -57,3 +57,35 @@ for importance_type in IMPORTANCE_TYPES:
                         ]
 
 env.R(targets, sources)
+
+predict_sources = [
+    "#source/analysis/event_study_forest/predict_forest_resilience.R",
+    "#source/lib/R/config_loaders.R",
+    "#source/lib/R/analysis_utils.R",
+    "#source/lib/R/event_study_helpers.R",
+    "#source/lib/R/forest_helpers.R",
+    "#source/lib/R/constants.R",
+    "#source/lib/config/pipeline_inputs.json",
+    "#source/lib/config/analysis_parameters.json",
+]
+for importance_type in IMPORTANCE_TYPES:
+    for rolling_period in ROLLING_PERIODS:
+        for qualified_sample in NON_AGGREGATED_SAMPLES:
+            for control_group in CONTROL_GROUPS:
+                predict_sources += [
+                    f"{INDIR_PREP}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel.parquet",
+                ]
+                for covar_type in COVAR_TYPES:
+                    for norm_option in NORM_OPTIONS:
+                        norm_label = NORM_LABELS[norm_option]
+                        predict_sources += [
+                            f"{OUTDIR}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/{covar_type}/{norm_label}/{FOREST_OUTCOME}_repo_att_event_study_forest.parquet",
+                        ]
+
+predict_targets = [
+    f"{OUTDIR}/personalized_event_study_coefficients.csv",
+    f"{OUTDIR}/personalized_event_study_coefficients.log",
+    "#output/autofill/forest_autofill.tex",
+]
+
+env.R(predict_targets, predict_sources)

@@ -25,5 +25,6 @@ jms.start_log('develop', '')
 
 SConscript('source/analysis/SConscript')
 SConscript('source/derived/SConscript')
+SConscript('source/autofill/SConscript')
 SConscript('source/paper/SConscript')
 SConscript('source/talk/SConscript')

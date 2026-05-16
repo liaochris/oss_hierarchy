@@ -3,6 +3,7 @@ library(arrow)
 library(fs)
 library(jsonlite)
 library(knitr)
+library(SaveData)
 
 source("source/lib/R/config_loaders.R")
 source("source/lib/R/analysis_utils.R")
@@ -125,8 +126,11 @@ CreatePCScoreComboTables <- function(df_bins, pc_split_cols, outdir_ds) {
                pc_score_subset = paste(vars, collapse = " x ")) %>%
         select(pc_score_subset, pattern, rank, att_dr_mean, count)
     })
-    write_csv(bind_rows(combo_rows_all) %>% arrange(-att_dr_mean),
-              file.path(outdir_ds, paste0("pc_score_combo_k", k, "_table.csv")))
+    combo_all_path <- file.path(outdir_ds, paste0("pc_score_combo_k", k, "_table.csv"))
+    SaveData(bind_rows(combo_rows_all) %>% arrange(-att_dr_mean),
+             c("pc_score_subset", "pattern"),
+             combo_all_path,
+             sub("\\.csv$", ".log", combo_all_path))
 
     combo_rows_high <- lapply(combos, function(vars) {
       grp      <- df_bins %>%
@@ -143,8 +147,25 @@ CreatePCScoreComboTables <- function(df_bins, pc_split_cols, outdir_ds) {
              difference = all_high$att_dr_mean - att_others,
              count_high = all_high$count)
     })
-    write_csv(bind_rows(combo_rows_high) %>% arrange(-difference),
-              file.path(outdir_ds, paste0("pc_score_combo_k", k, "_high_table.csv")))
+    combo_high_path <- file.path(outdir_ds, paste0("pc_score_combo_k", k, "_high_table.csv"))
+    SaveData(bind_rows(combo_rows_high) %>% arrange(-difference),
+             "pc_score_subset",
+             combo_high_path,
+             sub("\\.csv$", ".log", combo_high_path))
+
+    top3 <- bind_rows(combo_rows_high) %>% arrange(-difference) %>% head(3)
+    txt_lines <- c(
+      paste0("<tab:pc_score_combo_k", k, "_top3>"),
+      apply(top3, 1, function(r) {
+        paste(
+          formatC(as.numeric(r["difference"]),    format = "f", digits = 2),
+          formatC(as.numeric(r["att_high"]),      format = "f", digits = 2),
+          formatC(as.numeric(r["att_others_wavg"]), format = "f", digits = 2),
+          sep = "\t"
+        )
+      })
+    )
+    writeLines(txt_lines, file.path(outdir_ds, paste0("pc_score_combo_k", k, "_top3_tablefill.txt")))
   }
 }
 

@@ -81,6 +81,8 @@ Main <- function() {
     file.path(OUTDIR, "all_estimates.log"),
     sortbykey = FALSE
   )
+
+  GenerateEventStudyAutofill(coeffs_df)
 }
 
 BuildOutcomeSpecs <- function(outcome_variables, norm_options) {
@@ -270,6 +272,41 @@ CollectEstimateRows <- function(results, importance_type, rolling_panel, qualifi
            qualified_sample = qualified_sample, control_group = control_group,
            split_type = split_type, split_covar = split_covar, split_value = split_value,
            category = category, outcome = outcome, normalize = normalize, method = "sa")
+}
+
+GenerateEventStudyAutofill <- function(coeffs_df) {
+  canonical <- coeffs_df %>%
+    filter(
+      importance_type  == IMPORTANCE_TYPES[1],
+      rolling          == ROLLING_LABELS[1],
+      qualified_sample == "exact_1_2",
+      control_group    == CONTROL_GROUPS[1],
+      normalize        == TRUE,
+      method           == "sa",
+      split_type       == "full_sample"
+    )
+
+  compute_avg_abs <- function(outcome) {
+    canonical %>%
+      filter(.data$outcome == !!outcome, event_time %in% 1:5) %>%
+      pull(estimate) %>%
+      abs() %>%
+      mean()
+  }
+
+  AvgPRsOpenedDecline <- compute_avg_abs("pull_request_opened")
+  AvgPRsMergedDecline <- compute_avg_abs("pull_request_merged")
+  AvgReleasesDecline  <- compute_avg_abs("overall_new_release_count")
+  AvgMaxDecline       <- max(AvgPRsOpenedDecline, AvgPRsMergedDecline, AvgReleasesDecline)
+
+  autofill_path <- file.path("output/autofill/event_study_autofill.tex")
+  dir_create(dirname(autofill_path))
+  writeLines(c(
+    sprintf("\\newcommand{\\AvgPRsOpenedDecline}{%.2f}", AvgPRsOpenedDecline),
+    sprintf("\\newcommand{\\AvgPRsMergedDecline}{%.2f}", AvgPRsMergedDecline),
+    sprintf("\\newcommand{\\AvgReleasesDecline}{%.2f}", AvgReleasesDecline),
+    sprintf("\\newcommand{\\AvgMaxDecline}{%.2f}", AvgMaxDecline)
+  ), autofill_path)
 }
 
 Main()

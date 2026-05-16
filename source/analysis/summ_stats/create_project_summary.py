@@ -1,5 +1,4 @@
 import json
-import re
 
 import pandas as pd
 from pathlib import Path
@@ -8,6 +7,10 @@ import glob
 from source.lib.python.config_loaders import LoadPipelineInputs
 from source.lib.python.repo_utils import MakeRepoNameSafe
 from source.lib.JMSLab.SaveData import SaveData
+from source.lib.JMSLab.autofill import GenerateAutofillMacros
+
+AUTOFILL_OUTDIR = Path("output/autofill")
+GLOBAL_SETTINGS = Path("source/lib/config/global_settings.json")
 
 
 def Main():
@@ -56,7 +59,8 @@ def Main():
         OUTDIR / "project_summary.log"
     )
 
-    ExportSummaryTable(df_summary, OUTDIR / "summary_table.txt")
+    ExportSummaryTable(df_summary, analysis_spec["exact_samples"], OUTDIR / "summary_table.txt")
+    GenerateConfigAutofill()
 
 
 def BuildSummary(df_popular, df_linked, df_repo_history,
@@ -118,7 +122,7 @@ def BuildAnalysisSpec(pipeline_cfg):
     rolling_label = f"rolling{pipeline_cfg['rolling_periods']['run'][0]}"
     control_group = pipeline_cfg["control_groups"]["run"][0]
     exact_samples = sorted(
-        [sample for sample in pipeline_cfg["qualified_samples"]["run"] if re.fullmatch(r"exact\d+", sample)],
+        [sample for sample in pipeline_cfg["qualified_samples"]["run"] if "_" not in sample],
         key=lambda sample: int(sample.removeprefix("exact"))
     )
     prepared_panel_paths = {
@@ -175,7 +179,7 @@ def BuildBalancedPanelFlags(exact_samples, exact_sample_panels):
     return df
 
 
-def ExportSummaryTable(df, outfile):
+def ExportSummaryTable(df, exact_samples, outfile):
     df_repos = df[df["unique_repo"].notna()].drop_duplicates(subset=["unique_repo"])
     summary_rows = [
         ("PyPI packages", len(df)),
@@ -189,19 +193,13 @@ def ExportSummaryTable(df, outfile):
         ("  with PR linked", df_repos["has_pr_linked"].sum()),
         ("  with graph data (any period)", (df_repos["num_graph_periods"] > 0).sum()),
     ]
-    exact_sample_cols = sorted(
-        [col for col in df_repos.columns if re.fullmatch(r"in_exact\d+_degree_top3_sample", col)],
-        key=lambda col: int(re.search(r"exact(\d+)", col).group(1))
-    )
-    complete_panel_cols = sorted(
-        [col for col in df_repos.columns if re.fullmatch(r"in_complete_panel_exact\d+_degree_top3", col)],
-        key=lambda col: int(re.search(r"exact(\d+)", col).group(1))
-    )
+    exact_sample_cols = [f"in_{s}_degree_top3_sample" for s in exact_samples]
+    complete_panel_cols = [f"in_complete_panel_{s}_degree_top3" for s in exact_samples]
     for col in exact_sample_cols:
-        sample = re.search(r"(exact\d+)", col).group(1)
+        sample = col.replace("in_", "").replace("_degree_top3_sample", "")
         summary_rows.append((f"  degree_top3: in {sample} sample", df_repos[col].sum()))
     for col in complete_panel_cols:
-        sample = re.search(r"(exact\d+)", col).group(1)
+        sample = col.replace("in_complete_panel_", "").replace("_degree_top3", "")
         summary_rows.append((f"  degree_top3: complete panel {sample}", df_repos[col].sum()))
     lines = []
     for label, count in summary_rows:
@@ -209,6 +207,18 @@ def ExportSummaryTable(df, outfile):
 
     output = "\n".join(lines)
     outfile.write_text(output)
+
+
+def GenerateConfigAutofill():
+    with open(GLOBAL_SETTINGS, encoding="utf-8") as fh:
+        settings = json.load(fh)
+    AUTOFILL_OUTDIR.mkdir(parents=True, exist_ok=True)
+    PipMinMonthlyDownloads = settings["pip_min_monthly_donwloads"]
+    GenerateAutofillMacros(
+        ["PipMinMonthlyDownloads"],
+        "{:,}",
+        str(AUTOFILL_OUTDIR / "config_autofill.tex"),
+    )
 
 
 if __name__ == "__main__":

@@ -1,7 +1,5 @@
 Import('*')
 
-import re
-
 from source.lib.python.config_loaders import LoadGlobalSettings, LoadPipelineInputs
 from source.lib.python.repo_utils import MakeRepoNameSafe
 
@@ -13,12 +11,13 @@ importance_type = pipeline_cfg["importance_types"]["run"][0]
 rolling_label = f"rolling{pipeline_cfg['rolling_periods']['run'][0]}"
 control_group = pipeline_cfg["control_groups"]["run"][0]
 exact_samples = sorted(
-    [sample for sample in pipeline_cfg["qualified_samples"]["run"] if re.fullmatch(r"exact\\d+", sample)],
-    key=lambda sample: int(sample.removeprefix("exact"))
+    [s for s in pipeline_cfg["qualified_samples"]["run"] if "_" not in s],
+    key=lambda s: int(s.removeprefix("exact"))
 )
 
 summary_source = [
     '#source/analysis/summ_stats/create_project_summary.py',
+    '#source/lib/config/global_settings.json',
     '#output/scrape/pypi_downloads/popular_python_packages.csv',
     '#output/scrape/pypi_site_info/linked_pypi_github.csv',
     '#output/scrape/extract_github_data/repo_id_history_final.csv',
@@ -33,5 +32,6 @@ summary_target = [
     '#output/analysis/summ_stats/project_summary.parquet',
     '#output/analysis/summ_stats/project_summary.log',
     '#output/analysis/summ_stats/summary_table.txt',
+    '#output/autofill/config_autofill.tex',
 ]
 env.Python(summary_target, summary_source)
