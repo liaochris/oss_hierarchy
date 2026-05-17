@@ -7,10 +7,10 @@ library(SaveData)
 source("source/lib/R/config_loaders.R")
 source("source/lib/R/analysis_utils.R")
 source("source/lib/R/event_study_helpers.R")
-source("source/lib/R/forest_helpers.R")
+source("source/lib/event_study_forest/forest_helpers.R")
 source("source/lib/R/constants.R")
 
-INDIR_PREP   <- "output/analysis/data_prep"
+INDIR_PREP   <- "output/derived/analysis_panel"
 INDIR_FOREST <- "output/analysis/event_study_forest"
 OUTDIR       <- "output/analysis/event_study_forest"
 
@@ -283,7 +283,7 @@ GenerateForestAutofill <- function(coeffs_df) {
   compute_diff <- function(outcome, covar_type_val) {
     sub <- coeffs_df %>%
       filter(
-        qualified_sample == "exact_1_2",
+        qualified_sample == PRIMARY_QUALIFIED_SAMPLE,
         normalize        == TRUE,
         estimation_type  == "observed",
         event_time %in%  1:5,
@@ -314,5 +314,6 @@ GenerateForestAutofill <- function(coeffs_df) {
     sprintf("\\newcommand{\\ForestContReleasesDiff}{%.2f}",    ForestContReleasesDiff)
   ), autofill_path)
 }
+
 
 Main()

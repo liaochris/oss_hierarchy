@@ -18,28 +18,27 @@ Main <- function() {
             dir_create(outdir_ds, recurse = TRUE)
 
             forest_results_data <- LoadForestResults(INDIR_FOREST, importance_type, rolling_panel, qualified_sample, control_group, norm_label)
-          if (is.null(forest_results_data)) next
 
-          pc_score_cols <- colnames(forest_results_data$df)[grepl("_pc_score$", colnames(forest_results_data$df))]
-          binarized <- BinarizePCScores(forest_results_data$df, pc_score_cols)
-          df_bins   <- binarized$df
+            pc_score_cols <- colnames(forest_results_data$df)[grepl("_pc_score$", colnames(forest_results_data$df))]
+            binarized <- BinarizePCScores(forest_results_data$df, pc_score_cols)
+            df_bins   <- binarized$df
 
-          combo_summary <- df_bins %>%
-            group_by(across(all_of(pc_score_cols))) %>%
-            summarize(att_dr_mean      = mean(att_dr, na.rm = TRUE),
-                      high_resilience  = mean(att_dr_group == "high", na.rm = TRUE),
-                      count            = n(),
-                      .groups          = "drop") %>%
-            arrange(-att_dr_mean) %>%
-            mutate(rank = row_number())
+            combo_summary <- df_bins %>%
+              group_by(across(all_of(pc_score_cols))) %>%
+              summarize(att_dr_mean      = mean(att_dr, na.rm = TRUE),
+                        high_resilience  = mean(att_dr_group == "high", na.rm = TRUE),
+                        count            = n(),
+                        .groups          = "drop") %>%
+              arrange(-att_dr_mean) %>%
+              mutate(rank = row_number())
 
-          PlotHighLowGrid(combo_summary, pc_score_cols)
-          ggsave(file.path(outdir_ds, "pc_score_combo.png"), width = 9, height = 16, dpi = 300)
+            PlotHighLowGrid(combo_summary, pc_score_cols)
+            ggsave(file.path(outdir_ds, "pc_score_combo_high_low_grid.png"), width = 9, height = 16, dpi = 300)
 
-          CreatePCScoreComboTables(df_bins, pc_score_cols, outdir_ds)
+            CreatePCScoreComboTables(df_bins, pc_score_cols, outdir_ds)
 
-          p_gradient <- PlotPCScoreGradientGrid(combo_summary, pc_score_cols)
-          ggsave(file.path(outdir_ds, "pc_score_combo_gradient.png"), p_gradient, width = 3, height = 12, dpi = 300)
+            p_gradient <- PlotPCScoreGradientGrid(combo_summary, pc_score_cols)
+            ggsave(file.path(outdir_ds, "pc_score_combo_att_gradient.png"), p_gradient, width = 3, height = 12, dpi = 300)
           }
         }
       }
@@ -51,7 +50,7 @@ Main <- function() {
 PlotHighLowGrid <- function(combo_summary, pc_score_cols) {
   rank_levels <- as.character(1:32)
 
-  df_tiles <- combo_summary %>%
+  pc_tile_plot_data <- combo_summary %>%
     select(rank, all_of(pc_score_cols)) %>%
     mutate(rank = as.character(rank)) %>%
     pivot_longer(cols = all_of(pc_score_cols), names_to = "pc_score_group", values_to = "raw_value") %>%
@@ -73,7 +72,7 @@ PlotHighLowGrid <- function(combo_summary, pc_score_cols) {
 
   n_pc_score_groups <- length(pc_score_cols)
 
-  ggplot(df_tiles, aes(x = pc_score_group, y = rank, fill = level)) +
+  ggplot(pc_tile_plot_data, aes(x = pc_score_group, y = rank, fill = level)) +
     geom_tile(color = "white", size = 1.5) +
     geom_segment(inherit.aes = FALSE,
                  aes(x = 0.5, xend = n_pc_score_groups + 0.5, y = 16.5, yend = 16.5),
@@ -108,6 +107,90 @@ PlotHighLowGrid <- function(combo_summary, pc_score_cols) {
       }, FUN.VALUE = character(1)),
       expand  = expansion(add = c(0.2, 0.2))
     )
+}
+
+CreatePCScoreComboTables <- function(df_bins, pc_split_cols, outdir_ds) {
+  for (k in c(2, 3)) {
+    combos <- combn(pc_split_cols, k, simplify = FALSE)
+
+    combo_rows_all <- lapply(combos, function(vars) {
+      df_bins %>%
+        group_by(across(all_of(vars))) %>%
+        summarize(att_dr_mean = mean(att_dr, na.rm = TRUE), count = n(), .groups = "drop") %>%
+        arrange(-att_dr_mean) %>%
+        mutate(rank = row_number(),
+               pattern = apply(as.matrix(pick(all_of(vars))), 1, paste, collapse = "-"),
+               pc_score_subset = paste(vars, collapse = " x ")) %>%
+        select(pc_score_subset, pattern, rank, att_dr_mean, count)
+    })
+    combo_all_path <- file.path(outdir_ds, paste0("pc_score_combo_k", k, "_table.csv"))
+    SaveData(bind_rows(combo_rows_all) %>% arrange(-att_dr_mean),
+             c("pc_score_subset", "pattern"),
+             combo_all_path,
+             sub("\\.csv$", ".log", combo_all_path))
+
+    combo_rows_high <- lapply(combos, function(vars) {
+      grp      <- df_bins %>%
+        group_by(across(all_of(vars))) %>%
+        summarize(att_dr_mean = mean(att_dr, na.rm = TRUE), count = n(), .groups = "drop")
+      all_high <- grp %>% filter(if_all(all_of(vars), ~ .x == "high"))
+      others   <- grp %>% filter(!if_all(all_of(vars), ~ .x == "high"))
+      if (nrow(all_high) == 0) return(NULL)
+      att_others <- if (nrow(others) > 0 && sum(others$count) > 0)
+        sum(others$att_dr_mean * others$count) / sum(others$count) else NA_real_
+      tibble(pc_score_subset = paste(vars, collapse = " x "),
+             att_high = all_high$att_dr_mean,
+             att_others_wavg = att_others,
+             difference = all_high$att_dr_mean - att_others,
+             count_high = all_high$count)
+    })
+    combo_high_path <- file.path(outdir_ds, paste0("pc_score_combo_k", k, "_high_table.csv"))
+    SaveData(bind_rows(combo_rows_high) %>% arrange(-difference),
+             "pc_score_subset",
+             combo_high_path,
+             sub("\\.csv$", ".log", combo_high_path))
+
+    top3_pc_combos <- bind_rows(combo_rows_high) %>% arrange(-difference) %>% head(3)
+    txt_lines <- c(
+      paste0("<tab:pc_score_combo_k", k, "_top3>"),
+      apply(top3_pc_combos, 1, function(r) {
+        paste(
+          formatC(as.numeric(r["difference"]),      format = "f", digits = 2),
+          formatC(as.numeric(r["att_high"]),        format = "f", digits = 2),
+          formatC(as.numeric(r["att_others_wavg"]), format = "f", digits = 2),
+          sep = "\t"
+        )
+      })
+    )
+    writeLines(txt_lines, file.path(outdir_ds, paste0("pc_score_combo_k", k, "_top3.txt")))
+  }
+}
+
+PlotPCScoreGradientGrid <- function(combo_summary, pc_split_cols, fixed_rank_order = NULL) {
+  mat <- as.matrix(combo_summary[pc_split_cols])
+  combo_summary <- combo_summary %>%
+    mutate(combo_key  = apply(mat, 1, function(r) paste(toupper(substr(r, 1, 1)), collapse = "-")),
+           combo_rank = row_number(desc(att_dr_mean)))
+
+  df_plot <- if (!is.null(fixed_rank_order)) {
+    combo_summary %>% mutate(row_pos = match(combo_key, fixed_rank_order)) %>% filter(!is.na(row_pos))
+  } else {
+    combo_summary %>% mutate(row_pos = combo_rank)
+  }
+
+  ggplot(df_plot, aes(x = 1, y = row_pos, fill = combo_rank)) +
+    geom_tile(color = "grey80", linewidth = 0.3, width = 1, height = 1) +
+    scale_fill_gradient(low = "white", high = "black", limits = c(1, 32), guide = "none") +
+    scale_y_reverse(breaks = c(1, 8, 16, 24, 32), expand = c(0, 0)) +
+    scale_x_continuous(breaks = NULL, expand = c(0, 0)) +
+    coord_fixed(xlim = c(0.5, 1.5), ylim = c(32.5, 0.5)) +
+    labs(x = NULL, y = "Rank") +
+    theme_minimal(base_size = 7) +
+    theme(axis.text.y  = element_text(size = 6),
+          axis.title.y = element_text(size = 7, angle = 90),
+          panel.grid   = element_blank(),
+          axis.ticks   = element_blank(),
+          plot.margin  = margin(2, 2, 2, 2, "pt"))
 }
 
 Main()

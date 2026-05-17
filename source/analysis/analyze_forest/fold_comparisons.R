@@ -10,13 +10,11 @@ OUTDIR          <- "output/analysis/analyze_forest"
 
 Main <- function() {
   for (importance_type in IMPORTANCE_TYPES) {
-    # Only aggregated samples have multiple folds to compare across
-    for (qualified_sample in names(AGGREGATED_SAMPLES)) {
+    for (qualified_sample in QUALIFIED_SAMPLES) {
       for (control_group in CONTROL_GROUPS) {
         for (rolling_panel in ROLLING_LABELS) {
           for (norm_option in NORM_OPTIONS) {
-            norm_label     <- ifelse(norm_option, "norm", "raw")
-            rolling_period <- as.numeric(str_extract(rolling_panel, "\\d+$"))
+            norm_label <- ifelse(norm_option, "norm", "raw")
             outdir_ds      <- file.path(OUTDIR, importance_type, rolling_panel, qualified_sample, control_group, norm_label)
             dir_create(outdir_ds, recurse = TRUE)
 
@@ -24,29 +22,29 @@ Main <- function() {
             if (is.null(forest_results_data)) next
 
             pc_score_cols <- colnames(forest_results_data$df)[grepl("_pc_score$", colnames(forest_results_data$df))]
-            binarized <- BinarizePCScores(forest_results_data$df, pc_score_cols)
-            df_bins   <- binarized$df
-            sub_bins  <- lapply(forest_results_data$sub_dfs, function(sub_df)
+            binarized              <- BinarizePCScores(forest_results_data$df, pc_score_cols)
+            df_binarized_pc_scores <- binarized$df
+            sub_bins               <- lapply(forest_results_data$sub_dfs, function(sub_df)
               sub_df %>% mutate(across(all_of(pc_score_cols),
                                        ~ ifelse(.x > binarized$medians[cur_column()], "high", "low"))))
 
-            combo_summary <- df_bins %>%
+            pc_combo_att_summary <- df_binarized_pc_scores %>%
               group_by(across(all_of(pc_score_cols))) %>%
               summarize(att_dr_mean = mean(att_dr, na.rm = TRUE), count = n(), .groups = "drop") %>%
               arrange(-att_dr_mean) %>%
               mutate(rank = row_number())
 
             fold_summaries <- BuildFoldSummaries(
-              forest_results_data$sub_dfs, sub_bins, pc_score_cols, rolling_period,
+              forest_results_data$sub_dfs, sub_bins, pc_score_cols,
               importance_type, rolling_panel, control_group, norm_label
             )
             if (length(fold_summaries) == 0) next
 
-            PlotCrossForestGrid(combo_summary, fold_summaries, pc_score_cols, outdir_ds)
-            ComputeFoldCorrelations(combo_summary, fold_summaries, pc_score_cols, outdir_ds)
+            PlotCrossForestGrid(pc_combo_att_summary, fold_summaries, pc_score_cols, outdir_ds)
+            ComputeFoldCorrelations(pc_combo_att_summary, fold_summaries, pc_score_cols, outdir_ds)
 
             agg_fold_paths <- unlist(lapply(names(forest_results_data$sub_dfs), function(s)
-              FoldRdsPaths(importance_type, rolling_panel, s, control_group, rolling_period, norm_label)))
+              FoldRdsPaths(importance_type, rolling_panel, s, control_group, norm_label)))
             ExportVariableImportanceTex(agg_fold_paths, outdir_ds)
           }
         }
@@ -56,11 +54,11 @@ Main <- function() {
   invisible(NULL)
 }
 
-BuildFoldSummaries <- function(sub_dfs, sub_bins, pc_score_cols, rolling_period,
+BuildFoldSummaries <- function(sub_dfs, sub_bins, pc_score_cols,
                                importance_type, rolling_panel, control_group, norm_label) {
   lapply(seq_len(N_FOLDS), function(fold_i) {
     fold_rows <- Map(function(s, sub_cont, sub_bin) {
-      path   <- FoldRdsPaths(importance_type, rolling_panel, s, control_group, rolling_period, norm_label)[fold_i]
+      path   <- FoldRdsPaths(importance_type, rolling_panel, s, control_group, norm_label)[fold_i]
       forest <- tryCatch(readRDS(path), error = function(e) NULL)
       if (is.null(forest)) return(NULL)
 
@@ -81,11 +79,113 @@ BuildFoldSummaries <- function(sub_dfs, sub_bins, pc_score_cols, rolling_period,
   }) %>% Filter(Negate(is.null), .)
 }
 
-FoldRdsPaths <- function(importance_type, rolling_panel, sample, control_group, rolling_period,
+FoldRdsPaths <- function(importance_type, rolling_panel, sample, control_group,
                          norm_label, covar_type_dir = "pc_score") {
   file.path(INDIR_FOREST_DS, importance_type, rolling_panel, sample, control_group, covar_type_dir,
-            norm_label, paste0("event_study_forest_", FOREST_TRAINING_OUTCOME, "_rolling", rolling_period,
+            norm_label, paste0("event_study_forest_", FOREST_TRAINING_OUTCOME,
                    "_fold", seq_len(N_FOLDS), ".rds"))
+}
+
+PlotCrossForestGrid <- function(combo_summary, fold_summaries, pc_split_cols, outdir_ds) {
+  ComboKeys <- function(df) {
+    mat <- as.matrix(df[pc_split_cols])
+    apply(mat, 1, function(r) paste(toupper(substr(r, 1, 1)), collapse = "-"))
+  }
+  full_keys <- ComboKeys(fold_summaries[[1]] %>% arrange(-att_dr_mean))
+
+  df_all <- bind_rows(lapply(seq_along(fold_summaries), function(i) {
+    fs <- fold_summaries[[i]]
+    fs %>%
+      mutate(combo_key  = ComboKeys(.),
+             combo_rank = rank(-att_dr_mean, ties.method = "first"),
+             row_pos    = match(combo_key, full_keys),
+             x_pos      = i) %>%
+      filter(!is.na(row_pos)) %>%
+      select(x_pos, row_pos, combo_rank)
+  }))
+
+  n_folds <- length(fold_summaries)
+  cross_forest_grid_plot <- ggplot(df_all, aes(x = x_pos, y = row_pos, fill = combo_rank)) +
+    geom_tile(color = "grey80", linewidth = 0.2, width = 1, height = 1) +
+    scale_fill_gradient(low = "white", high = "black", limits = c(1, 32), guide = "none") +
+    scale_x_continuous(breaks = seq_len(n_folds), labels = paste0("F", seq_len(n_folds)), expand = c(0, 0)) +
+    scale_y_reverse(breaks = c(1, 8, 16, 24, 32), expand = c(0, 0)) +
+    coord_fixed(xlim = c(0.5, n_folds + 0.5), ylim = c(32.5, 0.5)) +
+    labs(x = NULL, y = "Rank") +
+    theme_minimal(base_size = 7) +
+    theme(axis.text.x  = element_text(size = 6),
+          axis.text.y  = element_text(size = 6),
+          axis.title.y = element_text(size = 7, angle = 90),
+          panel.grid   = element_blank(),
+          axis.ticks   = element_blank(),
+          plot.margin  = margin(2, 2, 2, 2, "pt"))
+
+  tile_in <- 0.18
+  ggsave(file.path(outdir_ds, "fold_rank_stability_grid.png"), cross_forest_grid_plot,
+         width  = n_folds * tile_in + 0.6,
+         height = 32 * tile_in + 0.4,
+         dpi = 300)
+}
+
+ComputeFoldCorrelations <- function(combo_summary, fold_summaries, pc_split_cols, outdir_ds) {
+  ComboKeys <- function(df) {
+    mat <- as.matrix(df[pc_split_cols])
+    apply(mat, 1, function(r) paste(toupper(substr(r, 1, 1)), collapse = "-"))
+  }
+  full_keys <- ComboKeys(combo_summary %>% arrange(-att_dr_mean))
+
+  att_mat  <- sapply(fold_summaries, function(fs) {
+    fs$combo_key <- ComboKeys(fs)
+    fs[match(full_keys, fs$combo_key), ]$att_dr_mean
+  })
+  rank_mat <- apply(att_mat, 2, rank, na.last = "keep")
+
+  corr_att  <- cor(att_mat,  method = "pearson",  use = "pairwise.complete.obs")
+  corr_rank <- cor(rank_mat, method = "spearman", use = "pairwise.complete.obs")
+
+  PlotCorrHeatmap <- function(corr_mat, title) {
+    n_folds <- nrow(corr_mat)
+    rownames(corr_mat) <- colnames(corr_mat) <- paste0("F", seq_len(n_folds))
+    corr_mat %>%
+      as.data.frame() %>%
+      tibble::rownames_to_column("fold1") %>%
+      pivot_longer(-fold1, names_to = "fold2", values_to = "corr") %>%
+      mutate(label = sprintf("%.2f", corr)) %>%
+      ggplot(aes(x = fold1, y = fold2, fill = corr)) +
+      geom_tile(color = "white") +
+      geom_text(aes(label = label), size = 3) +
+      scale_fill_gradient2(limits = c(-1, 1), midpoint = 0,
+                           low = "blue", mid = "white", high = "red", name = "r") +
+      labs(title = title, x = NULL, y = NULL) +
+      theme_minimal(base_size = 10) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+      coord_fixed()
+  }
+
+  ggsave(file.path(outdir_ds, "fold_correlation_att.png"),  PlotCorrHeatmap(corr_att,  "Fold Correlation (ATT)"),  width = 8, height = 7, dpi = 300)
+  ggsave(file.path(outdir_ds, "fold_correlation_rank.png"), PlotCorrHeatmap(corr_rank, "Fold Correlation (Rank)"), width = 8, height = 7, dpi = 300)
+}
+
+ExportVariableImportanceTex <- function(fold_rds_paths, outdir_ds) {
+  existing <- fold_rds_paths[file.exists(fold_rds_paths)]
+  if (length(existing) == 0) return(invisible(NULL))
+
+  varimp_df <- bind_rows(lapply(existing, function(path) {
+    forest <- readRDS(path)
+    vi     <- variable_importance(forest)
+    tibble(variable = colnames(forest$X.orig), importance = as.numeric(vi))
+  })) %>%
+    group_by(variable) %>%
+    summarize(importance = mean(importance, na.rm = TRUE), .groups = "drop") %>%
+    arrange(-importance) %>%
+    mutate(rank  = row_number(),
+           label = ifelse(variable %in% names(PC_LABELS),
+                          paste0(PC_LABELS[variable], " (PC Score)"), variable))
+
+  out_tbl    <- varimp_df %>% transmute(Rank = rank, Variable = label, `Mean Split Share` = sprintf("%.4f", importance))
+  latex_body <- as.character(knitr::kable(out_tbl, format = "latex", booktabs = TRUE, linesep = ""))
+  writeLines(latex_body, file.path(outdir_ds, "variable_importance.tex"))
+  invisible(varimp_df)
 }
 
 Main()

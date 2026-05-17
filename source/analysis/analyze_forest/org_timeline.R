@@ -31,6 +31,7 @@ Main <- function() {
   invisible(NULL)
 }
 
+# I think you should have another bar nested within that's experienced treatent or something more appropriate given econometric terminolgoy - so basically cumulative of treated acros periods. 
 PlotRepoTimeline <- function(panel, outdir_ds) {
   quasi_dates    <- panel %>%
     group_by(repo_name) %>%
@@ -63,7 +64,7 @@ PlotRepoTimeline <- function(panel, outdir_ds) {
           axis.text.x = element_text(angle = 45, hjust = 1),
           legend.position = "top")
 
-  ggsave(file.path(outdir_ds, "hist_org_count.png"), width = 10, height = 5)
+  ggsave(file.path(outdir_ds, "repo_count_timeline.png"), width = 10, height = 5)
 }
 
 Main()

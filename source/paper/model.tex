@@ -97,7 +97,7 @@ I do that by fitting a model of the latent problem flow and member-level probabi
 I impose two modeling choices to identify and estimate the latent problem flow:
 \begin{enumerate}
     \item \textbf{Normalization of unobserved fraction}: $p_{\emptyset,t}^o = 0$ during the pre-periods, so every latent problem generates an opened pull request. This directly identifies the latent problem count from observed data, since $N_{i,t} = N_{i,t}^o$.
-    \item \textbf{Time-invariant latent flow}: $F_{i,t} = F_i$, so pre-period opening counts $\{N_{i,t}^o\}_{t<0}$ are i.i.d.\ draws from $F_i$, which I estimate by maximum likelihood.
+    \item \textbf{Time-invariant latent flow}: $F_{i,t} = F_i$, so pre-period opening counts $\{N_{i,t}^o\}_{t<0}$ are i.i.d.\ draws from $F_i$, which I estimate by maximum likelihood; I denote the fitted distribution $\hat{F}_i$ and its mean $\hat{N}_i$.
 \end{enumerate}
 
 I evaluate three fitting approaches, each applied organization-by-organization on pre-period opening counts by maximum likelihood:
@@ -130,6 +130,9 @@ For reviewing, fit evaluation has two components. First, I compute AIC analogous
 % 1. Reread the full doc and see where I should amke improvements
 % 2. Formalize the comments for Jesse
 % 3. Write out the different sources of prediction error, and how I can figure out how important each component is?
+% - your N + pi_o could be wrong, or your pi_r, or your pi_m
+% is any one systemtically more off?
+% ok, now why is each wrong (failing to model new entry? failing to model how they react? )
 
 %- ASK JESSE: is how i'm presenting things here clear?
 %- ASK JESSE: how do I know when good is good enough? I won't get perfect prediction performance. I don't even know if I"ll be distributionally good enough. 
@@ -142,9 +145,7 @@ For reviewing, fit evaluation has two components. First, I compute AIC analogous
 %- find ways to loosen assumptions - I feel like I have 5 structural ones + the modelling ones above.  - ACTUALLY UPON FURTHER REFLECTION, I THINK I SHOULD THINK ABOUT HOW I"M GOING TO VARY THE MODEL BASED ON WHAT I"M FAILING TO PREDICT WELL. THE TRICKY THING HERE IS THAT I ONLY HAVE ONE OBSERVATION FOR "HOW WELL I"M PREDICTING". SO I HAVE TO THINK ABOUT HOW DISTRIBUTIONALLY ACROSS ORGS MODELLING CHOICES IMPROVE PREDICTIVE PERFORMANCE??? 
 
 
-I use the following notation for fitted and predicted quantities. Let $\hat{p}_j^s$ denote the estimated member probability for member $j$ at stage $s \in \{o, r, m\}$, computed from pooled pre-period shares as described above. Let $\hat{F}_i$ denote the fitted latent flow distribution for organization $i$, and let $\hat{N}_i$ denote the corresponding point estimate (the mean of $\hat{F}_i$ draws). Let $\hat{\pi}_i^{s,(-j^*)}$ denote the counterfactual stage-$s$ completion probability after removing member $j^*$, constructed from the $\hat{p}_j^s$. Finally, let $\hat{N}_{i,t+1}^s$ denote the predicted count of stage-$s$ activity in the next period $t+1$.
-
-Under this model, the counterfactual stage-completion probabilities and implied counts after removing member $j^*$ are as follows.
+Using the fitted quantities $\hat{N}_i$, $\hat{p}_j^s$, I define the counterfactual stage-$s$ completion probability after removing member $j^*$ as $\hat{\pi}_i^{s,(-j^*)}$, and the predicted next-period count of stage-$s$ activity as $\hat{N}_{i,t+1}^s$. These are as follows.
 
 \begin{enumerate}
     \item $$ \hat{\pi}_i^{o,(-j^*)} = \sum_{j\in\mathcal J\setminus\{j^*\}}\hat{p}_j^o, $$ so the counterfactual number of pull requests opened is $$ \hat{N}_{i,t+1}^o = \hat{N}_i\,\hat{\pi}_i^{o,(-j^*)}. $$
@@ -170,21 +171,21 @@ Now define member $j$'s marginal contribution at each stage as the change in the
 $$
 \Delta_o^{(j)}
 \equiv
-\pi_{i,t}^o - \pi_{i,t}^o^{(-j)}
+\pi_{i,t}^o - \pi_{i,t}^{o,(-j)}
 =
 p_{j,t}^{o}\prod_{j\in\mathcal J\setminus\{j\}}(1-p_{j,t}^{o}),
 $$
 $$
 \Delta_r^{(j)}
 \equiv
-\pi_{i,t}^r - \pi_{i,t}^r^{(-j)}
+\pi_{i,t}^r - \pi_{i,t}^{r,(-j)}
 =
 p_{j,t}^{r}\prod_{j\in\mathcal J\setminus\{j\}}(1-p_{j,t}^{r}),
 $$
 $$
 \Delta_m^{(j)}
 \equiv
-\pi_{i,t}^m - \pi_{i,t}^m^{(-j)}
+\pi_{i,t}^m - \pi_{i,t}^{m,(-j)}
 =
 p_{j,t}^{m}\prod_{j\in\mathcal J\setminus\{j\}}(1-p_{j,t}^{m}).
 $$
@@ -193,7 +194,7 @@ Suppose member $j$ leaves before period $t+1$ and is not replaced, and suppose $
 $$
 E[Q_{t+1}^m \mid N]
 =
-N \pi_{i,t}^o^{(-j)} \pi_{i,t}^r^{(-j)} \pi_{i,t}^m^{(-j)}
+N \pi_{i,t}^{o,(-j)} \pi_{i,t}^{r,(-j)} \pi_{i,t}^{m,(-j)}
 =
 N(\pi_{i,t}^o-\Delta_o^{(j)})(\pi_{i,t}^r-\Delta_r^{(j)})(\pi_{i,t}^m-\Delta_m^{(j)}).
 $$

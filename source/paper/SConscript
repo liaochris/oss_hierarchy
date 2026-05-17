@@ -10,8 +10,18 @@ autofill_sources = [
     '#output/autofill/pc_autofill.tex',
 ]
 
+table_sources = [
+    '#output/tables/outcome_summary_table.tex',
+    '#output/tables/collaboration.tex',
+    '#output/tables/shared_knowledge.tex',
+    '#output/tables/discussion_quality.tex',
+    '#output/tables/investment_new_talent.tex',
+    '#output/tables/problem_solving_routines.tex',
+]
+
 target = ['#output/paper/main.pdf']
-source = ['#source/paper/main.tex', '#source/paper/references.bib'] + autofill_sources
+source = ['#source/paper/main.tex', '#source/paper/references.bib',
+          '#source/figures/figure_helpers.tex'] + autofill_sources + table_sources
 env.Latex(target, source)
 
 

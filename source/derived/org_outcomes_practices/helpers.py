@@ -27,7 +27,7 @@ def LoadFilteredImportantMembers(repo_name, INDIR_IMPORTANT, INDIR_LIB, importan
     from source.lib.python.config_loaders import LoadImportanceSpecifications
     importance_parameters_all = LoadImportanceSpecifications(INDIR_LIB / "config" / "importance_specifications.json")
     if importance_type not in importance_parameters_all:
-        raise ValueError(f"importance_type '{importance_type}' not found in project_config.json")
+        raise ValueError(f"importance_type '{importance_type}' not found in importance_specifications.json")
 
     importance_parameters = importance_parameters_all[importance_type]
     df_important_members = pd.read_csv(INDIR_IMPORTANT / f"{repo_name}.csv")

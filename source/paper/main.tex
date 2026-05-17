@@ -141,6 +141,7 @@
 
 \singlespacing
 
+\input{source/figures/figure_helpers.tex}
 \input{output/autofill/event_study_autofill.tex}
 \input{output/autofill/forest_autofill.tex}
 \input{output/autofill/panel_autofill.tex}
@@ -247,7 +248,7 @@ I find that across all practices, higher scores do not suggest higher resilience
 
 Since this splitting approach scales poorly to multiple practices, in my third step, I develop the \textit{Generalized Random Forest Event Study} (separately developed in \citealt{liao_generalized_2025}), which uses the tools from \cite{athey_generalized_2019} to estimate dynamic heterogeneous treatment effects in event study settings with staggered treatment \citep{sun_estimating_2021}. 
 I use the forest’s predictions of organizational resilience--which are based on all pre-departure practice scores and their interactions--to construct the \textit{Forest Split}, which separates out-of-sample organizations into equally sized high  and low resilience subsets. 
-I find that the Forest Split has very high predictive power: on average, low resilience organizations experience declines between 0.79 and 2.15 standard deviations larger than high resilience organizations across all outcomes measuring software development and release activity. 
+I find that the Forest Split has very high predictive power: on average, low resilience organizations experience declines between \AvgMinDecline{} and \AvgMaxDecline{} standard deviations larger than high resilience organizations across all outcomes measuring software development and release activity.
 Finally, in the fourth step, to aid interpretation, I coarsen the organizational practice space to reduce the dimensionality of the forest's model of predicted organizational resilience conditional on those practices.
 The lower-dimensional results suggest complementarities among practices: although high collaboration scores alone do not predict greater resilience, organizations with high collaboration scores are more resilient when they also have high member knowledge scores or high discussion quality scores. 
 
@@ -450,9 +451,9 @@ To ensure cross-organization comparability, I standardize each organization’s 
 I impose two additional sample restrictions.
 First, all organizations must have exactly one key member at the quasi-treatment date, ensuring that differences between treated and control organizations are not driven by differences in the organizational structure.
 Second, each organization must have observed activity for at least five pre- and five post-periods.
-The final sample features 681 OSS organizations and includes major GitHub projects, such as \texttt{pytorch/pytorch}, the flagship deep learning framework; \texttt{googleapis/google-cloud-Python}, the Python Google Cloud software development kit (SDK); and \texttt{boto/boto3}, the Python Amazon Web Services SDK. Figure~\ref{fig:summary_stats} provides summary statistics for the outcomes and project distribution, and plots the distribution of observed, quasi-treatment and treatment dates. 
+The final sample features 681 OSS organizations and includes major GitHub projects, such as \texttt{pytorch/pytorch}, the flagship deep learning framework; \texttt{googleapis/google-cloud-Python}, the Python Google Cloud software development kit (SDK); and \texttt{boto/boto3}, the Python Amazon Web Services SDK. Table~\ref{tab:outcome_summary} provides summary statistics for the outcomes and project distribution, and plots the distribution of observed, quasi-treatment and treatment dates. 
 
-\input{source/figures/summary_stats}
+\input{output/tables/outcome_summary_table}
 
 
 \section{Organizational Practices} \label{sec:org_practices}
@@ -804,7 +805,6 @@ I separate organizations into high and low resilience subsets using the policy t
 $k$ separate policy trees are trained, each using $k-$1 folds of the sample. 
 For a given fold, observations are separated into the high and low resilience subset based off the assignment function $\pi^*(\cdot)$ trained on the $k-$1 folds. 
 
-\input{source/figures/event_study_policy_depth2}
 
 \todo[inline]{NTS: rerun depth-3 tree with greater precision}
 
@@ -829,7 +829,7 @@ This motivates a complementary interpretability approach: instead of working wit
 Although the coarsening discards information, I believe the modest loss in predictive precision is outweighed by the interpretability gained from reducing the continuous practice space to a manageable set of 32 combinations. 
 
 
-\input{source/figures/practice_combo}
+\input{source/figures/pc_score_combo}
 Figure~\ref{fig:practice_combo} displays all combinations of coarsened organizational practice scores, ordered in descending order by the mean of the doubly robust average post-period treatment effect across all organizations in the combination. 
 Recall from Section~\ref{sec:org_resilience_indiv_tests} that high collaboration scores do not suggest increased resilience, and for some outcomes, high collaboration scores suggest decreased resilience. 
 This pattern is observed in Figure~\ref{fig:practice_combo} as well; 9 of the 16 combinations with high collaboration scores belong in the top half of combinations, ordered by resilience, whereas the remaining 7 belong in the bottom half. 
@@ -890,14 +890,14 @@ The categories are:
 
 I quantify how issues \& pull requests affect downstream projects by checking whether a major OSS project would have been affected by an issue
 
-\subfile{model}
+\subfile{source/paper/model}
 
 \newpage
-\input{source/tables/collaboration}
-\input{source/tables/knowledge_level}
-\input{source/tables/discussion_quality}
-\input{source/tables/investment_new_talent}
-\input{source/tables/problem_solving_routines}
+\input{output/tables/collaboration}
+\input{output/tables/shared_knowledge}
+\input{output/tables/discussion_quality}
+\input{output/tables/investment_new_talent}
+\input{output/tables/problem_solving_routines}
 \newpage
 
 \clearpage
@@ -920,10 +920,7 @@ I quantify how issues \& pull requests affect downstream projects by checking wh
 
 \section{Additional Empirical Analysis}\label{sec:app_analysis}
 
-\input{source/figures/event_study_other_practices_p1}
-\newpage
-\input{source/figures/event_study_other_practices_p2}
-%\input{source/figures/event_study_policy_depth13}
+\input{source/figures/event_study_other_practices}
 
 \iffalse
 \section{Additional Details on Data Construction}\label{sec:app_data}

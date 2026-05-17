@@ -14,56 +14,52 @@ _analysis_cfg = LoadPipelineInputs("../../../source/lib/config/analysis_paramete
 NORM_OPTIONS = _analysis_cfg["norm_options"]
 NORM_LABELS  = {True: "norm", False: "raw"}
 
-INDIR_PREP = "#output/analysis/data_prep"
+INDIR_PREP = "#output/derived/analysis_panel"
 OUTDIR     = "#output/analysis/event_study_forest"
 
-AGGREGATED_SAMPLES = {"exact_1_2": ["exact1", "exact2"]}
+AGGREGATED_SAMPLES     = {"exact_1_2": ["exact1", "exact2"]}
+NON_AGGREGATED_SAMPLES = [s for s in QUALIFIED_SAMPLES if s not in AGGREGATED_SAMPLES]
 
-sources = [
+fit_helper_sources = [
     "#source/analysis/event_study_forest/fit_cate.R",
-    "#source/lib/R/event_study_forest.R",
+    "#source/lib/event_study_forest/event_study_forest.R",
     "#source/lib/R/config_loaders.R",
     "#source/lib/R/analysis_utils.R",
     "#source/lib/R/constants.R",
-    "#source/lib/R/forest_helpers.R",
+    "#source/lib/event_study_forest/forest_helpers.R",
     "#source/lib/config/pipeline_inputs.json",
     "#source/lib/config/feature_variables.json",
     "#source/lib/config/analysis_parameters.json",
     "#source/lib/pc_groups.json",
 ]
-NON_AGGREGATED_SAMPLES = [s for s in QUALIFIED_SAMPLES if s not in AGGREGATED_SAMPLES]
 
 for importance_type in IMPORTANCE_TYPES:
     for rolling_period in ROLLING_PERIODS:
         for qualified_sample in NON_AGGREGATED_SAMPLES:
             for control_group in CONTROL_GROUPS:
-                sources += [
+                call_sources = fit_helper_sources + [
                     f"{INDIR_PREP}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel_with_pc_scores.parquet",
                     f"{INDIR_PREP}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/pc_score_columns.json",
                 ]
-
-targets = []
-for importance_type in IMPORTANCE_TYPES:
-    for rolling_period in ROLLING_PERIODS:
-        for qualified_sample in NON_AGGREGATED_SAMPLES:
-            for control_group in CONTROL_GROUPS:
+                call_targets = []
                 for covar_type in COVAR_TYPES:
                     for norm_option in NORM_OPTIONS:
                         outdir_base = f"{OUTDIR}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/{covar_type}/{NORM_LABELS[norm_option]}"
-                        targets += [
+                        call_targets += [
                             f"{outdir_base}/{FOREST_OUTCOME}_repo_att_event_study_forest.parquet",
                             f"{outdir_base}/{FOREST_OUTCOME}_repo_att_event_study_forest.log",
                             f"{outdir_base}/{FOREST_OUTCOME}_cohort_time_repo_coeffs_event_study_forest.parquet",
                         ]
-
-env.R(targets, sources)
+                env.R(call_targets, call_sources,
+                      CL_ARG=[f'CL_IMPORTANCE_TYPE={importance_type}', f'CL_ROLLING_PERIOD={rolling_period}',
+                              f'CL_QUALIFIED_SAMPLE={qualified_sample}', f'CL_CONTROL_GROUP={control_group}'])
 
 predict_sources = [
     "#source/analysis/event_study_forest/predict_forest_resilience.R",
     "#source/lib/R/config_loaders.R",
     "#source/lib/R/analysis_utils.R",
     "#source/lib/R/event_study_helpers.R",
-    "#source/lib/R/forest_helpers.R",
+    "#source/lib/event_study_forest/forest_helpers.R",
     "#source/lib/R/constants.R",
     "#source/lib/config/pipeline_inputs.json",
     "#source/lib/config/analysis_parameters.json",
@@ -87,5 +83,4 @@ predict_targets = [
     f"{OUTDIR}/personalized_event_study_coefficients.log",
     "#output/autofill/forest_autofill.tex",
 ]
-
 env.R(predict_targets, predict_sources)

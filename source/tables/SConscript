@@ -1,0 +1,31 @@
+Import('*')
+
+_canonical = "important_degree_top3/rolling5/exact_1_2/nevertreated"
+
+env.Tablefill(
+    '#output/tables/outcome_summary_table.tex',
+    ['#source/tables/outcome_summary_table.tex',
+     f'#output/analysis/analyze_forest/{_canonical}/raw/outcome_summary.txt'])
+
+env.Tablefill(
+    '#output/tables/pc_score_combo_k2_top3.tex',
+    ['#source/tables/pc_score_combo_k2_top3.tex',
+     f'#output/analysis/analyze_forest/{_canonical}/norm/pc_score_combo_k2_top3.txt'])
+
+env.Tablefill(
+    '#output/tables/pc_score_combo_k3_top3.tex',
+    ['#source/tables/pc_score_combo_k3_top3.tex',
+     f'#output/analysis/analyze_forest/{_canonical}/norm/pc_score_combo_k3_top3.txt'])
+
+_pc_group_tex_names = {
+    "collaboration":            "collaboration",
+    "shared_knowledge":         "shared_knowledge",
+    "discussion_quality":       "discussion_quality",
+    "investment_in_new_talent": "investment_new_talent",
+    "problem_solving_routines": "problem_solving_routines",
+}
+for _group, _tex in _pc_group_tex_names.items():
+    env.Tablefill(
+        f'#output/tables/{_tex}.tex',
+        [f'#source/tables/{_tex}.tex',
+         f'#output/derived/analysis_panel/pc_loadings_{_group}.txt'])

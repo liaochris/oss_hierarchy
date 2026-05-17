@@ -21,7 +21,7 @@ ROLLING_PERIOD = f"rolling{_cfg['rolling_periods']['run'][0]}"
 
 INDIR_ACTIONS = Path("drive/output/derived/action_data/repo_actions")
 INDIR_BOT     = Path("output/derived/create_bot_list")
-INDIR_PANEL   = Path("output/analysis/data_prep")
+INDIR_PANEL   = Path("output/derived/analysis_panel")
 OUTDIR        = Path("drive/output/derived/model_prediction/event_time_member_panel")
 LOG_OUTDIR    = Path("output/derived/model_prediction/event_time_member_panel")
 

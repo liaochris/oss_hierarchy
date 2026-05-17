@@ -39,6 +39,10 @@ def LoadOutcomeVariables(json_path=None):
     return LoadGlobals(json_path or CONFIG_DIR / "outcome_variables.json")
 
 
+def LoadPaperSettings(json_path=None):
+    return LoadGlobals(json_path or CONFIG_DIR / "paper_settings.json")
+
+
 def FlattenConfigValues(config_block, phases=("run",)):
     values = []
     for item in config_block.values():

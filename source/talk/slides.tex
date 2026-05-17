@@ -87,6 +87,12 @@
 
 \begin{document}
 
+\input{\dir/output/autofill/event_study_autofill.tex}
+\input{\dir/output/autofill/forest_autofill.tex}
+\input{\dir/output/autofill/panel_autofill.tex}
+\input{\dir/output/autofill/config_autofill.tex}
+\input{\dir/output/autofill/pc_autofill.tex}
+
 \frame{\titlepage}
 \bibliographystyle{\dir/source/paper/aea}
 \nobibliography{\dir/source/paper/references}
@@ -231,10 +237,10 @@
 \begin{itemize}
   \item<1-> \focus<1>{Population: OSS organizations developing widely-used Python libraries.}
   \begin{itemize}
-    \item<1-> \focus<1>{Final sample: 681 organizations, after applying data-availability and suitability restrictions.}
+    \item<1-> \focus<1>{Final sample: \NumOrgs{} organizations, after applying data-availability and suitability restrictions.}
     \item<1-> \focus<1>{Examples include the Python APIs for Google Cloud and Amazon Web Services.}
   \end{itemize}
-  \item<2-> \focus<2>{Time frame: Activity from 2015--2024, aggregated into six-month periods.}
+  \item<2-> \focus<2>{Time frame: Activity from \SampleStart--\SampleEnd, aggregated into six-month periods.}
   \item<3-> \focus<3>{Unit of observation: one OSS organization.}
 \end{itemize}
 \end{frame}
@@ -505,123 +511,6 @@ Y_{i,t}^{SD} = \alpha_i + f_t(X_i) + \sum_{e \neq \infty}\sum_{k \neq -1} \delta
 \end{frame}
 
 
-\iffalse
-
-
-\section{Predictors of resilience}
-
-\begin{frame}{Robustness checks}
-\small
-\begin{itemize}
-  \item<1-> \focus<1>{Fold robustness: rank all 32 coarsened practice combinations within each fold, keep the ordering fixed, and report alignment or average pairwise correlations across folds.}
-  \item<2-> \focus<2>{Departure-timing robustness: test sensitivity to the abrupt-departure assumption and verify that nearby organizational outcomes are not moving before departure.}
-  \item<3-> \focus<3>{Pre-trend robustness: add Rambachan-Roth style sensitivity bounds for the main event-study comparisons.}
-  \item<4-> \focus<4>{Dynamics: compare short-run and long-run resilience groups to see whether the same practices support both.}
-\end{itemize}
-\end{frame}
-
-
-% INTERPRETING THE MODEL
-% What I would ideally like to have (a lot of it isn't done yet)
-\section{Interpretation}
-
-\begin{frame}{What the forest is using}
-\begin{columns}[T,onlytextwidth]
-  \begin{column}{0.46\textwidth}
-  \footnotesize
-  \textbf{Tree depth distribution}
-  \begin{tabular}{lr}
-  \toprule
-  Depth & Share \\
-  \midrule
-  1 & 0.334 \\
-  2 & 0.088 \\
-  3 & 0.265 \\
-  4 & 0.280 \\
-  5 & 0.032 \\
-  \bottomrule
-  \end{tabular}
-  \medskip
-  \textbf{Split frequency}
-  \begin{tabular}{lr}
-  \toprule
-  Practice & Frequency \\
-  \midrule
-  Collaboration & 0.21 \\
-  Knowledge redundancy & 0.35 \\
-  Discussion quality & 0.26 \\
-  Investment in new talent & 0.02 \\
-  Problem-solving routines & 0.16 \\
-  \bottomrule
-  \end{tabular}
-  \end{column}
-  \begin{column}{0.50\textwidth}
-  \centering
-  \plotplaceholder[\linewidth]{Practice-score correlation heatmap pending analysis output.}
-  {\footnotesize Correlations across the five practice scores}
-  \end{column}
-\end{columns}
-\medskip
-\small
-Over half of the trees have depth three or greater, which is consistent with resilience being driven by interactions. The forest also uses several practice scores frequently, rather than relying on one dominant predictor.
-\note{
-Use this slide to motivate the interpretation section:
-the forest is using several practices and many trees are fairly deep, which is
-consistent with genuinely interactive structure.
-}
-\end{frame}
-
-% INTERPRETING THE MODEL
-% Is there a way to show that the policy tree isn't an effective way of summarizing this
-% and how can I reconcile that??? I need to think more about the reason...
-\begin{frame}{Why simple rules fall short}
-\begin{columns}[T,onlytextwidth]
-  \begin{column}{0.47\textwidth}
-  \small
-  \begin{itemize}
-    \item A shallow policy tree is attractive because it delivers a decision rule practitioners could actually use.
-    \item In practice, depth-1 through depth-3 trees leave substantial predictive power on the table.
-    \item The depth-1 tree is especially informative: even a data-driven split on one practice is not enough to recover the resilience gap.
-    \item Working interpretation: resilience depends on several interacting practices in a way that is hard to summarize with one short rule.
-  \end{itemize}
-  \end{column}
-  \begin{column}{0.49\textwidth}
-  \centering
-  \plotplaceholder[\linewidth]{Policy-tree comparison figure pending analysis output.}
-  \end{column}
-\end{columns}
-\note{
-This slide corresponds directly to the original policy-tree concern.
-The open interpretive question is why the policy tree fails even though the forest succeeds.
-Possible explanation to explore: too much variation in which combinations look best across folds.
-}
-\end{frame}
-
-% INTERPRETING THE MODEL
-% best 2, 3-practice combos - plus robustness to doing this on all combinations of 9 folds
-\begin{frame}{Which combinations look most resilient?}
-\begin{columns}[T,onlytextwidth]
-  \begin{column}{0.60\textwidth}
-  \centering
-  \plotplaceholder[\linewidth]{Practice-combination ranking figure pending analysis output.}
-  \end{column}
-  \begin{column}{0.36\textwidth}
-  \small
-  \begin{itemize}
-    \item There is no single best practice that dominates on its own.
-    \item High collaboration appears most useful when paired with high knowledge redundancy or high discussion quality.
-    \item The combination of collaboration, knowledge redundancy, and discussion quality is especially resilient when paired with either investment in new talent or strong routines.
-    \item Remaining robustness exercise: check whether the ranking of the 32 coarsened combinations is stable across folds.
-  \end{itemize}
-  \end{column}
-\end{columns}
-\note{
-This slide is the placeholder for the original "best 2- and 3-practice combinations" idea.
-The remaining robustness check is to verify that the ranking of coarsened combinations is stable across folds.
-}
-\end{frame}
-\fi
-
 \appendix
 \section{Appendix}
 \beamerdefaultoverlayspecification{}
@@ -630,9 +519,9 @@ The remaining robustness check is to verify that the ranking of coarsened combin
 \footnotesize
 \begin{itemize}
   \item Interpretation: higher scores mean work is shared across more members rather than concentrated in a small subset.
-  \item The first principal component explains 53.8\% of the variance in the underlying measures.
+  \item The first principal component explains \CollabVarianceExplained\% of the variance in the underlying measures.
 \end{itemize}
-\input{\dir/source/tables/collaboration.tex}
+\input{\dir/output/tables/collaboration.tex}
 
 \bottomrightbutton{\backbutton{main-measures}}
 \end{frame}
@@ -642,9 +531,9 @@ The remaining robustness check is to verify that the ranking of coarsened combin
 \footnotesize
 \begin{itemize}
   \item Interpretation: higher scores mean more members can work across multiple problem types, so the organization loses less know-how when one person leaves.
-  \item The first principal component explains 91.6\% of the variance in the underlying measures.
+  \item The first principal component explains \KnowledgeVarianceExplained\% of the variance in the underlying measures.
 \end{itemize}
-\input{\dir/source/tables/shared_knowledge.tex}
+\input{\dir/output/tables/shared_knowledge.tex}
 
 \bottomrightbutton{\backbutton{main-measures}}
 \end{frame}
@@ -654,9 +543,9 @@ The remaining robustness check is to verify that the ranking of coarsened combin
 \footnotesize
 \begin{itemize}
   \item Interpretation: higher scores mean discussions are more responsive and more constructive.
-  \item The first principal component explains 47.7\% of the variance in the underlying measures.
+  \item The first principal component explains \DiscussionVarianceExplained\% of the variance in the underlying measures.
 \end{itemize}
-\input{\dir/source/tables/discussion_quality.tex}
+\input{\dir/output/tables/discussion_quality.tex}
 
 \bottomrightbutton{\backbutton{main-measures}}
 \end{frame}
@@ -666,9 +555,9 @@ The remaining robustness check is to verify that the ranking of coarsened combin
 \footnotesize
 \begin{itemize}
   \item Interpretation: higher scores mean the organization has more infrastructure for onboarding and integrating new contributors.
-  \item The first principal component explains 51.6\% of the variance in the underlying measures.
+  \item The first principal component explains \TalentVarianceExplained\% of the variance in the underlying measures.
 \end{itemize}
-\input{\dir/source/tables/investment_new_talent.tex}
+\input{\dir/output/tables/investment_new_talent.tex}
 
 \bottomrightbutton{\backbutton{main-measures}}
 \end{frame}
@@ -678,9 +567,9 @@ The remaining robustness check is to verify that the ranking of coarsened combin
 \footnotesize
 \begin{itemize}
   \item Interpretation: higher scores mean the organization has more formal structure for allocating, reviewing, and documenting work.
-  \item The first principal component explains 35.9\% of the variance in the underlying measures.
+  \item The first principal component explains \RoutinesVarianceExplained\% of the variance in the underlying measures.
 \end{itemize}
-\input{\dir/source/tables/problem_solving_routines.tex}
+\input{\dir/output/tables/problem_solving_routines.tex}
 
 \bottomrightbutton{\backbutton{main-measures}}
 \end{frame}

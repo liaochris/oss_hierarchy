@@ -9,24 +9,24 @@ from source.lib.python.repo_utils import MakeRepoNameSafe
 from source.lib.JMSLab.SaveData import SaveData
 from source.lib.JMSLab.autofill import GenerateAutofillMacros
 
-AUTOFILL_OUTDIR = Path("output/autofill")
-GLOBAL_SETTINGS = Path("source/lib/config/global_settings.json")
+AUTOFILL_OUTDIR    = Path("output/autofill")
+GLOBAL_SETTINGS    = Path("source/lib/config/global_settings.json")
+INDIR_PYPI         = Path("output/scrape/pypi_downloads")
+INDIR_LINK         = Path("output/scrape/pypi_site_info")
+INDIR_REPO         = Path("output/scrape/extract_github_data")
+INDIR_ISSUE        = Path("drive/output/scrape/extract_github_data/repo_level_data/issue")
+INDIR_PR           = Path("drive/output/scrape/extract_github_data/repo_level_data/pr")
+INDIR_ISSUE_LINKED = Path("drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request")
+INDIR_PR_LINKED    = Path("drive/output/scrape/link_issue_pull_request/linked_pull_request_to_issue")
+INDIR_GRAPH_LOG    = Path("output/derived/graph_structure/exported_graphs_log.csv")
+OUTDIR             = Path("output/analysis/summ_stats")
 
 
 def Main():
     pipeline_cfg = LoadPipelineInputs()
     analysis_spec = BuildAnalysisSpec(pipeline_cfg)
 
-    INDIR_PYPI = Path("output/scrape/pypi_downloads")
-    INDIR_LINK = Path("output/scrape/pypi_site_info")
-    INDIR_REPO = Path("output/scrape/extract_github_data")
-    INDIR_ISSUE = Path("drive/output/scrape/extract_github_data/repo_level_data/issue")
-    INDIR_PR = Path("drive/output/scrape/extract_github_data/repo_level_data/pr")
-    INDIR_ISSUE_LINKED = Path("drive/output/scrape/link_issue_pull_request/linked_issue_to_pull_request")
-    INDIR_PR_LINKED = Path("drive/output/scrape/link_issue_pull_request/linked_pull_request_to_issue")
-    INDIR_GRAPH_LOG = Path("output/derived/graph_structure/exported_graphs_log.csv")
     INDIR_ORG_PANEL = Path("drive/output/derived/org_outcomes_practices/org_panel") / analysis_spec["importance_type"] / analysis_spec["rolling_label"] / "panel.parquet"
-    OUTDIR = Path("output/analysis/summ_stats")
 
     OUTDIR.mkdir(parents=True, exist_ok=True)
 
@@ -126,7 +126,7 @@ def BuildAnalysisSpec(pipeline_cfg):
         key=lambda sample: int(sample.removeprefix("exact"))
     )
     prepared_panel_paths = {
-        sample: Path("output/analysis/data_prep") / importance_type / rolling_label / sample / control_group / "panel.parquet"
+        sample: Path("output/derived/analysis_panel") / importance_type / rolling_label / sample / control_group / "panel.parquet"
         for sample in exact_samples
     }
     return {

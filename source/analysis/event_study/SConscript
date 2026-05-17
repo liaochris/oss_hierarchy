@@ -16,13 +16,14 @@ _outcomes_cfg = LoadOutcomeVariables("../../../source/lib/config/outcome_variabl
 with open("../../../source/lib/pc_groups.json") as fh:
     _pc_groups_cfg = json.load(fh)
 
-OUTCOMES       = [outcome for category_cfg in _outcomes_cfg.values() for outcome in category_cfg.get("run", [])]
-PC_GROUP_NAMES = list(_pc_groups_cfg.keys())
+OUTCOMES         = [o for cat in _outcomes_cfg.values() for o in cat.get("run", [])]
+PC_GROUP_NAMES   = list(_pc_groups_cfg.keys())
+AGGREGATED_SAMPLES = {"exact_1_2": ["exact1", "exact2"]}
 
 OUTDIR     = "#output/analysis/event_study"
-INDIR_PREP = "#output/analysis/data_prep"
+INDIR_PREP = "#output/derived/analysis_panel"
 
-sources = [
+helper_sources = [
     "#source/analysis/event_study/estimate_resilience.R",
     "#source/lib/R/event_study_helpers.R",
     "#source/lib/R/config_loaders.R",
@@ -36,28 +37,54 @@ sources = [
     "#source/lib/config/plotting.json",
     "#source/lib/pc_groups.json",
 ]
+
 for importance_type in IMPORTANCE_TYPES:
     for rolling_period in ROLLING_PERIODS:
         for qualified_sample in QUALIFIED_SAMPLES:
             for control_group in CONTROL_GROUPS:
-                base = f"{INDIR_PREP}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}"
-                sources += [f"{base}/panel.parquet", f"{base}/panel_with_pc_scores.parquet"]
+                sub_samples = AGGREGATED_SAMPLES.get(qualified_sample, [qualified_sample])
+                panel_sources = [
+                    path
+                    for s in sub_samples
+                    for path in [
+                        f"{INDIR_PREP}/{importance_type}/{rolling_period}/{s}/{control_group}/panel.parquet",
+                        f"{INDIR_PREP}/{importance_type}/{rolling_period}/{s}/{control_group}/panel_with_pc_scores.parquet",
+                    ]
+                ]
+                base = f"{OUTDIR}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}"
+                combo_targets = [
+                    f"{base}/estimates.csv",
+                    f"{base}/estimates.log",
+                ]
+                for norm_label in NORM_LABELS:
+                    for outcome in OUTCOMES:
+                        combo_targets.append(f"{base}/full_sample/{norm_label}/{outcome}.png")
+                    for pc_group_name in PC_GROUP_NAMES:
+                        for outcome in OUTCOMES:
+                            combo_targets.append(
+                                f"{base}/pc_score/{norm_label}/{pc_group_name}_{outcome}_pc_score_split.png"
+                            )
+                env.R(combo_targets, helper_sources + panel_sources,
+                      CL_ARG=[f'CL_IMPORTANCE_TYPE={importance_type}', f'CL_ROLLING_PERIOD={rolling_period}',
+                              f'CL_QUALIFIED_SAMPLE={qualified_sample}', f'CL_CONTROL_GROUP={control_group}'])
 
-targets = [
-    f"{OUTDIR}/all_estimates.csv",
-    f"{OUTDIR}/all_estimates.log",
-    "#output/autofill/event_study_autofill.tex",
+combine_sources = [
+    "#source/analysis/event_study/combine_estimates.R",
+    "#source/lib/R/config_loaders.R",
+    "#source/lib/R/constants.R",
+    "#source/lib/config/pipeline_inputs.json",
+    "#source/lib/config/analysis_parameters.json",
 ]
 for importance_type in IMPORTANCE_TYPES:
     for rolling_period in ROLLING_PERIODS:
         for qualified_sample in QUALIFIED_SAMPLES:
             for control_group in CONTROL_GROUPS:
-                base = f"{OUTDIR}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}"
-                for norm_label in NORM_LABELS:
-                    for outcome in OUTCOMES:
-                        targets.append(f"{base}/full_sample/{norm_label}/{outcome}.png")
-                    for pc_group_name in PC_GROUP_NAMES:
-                        for outcome in OUTCOMES:
-                            targets.append(f"{base}/pc_score/{norm_label}/{pc_group_name}_{outcome}_pc_score_split.png")
-
-env.R(targets, sources)
+                combine_sources.append(
+                    f"{OUTDIR}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/estimates.csv"
+                )
+combine_targets = [
+    f"{OUTDIR}/all_estimates.csv",
+    f"{OUTDIR}/all_estimates.log",
+    "#output/autofill/event_study_autofill.tex",
+]
+env.R(combine_targets, combine_sources)

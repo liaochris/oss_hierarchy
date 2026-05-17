@@ -30,7 +30,7 @@ Main <- function() {
 PlotPCScoreCorrelationHeatmap <- function(forest_results, outdir_ds) {
   pc_score_cols <- colnames(forest_results)[grepl("_pc_score$", colnames(forest_results))]
 
-  corr_tidy <- forest_results %>%
+  pc_score_correlations <- forest_results %>%
     select(all_of(pc_score_cols)) %>%
     rename(!!!setNames(pc_score_cols, PC_LABELS[pc_score_cols])) %>%
     cor(use = "pairwise.complete.obs") %>%
@@ -40,7 +40,7 @@ PlotPCScoreCorrelationHeatmap <- function(forest_results, outdir_ds) {
     mutate(label      = sprintf("%.2f", correlation),
            text_color = ifelse(abs(correlation) > 0.4, "white", "black"))
 
-  ggplot(corr_tidy, aes(x = var1, y = var2, fill = correlation)) +
+  pc_score_correlation_heatmap <- ggplot(pc_score_correlations, aes(x = var1, y = var2, fill = correlation)) +
     geom_tile() +
     geom_text(aes(label = label, color = text_color), size = 5) +
     scale_color_identity() +
@@ -54,7 +54,7 @@ PlotPCScoreCorrelationHeatmap <- function(forest_results, outdir_ds) {
           legend.text  = element_text(size = 10)) +
     labs(x = "", y = "", fill = "Correlation\n")
 
-  ggsave(file.path(outdir_ds, "heatmap_corr.png"), width = 10, height = 6, dpi = 300)
+  ggsave(file.path(outdir_ds, "pc_score_correlation_heatmap.png"), pc_score_correlation_heatmap, width = 10, height = 6, dpi = 300)
 }
 
 Main()

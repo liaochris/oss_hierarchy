@@ -8,6 +8,7 @@ if (!exists("PCGroupsConfig", mode = "function")) {
 }
 
 pipeline_inputs     <- LoadProjectConfig("source/lib/config/pipeline_inputs.json")
+paper_settings      <- LoadProjectConfig("source/lib/config/paper_settings.json")
 feature_variables   <- LoadProjectConfig("source/lib/config/feature_variables.json")
 outcome_variables   <- LoadProjectConfig("source/lib/config/outcome_variables.json")
 analysis_parameters <- LoadProjectConfig("source/lib/config/analysis_parameters.json")
@@ -47,3 +48,8 @@ OUTCOMES <- FlattenConfigValues(outcome_variables, include_extended = FALSE)
 AGGREGATED_SAMPLES <- list(
   exact_1_2 = c("exact1", "exact2")
 )
+
+PRIMARY_IMPORTANCE_TYPE  <- paper_settings$primary_importance_type
+PRIMARY_QUALIFIED_SAMPLE <- paper_settings$primary_qualified_sample
+PRIMARY_ROLLING_LABEL    <- paper_settings$primary_rolling_label
+PRIMARY_CONTROL_GROUP    <- paper_settings$primary_control_group

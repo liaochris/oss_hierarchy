@@ -126,7 +126,7 @@ def insert_tables_latex(args, tables):
 
     for n in range(len(lyx_text)):
         if re.search('label{tab:', lyx_text[n]):
-            tag = re.sub(r"[\}\"\n]", "", lyx_text[n].split(':')[1]).lower()
+            tag = re.search(r'label\{tab:([^}]+)\}', lyx_text[n]).group(1).lower()
             if tag in tables:
                 i = n
                 entry_count = 0
@@ -152,7 +152,7 @@ def insert_tables_latex(args, tables):
                             entry_count += 1
 
                     lyx_text[i] = "&".join(lyx_text_i)
-                    if re.search('end{tabular}', lyx_text[i]):
+                    if re.search('end{tabular}|end{longtable}', lyx_text[i]):
                         search_table = False
     return lyx_text
 
