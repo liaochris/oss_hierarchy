@@ -12,6 +12,7 @@ importance_types  = _cfg["importance_types"]["run"]
 rolling_period    = f"rolling{_cfg['rolling_periods']['run'][0]}"
 qualified_samples = _cfg["qualified_samples"]["run"]
 control_groups    = _cfg["control_groups"]["run"]
+variants          = ["observed", "same_period", "opened_cohort"]
 
 combos = list(product(importance_types, qualified_samples, control_groups))
 
@@ -34,8 +35,8 @@ panel_sources = [
 ]
 
 targets = [
-    f'#drive/output/derived/model_prediction/event_time_member_panel/{imp}/{qs}/{cg}/{ref}.parquet'
-    for imp, qs, cg in combos
+    f'#drive/output/derived/model_prediction/event_time_member_panel/{variant}/{imp}/{qs}/{cg}/{ref}.parquet'
+    for variant, (imp, qs, cg) in product(variants, combos)
 ]
 
 env.Python(targets, script_deps + panel_sources)

@@ -1,0 +1,90 @@
+Import('*')
+
+from itertools import product
+from source.lib.python.config_loaders import LoadPipelineInputs, LoadAnalysisParameters
+from source.lib.python.repo_utils import MakeRepoNameSafe
+
+_cfg = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
+_ap  = LoadAnalysisParameters("../../../source/lib/config/analysis_parameters.json")
+
+ref_by_sample     = {qs: MakeRepoNameSafe(r) for qs, r in _ap["model_reference_repos"].items()}
+importance_types  = _cfg["importance_types"]["run"]
+rolling_label     = f"rolling{_cfg['rolling_periods']['run'][0]}"
+qualified_samples = [s for s in _cfg["qualified_samples"]["run"] if s in {"exact1", "exact2", "exact_1_2"}]
+control_groups    = _cfg["control_groups"]["run"]
+variants          = ["observed", "same_period", "opened_cohort"]
+post_times        = list(range(1, _ap["max_event_time"] + 1))
+eval_keys         = [str(t) for t in post_times] + ["1_5"]
+
+combos = list(product(importance_types, qualified_samples, control_groups))
+
+shared_deps = [
+    '#source/lib/python/config_loaders.py',
+    '#source/lib/python/repo_utils.py',
+    '#source/lib/JMSLab/SaveData.py',
+    '#source/lib/config/pipeline_inputs.json',
+]
+panel_sources = [
+    f'#output/derived/analysis_panel/{imp}/{rolling_label}/{qs}/{cg}/panel.parquet'
+    for imp, qs, cg in combos
+]
+member_panel_sources = [
+    f'#drive/output/derived/model_prediction/event_time_member_panel/{variant}/{imp}/{qs}/{cg}/{ref_by_sample[qs]}.parquet'
+    for variant, (imp, qs, cg) in product(variants, combos)
+]
+
+fit_targets = []
+for variant, (imp, qs, cg) in product(variants, combos):
+    base = f'#output/analysis/model_prediction/{variant}/fitted/{imp}/{qs}/{cg}'
+    fit_targets += [
+        f'{base}/distribution_params.parquet',
+        f'{base}/distribution_params.log',
+        f'{base}/distribution_comparison.parquet',
+        f'{base}/distribution_comparison.log',
+        f'{base}/member_probabilities.parquet',
+        f'{base}/member_probabilities.log',
+        f'{base}/review_fit_check.parquet',
+        f'{base}/review_fit_check.log',
+    ]
+
+env.Python(
+    fit_targets,
+    ['#source/analysis/model_prediction/fit_model.py']
+    + shared_deps + panel_sources + member_panel_sources,
+)
+
+predict_targets = []
+for variant, (imp, qs, cg), t in product(variants, combos, post_times):
+    base = f'#output/analysis/model_prediction/{variant}/predictions/{imp}/{qs}/{cg}/event_time_{t}'
+    predict_targets += [
+        f'{base}/predictions.parquet',
+        f'{base}/predictions.log',
+    ]
+
+env.Python(
+    predict_targets,
+    ['#source/analysis/model_prediction/predict_model.py']
+    + shared_deps + fit_targets + panel_sources + member_panel_sources,
+)
+
+evaluate_targets = []
+for variant, (imp, qs, cg), key, group in product(variants, combos, eval_keys, ['treated', 'control']):
+    base = f'#output/analysis/model_prediction/{variant}/evaluation/{imp}/{qs}/{cg}/event_time_{key}/{group}'
+    evaluate_targets += [
+        f'{base}/error_open_pct.png',
+        f'{base}/error_review_rate_pp.png',
+        f'{base}/error_merge_rate_pp.png',
+        f'{base}/prediction_error_summary.csv',
+    ]
+summary_targets = [
+    f'#output/analysis/model_prediction/{variant}/evaluation/{imp}/{qs}/{cg}/prediction_error_summary_all.csv'
+    for variant, (imp, qs, cg) in product(variants, combos)
+]
+
+env.Python(
+    evaluate_targets + summary_targets,
+    ['#source/analysis/model_prediction/evaluate_predictions.py',
+     '#source/lib/config/pipeline_inputs.json',
+     '#source/lib/config/analysis_parameters.json']
+    + predict_targets,
+)
