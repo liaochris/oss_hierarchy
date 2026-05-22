@@ -54,7 +54,7 @@ def ProcessDataset(importance_type, rolling_period, active_outcomes, pc_groups_c
     for qualified_sample in QUALIFIED_SAMPLES:
         for control_group in CONTROL_GROUPS:
             prepared_panel = BuildPreparedSample(panel, active_outcomes, qualified_sample, control_group)
-            repo_pc_scores, pc_loading_metadata, pc_excluded_vars = ComputeRepoPCScores(prepared_panel, pc_groups_cfg)
+            repo_pc_scores, pc_loading_metadata, pc_excluded_vars = ComputeRepoPCScores(prepared_panel, pc_groups_cfg, rolling_period)
             SaveSampleOutputs(
                 prepared_panel, repo_pc_scores, pc_loading_metadata, pc_excluded_vars,
                 OUTDIR / importance_type / rolling_period / qualified_sample / control_group,
@@ -129,18 +129,28 @@ def GetOutcomeValidRepos(panel, outcome):
     return df.loc[np.isfinite(normalized), "repo_name"].unique()
 
 
-def ComputeRepoPCScores(panel, pc_groups_cfg):
+def ComputeRepoPCScores(panel, pc_groups_cfg, rolling_period):
     if panel.empty:
         return EmptyPCScoreOutputs()
 
-    baseline = panel[panel["quasi_event_time"] == -1].copy()
+    rp = int(rolling_period.replace("rolling", ""))
+    if rp == 5:
+        pre_data = panel[panel["quasi_event_time"] == -1].copy()
+    elif rp == 1:
+        pre_data = panel[
+            (panel["quasi_event_time"] >= MIN_EVENT_TIME) & (panel["quasi_event_time"] <= -1)
+        ].copy()
+    else:
+        raise ValueError(f"Unsupported rolling_period: {rolling_period}")
+
     all_group_vars = {v for cfg in pc_groups_cfg.values() for v in cfg["vars"]}
-    present_vars = [v for v in all_group_vars if v in baseline.columns]
+    present_vars = [v for v in all_group_vars if v in pre_data.columns]
 
     if not present_vars:
-        return EmptyPCScoreOutputs(baseline)
+        return EmptyPCScoreOutputs(pre_data)
 
-    na_counts = baseline[present_vars].isna().sum()
+    repo_feature_means = pre_data.groupby("repo_name")[sorted(present_vars)].mean()
+    na_counts = repo_feature_means.isna().sum()
     valid_vars = {v for v in present_vars if na_counts[v] < MAX_BASELINE_NA_COUNT}
     excluded_rows = [
         {"group": pc_group_name, "var": var_name, "na_count": int(na_counts[var_name])}
@@ -155,10 +165,10 @@ def ComputeRepoPCScores(panel, pc_groups_cfg):
     )
 
     if not valid_vars:
-        scores, empty_meta, _ = EmptyPCScoreOutputs(baseline)
+        scores, empty_meta, _ = EmptyPCScoreOutputs(pre_data)
         return scores, empty_meta, excluded_vars
 
-    repo_feature_means = baseline.groupby("repo_name")[sorted(valid_vars)].mean()
+    repo_feature_means = repo_feature_means[sorted(valid_vars)]
     repo_pc_scores = repo_feature_means.reset_index()[["repo_name"]]
     metadata_rows = []
 

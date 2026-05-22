@@ -49,9 +49,6 @@ Main <- function() {
       df_data           <- CreateDataPanel(panel, FOREST_TRAINING_OUTCOME, covars,
                                            rolling_period, N_FOLDS, SEED, normalize = normalize)
       base_feature_cols <- intersect(paste0(covars, "_mean"), colnames(df_data))
-      na_counts         <- colSums(is.na(df_data %>% select(all_of(base_feature_cols))))
-      base_feature_cols <- base_feature_cols[na_counts < NA_THRESHOLD]
-      df_data           <- df_data[complete.cases(df_data %>% select(all_of(base_feature_cols))), ]
 
       feature_cols <- SelectFeatureColumns(df_data, base_feature_cols, covar_type, pc_score_columns)
 
