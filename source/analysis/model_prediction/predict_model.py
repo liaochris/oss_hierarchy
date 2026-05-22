@@ -112,6 +112,8 @@ def RunCombination(variant, importance_type, qualified_sample, control_group, ev
             "error_open_pct":         100 * (N_obs_open - N_hat_open) / N_hat_open if N_hat_open > 0 else np.nan,
             "error_review_rate_pp":   100 * (prob_review_obs - prob_review_counterfactual) if not np.isnan(prob_review_obs) else np.nan,
             "error_merge_rate_pp":    100 * (prob_merge_obs  - prob_merge_counterfactual)  if not np.isnan(prob_merge_obs)  else np.nan,
+            "error_review_rate_pct":   100 * (prob_review_obs - prob_review_counterfactual)/prob_review_counterfactual if prob_review_counterfactual>0 else np.nan,
+            "error_merge_rate_pct":    100 * (prob_merge_obs  - prob_merge_counterfactual)/prob_merge_counterfactual if prob_merge_counterfactual>0 else np.nan,
         })
 
     SaveData(

@@ -19,6 +19,8 @@ ERROR_METRICS = [
     ("error_open_pct",       "Prediction error: % deviation from predicted"),
     ("error_review_rate_pp", "Prediction error: percentage point difference from predicted"),
     ("error_merge_rate_pp",  "Prediction error: percentage point difference from predicted"),
+    ("error_review_rate_pct", "Prediction error: % deviation from predicted"),
+    ("error_merge_rate_pct",  "Prediction error: % deviation from predicted"),
 ]
 
 
@@ -81,7 +83,7 @@ def RunCombination(variant, importance_type, qualified_sample, control_group):
     pd.DataFrame(all_summary_rows).to_csv(base / "prediction_error_summary_all.csv", index=False)
 
 
-CLIP_LIMIT = 300
+CLIP_LIMIT = 500
 
 
 def PlotErrorDistribution(series, xlabel, outpath):
