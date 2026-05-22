@@ -3,14 +3,19 @@ import json
 import pandas as pd
 from pathlib import Path
 import glob
+from num2words import num2words
 
 from source.lib.python.config_loaders import LoadPipelineInputs
 from source.lib.python.repo_utils import MakeRepoNameSafe
 from source.lib.JMSLab.SaveData import SaveData
 from source.lib.JMSLab.autofill import GenerateAutofillMacros
 
-AUTOFILL_OUTDIR    = Path("output/autofill")
-GLOBAL_SETTINGS    = Path("source/lib/config/global_settings.json")
+AUTOFILL_OUTDIR       = Path("output/autofill")
+GLOBAL_SETTINGS       = Path("source/lib/config/global_settings.json")
+ANALYSIS_PARAMS_PATH  = Path("source/lib/config/analysis_parameters.json")
+IMPORTANCE_SPECS_PATH = Path("source/lib/config/importance_specifications.json")
+PAPER_SETTINGS_PATH   = Path("source/lib/config/paper_settings.json")
+FEATURE_VARS_PATH     = Path("source/lib/config/feature_variables.json")
 INDIR_PYPI         = Path("output/scrape/pypi_downloads")
 INDIR_LINK         = Path("output/scrape/pypi_site_info")
 INDIR_REPO         = Path("output/scrape/extract_github_data")
@@ -212,11 +217,54 @@ def ExportSummaryTable(df, exact_samples, outfile):
 def GenerateConfigAutofill():
     with open(GLOBAL_SETTINGS, encoding="utf-8") as fh:
         settings = json.load(fh)
+    with open(ANALYSIS_PARAMS_PATH, encoding="utf-8") as fh:
+        analysis_params = json.load(fh)
+    with open(IMPORTANCE_SPECS_PATH, encoding="utf-8") as fh:
+        importance_specs = json.load(fh)
+    with open(PAPER_SETTINGS_PATH, encoding="utf-8") as fh:
+        paper_settings = json.load(fh)
+    with open(FEATURE_VARS_PATH, encoding="utf-8") as fh:
+        feature_vars = json.load(fh)
+
     AUTOFILL_OUTDIR.mkdir(parents=True, exist_ok=True)
+
+    def count_run_vars(practice_dict):
+        return sum(len(subgroup["run"]) for subgroup in practice_dict.values())
+
     PipMinMonthlyDownloads = settings["pip_min_monthly_donwloads"]
+
+    NumPostPeriod = analysis_params["max_event_time"]
+    NumTrees      = analysis_params["trees_in_forest_event_study"]
+
+    primary_spec   = importance_specs[paper_settings["primary_importance_type"]]
+    TopK           = primary_spec["top_k"]
+    MinConsecutive = primary_spec["consecutive_req"]
+
+    TimePeriod            = 6  # semiannual periods — not stored in any config file
+    NumMonthsObserved     = NumPostPeriod * TimePeriod
+    MinConsecutiveMonths  = MinConsecutive * TimePeriod
+
+    NumPostPeriodWord  = num2words(NumPostPeriod)
+    TopKWord           = num2words(TopK)
+    MinConsecutiveWord = num2words(MinConsecutive)
+    TimePeriodWord     = num2words(TimePeriod)
+
+    CollabMeasureCount      = count_run_vars(feature_vars["collaboration"])
+    KnowledgeMeasureCount   = count_run_vars(feature_vars["shared_knowledge"])
+    DiscussionMeasureCount  = count_run_vars(feature_vars["discussion_quality"])
+    TalentMeasureCount      = count_run_vars(feature_vars["investment_in_new_talent"])
+    RoutinesMeasureCount    = count_run_vars(feature_vars["organizational_routines"])
+
     GenerateAutofillMacros(
-        ["PipMinMonthlyDownloads"],
-        "{:,}",
+        [
+            ["PipMinMonthlyDownloads"],
+            ["NumPostPeriod", "NumTrees", "TopK", "MinConsecutive", "TimePeriod",
+             "NumMonthsObserved", "MinConsecutiveMonths",
+             "CollabMeasureCount", "KnowledgeMeasureCount", "DiscussionMeasureCount",
+             "TalentMeasureCount", "RoutinesMeasureCount"],
+            ["NumPostPeriodWord", "TopKWord", "MinConsecutiveWord", "TimePeriodWord"],
+        ],
+        ["{:,}", "{}", "{}"],
         str(AUTOFILL_OUTDIR / "config_autofill.tex"),
     )
 

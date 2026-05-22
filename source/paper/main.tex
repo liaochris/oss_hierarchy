@@ -159,7 +159,7 @@
 \begin{abstract}
 \noindent 
 I conduct a large-scale empirical study of open source software organizations to examine which organizational practices affect organizational resilience.
-Measuring resilience by the impact of a key member's exit on software development and release activity, I find that on average, organizational outcomes drop permanently by up to 0.8 standard deviations post-departure. 
+Measuring resilience by the impact of a key member's exit on software development and release activity, I find that on average, organizational outcomes drop permanently by up to \AvgMaxDecline{} standard deviations post-departure.
 I then develop a novel method combining flexible machine learning models with event studies that separates organizations into groups that differ markedly in measured resilience.
 Leveraging interpretable machine learning methods, I show that practices highlighted in the existing literature do not enhance resilience on their own, but do enhance resilience through complementarities with other practices.
 
@@ -242,7 +242,7 @@ Since practices may exhibit complementarities, the framework must allow a flexib
 At the same time, the framework should still be interpretable, to ensure I can discover concrete hypotheses about the relationship between organizational practices and resilience.
 To do this, my analysis proceeds in four steps. 
 First, using an event study design, I estimate average resilience: the impact of key member departures on software development and release activity. 
-To the best of my knowledge, I provide the first causal empirical evidence of these departures' effects in OSS; I show that on average, organizational software development activity is reduced by 0.8 standard deviations for at least 30 months.
+To the best of my knowledge, I provide the first causal empirical evidence of these departures' effects in OSS; I show that on average, organizational software development activity is reduced by \AvgMaxDecline{} standard deviations for at least \NumMonthsObserved{} months.
 Second, I test whether organizations with higher practice scores are more resilient by estimating average resilience separately on organizations with high and low scores for each practice. 
 I find that across all practices, higher scores do not suggest higher resilience. 
 
@@ -321,7 +321,7 @@ One outcome prior empirical work uses to quantify the impact of departures is ``
 \citealt{rigby_quantifying_2016}, which is most closely related to my paper, finds that the presence of ``successor'' who worked on tasks similar to the departed member, can mitigate the repercussions of departures. 
 My analysis differs in several ways.
 First, I focus on a variety of organizational practices, as opposed to just one. 
-Next, while \cite{rigby_quantifying_2016} analyzes all departures from just 5 organizations, my analysis includes 681 organizations.
+Next, while \cite{rigby_quantifying_2016} analyzes all departures from just 5 organizations, my analysis includes \NumOrgs{} organizations.
 Finally, while \cite{rigby_quantifying_2016} considers hypothetical impacts based on potential codebase damage and possible mitigation through a successor, I quantify, using realized outcomes of organizational output, the actual impact of organizational practices. 
 
 \section{Background and Data} \label{sec:data}
@@ -338,13 +338,13 @@ Section~\ref{sec:abrupt_departures} describes how I define and measure abrupt ke
 Section~\ref{sec:treatment_sample} describes the final analysis sample. 
 
 \subsection{Sample Universe and Data Sources} \label{sec:oss_universe}
-I analyze an important subset of the OSS ecosystem---widely used Python libraries---from 2015--2024.\footnote{I define a Python library as widely used if it had at least 10,000 downloads from pip in any month between 2015-2024, as measured by \cite{the_python_software_foundation_pypi_2025}}
+I analyze an important subset of the OSS ecosystem---widely used Python libraries---from \SampleStart--\SampleEnd.\footnote{I define a Python library as widely used if it had at least \PipMinMonthlyDownloads{} downloads from pip in any month between \SampleStart--\SampleEnd, as measured by \cite{the_python_software_foundation_pypi_2025}}
 Python is currently the world’s most popular programming language (\citealt{paul_jansen_tiobe_2025}), and its libraries—collections of reusable toolkits providing prewritten code for specific tasks—are a central reason for its popularity.
 Most Python library development occurs on GitHub, a cloud-based platform for software development and version control.
 The unit of observation in my analysis is the organization, defined as the GitHub project responsible for developing one or more Python libraries.
 
 I assemble a dataset of activity-level data on these organizations from the GitHub Archive \citep{GitHub_archive_GitHub_2025}, supplemented by the GitHub GraphQL API \citep{github_graphql} and the Python Software Foundation \citep{the_python_software_foundation_pypi_2025}.
-My dataset includes activity-level information on software development, including members’ deanonymized identities and the date and content of their contributions, which I aggregate to the six-month level.
+My dataset includes activity-level information on software development, including members’ deanonymized identities and the date and content of their contributions, which I aggregate to the \TimePeriodWord{}-month level.
 
 
 \subsection{Background on Open Source Software Development} \label{sec:oss_background}
@@ -381,8 +381,8 @@ My definition of an OSS organization’s social network follows \cite{crowston_h
 
 
 A member’s prominence is defined by their degree centrality: the number of unique members they interacted with during the period.
-Members ranking among the top three in degree centrality are \textit{single-period key members}; all ties are included.\footnote{More formally, members whose degree centrality equals or exceeds that of the third-ranked member are included.} 
-Members who are single-period key members for three consecutive periods are classified as \textit{key members} beginning in the third period.
+Members ranking among the top \TopKWord{} in degree centrality are \textit{single-period key members}; all ties are included.\footnote{More formally, members whose degree centrality equals or exceeds that of the third-ranked member are included.} 
+Members who are single-period key members for \MinConsecutiveWord{} consecutive periods are classified as \textit{key members} beginning in the third period.
 The criteria for identifying key members reflect two established features known from the literature on OSS: key members interact with more people than others and tend to have persistent contribution patterns. 
 Figure~\ref{fig:boto_social_network} depicts the social network and single-period key members for \textit{boto/boto3}, the Amazon Web Services Software Development Kit for Python, during the first half of 2020. 
 
@@ -406,7 +406,7 @@ Commonly cited reasons in that literature include lacking peer support, role cha
 
 My definition of abrupt departures excludes departures with these latter motivations. 
 Social factors are often cited as barriers to joining or becoming integral to a project (\citealt{bosu_impact_2014}; \citealt{steinmacher_let_2019}). 
-However, my analysis focuses on the departure of key members who have been integral to a project for at least 18 months.
+However, my analysis focuses on the departure of key members who have been integral to a project for at least \MinConsecutiveMonths{} months.
 Role changes may lead members to reduce or cease code contributions, but since my definition requires complete disengagement, role shifts involving continued participation—such as supervisory or discussion-based roles—would not qualify as departures. 
 Finally, loss of motivation caused by declining interest or rising frustration is more likely to manifest as a gradual decline in activity among long-term contributors, not an abrupt stop.
 \subsubsection{Plausible Exogeneity of Abrupt Departures}
@@ -430,7 +430,7 @@ As such, I treat their timing as plausibly exogenous with respect to the unobser
 
 \subsection{Defining Treatment and the Final Sample} \label{sec:treatment_sample}
 \longterm[inline]{Jesse says I can balance on ``one key member''}
-My sample spans 10 years (2015–2024), divided into semiannual time periods. 
+My sample spans \SampleStart--\SampleEnd, divided into semiannual time periods. 
 Treated organizations experience exactly one key member departure during this window; control organizations never do. 
 Organizations with more than one key member departure are excluded to avoid complications from multiple treatments.
 
@@ -450,8 +450,8 @@ To ensure cross-organization comparability, I standardize each organization’s 
 
 I impose two additional sample restrictions.
 First, all organizations must have exactly one key member at the quasi-treatment date, ensuring that differences between treated and control organizations are not driven by differences in the organizational structure.
-Second, each organization must have observed activity for at least five pre- and five post-periods.
-The final sample features 681 OSS organizations and includes major GitHub projects, such as \texttt{pytorch/pytorch}, the flagship deep learning framework; \texttt{googleapis/google-cloud-Python}, the Python Google Cloud software development kit (SDK); and \texttt{boto/boto3}, the Python Amazon Web Services SDK. Table~\ref{tab:outcome_summary} provides summary statistics for the outcomes and project distribution, and plots the distribution of observed, quasi-treatment and treatment dates. 
+Second, each organization must have observed activity for at least \NumPostPeriod{} pre- and \NumPostPeriod{} post-periods.
+The final sample features \NumOrgs{} OSS organizations and includes major GitHub projects, such as \texttt{pytorch/pytorch}, the flagship deep learning framework; \texttt{googleapis/google-cloud-Python}, the Python Google Cloud software development kit (SDK); and \texttt{boto/boto3}, the Python Amazon Web Services SDK. Table~\ref{tab:outcome_summary} provides summary statistics for the outcomes and project distribution, and plots the distribution of observed, quasi-treatment and treatment dates. 
 
 \input{output/tables/outcome_summary_table}
 
@@ -471,9 +471,9 @@ The following sections describe the measures within each practice and the constr
 Collaboration can enhance resilience to member departures because it ensures multiple people have experience with solving a problem.
 This mitigates the risk the ability to complete a task may be retained when someone leaves.
 I measure collaboration in an organization using five measures: the average number of participants per discussion, the percentage of discussions involving multiple members, and the degree to which participation is concentrated among a few individuals or dispersed across many—measured using the Herfindahl–Hirschman Index (HHI) for all discussions, issue threads, and pull request threads respectively.
-The first principal component (PC) is statistically meaningful, explaining 53.8\% of the total variance across the five measures.
+The first principal component (PC) is statistically meaningful, explaining \CollabVarianceExplained\% of the total variance across the \CollabMeasureCount{} measures.
 
-Table~\ref{tab:collaboration_metrics} provides detailed definitions of all 5 measures and each measure's weights in the first PC. 
+Table~\ref{tab:collaboration_metrics} provides detailed definitions of all \CollabMeasureCount{} measures and each measure's weights in the first PC.
 Organizations with higher collaboration scores are more collaborative. 
 For instance, a higher average number of participants per discussion increases the collaboration score, whereas organizations with more discussions that are concentrated among very few individuals (i.e., those with a higher HHI value) reduce it. 
 
@@ -481,9 +481,9 @@ For instance, a higher average number of participants per discussion increases t
 Organizations with higher knowledge levels are more resilient because each member has the knowledge to handle many tasks. 
 This means that the loss of one member does not necessarily cause the organization loses all the knowledge held by that member.
 I measure an organization's knowledge level using two measures: the \% of members involved in both issue and pull request threads; and the average \# of unique activities members engage in.
-The first PC is statistically meaningful, explaining 91.6\% of the total variance across the two measures.
+The first PC is statistically meaningful, explaining \KnowledgeVarianceExplained\% of the total variance across the \KnowledgeMeasureCount{} measures.
 
-Table~\ref{tab:knowledge_level_metrics} provides detailed definitions of both measures.
+Table~\ref{tab:knowledge_level_metrics} provides detailed definitions of all \KnowledgeMeasureCount{} measures.
 Organizations with higher knowledge level scores have more knowledgeable members, which suggests higher levels of knowledge level in the organization.
 For example, organizations with a higher proportion of members working on both issues and pull requests have a high knowledge level score. 
 
@@ -492,9 +492,9 @@ I use discussion quality as an umbrella term to capture the overall sentiment of
 Higher overall sentiment can enhance organizational resilience by fostering a more positive environment, which improves member satisfaction and increases engagement. 
 Discussions where members are more responsive demonstrate increased commitment to problem-solving, which can also improve member satisfaction.
 I measure discussion quality using five measures: the percentage of discussion threads that receive responses; the average number of days required for a response; and the average overall, positive, and negative sentiment scores, respectively, of all discussions, computed using the VADER algorithm \citep{hutto_vader_2014}.
-The first PC component is statistically meaningful, explaining 47.7\% of the total variance across the five measures.
+The first PC component is statistically meaningful, explaining \DiscussionVarianceExplained\% of the total variance across the \DiscussionMeasureCount{} measures.
 
-Table~\ref{tab:discussion_quality_metrics} provides detailed definitions of all five measures.
+Table~\ref{tab:discussion_quality_metrics} provides detailed definitions of all \DiscussionMeasureCount{} measures.
 Higher discussion quality scores indicate that organizations have more positive discussions and address issues in a more timely manner. 
 Organizations with shorter average response times or more positive sentiment tend to have higher discussion-quality scores.
 
@@ -502,18 +502,18 @@ Organizations with shorter average response times or more positive sentiment ten
 Organizations can also enhance resilience by establishing processes that facilitate the onboarding of new members.
 Such processes may be particularly valuable post-departure, when experienced members have limited capacity to onboard newcomers because the key member's departure means they have to assume additional responsibilities. 
 I measure organizational investment in new talent using three measures: whether organizations have tasks labeled as ``good first issues" that are appropriately difficult for new members to tackle; a contributing guide that tells new members how they can contribute to the organization; and an organizational code of conduct. 
-The first PC is statistically meaningful, explaining 51.6\% of the total variance across the three measures.
+The first PC is statistically meaningful, explaining \TalentVarianceExplained\% of the total variance across the \TalentMeasureCount{} measures.
 
-Table~\ref{tab:investment_new_talent_metrics} provides detailed definitions of all three measures. 
+Table~\ref{tab:investment_new_talent_metrics} provides detailed definitions of all \TalentMeasureCount{} measures.
 Higher investment in new talent scores indicate that organizations have more processes to onboard and integrate new members automatically. 
 For example, organizations with ``good first issues'' and a contributing guide have higher investment in new talent scores than those who do not. 
 
 \subsection{Problem-Solving Routines}
 Problem-solving routines can enhance organizational resilience by establishing structured plans that guide action during times of crisis.
 I measure whether organizations have problem-solving routines using six measures: how frequently tasks are labeled, whether members are explicitly assigned to tasks, whether members are explicitly assigned to review tasks, whether the organization uses templates to systematize issues and pull requests, and whether it formally designates individuals as responsible for specific parts of the codebase.
-The first PC is statistically meaningful, explaining 35.9\% of the total variance across the six measures.
+The first PC is statistically meaningful, explaining \RoutinesVarianceExplained\% of the total variance across the \RoutinesMeasureCount{} measures.
 
-Table~\ref{tab:problem_solving_routines_metrics} provides detailed definitions of all six measures. 
+Table~\ref{tab:problem_solving_routines_metrics} provides detailed definitions of all \RoutinesMeasureCount{} measures.
 Higher problem-solving routine scores indicate that organizations have adopted more routines to systematize problem solving. 
 For example, organizations that assign tags or use issue templates have higher problem-solving routine scores than those who do not. 
 
@@ -569,7 +569,7 @@ Figure~\ref{fig:event_study} depicts event study estimates of Equation~\ref{eq:e
 To the best of my knowledge, Figure~\ref{fig:event_study} presents the first causal estimates of the average impact of key member departures on organizational software development and release outcomes. 
 The abrupt departure of key members has a significant negative effect on all organizational outcomes, consistent with evidence that departures from OSS organizations can be highly disruptive \citep{rashid_systematic_2019}.
 These declines appear immediately after the departure, persist for at least five post-periods, and remain relatively stable. 
-On average over the five post-periods, a key member’s departure reduces pull requests opened by 0.83 standard deviations, pull requests merged by 0.82 standard deviations, and software releases produced by 0.47 standard deviations.
+On average over the \NumPostPeriod{} post-periods, a key member’s departure reduces pull requests opened by \AvgPRsOpenedDecline{} standard deviations, pull requests merged by \AvgPRsMergedDecline{} standard deviations, and software releases produced by \AvgReleasesDecline{} standard deviations.
 Since the quantity of new software releases declines, users will directly experience the effects of the departure through less timely bug fixes and fewer new features.
 Given that reliance on OSS is widespread, this indicates that low organizational resilience in OSS projects may have substantial downstream economic consequences.
 
@@ -682,7 +682,7 @@ Using a $k-$fold procedure ensures that small biases from the outcome and propen
 For each organization's cohort-event time estimates $\hat{\delta}_{e,k}(X_i)$, I calculate the doubly robust equivalent $\hat{\psi}_{k}(X_i)$, using the outcome model and treatment propensity function from the trained forest.\footnote{As described in Appendix D of \cite{liao_generalized_2025}, I adapt the procedure from \cite{uysal_dr_2015}, which implements propensity scores estimation when treatments are multivalued, to my staggered treatment adoption setting.}
 For an organization $i$ with quasi-treatment cohort $e$, the doubly robust average post-period treatment effect is defined as:
 \begin{equation}\label{eq:doubly_robust}
-    \hat{\psi}(X_i) = \frac{1}{5} \sum_{k >0}^{5} \hat{\psi}_{e, k}(X_i)
+    \hat{\psi}(X_i) = \frac{1}{\NumPostPeriod} \sum_{k >0}^{\NumPostPeriod} \hat{\psi}_{e, k}(X_i)
 \end{equation}
 \subsection{The Forest Split}\label{sec:forest_splits}
 
@@ -700,7 +700,7 @@ In this implementation, Equation~\ref{eq:event_study_ml} is estimated using orga
 \input{source/figures/event_study_forest_coarse}
 Figure~\ref{fig:event_study_forest_coarse} depicts separate event study estimates of average organizational resilience for organizations classified as high and low resilience, across all organizational outcomes.
 I find that the difference in average organizational resilience between the high and low resilience subsets is both statistically significant and economically large. 
-On average across the five post-periods, organizations in the high resilience subset open 1.80 standard deviations more pull requests, merge 1.99 more pull requests, and produce 0.81 standard deviations more software releases than those in the low resilience subset.
+On average across the \NumPostPeriod{} post-periods, organizations in the high resilience subset open \ForestCoarsePRsOpenedDiff{} standard deviations more pull requests, merge \ForestCoarsePRsMergedDiff{} more pull requests, and produce \ForestCoarseReleasesDiff{} standard deviations more software releases than those in the low resilience subset.
 Because the heterogeneous treatment effects used to separate organizations are out-of-sample predictions, the forest's explanatory power likely reflects its ability to capture genuine statistical relationships between practices and resilience rather than overfitting. 
 That binary coarsenings of these practices are able to predict such large differences in resilience is also striking. 
 Moreover, because the forest used only the pull requests merged outcome to predict and separate organizations into high and low resilience subsets, the same resilience classification is used to show results for the other outcomes in Figure~\ref{fig:event_study_forest_coarse}.
@@ -712,7 +712,7 @@ The second limitation of the Median Split is that it partitions organizations al
 To assess the value of allowing the model to partition organizations along a finer score space, I apply Algorithm~\ref{alg:forest_split} using the continuous organizational practice scores $X_i$ as covariates to assign organizations to high and low resilience subsets. 
 Figure~\ref{fig:event_study_forest_continuous} plots separate event study estimates for the high and low resilience subsets defined by this procedure across all organizational outcomes. 
 I find that the differences between high and low resilience organizations grows even larger when the model can partition along the full continuous distribution of practice scores. 
-On average across the five post-periods, organizations in the high resilience subset open 1.86 standard deviations more pull requests, merge 2.16 more pull requests, and produce 1.36 standard deviations more software releases than organizations predicted to be less resilient.
+On average across the \NumPostPeriod{} post-periods, organizations in the high resilience subset open \ForestContPRsOpenedDiff{} standard deviations more pull requests, merge \ForestContPRsMergedDiff{} more pull requests, and produce \ForestContReleasesDiff{} standard deviations more software releases than organizations predicted to be less resilient.
 However, the fact that the largest gains in predictive power arise from allowing multiple practices to interact and jointly affect resilience suggests that data-driven splits are a second-order modeling concern.
 
 \input{source/figures/event_study_forest_continuous}
@@ -759,7 +759,7 @@ Finally, Section~\ref{sec:coarsened_exploration} coarsens the  space of organiza
 Figure~\ref{fig:forest_characteristics} describes characteristics of the Generalized Random Forest Event Study that models $\delta_{e, k}(\cdot)$ from Equation~\ref{eq:event_study_ml}. 
 The described forest is trained on the full sample of organizations and the continuous organizational practice scores $X_i$. 
 
-Panel~\ref{fig:tree_depth} of Figure~\ref{fig:forest_characteristics} describes the distribution of tree depth among all 2000 trees in the trained forest. 
+Panel~\ref{fig:tree_depth} of Figure~\ref{fig:forest_characteristics} describes the distribution of tree depth among all \NumTrees{} trees in the trained forest. 
 Over half of the trees have depth three or greater, suggesting that complex interactions between organizational practices play an important role in predicting resilience, since the forest relies on multi-step splits to separate organizations.
 
 
