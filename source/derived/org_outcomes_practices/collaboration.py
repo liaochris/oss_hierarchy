@@ -101,7 +101,7 @@ def PrimaryCalculations(df_actions, bot_list):
     ]
 
 
-def _MemberStatsPerProblemCore(df_actions, bot_list):
+def MemberStatsPerProblemCore(df_actions, bot_list):
     df_problem = (
         df_actions[~df_actions["actor_id"].isin(bot_list)]
         .groupby("thread_number", as_index=False)
@@ -113,10 +113,10 @@ def _MemberStatsPerProblemCore(df_actions, bot_list):
     })
 
 def CalculateMemberStatsPerProblem(df_actions, bot_list):
-    return ApplyRolling(df_actions, ROLLING_PERIODS, _MemberStatsPerProblemCore, bot_list=bot_list, time_period=TIME_PERIOD)
+    return ApplyRolling(df_actions, ROLLING_PERIODS, MemberStatsPerProblemCore, bot_list=bot_list, time_period=TIME_PERIOD)
 
 
-def _ProjectHHICore(df_actions):
+def ProjectHHICore(df_actions):
     def _activity_shares(df, type_col="type_broad"):
         counts = df.groupby(["time_period", "actor_id", type_col]).size().rename("count")
         totals = df.groupby(["time_period", type_col]).size().rename("total_count")
@@ -135,10 +135,10 @@ def _ProjectHHICore(df_actions):
     return agg.T.rename(columns=lambda c: f"proj_hhi_{c.replace(' ', '_')}").reset_index(drop=True)
 
 def CalculateProjectHHI(df_actions):
-    return ApplyRolling(df_actions, ROLLING_PERIODS, _ProjectHHICore, time_period=TIME_PERIOD)
+    return ApplyRolling(df_actions, ROLLING_PERIODS, ProjectHHICore, time_period=TIME_PERIOD)
 
 
-def _ProjectProblemHHICore(df_actions):
+def ProjectProblemHHICore(df_actions):
     def _problem_shares(df, type_col="type_broad"):
         counts = df.groupby(["repo_name", "thread_number", "actor_id", type_col]).size().rename("count")
         totals = df.groupby(["repo_name", "thread_number", type_col]).size().rename("total_count")
@@ -159,7 +159,7 @@ def _ProjectProblemHHICore(df_actions):
     return agg.T.rename(columns=lambda c: f"proj_prob_hhi_{c.replace(' ', '_')}").reset_index(drop=True)
 
 def CalculateProjectProblemHHI(df_actions):
-    return ApplyRolling(df_actions, ROLLING_PERIODS, _ProjectProblemHHICore, time_period=TIME_PERIOD)
+    return ApplyRolling(df_actions, ROLLING_PERIODS, ProjectProblemHHICore, time_period=TIME_PERIOD)
 
 
 if __name__ == "__main__":

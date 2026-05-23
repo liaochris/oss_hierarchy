@@ -241,9 +241,7 @@ def SaveSampleOutputs(panel, repo_pc_scores, pc_loading_metadata, pc_excluded_va
     with open(outdir / "pc_score_columns.json", "w", encoding="utf-8") as fh:
         json.dump({"pc_score": pc_score_cols, "pc_score_binary": pc_score_binary_cols}, fh, indent=2)
 
-    SaveData(panel, ["repo_name", "time_index"], outdir / "panel.parquet", outdir / "panel.log")
-    SaveData(panel_with_pc_scores, ["repo_name", "time_index"],
-             outdir / "panel_with_pc_scores.parquet", outdir / "panel_with_pc_scores.log")
+    SaveData(panel_with_pc_scores, ["repo_name", "time_index"], outdir / "panel.parquet", outdir / "panel.log")
     SaveData(pc_loading_metadata, ["group", "var"], outdir / "pc_score_metadata.csv", outdir / "pc_score_metadata.log")
     SaveData(pc_excluded_vars, ["group", "var"],
              outdir / "pc_score_excluded_vars.csv", outdir / "pc_score_excluded_vars.log")

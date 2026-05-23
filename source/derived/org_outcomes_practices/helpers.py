@@ -51,7 +51,7 @@ def LoadFilteredImportantMembers(repo_name, INDIR_IMPORTANT, INDIR_LIB, importan
 
 def FilterOnImportant(df, df_filtered_important):
     df = df.copy()
-    df = pd.merge(df, df_filtered_important, how="left")
+    df = pd.merge(df, df_filtered_important, on="time_period", how="left")
     df = df[
         df.apply(
             lambda x: isinstance(x["important_actors"], Iterable) and x["actor_id"] in x["important_actors"],
@@ -59,6 +59,13 @@ def FilterOnImportant(df, df_filtered_important):
         )
     ]
     return df
+
+
+def FirstFilePresence(df_files, file_type, col_name):
+    first_period = df_files.loc[df_files["file_type"] == file_type, "time_period"].min()
+    return (df_files.query("time_period == @first_period and file_type == @file_type")
+            .assign(**{col_name: 1})[["time_period", col_name]]
+            .set_index("time_period").drop_duplicates())
 
 
 def ApplyRolling(df_all, rolling_periods, stat_func, time_period=6, **kwargs):

@@ -21,7 +21,7 @@ QUALIFIED_SAMPLE <- .cl[["CL_QUALIFIED_SAMPLE"]]
 CONTROL_GROUP    <- .cl[["CL_CONTROL_GROUP"]]
 
 Main <- function() {
-  outcome_specs <- BuildOutcomeSpecs(outcome_variables, NORM_OPTIONS)
+  outcome_specs <- BuildOutcomeSpecs()
   outdir_slice  <- file.path(OUTDIR, IMPORTANCE_TYPE, ROLLING_PERIOD, QUALIFIED_SAMPLE, CONTROL_GROUP)
 
   coeffs_all <- list()
@@ -43,8 +43,9 @@ Main <- function() {
           sub_samples = sub_samples))
     }
   } else {
+    panel <- LoadPreparedSample(INDIR_PREP, IMPORTANCE_TYPE, ROLLING_PERIOD, QUALIFIED_SAMPLE, CONTROL_GROUP)
+
     if ("full_sample" %in% EVENT_STUDY_SPLITS) {
-      panel <- LoadPreparedSample(INDIR_PREP, IMPORTANCE_TYPE, ROLLING_PERIOD, QUALIFIED_SAMPLE, CONTROL_GROUP)
       coeffs_all <- c(coeffs_all,
         RunFullSampleEventStudies(outcome_specs, outdir_slice,
           IMPORTANCE_TYPE, ROLLING_PERIOD, QUALIFIED_SAMPLE, CONTROL_GROUP,
@@ -52,12 +53,10 @@ Main <- function() {
     }
 
     if ("pc_score" %in% EVENT_STUDY_SPLITS) {
-      panel_with_pc_scores <- LoadPreparedSample(INDIR_PREP, IMPORTANCE_TYPE, ROLLING_PERIOD,
-        QUALIFIED_SAMPLE, CONTROL_GROUP, with_pc_scores = TRUE)
       coeffs_all <- c(coeffs_all,
         RunPCScoreEventStudies(outcome_specs, pc_groups_cfg, outdir_slice,
           IMPORTANCE_TYPE, ROLLING_PERIOD, QUALIFIED_SAMPLE, CONTROL_GROUP,
-          panel = panel_with_pc_scores))
+          panel = panel))
     }
   }
 
@@ -78,10 +77,10 @@ Main <- function() {
   )
 }
 
-BuildOutcomeSpecs <- function(outcome_variables, norm_options) {
+BuildOutcomeSpecs <- function() {
   purrr::flatten(lapply(names(outcome_variables), function(category)
     purrr::flatten(lapply(outcome_variables[[category]]$run, function(outcome)
-      lapply(norm_options, function(normalize)
+      lapply(NORM_OPTIONS, function(normalize)
         list(category = category, outcome = outcome, normalize = normalize))))))
 }
 
@@ -133,7 +132,7 @@ RunPCScoreEventStudies <- function(outcome_specs, pc_group_cfg, outdir_slice,
   aggregated <- !is.null(sub_samples)
   if (aggregated) {
     sub_pc_score_panels <- lapply(sub_samples, function(s)
-      LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel, s, control_group, with_pc_scores = TRUE))
+      LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel, s, control_group))
     sub_pc_score_groups <- lapply(sub_pc_score_panels, BuildPCScoreGroups, pc_group_cfg)
   } else {
     pc_groups <- BuildPCScoreGroups(panel, pc_group_cfg)

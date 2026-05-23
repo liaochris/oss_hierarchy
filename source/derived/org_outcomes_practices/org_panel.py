@@ -19,7 +19,6 @@ ROLLING_PERIODS  = [f"rolling{p}" for p in _pipeline["rolling_periods"]["run"] +
 
 INDIR           = Path("drive/output/derived/action_data/repo_actions")
 INDIR_IMPORTANT = Path("output/derived/graph_structure/important_members")
-INDIR_LIB       = Path("source/lib")
 INDIR_CHARS     = Path("drive/output/derived/org_outcomes_practices")
 OUTDIR          = INDIR_CHARS / "org_panel"
 LOG_OUTDIR      = Path("output/derived/org_outcomes_practices")
@@ -70,14 +69,14 @@ def Main():
                 continue
 
             df_list, col_dicts = zip(*valid)
-            columns_dict = _BuildColumnsDict(col_dicts)
+            columns_dict = BuildColumnsDict(col_dicts)
 
             df_all = pd.concat(
                 [df.loc[:, ~df.columns.duplicated()] for df in df_list], axis=0
             )
             df_all = df_all[df_all["repo_name"].notna()]
-            df_all = _ProcessRepoFrame(df_all, columns_dict)
-            df_all = _AssignQuasiTreatment(df_all, SEED)
+            df_all = ProcessRepoFrame(df_all, columns_dict)
+            df_all = AssignQuasiTreatment(df_all, SEED)
             LOG_OUTDIR.mkdir(parents=True, exist_ok=True)
             for col in ["important_actors", "important_qualified_actors", "dropouts_actors"]:
                 if col in df_all.columns:
@@ -109,7 +108,7 @@ def ProcessRepo(repo_name, importance_type, rolling_period):
             else:
                 path = base / rolling_period / f"{repo_name}.parquet"
 
-            df = _LoadParquetSafe(path)
+            df = LoadParquetSafe(path)
             if df is not None:
                 if variant == "imp":
                     df.columns = [
@@ -127,14 +126,14 @@ def ProcessRepo(repo_name, importance_type, rolling_period):
     return df_all, cols
 
 
-def _LoadParquetSafe(path):
+def LoadParquetSafe(path):
     try:
         return pd.read_parquet(path) if path.exists() else None
     except Exception:
         return None
 
 
-def _BuildColumnsDict(col_dicts):
+def BuildColumnsDict(col_dicts):
     keys = [
         "df_outcomes",
         "df_collaboration", "df_collaboration_imp",
@@ -151,35 +150,34 @@ def _BuildColumnsDict(col_dicts):
     return {k: sorted(set(col for sub in v for col in sub)) for k, v in columns_dict.items()}
 
 
-def _ProcessRepoFrame(df_all, columns_dict):
-    df_all = _RegularizeTimeIndex(df_all)
-    df_all = _ExtendToLastPeriod(df_all)
+def ProcessRepoFrame(df_all, columns_dict):
+    df_all = RegularizeTimeIndex(df_all)
+    df_all = ExtendToLastPeriod(df_all)
 
     fill_zero_cols = (
         ["num_important", "num_important_qualified", "num_dropouts"]
         + columns_dict["df_outcomes"]
     )
-    df_all = _FillWithZero(df_all, fill_zero_cols)
-    df_all = _ForwardFillRoutines(df_all, [
+    df_all = FillWithZero(df_all, fill_zero_cols)
+    df_all = ForwardFillRoutines(df_all, [
         "has_codeowners", "has_issue_template", "has_pr_template",
         "has_good_first_issue", "has_contributing_guide", "has_code_of_conduct",
     ])
-    df_all = _FillListCols(df_all, ["important_actors", "important_qualified_actors", "dropouts_actors"])
-    df_all = _FilterDeparturesByActionData(df_all)
+    df_all = FillListCols(df_all, ["important_actors", "important_qualified_actors", "dropouts_actors"])
 
     mask = df_all["time_period"] >= pd.Timestamp("2016-01-01")
     df_all.loc[mask, ["issue_template_count"]] = df_all.loc[mask, ["issue_template_count"]].fillna(0)
 
     df_all["num_departures"] = df_all.groupby("repo_name")["num_dropouts"].transform("sum")
-    df_all = _AssignTreatmentDate(df_all)
-    df_all = _CreateTimeIndex(df_all)
+    df_all = AssignTreatmentDate(df_all)
+    df_all = CreateTimeIndex(df_all)
     repo_id_map = {repo_name: i + 1 for i, repo_name in enumerate(sorted(df_all["repo_name"].unique()))}
     df_all["repo_id"] = df_all["repo_name"].map(repo_id_map)
     df_all["treatment"] = (df_all["treatment_group"] >= df_all["time_index"]).astype(int)
     return df_all
 
 
-def _RegularizeTimeIndex(df):
+def RegularizeTimeIndex(df):
     df = df.copy()
     df["time_period"] = pd.to_datetime(df["time_period"])
     freq = f"{TIME_PERIOD}MS"
@@ -192,7 +190,7 @@ def _RegularizeTimeIndex(df):
     return pd.concat(out, ignore_index=True)
 
 
-def _ExtendToLastPeriod(df):
+def ExtendToLastPeriod(df):
     df = df.copy()
     df["time_period"] = pd.to_datetime(df["time_period"])
     last_period = pd.to_datetime(LAST_PERIOD)
@@ -214,56 +212,27 @@ def _ExtendToLastPeriod(df):
     return pd.concat(out, ignore_index=True)
 
 
-def _FillWithZero(df, cols):
+def FillWithZero(df, cols):
     existing = [c for c in cols if c in df.columns]
     if existing:
         df[existing] = df[existing].fillna(0)
     return df
 
 
-def _ForwardFillRoutines(df, cols):
+def ForwardFillRoutines(df, cols):
     existing = [c for c in cols if c in df.columns]
     if existing:
         df[existing] = df.groupby("repo_name", sort=False)[existing].transform("ffill")
     return df
 
 
-def _FillListCols(df, cols):
+def FillListCols(df, cols):
     for col in [c for c in cols if c in df.columns]:
         df[col] = df[col].apply(lambda x: JsonDeserialize(x, default=[]) if pd.notna(x) else [])
     return df
 
 
-def _FilterDeparturesByActionData(df):
-    """Remove from dropouts_actors any actor who still has action-data activity after their dropout period."""
-    segments = []
-    for repo_name, repo_df in df.groupby("repo_name", sort=False):
-        if (repo_df["num_dropouts"] == 0).all():
-            segments.append(repo_df)
-            continue
-        safe_name = repo_name.replace("/", "___")
-        action_path = INDIR / f"{safe_name}.parquet"
-        if not action_path.exists():
-            segments.append(repo_df)
-            continue
-        try:
-            action_df = pd.read_parquet(action_path, columns=["actor_id", "created_at"])
-            action_df["created_at"] = pd.to_datetime(action_df["created_at"])
-            repo_df = repo_df.copy()
-            for idx in repo_df.index[repo_df["num_dropouts"] > 0]:
-                period = repo_df.at[idx, "time_period"]
-                next_start = period + pd.DateOffset(months=TIME_PERIOD)
-                future_actors = set(action_df.loc[action_df["created_at"] >= next_start, "actor_id"])
-                confirmed = [a for a in repo_df.at[idx, "dropouts_actors"] if a not in future_actors]
-                repo_df.at[idx, "dropouts_actors"] = confirmed
-                repo_df.at[idx, "num_dropouts"] = len(confirmed)
-        except Exception:
-            pass
-        segments.append(repo_df)
-    return pd.concat(segments, ignore_index=True)
-
-
-def _AssignTreatmentDate(df):
+def AssignTreatmentDate(df):
     # Treatment = exactly one departure across the full repo history
     mask = (df["num_dropouts"] == 1) & (df["num_departures"] == 1)
     first_dates = df.loc[mask].groupby("repo_name")["time_period"].first()
@@ -271,14 +240,14 @@ def _AssignTreatmentDate(df):
     return df
 
 
-def _CreateTimeIndex(df):
+def CreateTimeIndex(df):
     mapping = {d: i + 1 for i, d in enumerate(sorted(df["time_period"].unique()))}
     df["time_index"]       = df["time_period"].map(mapping)
     df["treatment_group"]  = df["treatment_date"].map(mapping).fillna(0)
     return df
 
 
-def _AssignQuasiTreatment(df, seed):
+def AssignQuasiTreatment(df, seed):
     """
     For never-treated repos, draw a pseudo-treatment time from the empirical distribution
     of actual treatment times (conditioned on when the repo first appears in the data),

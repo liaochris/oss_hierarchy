@@ -5,11 +5,15 @@ import numpy as np
 from joblib import Parallel, delayed
 from source.lib.JMSLab.SaveData import SaveData
 from source.lib.python.data_utils import JsonSerialize
-from source.lib.python.config_loaders import LoadImportanceSpecifications
+from source.lib.python.config_loaders import LoadGlobalSettings, LoadImportanceSpecifications
 
-INDIR = Path("drive/output/derived/graph_structure/graph_degrees")
-OUTDIR = Path("output/derived/graph_structure/important_members")
-LOGDIR = Path("output/derived/graph_structure")
+_global_settings = LoadGlobalSettings()
+TIME_PERIOD = _global_settings["time_period_months"]
+
+INDIR         = Path("drive/output/derived/graph_structure/graph_degrees")
+INDIR_ACTIONS = Path("drive/output/derived/action_data/repo_actions")
+OUTDIR        = Path("output/derived/graph_structure/important_members")
+LOGDIR        = Path("output/derived/graph_structure")
 
 
 def Main():
@@ -95,6 +99,8 @@ def ProcessFile(task):
         if combined_df.empty:
             return None
 
+        project_name = Path(task["file"]).stem
+        combined_df = FilterDropoutsByActionData(combined_df, project_name)
         combined_df["time_period"] = combined_df["time_period"].dt.strftime("%Y-%m")
         combined_df["mode"] = task["mode"]
         combined_df["z_thresh"] = task["z_thresh"]
@@ -103,7 +109,6 @@ def ProcessFile(task):
         combined_df["centrality_col"] = task["centrality_col"]
 
         num_dropouts = combined_df['num_dropouts'].sum()
-        project_name = Path(task["file"]).stem
 
         return {
             "project_name": project_name,
@@ -228,6 +233,28 @@ def TrackQualified(timelines, periods, consecutive_req):
         qualified[p] = set(actors)
 
     return qualified
+
+
+def FilterDropoutsByActionData(df, project_name):
+    if (df["num_dropouts"] == 0).all():
+        return df
+    action_path = INDIR_ACTIONS / f"{project_name}.parquet"
+    if not action_path.exists():
+        return df
+    try:
+        action_df = pd.read_parquet(action_path, columns=["actor_id", "created_at"])
+        action_df["created_at"] = pd.to_datetime(action_df["created_at"])
+        df = df.copy()
+        for idx in df.index[df["num_dropouts"] > 0]:
+            period = pd.to_datetime(df.at[idx, "time_period"])
+            next_start = period + pd.DateOffset(months=TIME_PERIOD)
+            future_actors = set(action_df.loc[action_df["created_at"] >= next_start, "actor_id"])
+            confirmed = [a for a in df.at[idx, "dropouts_actors"] if a not in future_actors]
+            df.at[idx, "dropouts_actors"] = confirmed
+            df.at[idx, "num_dropouts"] = len(confirmed)
+    except Exception:
+        pass
+    return df
 
 
 def DeduplicateWithLists(df):

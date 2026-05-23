@@ -55,17 +55,17 @@ GenerateEventStudyAutofill <- function(coeffs_df) {
       split_type       == "full_sample"
     )
 
-  compute_avg_abs <- function(outcome) {
+  AbsAvgPostPeriodEffect <- function(outcome) {
     canonical %>%
       filter(.data$outcome == !!outcome, event_time %in% 1:5) %>%
       pull(estimate) %>%
-      abs() %>%
-      mean()
+      mean() %>%
+      abs()
   }
 
-  AvgPRsOpenedDecline <- compute_avg_abs("pull_request_opened")
-  AvgPRsMergedDecline <- compute_avg_abs("pull_request_merged")
-  AvgReleasesDecline  <- compute_avg_abs("overall_new_release_count")
+  AvgPRsOpenedDecline <- AbsAvgPostPeriodEffect("pull_request_opened")
+  AvgPRsMergedDecline <- AbsAvgPostPeriodEffect("pull_request_merged")
+  AvgReleasesDecline  <- AbsAvgPostPeriodEffect("overall_new_release_count")
   AvgMinDecline       <- min(AvgPRsOpenedDecline, AvgPRsMergedDecline, AvgReleasesDecline)
   AvgMaxDecline       <- max(AvgPRsOpenedDecline, AvgPRsMergedDecline, AvgReleasesDecline)
 

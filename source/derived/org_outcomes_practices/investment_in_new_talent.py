@@ -6,7 +6,7 @@ from joblib import Parallel, delayed
 from source.lib.python.filesystem_utils import CleanDirs
 from source.lib.python.data_utils import ImputeTimePeriod
 from source.lib.python.config_loaders import LoadGlobalSettings, LoadImportanceSpecifications, LoadGlobals
-from source.derived.org_outcomes_practices.helpers import ApplyRolling, ConcatStatsByTimePeriod, FilterOnImportant, LoadBotList, LoadFilteredImportantMembers
+from source.derived.org_outcomes_practices.helpers import ApplyRolling, ConcatStatsByTimePeriod, FilterOnImportant, FirstFilePresence, LoadBotList, LoadFilteredImportantMembers
 from source.lib.JMSLab.SaveData import SaveData
 
 _globals              = LoadGlobalSettings()
@@ -116,7 +116,7 @@ def GoodFirstIssues(df_actions):
     has_gfi = (
         df_issue[df_issue["type"] == "issue opened"].groupby("time_period")["thread_number"]
         .apply(lambda threads: df_issue[
-            df_issue["time_period"].isin([threads.name])
+            df_issue["time_period"] == threads.name
             & df_issue["good_first_issue"] & df_issue["thread_number"].isin(threads)
         ].shape[0] > 0)
         .to_frame("has_good_first_issue")
@@ -128,13 +128,6 @@ def GoodFirstIssues(df_actions):
     if ROLLING_PERIODS > 1:
         pct_gfi["pct_good_first_issue"] = pct_gfi["pct_good_first_issue"].rolling(ROLLING_PERIODS, min_periods=1).mean()
     return has_gfi.join(pct_gfi, how="outer").reset_index()
-
-
-def FirstFilePresence(df_files, file_type, col_name):
-    first_period = df_files.loc[df_files["file_type"] == file_type, "time_period"].min()
-    return (df_files.query("time_period == @first_period and file_type == @file_type")
-            .assign(**{col_name: 1})[["time_period", col_name]]
-            .set_index("time_period").drop_duplicates())
 
 
 def NewcomerFiles(df_files):

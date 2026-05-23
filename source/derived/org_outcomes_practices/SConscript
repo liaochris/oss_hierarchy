@@ -23,18 +23,24 @@ env.Python(
         '#drive/output/scrape/pypi_downloads/pypi_monthly_downloads.parquet',
         '#output/scrape/pypi_site_info/linked_pypi_github.csv',
         '#output/scrape/extract_github_data/repo_id_history_final.csv',
+        # pypi_version_downloads is a glob of per-package parquets; not enumerable statically
     ],
 )
 
 env.Python(
     target=[
         f'#drive/output/derived/org_outcomes_practices/repo_collaboration/all/{rolling}/{ref}.parquet',
+        f'#drive/output/derived/org_outcomes_practices/repo_collaboration/all/{rolling}/{ref}_members.parquet',
     ] + [
         f'#drive/output/derived/org_outcomes_practices/repo_collaboration/{imp}/{rolling}/{ref}.parquet'
+        for imp in importance_types
+    ] + [
+        f'#drive/output/derived/org_outcomes_practices/repo_collaboration/{imp}/{rolling}/{ref}_members.parquet'
         for imp in importance_types
     ],
     source=[
         '#source/derived/org_outcomes_practices/collaboration.py',
+        '#source/derived/org_outcomes_practices/helpers.py',
         f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
         f'#drive/output/derived/graph_structure/interactions/{ref}.parquet',
         imp_members,
@@ -51,6 +57,7 @@ env.Python(
     ],
     source=[
         '#source/derived/org_outcomes_practices/shared_knowledge.py',
+        '#source/derived/org_outcomes_practices/helpers.py',
         f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
         imp_members,
         bot_list,
@@ -66,11 +73,14 @@ env.Python(
     ],
     source=[
         '#source/derived/org_outcomes_practices/discussion_quality.py',
+        '#source/derived/org_outcomes_practices/helpers.py',
+        '#source/derived/org_outcomes_practices/constants.json',
         f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
         f'#drive/output/derived/graph_structure/interactions/{ref}.parquet',
         f'#drive/output/derived/action_data/cleaned_text/{ref}.parquet',
         imp_members,
         bot_list,
+        # graph_structure/graphs GEXF files used by CalculateNetworkClustering; not enumerable statically
     ],
 )
 
@@ -83,6 +93,8 @@ env.Python(
     ],
     source=[
         '#source/derived/org_outcomes_practices/investment_in_new_talent.py',
+        '#source/derived/org_outcomes_practices/helpers.py',
+        '#source/derived/org_outcomes_practices/constants.json',
         f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
         f'#drive/output/derived/graph_structure/interactions/{ref}.parquet',
         f'#drive/output/scrape/governance_data/{ref}.parquet',
@@ -97,6 +109,7 @@ env.Python(
     ],
     source=[
         '#source/derived/org_outcomes_practices/organizational_routines.py',
+        '#source/derived/org_outcomes_practices/helpers.py',
         f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
         f'#drive/output/scrape/governance_data/{ref}.parquet',
     ],
@@ -108,6 +121,7 @@ panel_sources = [
     '#source/lib/config/analysis_parameters.json',
     '#source/lib/config/global_settings.json',
     '#source/lib/config/importance_specifications.json',
+    '#source/lib/config/pipeline_inputs.json',
     f'#drive/output/derived/org_outcomes_practices/org_outcomes/{ref}.parquet',
     imp_members,
 ]

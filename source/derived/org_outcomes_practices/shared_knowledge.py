@@ -91,7 +91,7 @@ def PrimaryCalculations(df_actions, bot_list):
     ]
 
 
-def _ActorIssuePRMixCore(df_actions, bot_list):
+def ActorIssuePRMixCore(df_actions, bot_list):
     actor_df = df_actions[~df_actions["actor_id"].isin(bot_list)]
     if actor_df.empty:
         return pd.DataFrame()
@@ -106,10 +106,10 @@ def _ActorIssuePRMixCore(df_actions, bot_list):
     return shares.rename(lambda c: f"share_{c}").to_frame().T.reset_index(drop=True)
 
 def ActorIssuePRMix(df_actions, bot_list):
-    return ApplyRolling(df_actions, ROLLING_PERIODS, _ActorIssuePRMixCore, bot_list=bot_list, time_period=TIME_PERIOD)
+    return ApplyRolling(df_actions, ROLLING_PERIODS, ActorIssuePRMixCore, bot_list=bot_list, time_period=TIME_PERIOD)
 
 
-def _AverageTypeCountCore(df_actions, bot_list):
+def AverageTypeCountCore(df_actions, bot_list):
     avg_types = (
         df_actions[~df_actions["type_broad"].str.endswith("reopened") & ~df_actions["actor_id"].isin(bot_list)]
         .groupby(["repo_name", "actor_id"])["type_broad"].nunique()
@@ -118,7 +118,7 @@ def _AverageTypeCountCore(df_actions, bot_list):
     return pd.DataFrame({"avg_unique_types": [avg_types.mean()]})
 
 def AverageTypeCount(df_actions, bot_list):
-    return ApplyRolling(df_actions, ROLLING_PERIODS, _AverageTypeCountCore, bot_list=bot_list, time_period=TIME_PERIOD)
+    return ApplyRolling(df_actions, ROLLING_PERIODS, AverageTypeCountCore, bot_list=bot_list, time_period=TIME_PERIOD)
 
 
 if __name__ == "__main__":

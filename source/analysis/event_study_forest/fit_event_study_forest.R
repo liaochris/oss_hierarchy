@@ -50,7 +50,11 @@ Main <- function() {
                                            rolling_period, N_FOLDS, SEED, normalize = normalize)
       base_feature_cols <- intersect(paste0(covars, "_mean"), colnames(df_data))
 
-      feature_cols <- SelectFeatureColumns(df_data, base_feature_cols, covar_type, pc_score_columns)
+      feature_cols <- switch(covar_type,
+        all_covariates  = base_feature_cols,
+        pc_score        = intersect(pc_score_columns$pc_score,        colnames(df_data)),
+        pc_score_binary = intersect(pc_score_columns$pc_score_binary, colnames(df_data))
+      )
 
       pipeline <- NewEventStudyForestPipeline(FOREST_TRAINING_OUTCOME, rolling_period)
       pipeline <- PrepareData(pipeline, df_data, feature_cols, marg_dist)
@@ -59,15 +63,6 @@ Main <- function() {
       Save(pipeline, outdir)
     }
   }
-}
-
-
-SelectFeatureColumns <- function(df_data, base_feature_cols, covar_type, pc_score_columns) {
-  switch(covar_type,
-    all_covariates = base_feature_cols,
-    pc_score       = intersect(pc_score_columns$pc_score,               colnames(df_data)),
-    pc_score_binary = intersect(pc_score_columns$pc_score_binary, colnames(df_data))
-  )
 }
 
 

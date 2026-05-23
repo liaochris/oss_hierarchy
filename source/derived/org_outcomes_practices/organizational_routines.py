@@ -6,7 +6,7 @@ from joblib import Parallel, delayed
 from source.lib.python.filesystem_utils import CleanDirs
 from source.lib.python.data_utils import ImputeTimePeriod
 from source.lib.python.config_loaders import LoadGlobalSettings
-from source.derived.org_outcomes_practices.helpers import ApplyRolling, ConcatStatsByTimePeriod
+from source.derived.org_outcomes_practices.helpers import ApplyRolling, ConcatStatsByTimePeriod, FirstFilePresence
 from source.lib.JMSLab.SaveData import SaveData
 
 _globals        = LoadGlobalSettings()
@@ -72,7 +72,7 @@ def ComputeMeanStatus(df, status_col):
     return pd.DataFrame({f"mean_{status_col}": [mean_val]})
 
 
-def _OrganizedProblemSolvingCore(df_actions):
+def OrganizedProblemSolvingCore(df_actions):
     df_actions = df_actions.drop("time_period", axis=1)
     df_pr = df_actions[df_actions["type"].str.startswith("pull request")].copy()
     df_pr["has_reviewer"] = df_pr["requested_reviewers"].apply(lambda x: len(x) > 0)
@@ -83,14 +83,7 @@ def _OrganizedProblemSolvingCore(df_actions):
             .join([ComputeMeanStatus(df_all2, "has_tag"), ComputeMeanStatus(df_all2, "has_assignee")], how="outer"))
 
 def OrganizedProblemSolving(df_actions):
-    return ApplyRolling(df_actions, ROLLING_PERIODS, _OrganizedProblemSolvingCore, time_period=TIME_PERIOD)
-
-
-def FirstFilePresence(df_files, file_type, col_name):
-    first_period = df_files.loc[df_files["file_type"] == file_type, "time_period"].min()
-    return (df_files.query("time_period == @first_period and file_type == @file_type")
-            .assign(**{col_name: 1})[["time_period", col_name]]
-            .set_index("time_period").drop_duplicates())
+    return ApplyRolling(df_actions, ROLLING_PERIODS, OrganizedProblemSolvingCore, time_period=TIME_PERIOD)
 
 
 def UniqueIssueTemplateCount(df_files):
