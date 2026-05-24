@@ -335,11 +335,11 @@ def MergeOneRepoParts(repo_name, parts_dir_str, export_dir_str, keep_cols):
 
 
 def FinalizeRepoData(safe_repo_name, export_path_str, out_path_str, log_file_str, keys, missing_parts_dir_str, dup_parts_dir_str):
+    out_path = Path(out_path_str)
     combined_df = pd.read_parquet(export_path_str)
     if combined_df.empty:
         return 0
 
-    out_path = Path(out_path_str)
     log_file = Path(log_file_str)
     missing_parts_dir = Path(missing_parts_dir_str)
     dup_parts_dir = Path(dup_parts_dir_str)
@@ -350,9 +350,12 @@ def FinalizeRepoData(safe_repo_name, export_path_str, out_path_str, log_file_str
         combined_df = combined_df[~combined_df[keys].isna().any(axis=1)].copy()
         missing_df.to_parquet(missing_parts_dir / f"{safe_repo_name}.parquet", index=False)
 
-    duplicate_df = HandleDuplicates(combined_df, keys, filename)
-    if not duplicate_df.empty:
-        duplicate_df.to_parquet(dup_parts_dir / f"{safe_repo_name}.parquet", index=False)
+    duplicate_df, combined_df = HandleDuplicates(combined_df, keys, filename)
+    pr_opened_dup_df, combined_df = HandlePROpenedDuplicates(combined_df, filename)
+    dup_frames = [df for df in [duplicate_df, pr_opened_dup_df] if not df.empty]
+    if dup_frames:
+        all_dups = pd.concat(dup_frames, ignore_index=True)
+        all_dups.to_parquet(dup_parts_dir / f"{safe_repo_name}.parquet", index=False)
 
     combined_df = combined_df.drop_duplicates().reset_index(drop=True)
     SaveData(combined_df, keys, out_path, log_file)
@@ -395,7 +398,7 @@ def DropMissingKeys(df, keys, filename):
 def HandleDuplicates(df, keys, filename):
     dup_mask = df.duplicated(subset=keys, keep=False)
     if not dup_mask.any():
-        return pd.DataFrame()
+        return pd.DataFrame(), df
 
     dropped_frames = []
     for event_type in df.loc[dup_mask, "type"].unique():
@@ -408,7 +411,7 @@ def HandleDuplicates(df, keys, filename):
             dropped_df = pd.DataFrame()
         if not dropped_df.empty:
             dropped_frames.append(dropped_df)
-    return pd.concat(dropped_frames, ignore_index=True) if dropped_frames else pd.DataFrame()
+    return pd.concat(dropped_frames, ignore_index=True) if dropped_frames else pd.DataFrame(), df
 
 
 def HandleIssueCommentDuplicates(df, keys, event_dups, filename):
@@ -440,6 +443,22 @@ def HandleDropAndPerturbDuplicates(df, keys, event_dups, event_type, filename):
             for i, row_idx in enumerate(sorted(unique_group.index.tolist())[1:], start=1):
                 df.loc[row_idx, "created_at"] = str(pd.to_datetime(df.loc[row_idx, "created_at"]) + pd.Timedelta(milliseconds=i))
     return pd.concat(dropped_frames, ignore_index=True) if dropped_frames else pd.DataFrame()
+
+
+def HandlePROpenedDuplicates(df, filename):
+    if "pr_action" not in df.columns:
+        return pd.DataFrame(), df
+    opened_mask = (df["type"] == "PullRequestEvent") & (df["pr_action"] == "opened")
+    rows_to_drop = (
+        df[opened_mask].sort_values("created_at")
+        .duplicated(subset=["pr_number", "actor_id"], keep="first")
+    )
+    rows_to_drop = rows_to_drop[rows_to_drop].index
+    if rows_to_drop.empty:
+        return pd.DataFrame(), df
+    dropped_df = RecordDroppedRows(df, rows_to_drop, filename,
+        "PullRequestEvent opened duplicate - kept earliest created_at per (pr_number, actor_id)")
+    return dropped_df, df.drop(rows_to_drop)
 
 
 def RecordDroppedRows(df, rows_to_drop, filename, reason):
