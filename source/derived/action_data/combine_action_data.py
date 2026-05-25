@@ -5,14 +5,15 @@ import numpy as np
 import random
 from joblib import Parallel, delayed
 from source.lib.JMSLab.SaveData import SaveData
-from source.lib.python.filesystem_utils import CleanDirs
+from source.lib.python.filesystem_utils import CleanDirs, WriteDirectoryHash
 from source.lib.python.data_utils import JsonDeserialize, JsonSerialize
 from source.lib.python.repo_utils import MakeRepoNameSafe
 
 INDIR_REPO = Path('drive/output/scrape/extract_github_data/repo_level_data')
 INDIR_LINK = Path('drive/output/scrape/link_issue_pull_request')
 INDIR_REPO_LIST = Path('output/scrape/extract_github_data')
-OUTDIR = Path('drive/output/derived/action_data/repo_actions')
+OUTDIR    = Path('drive/output/derived/action_data/repo_actions')
+HASH_FILE = Path('output/derived/hashes/repo_actions.txt')
 LOG_DIR = Path('output/derived/action_data/repo_actions')
 STATS_DIR = Path("output/derived/action_data")
 
@@ -38,6 +39,8 @@ def Main():
         SaveData(stats_df, ['latest_repo_name'],
                  STATS_DIR / "dropped_stats.csv",
                  STATS_DIR / "dropped_stats.log")
+
+    WriteDirectoryHash(OUTDIR, HASH_FILE)
 
 
 def CleanOutputs():
@@ -276,9 +279,7 @@ def CombineIssuesAndPRs(df_issue, df_pr, safe_repo_name):
         return df_filtered, stats_row
 
     def deduplicate_opening_text(df, opened_type, action_types_to_clean):
-        # Keep earliest opener per thread (duplicate PR open events with different repo IDs due to repo ID changes)
-        opened_df = (df[df["type"] == opened_type].sort_values("created_at")
-                     .drop_duplicates("thread_number", keep="first")
+        opened_df = (df[df["type"] == opened_type]
                      [["thread_number", "text"]].rename(columns={"text": "opened_text"}))
         df = df.merge(opened_df, on="thread_number", how="left")
         mask = df["type"].isin(action_types_to_clean) & (df["text"] == df["opened_text"])

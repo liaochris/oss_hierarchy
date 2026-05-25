@@ -1,9 +1,10 @@
+import json
 import random
 from pathlib import Path
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from source.lib.python.filesystem_utils import CleanDirs
+from source.lib.python.filesystem_utils import CleanDirs, WriteDirectoryHash
 from source.lib.python.data_utils import ImputeTimePeriod
 from source.lib.python.config_loaders import LoadGlobalSettings
 from source.derived.org_outcomes_practices.helpers import ApplyRolling, ConcatStatsByTimePeriod, FirstFilePresence
@@ -30,6 +31,11 @@ def Main():
     repos = [f.stem for f in INDIR.glob("*.parquet") if not f.stem.startswith("._")]
     random.shuffle(repos)
     Parallel(n_jobs=N_JOBS)(delayed(ProcessRepo)(repo) for repo in repos)
+
+    WriteDirectoryHash(
+        OUTDIR / f"rolling{ROLLING_PERIODS}",
+        Path(f"output/derived/hashes/repo_organizational_routines_rolling{ROLLING_PERIODS}.txt")
+    )
 
 
 def CleanOutputs():
@@ -75,10 +81,10 @@ def ComputeMeanStatus(df, status_col):
 def OrganizedProblemSolvingCore(df_actions):
     df_actions = df_actions.drop("time_period", axis=1)
     df_pr = df_actions[df_actions["type"].str.startswith("pull request")].copy()
-    df_pr["has_reviewer"] = df_pr["requested_reviewers"].apply(lambda x: len(x) > 0)
+    df_pr["has_reviewer"] = df_pr["requested_reviewers"].apply(lambda x: len(json.loads(x)) > 0)
     df_all2 = df_actions.copy()
-    df_all2["has_tag"]      = df_all2["labels"].apply(lambda x: len(x) > 0)
-    df_all2["has_assignee"] = df_all2["assignees"].apply(lambda x: len(x) > 0)
+    df_all2["has_tag"]      = df_all2["labels"].apply(lambda x: len(json.loads(x)) > 0)
+    df_all2["has_assignee"] = df_all2["assignees"].apply(lambda x: len(json.loads(x)) > 0)
     return (ComputeMeanStatus(df_pr, "has_reviewer")
             .join([ComputeMeanStatus(df_all2, "has_tag"), ComputeMeanStatus(df_all2, "has_assignee")], how="outer"))
 

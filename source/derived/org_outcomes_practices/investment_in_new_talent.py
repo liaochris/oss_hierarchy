@@ -1,9 +1,10 @@
+import json
 import random
 from pathlib import Path
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from source.lib.python.filesystem_utils import CleanDirs
+from source.lib.python.filesystem_utils import CleanDirs, WriteDirectoryHash
 from source.lib.python.data_utils import ImputeTimePeriod
 from source.lib.python.config_loaders import LoadGlobalSettings, LoadImportanceSpecifications, LoadGlobals
 from source.derived.org_outcomes_practices.helpers import ApplyRolling, ConcatStatsByTimePeriod, FilterOnImportant, FirstFilePresence, LoadBotList, LoadFilteredImportantMembers
@@ -44,6 +45,12 @@ def Main():
             delayed(ProcessRepo)(repo_name, subset, bot_list)
             for repo_name in repo_files
         )
+
+    _hash_dir = Path("output/derived/hashes")
+    for subset in subsets:
+        subdir = OUTDIR / subset / f"rolling{ROLLING_PERIODS}"
+        if subdir.exists():
+            WriteDirectoryHash(subdir, _hash_dir / f"repo_investment_in_new_talent_{subset}_rolling{ROLLING_PERIODS}.txt")
 
 
 def CleanOutputs():
@@ -111,13 +118,12 @@ def ForwardFillNewcomerCols(df):
 def GoodFirstIssues(df_actions):
     df_issue = df_actions[df_actions["type"].str.startswith("issue")].copy()
     df_issue["good_first_issue"] = df_issue["labels"].apply(
-        lambda labels: any(label.lower() == "good first issue" for label in labels)
+        lambda labels: any(label.lower() == "good first issue" for label in json.loads(labels))
     )
     has_gfi = (
         df_issue[df_issue["type"] == "issue opened"].groupby("time_period")["thread_number"]
         .apply(lambda threads: df_issue[
-            df_issue["time_period"] == threads.name
-            & df_issue["good_first_issue"] & df_issue["thread_number"].isin(threads)
+            df_issue["good_first_issue"] & df_issue["thread_number"].isin(threads)
         ].shape[0] > 0)
         .to_frame("has_good_first_issue")
     )

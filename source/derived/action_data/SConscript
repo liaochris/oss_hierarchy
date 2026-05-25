@@ -1,20 +1,13 @@
 Import('*')
 
-from source.lib.python.config_loaders import LoadGlobalSettings
-from source.lib.python.repo_utils import MakeRepoNameSafe
-
-globals_data = LoadGlobalSettings("../../../source/lib/config/global_settings.json")
-reference_repo = globals_data['reference_github_repo']
-reference_repo_safe_name = MakeRepoNameSafe(reference_repo)
-
 combine_source = [
     '#source/derived/action_data/combine_action_data.py',
-    f'#drive/output/scrape/extract_github_data/repo_level_data/issue/{reference_repo_safe_name}.parquet',
-    f'#drive/output/scrape/extract_github_data/repo_level_data/pr/{reference_repo_safe_name}.parquet',
-    f'#drive/output/scrape/link_issue_pull_request/linked_pull_request_to_issue/{reference_repo_safe_name}.parquet',
+    '#output/derived/hashes/scrape_issue.txt',
+    '#output/derived/hashes/scrape_pr.txt',
+    '#output/derived/hashes/scrape_linked_prs.txt',
 ]
 combine_target = [
-    f'#drive/output/derived/action_data/repo_actions/{reference_repo_safe_name}.parquet',
+    '#output/derived/hashes/repo_actions.txt',
     '#output/derived/action_data/dropped_stats.csv',
     '#output/derived/action_data/repo_component_tracking.csv',
 ]
@@ -23,9 +16,9 @@ env.Python(combine_target, combine_source)
 
 clean_source = [
     '#source/derived/action_data/clean_text.py',
-    f'#drive/output/derived/action_data/repo_actions/{reference_repo_safe_name}.parquet',
+    '#output/derived/hashes/repo_actions.txt',
 ]
 clean_target = [
-    f'#drive/output/derived/action_data/cleaned_text/{reference_repo_safe_name}.parquet',
+    '#output/derived/hashes/cleaned_text.txt',
 ]
 env.Python(clean_target, clean_source)

@@ -7,14 +7,15 @@ import numpy as np
 import itertools
 from datetime import datetime
 from joblib import Parallel, delayed
-from source.lib.python.filesystem_utils import CleanDirs
+from source.lib.python.filesystem_utils import CleanDirs, WriteDirectoryHash
 from source.lib.python.repo_utils import MakeRepoNameSafe, MakeRepoNameOriginal
 from source.lib.python.data_utils import ImputeTimePeriod, JsonSerialize
 from source.lib.python.config_loaders import LoadGlobalSettings
 from source.lib.JMSLab.SaveData import SaveData
 
 INDIR_DATA = Path('drive/output/derived/action_data/repo_actions')
-OUTDIR = Path('drive/output/derived/graph_structure')
+OUTDIR    = Path('drive/output/derived/graph_structure')
+HASH_FILE = Path('output/derived/hashes/interactions.txt')
 LOG_DIR = Path('output/derived/graph_structure')
 
 
@@ -38,6 +39,8 @@ def Main():
     if not log_df.empty:
         log_df['per_period_exported'] = log_df['per_period_exported'].apply(JsonSerialize)
         SaveData(log_df, ['repo'], LOG_DIR / "exported_graphs_log.csv", LOG_DIR / "exported_graphs_log.log")
+
+    WriteDirectoryHash(OUTDIR / "interactions", HASH_FILE)
 
 
 def CleanOutputs():

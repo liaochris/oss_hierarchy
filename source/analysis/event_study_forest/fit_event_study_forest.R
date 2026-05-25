@@ -36,7 +36,7 @@ Main <- function() {
   for (covar_type in COVAR_TYPES) {
     needs_pc_scores <- covar_type %in% c("pc_score", "pc_score_binary")
     panel <- LoadPreparedSample(INDIR_PREP, IMPORTANCE_TYPE, ROLLING_PERIOD,
-                                QUALIFIED_SAMPLE, CONTROL_GROUP, with_pc_scores = needs_pc_scores)
+                                QUALIFIED_SAMPLE, CONTROL_GROUP)
     marg_dist <- ComputeCohortTimeDist(panel)
 
     for (normalize in NORM_OPTIONS) {

@@ -1,16 +1,9 @@
 Import('*')
 
-from source.lib.python.config_loaders import LoadGlobalSettings
-from source.lib.python.repo_utils import MakeRepoNameSafe
-
-globals_data = LoadGlobalSettings("../../../source/lib/config/global_settings.json")
-reference_repo = globals_data['reference_github_repo']
-reference_repo_safe_name = MakeRepoNameSafe(reference_repo)
-
 source = [
     '#source/derived/create_bot_list/create_bot_list.py',
-    f'#drive/output/scrape/extract_github_data/repo_level_data/issue/{reference_repo_safe_name}.parquet',
-    f'#drive/output/scrape/extract_github_data/repo_level_data/pr/{reference_repo_safe_name}.parquet'
+    '#output/derived/hashes/scrape_issue.txt',
+    '#output/derived/hashes/scrape_pr.txt',
 ]
 
 target = [

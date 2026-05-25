@@ -4,8 +4,7 @@ from source.lib.python.config_loaders import LoadGlobalSettings
 from source.lib.python.repo_utils import MakeRepoNameSafe
 
 globals_data = LoadGlobalSettings("../../../source/lib/config/global_settings.json")
-reference_repo = globals_data['reference_github_repo']
-ref = MakeRepoNameSafe(reference_repo)
+ref = MakeRepoNameSafe(globals_data['reference_github_repo'])
 
 def _six_month_periods(start_str, end_str):
     from datetime import date
@@ -24,10 +23,10 @@ time_periods = _six_month_periods(globals_data['github_start_date'], globals_dat
 
 source = [
     '#source/derived/graph_structure/create_graphs.py',
-    f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
+    '#output/derived/hashes/repo_actions.txt',
 ]
 target = [
-    f'#drive/output/derived/graph_structure/interactions/{ref}.parquet',
+    '#output/derived/hashes/interactions.txt',
     '#output/derived/graph_structure/exported_graphs_log.csv',
 ] + [
     f'#drive/output/derived/graph_structure/graphs/{tp}/{ref}.gexf'
@@ -37,24 +36,24 @@ env.Python(target, source)
 
 source = [
     '#source/derived/graph_structure/calculate_degree.py',
-    f'#drive/output/derived/graph_structure/interactions/{ref}.parquet',
+    '#output/derived/hashes/interactions.txt',
 ] + [
     f'#drive/output/derived/graph_structure/graphs/{tp}/{ref}.gexf'
     for tp in time_periods
 ]
 target = [
-    f'#drive/output/derived/graph_structure/graph_degrees/{ref}.parquet',
+    '#output/derived/hashes/graph_degrees.txt',
 ]
 env.Python(target, source)
 
 source = [
     '#source/derived/graph_structure/calculate_importance.py',
     '#source/lib/config/importance_specifications.json',
-    f'#drive/output/derived/graph_structure/graph_degrees/{ref}.parquet',
-    f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
+    '#output/derived/hashes/graph_degrees.txt',
+    '#output/derived/hashes/repo_actions.txt',
 ]
 target = [
-    f'#output/derived/graph_structure/important_members/{ref}.csv',
+    '#output/derived/hashes/important_members.txt',
     '#output/derived/graph_structure/importance_summary.csv',
 ]
 env.Python(target, source)

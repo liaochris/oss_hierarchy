@@ -3,13 +3,14 @@ import re
 import pandas as pd
 from pandarallel import pandarallel
 from pathlib import Path
-from source.lib.python.filesystem_utils import CleanDirs
+from source.lib.python.filesystem_utils import CleanDirs, WriteDirectoryHash
 from source.lib.python.data_utils import ImputeTimePeriod
 from source.lib.JMSLab.SaveData import SaveData
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 INDIR   = Path("drive/output/derived/action_data/repo_actions")
-OUTDIR  = Path("drive/output/derived/action_data/cleaned_text")
+OUTDIR    = Path("drive/output/derived/action_data/cleaned_text")
+HASH_FILE = Path("output/derived/hashes/cleaned_text.txt")
 LOG_DIR = Path("output/derived/action_data/cleaned_text")
 
 RE_PATTERNS = [
@@ -86,6 +87,8 @@ def Main():
         df_text_cleaned = AddVaderSentiment(df_text_cleaned)
 
         SaveData(df_text_cleaned, ['action_id'], OUTDIR / f"{project}.parquet", LOG_DIR / f"{project}.log")
+
+    WriteDirectoryHash(OUTDIR, HASH_FILE)
 
 
 def CleanOutputs():

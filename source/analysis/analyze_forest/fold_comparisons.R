@@ -30,8 +30,8 @@ Main <- function() {
 
             pc_combo_att_summary <- df_binarized_pc_scores %>%
               group_by(across(all_of(pc_score_cols))) %>%
-              summarize(att_dr_mean = mean(att_dr, na.rm = TRUE), count = n(), .groups = "drop") %>%
-              arrange(-att_dr_mean) %>%
+              summarize(att_doubly_robust_mean = mean(att_doubly_robust, na.rm = TRUE), count = n(), .groups = "drop") %>%
+              arrange(-att_doubly_robust_mean) %>%
               mutate(rank = row_number())
 
             fold_summaries <- BuildFoldSummaries(
@@ -73,8 +73,8 @@ BuildFoldSummaries <- function(sub_dfs, sub_bins, pc_score_cols,
 
     bind_rows(fold_rows) %>%
       group_by(across(all_of(pc_score_cols))) %>%
-      summarize(att_dr_mean = mean(fold_att, na.rm = TRUE), count = n(), .groups = "drop") %>%
-      arrange(-att_dr_mean) %>%
+      summarize(att_doubly_robust_mean = mean(fold_att, na.rm = TRUE), count = n(), .groups = "drop") %>%
+      arrange(-att_doubly_robust_mean) %>%
       mutate(rank = row_number())
   }) %>% Filter(Negate(is.null), .)
 }
@@ -91,13 +91,13 @@ PlotCrossForestGrid <- function(combo_summary, fold_summaries, pc_split_cols, ou
     mat <- as.matrix(df[pc_split_cols])
     apply(mat, 1, function(r) paste(toupper(substr(r, 1, 1)), collapse = "-"))
   }
-  full_keys <- ComboKeys(fold_summaries[[1]] %>% arrange(-att_dr_mean))
+  full_keys <- ComboKeys(fold_summaries[[1]] %>% arrange(-att_doubly_robust_mean))
 
   df_all <- bind_rows(lapply(seq_along(fold_summaries), function(i) {
     fs <- fold_summaries[[i]]
     fs %>%
       mutate(combo_key  = ComboKeys(.),
-             combo_rank = rank(-att_dr_mean, ties.method = "first"),
+             combo_rank = rank(-att_doubly_robust_mean, ties.method = "first"),
              row_pos    = match(combo_key, full_keys),
              x_pos      = i) %>%
       filter(!is.na(row_pos)) %>%
@@ -132,11 +132,11 @@ ComputeFoldCorrelations <- function(combo_summary, fold_summaries, pc_split_cols
     mat <- as.matrix(df[pc_split_cols])
     apply(mat, 1, function(r) paste(toupper(substr(r, 1, 1)), collapse = "-"))
   }
-  full_keys <- ComboKeys(combo_summary %>% arrange(-att_dr_mean))
+  full_keys <- ComboKeys(combo_summary %>% arrange(-att_doubly_robust_mean))
 
   att_mat  <- sapply(fold_summaries, function(fs) {
     fs$combo_key <- ComboKeys(fs)
-    fs[match(full_keys, fs$combo_key), ]$att_dr_mean
+    fs[match(full_keys, fs$combo_key), ]$att_doubly_robust_mean
   })
   rank_mat <- apply(att_mat, 2, rank, na.last = "keep")
 

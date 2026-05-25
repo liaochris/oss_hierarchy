@@ -28,7 +28,7 @@ OUTDIR             = Path("output/analysis/summ_stats")
 
 
 def Main():
-    pipeline_cfg = LoadPipelineInputs()
+    pipeline_cfg = LoadPipelineInputs("source/lib/config/pipeline_inputs.json")
     analysis_spec = BuildAnalysisSpec(pipeline_cfg)
 
     INDIR_ORG_PANEL = Path("drive/output/derived/org_outcomes_practices/org_panel") / analysis_spec["importance_type"] / analysis_spec["rolling_label"] / "panel.parquet"
@@ -240,7 +240,7 @@ def GenerateConfigAutofill():
     TopK           = primary_spec["top_k"]
     MinConsecutive = primary_spec["consecutive_req"]
 
-    TimePeriod            = 6  # semiannual periods — not stored in any config file
+    TimePeriod            = settings["time_period_months"]
     NumMonthsObserved     = NumPostPeriod * TimePeriod
     MinConsecutiveMonths  = MinConsecutive * TimePeriod
 

@@ -25,11 +25,11 @@ Main <- function() {
 
             combo_summary <- df_bins %>%
               group_by(across(all_of(pc_score_cols))) %>%
-              summarize(att_dr_mean      = mean(att_dr, na.rm = TRUE),
-                        high_resilience  = mean(att_dr_group == "high", na.rm = TRUE),
+              summarize(att_doubly_robust_mean      = mean(att_doubly_robust, na.rm = TRUE),
+                        high_resilience  = mean(att_doubly_robust_group == "high", na.rm = TRUE),
                         count            = n(),
                         .groups          = "drop") %>%
-              arrange(-att_dr_mean) %>%
+              arrange(-att_doubly_robust_mean) %>%
               mutate(rank = row_number())
 
             PlotHighLowGrid(combo_summary, pc_score_cols)
@@ -73,7 +73,7 @@ PlotHighLowGrid <- function(combo_summary, pc_score_cols) {
   n_pc_score_groups <- length(pc_score_cols)
 
   ggplot(pc_tile_plot_data, aes(x = pc_score_group, y = rank, fill = level)) +
-    geom_tile(color = "white", size = 1.5) +
+    geom_tile(color = "white", linewidth = 1.5) +
     geom_segment(inherit.aes = FALSE,
                  aes(x = 0.5, xend = n_pc_score_groups + 0.5, y = 16.5, yend = 16.5),
                  color = "red", linewidth = 1.5, alpha = 0.7) +
@@ -116,15 +116,15 @@ CreatePCScoreComboTables <- function(df_bins, pc_split_cols, outdir_ds) {
     combo_rows_all <- lapply(combos, function(vars) {
       df_bins %>%
         group_by(across(all_of(vars))) %>%
-        summarize(att_dr_mean = mean(att_dr, na.rm = TRUE), count = n(), .groups = "drop") %>%
-        arrange(-att_dr_mean) %>%
+        summarize(att_doubly_robust_mean = mean(att_doubly_robust, na.rm = TRUE), count = n(), .groups = "drop") %>%
+        arrange(-att_doubly_robust_mean) %>%
         mutate(rank = row_number(),
                pattern = apply(as.matrix(pick(all_of(vars))), 1, paste, collapse = "-"),
                pc_score_subset = paste(vars, collapse = " x ")) %>%
-        select(pc_score_subset, pattern, rank, att_dr_mean, count)
+        select(pc_score_subset, pattern, rank, att_doubly_robust_mean, count)
     })
     combo_all_path <- file.path(outdir_ds, paste0("pc_score_combo_k", k, "_table.csv"))
-    SaveData(bind_rows(combo_rows_all) %>% arrange(-att_dr_mean),
+    SaveData(bind_rows(combo_rows_all) %>% arrange(-att_doubly_robust_mean),
              c("pc_score_subset", "pattern"),
              combo_all_path,
              sub("\\.csv$", ".log", combo_all_path))
@@ -132,16 +132,16 @@ CreatePCScoreComboTables <- function(df_bins, pc_split_cols, outdir_ds) {
     combo_rows_high <- lapply(combos, function(vars) {
       grp      <- df_bins %>%
         group_by(across(all_of(vars))) %>%
-        summarize(att_dr_mean = mean(att_dr, na.rm = TRUE), count = n(), .groups = "drop")
+        summarize(att_doubly_robust_mean = mean(att_doubly_robust, na.rm = TRUE), count = n(), .groups = "drop")
       all_high <- grp %>% filter(if_all(all_of(vars), ~ .x == "high"))
       others   <- grp %>% filter(!if_all(all_of(vars), ~ .x == "high"))
       if (nrow(all_high) == 0) return(NULL)
       att_others <- if (nrow(others) > 0 && sum(others$count) > 0)
-        sum(others$att_dr_mean * others$count) / sum(others$count) else NA_real_
+        sum(others$att_doubly_robust_mean * others$count) / sum(others$count) else NA_real_
       tibble(pc_score_subset = paste(vars, collapse = " x "),
-             att_high = all_high$att_dr_mean,
+             att_high = all_high$att_doubly_robust_mean,
              att_others_wavg = att_others,
-             difference = all_high$att_dr_mean - att_others,
+             difference = all_high$att_doubly_robust_mean - att_others,
              count_high = all_high$count)
     })
     combo_high_path <- file.path(outdir_ds, paste0("pc_score_combo_k", k, "_high_table.csv"))
@@ -170,7 +170,7 @@ PlotPCScoreGradientGrid <- function(combo_summary, pc_split_cols, fixed_rank_ord
   mat <- as.matrix(combo_summary[pc_split_cols])
   combo_summary <- combo_summary %>%
     mutate(combo_key  = apply(mat, 1, function(r) paste(toupper(substr(r, 1, 1)), collapse = "-")),
-           combo_rank = row_number(desc(att_dr_mean)))
+           combo_rank = row_number(desc(att_doubly_robust_mean)))
 
   df_plot <- if (!is.null(fixed_rank_order)) {
     combo_summary %>% mutate(row_pos = match(combo_key, fixed_rank_order)) %>% filter(!is.na(row_pos))

@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import duckdb
 from joblib import Parallel, delayed
-from source.lib.python.filesystem_utils import CleanDirs
+from source.lib.python.filesystem_utils import CleanDirs, WriteDirectoryHash
 from source.lib.python.data_utils import ImputeTimePeriod
 from source.lib.python.config_loaders import LoadGlobalSettings
 from source.lib.python.repo_utils import MakeRepoNameOriginal
@@ -19,6 +19,7 @@ INDIR_PYPI_GITHUB       = Path("output/scrape/pypi_site_info")
 INDIR_GITHUB_MAP        = Path("output/scrape/extract_github_data/")
 INDIR_PROJECT_DOWNLOADS = Path("drive/output/scrape/pypi_version_downloads")
 OUTDIR                  = Path("drive/output/derived/org_outcomes_practices/org_outcomes")
+HASH_FILE               = Path("output/derived/hashes/org_outcomes.txt")
 LOG_OUTDIR              = Path("output/derived/org_outcomes_practices/org_outcomes")
 TIME_PERIOD             = _globals["time_period_months"]
 
@@ -38,6 +39,8 @@ def Main():
         )
         for repo_file in repo_files
     )
+
+    WriteDirectoryHash(OUTDIR, HASH_FILE)
 
 
 def CleanOutputs():

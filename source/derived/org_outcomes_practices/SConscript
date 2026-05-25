@@ -1,25 +1,23 @@
 Import('*')
 
 from source.lib.python.config_loaders import LoadGlobalSettings, LoadPipelineInputs
-from source.lib.python.repo_utils import MakeRepoNameSafe
 
 _g      = LoadGlobalSettings("../../../source/lib/config/global_settings.json")
 _cfg    = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
-ref     = MakeRepoNameSafe(_g['reference_github_repo'])
 rolling = f"rolling{_g['rolling_periods']}"
 
 importance_types = _cfg["importance_types"]["run"] + _cfg["importance_types"]["extended"]
 rolling_periods  = [f"rolling{p}" for p in _cfg["rolling_periods"]["run"] + _cfg["rolling_periods"]["extended"]]
-imp_members      = f'#output/derived/graph_structure/important_members/{ref}.csv'
+all_subsets      = ["all"] + importance_types
 bot_list         = '#output/derived/create_bot_list/bot_list.csv'
 
 env.Python(
     target=[
-        f'#drive/output/derived/org_outcomes_practices/org_outcomes/{ref}.parquet',
+        '#output/derived/hashes/org_outcomes.txt',
     ],
     source=[
         '#source/derived/org_outcomes_practices/org_outcomes.py',
-        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
+        '#output/derived/hashes/repo_actions.txt',
         '#drive/output/scrape/pypi_downloads/pypi_monthly_downloads.parquet',
         '#output/scrape/pypi_site_info/linked_pypi_github.csv',
         '#output/scrape/extract_github_data/repo_id_history_final.csv',
@@ -29,56 +27,46 @@ env.Python(
 
 env.Python(
     target=[
-        f'#drive/output/derived/org_outcomes_practices/repo_collaboration/all/{rolling}/{ref}.parquet',
-        f'#drive/output/derived/org_outcomes_practices/repo_collaboration/all/{rolling}/{ref}_members.parquet',
-    ] + [
-        f'#drive/output/derived/org_outcomes_practices/repo_collaboration/{imp}/{rolling}/{ref}.parquet'
-        for imp in importance_types
-    ] + [
-        f'#drive/output/derived/org_outcomes_practices/repo_collaboration/{imp}/{rolling}/{ref}_members.parquet'
-        for imp in importance_types
+        f'#output/derived/hashes/repo_collaboration_{s}_{rolling}.txt'
+        for s in all_subsets
     ],
     source=[
         '#source/derived/org_outcomes_practices/collaboration.py',
         '#source/derived/org_outcomes_practices/helpers.py',
-        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
-        f'#drive/output/derived/graph_structure/interactions/{ref}.parquet',
-        imp_members,
+        '#output/derived/hashes/repo_actions.txt',
+        '#output/derived/hashes/interactions.txt',
+        '#output/derived/hashes/important_members.txt',
         bot_list,
     ],
 )
 
 env.Python(
     target=[
-        f'#drive/output/derived/org_outcomes_practices/repo_shared_knowledge/all/{rolling}/{ref}.parquet',
-    ] + [
-        f'#drive/output/derived/org_outcomes_practices/repo_shared_knowledge/{imp}/{rolling}/{ref}.parquet'
-        for imp in importance_types
+        f'#output/derived/hashes/repo_shared_knowledge_{s}_{rolling}.txt'
+        for s in all_subsets
     ],
     source=[
         '#source/derived/org_outcomes_practices/shared_knowledge.py',
         '#source/derived/org_outcomes_practices/helpers.py',
-        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
-        imp_members,
+        '#output/derived/hashes/repo_actions.txt',
+        '#output/derived/hashes/important_members.txt',
         bot_list,
     ],
 )
 
 env.Python(
     target=[
-        f'#drive/output/derived/org_outcomes_practices/repo_discussion_quality/all/{rolling}/{ref}.parquet',
-    ] + [
-        f'#drive/output/derived/org_outcomes_practices/repo_discussion_quality/{imp}/{rolling}/{ref}.parquet'
-        for imp in importance_types
+        f'#output/derived/hashes/repo_discussion_quality_{s}_{rolling}.txt'
+        for s in all_subsets
     ],
     source=[
         '#source/derived/org_outcomes_practices/discussion_quality.py',
         '#source/derived/org_outcomes_practices/helpers.py',
         '#source/derived/org_outcomes_practices/constants.json',
-        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
-        f'#drive/output/derived/graph_structure/interactions/{ref}.parquet',
-        f'#drive/output/derived/action_data/cleaned_text/{ref}.parquet',
-        imp_members,
+        '#output/derived/hashes/repo_actions.txt',
+        '#output/derived/hashes/interactions.txt',
+        '#output/derived/hashes/cleaned_text.txt',
+        '#output/derived/hashes/important_members.txt',
         bot_list,
         # graph_structure/graphs GEXF files used by CalculateNetworkClustering; not enumerable statically
     ],
@@ -86,32 +74,28 @@ env.Python(
 
 env.Python(
     target=[
-        f'#drive/output/derived/org_outcomes_practices/repo_investment_in_new_talent/all/{rolling}/{ref}.parquet',
-    ] + [
-        f'#drive/output/derived/org_outcomes_practices/repo_investment_in_new_talent/{imp}/{rolling}/{ref}.parquet'
-        for imp in importance_types
+        f'#output/derived/hashes/repo_investment_in_new_talent_{s}_{rolling}.txt'
+        for s in all_subsets
     ],
     source=[
         '#source/derived/org_outcomes_practices/investment_in_new_talent.py',
         '#source/derived/org_outcomes_practices/helpers.py',
         '#source/derived/org_outcomes_practices/constants.json',
-        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
-        f'#drive/output/derived/graph_structure/interactions/{ref}.parquet',
-        f'#drive/output/scrape/governance_data/{ref}.parquet',
-        imp_members,
+        '#output/derived/hashes/repo_actions.txt',
+        '#output/derived/hashes/interactions.txt',
+        '#output/derived/hashes/important_members.txt',
         bot_list,
     ],
 )
 
 env.Python(
     target=[
-        f'#drive/output/derived/org_outcomes_practices/repo_organizational_routines/{rolling}/{ref}.parquet',
+        f'#output/derived/hashes/repo_organizational_routines_{rolling}.txt',
     ],
     source=[
         '#source/derived/org_outcomes_practices/organizational_routines.py',
         '#source/derived/org_outcomes_practices/helpers.py',
-        f'#drive/output/derived/action_data/repo_actions/{ref}.parquet',
-        f'#drive/output/scrape/governance_data/{ref}.parquet',
+        '#output/derived/hashes/repo_actions.txt',
     ],
 )
 
@@ -122,17 +106,18 @@ panel_sources = [
     '#source/lib/config/global_settings.json',
     '#source/lib/config/importance_specifications.json',
     '#source/lib/config/pipeline_inputs.json',
-    f'#drive/output/derived/org_outcomes_practices/org_outcomes/{ref}.parquet',
-    imp_members,
+    '#output/derived/hashes/org_outcomes.txt',
+    '#output/derived/hashes/important_members.txt',
 ]
 
 for rolling_period in rolling_periods:
+    rp = rolling_period.replace("rolling", "")
     panel_sources.extend([
-        f'#drive/output/derived/org_outcomes_practices/repo_collaboration/all/{rolling_period}/{ref}.parquet',
-        f'#drive/output/derived/org_outcomes_practices/repo_shared_knowledge/all/{rolling_period}/{ref}.parquet',
-        f'#drive/output/derived/org_outcomes_practices/repo_discussion_quality/all/{rolling_period}/{ref}.parquet',
-        f'#drive/output/derived/org_outcomes_practices/repo_investment_in_new_talent/all/{rolling_period}/{ref}.parquet',
-        f'#drive/output/derived/org_outcomes_practices/repo_organizational_routines/{rolling_period}/{ref}.parquet',
+        f'#output/derived/hashes/repo_collaboration_all_rolling{rp}.txt',
+        f'#output/derived/hashes/repo_shared_knowledge_all_rolling{rp}.txt',
+        f'#output/derived/hashes/repo_discussion_quality_all_rolling{rp}.txt',
+        f'#output/derived/hashes/repo_investment_in_new_talent_all_rolling{rp}.txt',
+        f'#output/derived/hashes/repo_organizational_routines_rolling{rp}.txt',
     ])
     for importance_type in importance_types:
         panel_targets.extend([
@@ -140,10 +125,10 @@ for rolling_period in rolling_periods:
             f'#output/derived/org_outcomes_practices/org_panel_{importance_type}_{rolling_period}.log',
         ])
         panel_sources.extend([
-            f'#drive/output/derived/org_outcomes_practices/repo_collaboration/{importance_type}/{rolling_period}/{ref}.parquet',
-            f'#drive/output/derived/org_outcomes_practices/repo_shared_knowledge/{importance_type}/{rolling_period}/{ref}.parquet',
-            f'#drive/output/derived/org_outcomes_practices/repo_discussion_quality/{importance_type}/{rolling_period}/{ref}.parquet',
-            f'#drive/output/derived/org_outcomes_practices/repo_investment_in_new_talent/{importance_type}/{rolling_period}/{ref}.parquet',
+            f'#output/derived/hashes/repo_collaboration_{importance_type}_rolling{rp}.txt',
+            f'#output/derived/hashes/repo_shared_knowledge_{importance_type}_rolling{rp}.txt',
+            f'#output/derived/hashes/repo_discussion_quality_{importance_type}_rolling{rp}.txt',
+            f'#output/derived/hashes/repo_investment_in_new_talent_{importance_type}_rolling{rp}.txt',
         ])
 
 env.Python(panel_targets, panel_sources)

@@ -1,7 +1,7 @@
 library(tidyverse)
 library(grf)
 
-ParseArmName <- function(arm) {
+ParseCohortEventLabel <- function(arm) {
   cohort         <- as.integer(stringr::str_extract(arm, "(?<=cohort)\\d+"))
   event_time_num <- as.integer(stringr::str_extract(arm, "\\d+$"))
   is_negative    <- grepl("event_time[-\\.]", arm)
@@ -19,7 +19,7 @@ FirstDifferenceOutcome <- function(df, norm_outcome_col) {
     filter(!is.na(fd_outcome))
 }
 
-ResidualizeOutcome <- function(df, outcome) {
+ResidualizeOutcomeLinearFE <- function(df, outcome) {
   df_norm <- NormalizeOutcome(df, outcome)
   norm_outcome_col <- paste(outcome, "norm", sep = "_")
   df_norm <- FirstDifferenceOutcome(df_norm, norm_outcome_col)
@@ -52,6 +52,8 @@ AveragePreTreatmentCovariateAcrossPeriods <- function(df, covars, rolling_period
     df %>%
       filter(quasi_event_time >= MIN_EVENT_TIME & quasi_event_time <= MAX_EVENT_TIME) %>%
       left_join(means, by = "repo_name")
+  } else {
+    stop(paste0("Unsupported rolling_period: ", rolling_period, ". Must be 1 or 5."))
   }
 }
 
@@ -120,21 +122,21 @@ AggregateEventStudy <- function(tau_hat, df, max_time,
   colnames(tau_hat) <- gsub("treatment_arm", "", colnames(tau_hat))
   colnames(tau_hat) <- gsub(" - never-treated", "", colnames(tau_hat))
 
-  parsed   <- ParseArmName(colnames(tau_hat))
+  parsed   <- ParseCohortEventLabel(colnames(tau_hat))
   arm_info <- data.frame(
     arm        = colnames(tau_hat),
     cohort     = parsed$cohort,
     event_time = parsed$event_time
   )
 
-  cohort_probs <- df %>%
+  cohort_prob_dist <- df %>%
     filter(quasi_treatment_group > 0) %>%
     count(quasi_treatment_group, name = "n_obs") %>%
-    mutate(prob_treatment_cohort = n_obs / sum(n_obs))
+    mutate(prob_cohort = n_obs / sum(n_obs))
 
   weighted_avg <- function(valid) {
     tau_sub    <- tau_hat[, valid$arm, drop = FALSE]
-    weight_vec <- valid$p / sum(valid$p, na.rm = TRUE)
+    weight_vec <- valid$prob_cohort / sum(valid$prob_cohort, na.rm = TRUE)
     weight_mat <- matrix(rep(weight_vec, each = nrow(tau_sub)), nrow = nrow(tau_sub))
     weight_mat[is.na(tau_sub)] <- 0
     weight_mat <- weight_mat / rowSums(weight_mat, na.rm = TRUE)
@@ -147,21 +149,21 @@ AggregateEventStudy <- function(tau_hat, df, max_time,
     est <- lapply(sort(unique(arm_info$event_time)), function(ev) {
       valid <- subset(arm_info, event_time == ev & cohort + ev <= max_time)
       if (!nrow(valid)) return(NULL)
-      valid$p <- cohort_probs$prob_treatment_cohort[match(valid$cohort, cohort_probs$quasi_treatment_group)]
+      valid$prob_cohort <- cohort_prob_dist$prob_cohort[match(valid$cohort, cohort_prob_dist$quasi_treatment_group)]
       weighted_avg(valid)
     })
     out <- as.data.frame(do.call(cbind, est))
     colnames(out) <- paste0("event_time", sort(unique(arm_info$event_time)))
     cbind(obs_id = seq_len(nrow(out)), out)
   } else if (type == "att") {
-    valid            <- subset(arm_info, event_time > 0 & cohort + event_time <= max_time)
-    slots_per_cohort <- ave(valid$cohort, valid$cohort, FUN = length)
-    valid$p          <- cohort_probs$prob_treatment_cohort[match(valid$cohort, cohort_probs$quasi_treatment_group)] / slots_per_cohort
+    valid             <- subset(arm_info, event_time > 0 & cohort + event_time <= max_time)
+    slots_per_cohort  <- ave(valid$cohort, valid$cohort, FUN = length)
+    valid$prob_cohort <- cohort_prob_dist$prob_cohort[match(valid$cohort, cohort_prob_dist$quasi_treatment_group)] / slots_per_cohort
     data.frame(att = weighted_avg(valid))
   } else if (type == "cumulative") {
-    valid <- subset(arm_info, event_time > 0 & cohort <= cumulative_cutoff & cohort + event_time <= cumulative_cutoff)
+    valid             <- subset(arm_info, event_time > 0 & cohort <= cumulative_cutoff & cohort + event_time <= cumulative_cutoff)
     if (!nrow(valid)) return(data.frame(cumu_t4 = NA))
-    valid$p <- cohort_probs$prob_treatment_cohort[match(valid$cohort, cohort_probs$quasi_treatment_group)]
+    valid$prob_cohort <- cohort_prob_dist$prob_cohort[match(valid$cohort, cohort_prob_dist$quasi_treatment_group)]
     data.frame(cumu_t4 = weighted_avg(valid))
   }
 }
@@ -204,7 +206,7 @@ ComputeBaselinePropensities <- function(W_nt, df_panel_nt, marg_dist_treatment_g
     filter(quasi_treatment_group >= min(df_panel_nt$quasi_treatment_group),
            quasi_treatment_group <= max(df_panel_nt$quasi_treatment_group)) %>%
     group_by(first_time) %>%
-    mutate(prob_treatment_cohort = prob_treatment_cohort / sum(prob_treatment_cohort)) %>%
+    mutate(prob_cohort = prob_cohort / sum(prob_cohort)) %>%
     ungroup()
 
   first_time_by_repo <- df_panel_nt %>%
@@ -213,16 +215,17 @@ ComputeBaselinePropensities <- function(W_nt, df_panel_nt, marg_dist_treatment_g
 
   repo_probs <- first_time_by_repo %>%
     left_join(marg_dist_treatment_group, by = "first_time", relationship = "many-to-many") %>%
-    select(repo_id, quasi_treatment_group, prob_treatment_cohort)
+    select(repo_id, quasi_treatment_group, prob_cohort)
 
-  for (rid in unique(repo_probs$repo_id)) {
-    rows_idx <- which(df_panel_nt$repo_id == rid)
-    rp       <- repo_probs[repo_probs$repo_id == rid, , drop = FALSE]
-    col_names <- paste0("factor(time_index)", rp$quasi_treatment_group - 1)
-    col_idx   <- match(col_names, colnames(W_hat))
-    valid_k   <- !is.na(col_idx)
+  # loop is clear and fast enough for typical panel sizes; could be vectorized via sparse matrix ops if needed
+  for (repo_id in unique(repo_probs$repo_id)) {
+    rows_idx          <- which(df_panel_nt$repo_id == repo_id)
+    prob_cohort_by_repo <- repo_probs[repo_probs$repo_id == repo_id, , drop = FALSE]
+    col_names         <- paste0("factor(time_index)", prob_cohort_by_repo$quasi_treatment_group - 1)
+    col_idx           <- match(col_names, colnames(W_hat))
+    valid_k           <- !is.na(col_idx)
     for (k in which(valid_k)) {
-      W_hat[rows_idx, col_idx[k]] <- W_hat[rows_idx, col_idx[k]] - rp$prob_treatment_cohort[k]
+      W_hat[rows_idx, col_idx[k]] <- W_hat[rows_idx, col_idx[k]] - prob_cohort_by_repo$prob_cohort[k]
     }
   }
   W_hat
@@ -233,23 +236,24 @@ BuildTreatmentMatrix <- function(df_data) {
   W[, !grepl("never-treated", colnames(W)), drop = FALSE]
 }
 
-AdjustPropensityMatrix <- function(cohort_propensities, W, df_data) {
-  cohort_propensities <- cohort_propensities[, setdiff(colnames(cohort_propensities), "0"), drop = FALSE]
+AdjustPropensityMatrix <- function(prob_cohort_given_x, W, df_data) {
+  prob_cohort_given_x <- prob_cohort_given_x[, setdiff(colnames(prob_cohort_given_x), "0"), drop = FALSE]
   cols          <- colnames(W)
-  parsed        <- ParseArmName(cols)
+  parsed        <- ParseCohortEventLabel(cols)
   cohort        <- parsed$cohort
   event_time    <- parsed$event_time
   expected_time <- cohort + event_time
 
   W_hat <- matrix(0, nrow = nrow(W), ncol = ncol(W), dimnames = list(NULL, cols))
   for (c in unique(cohort[!is.na(cohort)])) {
-    if (as.character(c) %in% colnames(cohort_propensities)) {
-      W_hat[, cohort == c] <- cohort_propensities[, as.character(c)]
+    if (as.character(c) %in% colnames(prob_cohort_given_x)) {
+      W_hat[, cohort == c] <- prob_cohort_given_x[, as.character(c)]
     }
   }
   W_hat * outer(df_data$time_index, expected_time, `==`)
 }
 
+# computes marginal P(G=g | first_time); the paper's F_G also conditions on X_i — see HANDOFF.md for planned enhancement
 ComputeCohortTimeDist <- function(df_data) {
   df_data %>%
     group_by(repo_id) %>%
@@ -257,25 +261,25 @@ ComputeCohortTimeDist <- function(df_data) {
     ungroup() %>%
     group_by(first_time, quasi_treatment_group) %>%
     summarize(n_obs = n_distinct(repo_id), .groups = "drop_last") %>%
-    mutate(prob_treatment_cohort = n_obs / sum(n_obs)) %>%
+    mutate(prob_cohort = n_obs / sum(n_obs)) %>%
     ungroup()
 }
 
-AggregateDoublyRobustByRepo <- function(dr_scores, df_data) {
-  colnames(dr_scores) <- gsub("treatment_arm", "", colnames(dr_scores))
-  parsed   <- ParseArmName(colnames(dr_scores))
+AggregateDoublyRobustByRepo <- function(doubly_robust_scores, df_data) {
+  colnames(doubly_robust_scores) <- gsub("treatment_arm", "", colnames(doubly_robust_scores))
+  parsed   <- ParseCohortEventLabel(colnames(doubly_robust_scores))
   arm_info <- data.frame(
-    arm        = colnames(dr_scores),
+    arm        = colnames(doubly_robust_scores),
     cohort     = parsed$cohort,
     event_time = parsed$event_time
   )
   arm_info$expected_time <- arm_info$cohort + arm_info$event_time
   match_mask <- outer(df_data$time_index, arm_info$expected_time, "==")
-  dr_scores[!match_mask] <- NA
+  doubly_robust_scores[!match_mask] <- NA
 
   groups <- split(seq_len(nrow(df_data)), df_data$repo_id)
   do.call(rbind, lapply(groups, function(ii) {
-    apply(dr_scores[ii, , drop = FALSE], 2, function(x) {
+    apply(doubly_robust_scores[ii, , drop = FALSE], 2, function(x) {
       v <- x[!is.na(x)]
       if (length(v) > 0) v[1] else NA_real_
     })
@@ -283,16 +287,14 @@ AggregateDoublyRobustByRepo <- function(dr_scores, df_data) {
 }
 
 TransformRepoCohortTimeCoefficients <- function(tau_hat, df_data, outcome, values_to_col) {
-  tibble::as_tibble(tau_hat) %>%
+  df <- tibble::as_tibble(tau_hat) %>%
     bind_cols(df_data %>% select(repo_name, repo_id)) %>%
     tidyr::pivot_longer(-c(repo_name, repo_id), names_to = "arm", values_to = values_to_col) %>%
     distinct() %>%
-    mutate(
-      arm        = sub("^treatment_arm", "", arm),
-      cohort     = ParseArmName(arm)$cohort,
-      event_time = ParseArmName(arm)$event_time,
-      outcome    = outcome
-    ) %>%
+    mutate(arm = sub("^treatment_arm", "", arm))
+  parsed <- ParseCohortEventLabel(df$arm)
+  df %>%
+    mutate(cohort = parsed$cohort, event_time = parsed$event_time, outcome = outcome) %>%
     rename(coef = !!rlang::sym(values_to_col)) %>%
     select(outcome, repo_name, repo_id, cohort, event_time, coef)
 }

@@ -31,7 +31,7 @@ Main <- function() {
                             pull(repo_name))
           num_periods   <- nrow(analysis_panel)
 
-          BuildOutcomeSummaryTablefill(outcome_stats, pct_treated, num_repos, num_periods, outdir_ds)
+          BuildOutcomeSummaryAutofill(outcome_stats, pct_treated, num_repos, num_periods, outdir_ds)
         }
       }
     }
@@ -39,14 +39,14 @@ Main <- function() {
   invisible(NULL)
 }
 
-ComputeOutcomeStats <- function(panel_df, outcome_cols = c("pull_request_opened", "pull_request_merged", "overall_new_release_count")) {
+ComputeOutcomeStats <- function(panel_df, outcome_cols = unlist(lapply(outcome_variables, function(x) x$run))) {
   map_df(outcome_cols, function(col) {
     vec <- panel_df[[col]]
     tibble(outcome = col, median = median(vec, na.rm = TRUE), mean = mean(vec, na.rm = TRUE), sd = sd(vec, na.rm = TRUE))
   })
 }
 
-BuildOutcomeSummaryTablefill <- function(outcome_stats, pct_treated, num_repos, num_periods, outdir_ds) {
+BuildOutcomeSummaryAutofill <- function(outcome_stats, pct_treated, num_repos, num_periods, outdir_ds) {
   avg_periods <- if (num_repos > 0) as.numeric(num_periods) / as.numeric(num_repos) else NA_real_
 
   outcome_rows <- apply(outcome_stats, 1, function(r) {

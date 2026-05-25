@@ -18,11 +18,18 @@ exact_samples = sorted(
 summary_source = [
     '#source/analysis/summ_stats/create_project_summary.py',
     '#source/lib/config/global_settings.json',
+    '#source/lib/config/pipeline_inputs.json',
+    '#source/lib/config/analysis_parameters.json',
+    '#source/lib/config/importance_specifications.json',
+    '#source/lib/config/paper_settings.json',
+    '#source/lib/config/feature_variables.json',
     '#output/scrape/pypi_downloads/popular_python_packages.csv',
     '#output/scrape/pypi_site_info/linked_pypi_github.csv',
     '#output/scrape/extract_github_data/repo_id_history_final.csv',
     f'#drive/output/scrape/extract_github_data/repo_level_data/issue/{reference_repo_safe_name}.parquet',
     f'#drive/output/scrape/extract_github_data/repo_level_data/pr/{reference_repo_safe_name}.parquet',
+    '#output/derived/graph_structure/exported_graphs_log.csv',
+    f'#drive/output/derived/org_outcomes_practices/org_panel/{importance_type}/{rolling_label}/panel.parquet',
 ]
 summary_source += [
     f'#output/derived/analysis_panel/{importance_type}/{rolling_label}/{sample}/{control_group}/panel.parquet'

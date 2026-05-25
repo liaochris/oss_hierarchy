@@ -14,6 +14,12 @@ INDIR_PREP   <- "output/derived/analysis_panel"
 INDIR_FOREST <- "output/analysis/event_study_forest"
 OUTDIR       <- "output/analysis/event_study_forest"
 
+SPLIT_CONFIGS <- list(
+  split_full_avg = list(col = "att_doubly_robust_group",   label = "Average Doubly Robust ATT (all periods)"),
+  split_period1  = list(col = "att_doubly_robust_1_group", label = "Doubly Robust ATT at Period 1"),
+  split_period5  = list(col = "att_doubly_robust_5_group", label = "Doubly Robust ATT at Period 5")
+)
+
 Main <- function() {
   dir_create(OUTDIR)
 
@@ -96,22 +102,18 @@ Main <- function() {
   }
 }
 
-SPLIT_CONFIGS <- list(
-  split_full_avg = list(col = "att_dr_group",   label = "Average DR ATT (all periods)"),
-  split_period1  = list(col = "att_dr_1_group", label = "DR ATT at Period 1"),
-  split_period5  = list(col = "att_dr_5_group", label = "DR ATT at Period 5")
-)
+AddDoublyRobustSplitColumns <- function(df_cf) {
+  cols <- names(df_cf)[str_detect(names(df_cf), "^cohort\\d+event_time\\.?\\d+$")]
+  if (length(cols) == 0) return(df_cf)
 
-UnifyEventTimeColumns <- function(df) {
-  cols <- names(df)[str_detect(names(df), "^cohort\\d+event_time\\.?\\d+$")]
-  if (length(cols) == 0) return(tibble())
   meta <- tibble(col = cols) %>%
     mutate(
       num   = str_extract(col, "[0-9]+$"),
       dot   = str_detect(col, "event_time\\."),
-      label = if_else(dot, paste0("event_time.", num), paste0("event_time", num))
+      label = if_else(dot, paste0("doubly_robust_event_time.", num), paste0("doubly_robust_event_time", num))
     )
-  df %>%
+
+  doubly_robust_cols <- df_cf %>%
     mutate(.row = row_number()) %>%
     pivot_longer(all_of(cols), names_to = "col", values_to = "val") %>%
     left_join(meta, by = "col") %>%
@@ -120,24 +122,18 @@ UnifyEventTimeColumns <- function(df) {
     pivot_wider(names_from = label, values_from = val) %>%
     arrange(.row) %>%
     select(-.row)
-}
-
-AddDRSplitColumns <- function(df_cf) {
-  dr_cols <- UnifyEventTimeColumns(df_cf)
-  if (ncol(dr_cols) == 0) return(df_cf)
-  colnames(dr_cols) <- paste0("dr_", colnames(dr_cols))
 
   df_cf %>%
-    bind_cols(dr_cols) %>%
+    bind_cols(doubly_robust_cols) %>%
     mutate(
-      att_dr_1_group = case_when(
-        !is.na(dr_event_time1) & dr_event_time1 >= median(dr_event_time1, na.rm = TRUE) ~ "high",
-        !is.na(dr_event_time1) & dr_event_time1 <  median(dr_event_time1, na.rm = TRUE) ~ "low",
+      att_doubly_robust_1_group = case_when(
+        !is.na(doubly_robust_event_time1) & doubly_robust_event_time1 >= median(doubly_robust_event_time1, na.rm = TRUE) ~ "high",
+        !is.na(doubly_robust_event_time1) & doubly_robust_event_time1 <  median(doubly_robust_event_time1, na.rm = TRUE) ~ "low",
         TRUE ~ NA_character_
       ),
-      att_dr_5_group = case_when(
-        !is.na(dr_event_time5) & dr_event_time5 >= median(dr_event_time5, na.rm = TRUE) ~ "high",
-        !is.na(dr_event_time5) & dr_event_time5 <  median(dr_event_time5, na.rm = TRUE) ~ "low",
+      att_doubly_robust_5_group = case_when(
+        !is.na(doubly_robust_event_time5) & doubly_robust_event_time5 >= median(doubly_robust_event_time5, na.rm = TRUE) ~ "high",
+        !is.na(doubly_robust_event_time5) & doubly_robust_event_time5 <  median(doubly_robust_event_time5, na.rm = TRUE) ~ "low",
         TRUE ~ NA_character_
       )
     )
@@ -149,7 +145,22 @@ LoadForestResultsIfExists <- function(importance_type, rolling_panel, qualified_
                                    qualified_sample, control_group, covar_type, norm_label,
                                    paste0(FOREST_TRAINING_OUTCOME, "_repo_att_event_study_forest.parquet"))
   if (!file.exists(forest_results_path)) return(NULL)
-  read_parquet(forest_results_path) %>% AddDRSplitColumns()
+  read_parquet(forest_results_path) %>% AddDoublyRobustSplitColumns()
+}
+
+CollectForestEstimateRow <- function(results, outcome_mode, normalize, qualified_sample,
+                                     covar_type, outdir_split, split_value) {
+  as_tibble(results, rownames = "event_time") %>%
+    mutate(
+      outcome          = outcome_mode$outcome,
+      category         = outcome_mode$category,
+      normalize        = normalize,
+      qualified_sample = qualified_sample,
+      covar_type       = covar_type,
+      split_folder     = basename(outdir_split),
+      split_value      = split_value,
+      estimation_type  = "observed"
+    )
 }
 
 RunSplitEventStudies <- function(panel, forest_results, split_cfg, outcome_modes, control_group,
@@ -190,17 +201,10 @@ RunSplitEventStudies <- function(panel, forest_results, split_cfg, outcome_modes
     )
 
     for (j in seq_along(es_list)) {
-      coeffs_acc[[length(coeffs_acc) + 1]] <- as_tibble(es_list[[j]]$results, rownames = "event_time") %>%
-        mutate(
-          outcome          = outcome_mode$outcome,
-          category         = outcome_mode$category,
-          normalize        = normalize,
-          qualified_sample = qualified_sample,
-          covar_type       = covar_type,
-          split_folder     = basename(outdir_split),
-          split_value      = c("high", "low")[valid][j],
-          estimation_type  = "observed"
-        )
+      coeffs_acc[[length(coeffs_acc) + 1]] <- CollectForestEstimateRow(
+        es_list[[j]]$results, outcome_mode, normalize, qualified_sample,
+        covar_type, outdir_split, split_value = c("high", "low")[valid][j]
+      )
     }
   }
 
@@ -261,17 +265,10 @@ RunAggregatedSplitEventStudies <- function(sub_panels, sub_forest_results, split
     )
 
     for (grp in names(non_null_groups)) {
-      coeffs_acc[[length(coeffs_acc) + 1]] <- as_tibble(non_null_groups[[grp]], rownames = "event_time") %>%
-        mutate(
-          outcome          = outcome_mode$outcome,
-          category         = outcome_mode$category,
-          normalize        = normalize,
-          qualified_sample = qualified_sample,
-          covar_type       = covar_type,
-          split_folder     = basename(outdir_split),
-          split_value      = grp,
-          estimation_type  = "observed"
-        )
+      coeffs_acc[[length(coeffs_acc) + 1]] <- CollectForestEstimateRow(
+        non_null_groups[[grp]], outcome_mode, normalize, qualified_sample,
+        covar_type, outdir_split, split_value = grp
+      )
     }
   }
 
@@ -280,7 +277,7 @@ RunAggregatedSplitEventStudies <- function(sub_panels, sub_forest_results, split
 }
 
 GenerateForestAutofill <- function(coeffs_df) {
-  compute_diff <- function(outcome, covar_type_val) {
+  ComputeHighLowDiff <- function(outcome, covar_type_val) {
     sub <- coeffs_df %>%
       filter(
         qualified_sample == PRIMARY_QUALIFIED_SAMPLE,
@@ -296,12 +293,12 @@ GenerateForestAutofill <- function(coeffs_df) {
     high_avg - low_avg
   }
 
-  ForestCoarsePRsOpenedDiff <- compute_diff("pull_request_opened",        "pc_score_binary")
-  ForestCoarsePRsMergedDiff <- compute_diff("pull_request_merged",        "pc_score_binary")
-  ForestCoarseReleasesDiff  <- compute_diff("overall_new_release_count",  "pc_score_binary")
-  ForestContPRsOpenedDiff   <- compute_diff("pull_request_opened",        "pc_score")
-  ForestContPRsMergedDiff   <- compute_diff("pull_request_merged",        "pc_score")
-  ForestContReleasesDiff    <- compute_diff("overall_new_release_count",  "pc_score")
+  ForestCoarsePRsOpenedDiff <- ComputeHighLowDiff("pull_request_opened",        "pc_score_binary")
+  ForestCoarsePRsMergedDiff <- ComputeHighLowDiff("pull_request_merged",        "pc_score_binary")
+  ForestCoarseReleasesDiff  <- ComputeHighLowDiff("overall_new_release_count",  "pc_score_binary")
+  ForestContPRsOpenedDiff   <- ComputeHighLowDiff("pull_request_opened",        "pc_score")
+  ForestContPRsMergedDiff   <- ComputeHighLowDiff("pull_request_merged",        "pc_score")
+  ForestContReleasesDiff    <- ComputeHighLowDiff("overall_new_release_count",  "pc_score")
 
   autofill_path <- file.path("output/autofill/forest_autofill.tex")
   dir_create(dirname(autofill_path))

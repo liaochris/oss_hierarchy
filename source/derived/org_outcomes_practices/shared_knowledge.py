@@ -2,7 +2,7 @@ import random
 from pathlib import Path
 import pandas as pd
 from joblib import Parallel, delayed
-from source.lib.python.filesystem_utils import CleanDirs
+from source.lib.python.filesystem_utils import CleanDirs, WriteDirectoryHash
 from source.lib.python.data_utils import ImputeTimePeriod
 from source.lib.python.config_loaders import LoadGlobalSettings, LoadImportanceSpecifications
 from source.derived.org_outcomes_practices.helpers import AddTypeBroad, ApplyRolling, ConcatStatsByTimePeriod, FilterOnImportant, LoadBotList, LoadFilteredImportantMembers
@@ -37,6 +37,12 @@ def Main():
             delayed(ProcessRepo)(repo_name, subset, bot_list)
             for repo_name in repo_files
         )
+
+    _hash_dir = Path("output/derived/hashes")
+    for subset in subsets:
+        subdir = OUTDIR / subset / f"rolling{ROLLING_PERIODS}"
+        if subdir.exists():
+            WriteDirectoryHash(subdir, _hash_dir / f"repo_shared_knowledge_{subset}_rolling{ROLLING_PERIODS}.txt")
 
 
 def CleanOutputs():

@@ -5,6 +5,7 @@ import numpy as np
 from joblib import Parallel, delayed
 from source.lib.JMSLab.SaveData import SaveData
 from source.lib.python.data_utils import JsonSerialize
+from source.lib.python.filesystem_utils import WriteDirectoryHash
 from source.lib.python.config_loaders import LoadGlobalSettings, LoadImportanceSpecifications
 
 _global_settings = LoadGlobalSettings()
@@ -13,6 +14,7 @@ TIME_PERIOD = _global_settings["time_period_months"]
 INDIR         = Path("drive/output/derived/graph_structure/graph_degrees")
 INDIR_ACTIONS = Path("drive/output/derived/action_data/repo_actions")
 OUTDIR        = Path("output/derived/graph_structure/important_members")
+HASH_FILE     = Path("output/derived/hashes/important_members.txt")
 LOGDIR        = Path("output/derived/graph_structure")
 
 
@@ -67,6 +69,8 @@ def Main():
             LOGDIR / "importance_summary.csv",
             LOGDIR / "importance_summary.log"
         )
+
+    WriteDirectoryHash(OUTDIR, HASH_FILE, pattern="*.csv")
     print(f"Done. Saved {len(results_by_file)} repo parquets.")
 
 

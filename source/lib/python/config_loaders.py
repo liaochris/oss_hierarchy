@@ -43,6 +43,10 @@ def LoadPaperSettings(json_path=None):
     return LoadGlobals(json_path or CONFIG_DIR / "paper_settings.json")
 
 
+def LoadModelPredictionConfig():
+    return LoadGlobals(CONFIG_DIR / "model_prediction.json")
+
+
 def FlattenConfigValues(config_block, phases=("run",)):
     values = []
     for item in config_block.values():

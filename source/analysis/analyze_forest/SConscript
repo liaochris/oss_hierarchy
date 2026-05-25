@@ -12,6 +12,7 @@ FOREST_OUTCOME    = _cfg["forest_training_outcome"]
 _analysis_cfg = LoadPipelineInputs("../../../source/lib/config/analysis_parameters.json")
 NORM_OPTIONS = _analysis_cfg["norm_options"]
 NORM_LABELS  = {True: "norm", False: "raw"}
+N_FOLDS      = _analysis_cfg["n_folds"]
 
 INDIR_PREP   = "#output/derived/analysis_panel"
 INDIR_FOREST = "#output/analysis/event_study_forest"
@@ -88,7 +89,13 @@ fold_targets = [
     for fname in ["fold_rank_stability_grid.png", "fold_correlation_att.png",
                   "fold_correlation_rank.png", "variable_importance.tex"]
 ]
-fold_sources = ["#source/analysis/analyze_forest/fold_comparisons.R"] + SHARED_LIBS + all_forest_inputs
+all_fold_rds_inputs = list(dict.fromkeys(
+    f"#drive/output/analysis/event_study_forest/{imp}/{roll}/{sub}/{ctrl}/pc_score/{NORM_LABELS[norm]}/event_study_forest_{FOREST_OUTCOME}_fold{f}.rds"
+    for imp, roll, samp, ctrl, norm in AllCombos(list(AGGREGATED_SAMPLES))
+    for sub in AGGREGATED_SAMPLES.get(samp, [samp])
+    for f in range(1, N_FOLDS + 1)
+))
+fold_sources = ["#source/analysis/analyze_forest/fold_comparisons.R"] + SHARED_LIBS + all_forest_inputs + all_fold_rds_inputs
 env.R(fold_targets, fold_sources)
 
 outcome_targets = [f"{BaseOutdir(*c)}/outcome_summary.txt" for c in AllCombos(norms=[False])]
