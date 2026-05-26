@@ -1,0 +1,45 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,ssnl,2020-05-28T16:55:06Z,to_tensor and pil_to_tensor inconsistency,https://github.com/pytorch/vision/issues/2269,pytorch/vision,2269
+IssueOpened,ssnl,2020-05-28T16:55:06Z,"`to_tensor` uses `from_numpy` which never copies and always returns a CPU tensor. But `pil_to_tensor` uses `as_tensor`, which would return a CUDA tensor if the default tensor type is changed by the user (e.g., [pytorch/pytorch#39088](https://github.com/pytorch/pytorch/issues/39088)). I think a discussion on what the correct behavior is is needed, followed with a patch to make the two functions consistent.",https://github.com/pytorch/vision/issues/2269,pytorch/vision,2269
+MentionedByIssue,ssnl,2020-05-28T16:55:59Z,,https://github.com/pytorch/pytorch/issues/39088,pytorch/vision,2269
+MentionedByIssue,ain-soph,2020-05-28T18:03:38Z,,https://github.com/ain-soph/trojanzoo/issues/4,pytorch/vision,2269
+IssueComment,fmassa,2020-05-29T10:48:49Z,"Hi Simon,
+
+That's a good question, and I had a quick look at the linked discussion to get some more context.
+
+In principle, I think that the current design of the DataLoader with multiprocessing is not ideal to support tensors being passed on the GPU (but I might be wrong).
+
+This makes me think that we might want to enforce in torchvision that `pil_to_tensor` always returns a CPU tensor, but that can also be contradicting the contract of setting the global default device to be CUDA.
+
+Thoughts?",,pytorch/vision,2269
+LabeledEvent,fmassa,2020-05-29T10:49:02Z,module: transforms,,pytorch/vision,2269
+LabeledEvent,fmassa,2020-05-29T10:49:02Z,needs discussion,,pytorch/vision,2269
+IssueComment,ssnl,2020-05-29T15:21:14Z,"I agree what the DataLoader is best suited to load CPU tensors. However, loading CUDA tensor is one of the things we support too, and unfortunately it seems that the DataLoader is one of the easier ways in PyTorch to do so.
+
+However, I am hesitant to say that these methods should respect `default_tensor_type`, for potential BC reasons as `to_tensor` has existed for a long time. One common case should be that user (on Linux) sets `default_tensor_type` to CUDA and the forked DataLoader workers call `ToTensor()`.
+
+Maybe we can specify in docs that these methods / classes move to CPU by default, and introduce an `device=` argument? :)",,pytorch/vision,2269
+IssueComment,ain-soph,2020-05-30T00:21:45Z,"Personal opinion is to have a quick fix by forcing `cpu` tensors, which is a bug fix. And things will work without exceptions. Of course it might be specified in the documents. It'll be easy to fix in `pil_to_tensor` and `to_tensor`.
+
+~~The capability to load `gpu` tensors for multiprocessing could be discussed as new features, since it seems to require more efforts.~~",,pytorch/vision,2269
+IssueComment,ssnl,2020-05-30T00:27:02Z,Loading to GPU is and has always been supported. It’s not a new feature.,,pytorch/vision,2269
+IssueComment,ain-soph,2020-05-30T00:37:31Z,"> Loading to GPU is and has always been supported. It’s not a new feature.
+
+~~I'm not quite sure about that? Is their any way to use `DataLoader` to load data to GPU? Currently, when I set `num_workers=0` or `spawn` start method, I still get CPU tensors based on what you have illustrated.~~
+
+~~If I use `Dataloader`, I need to transform them to `cuda` manually. If I want to load data directly to gpu, I need to code the pipeline in `dali` by myself.~~  
+~~I might be not familiar with new pytorch features. Is there any update about that? It'll be a great news to know it's supported.~~  
+~~I see that the imagenet example still need to use `cuda()` to transform data to gpu, which is originally loaded from `DataLoader`.~~
+
+~~<https://github.com/pytorch/examples/blob/master/imagenet/main.py#L283-L284>~~
+
+---
+
+Update: Ah, it's always doable if `torch.utils.data.Dataset` return a CUDA tensor, which could be implemented by setting transforms in `torchvision.datasets.XXX`. Sorry for the misleading information above, and it's certainly not recommended. I only considered some direct-to-gpu strategy like `dali` in previous statement.
+
+The purpose of this issue should be the functionality about `ToTensor()`, whether it always transform data to cpu, or transform according to the default tensor type. My opinion is to force `cpu` as a quick fix for consistency, and discuss the feasibility about the latter method later.",,pytorch/vision,2269
+IssueComment,ssnl,2020-05-30T04:56:51Z,"It’s been in pytorch since a long time ago. Probably before 1.0 if I remember correctly. As long as you return a CUDA tensor from your dataset code and use proper start method, the main process will receive a CUDA tensor, regardless of num\_workers.
+
+It is always not advertised nor recommended because it makes CUDA memory management difficult, and that moving to GPU really fast and not usually the bottleneck as long as you use pin\_memroy.
+
+This issue is not about whether pytorch supports loading CUDA tensors. It is about torchvision, a library built on top of pytorch, should return CUDA tensor or not in ToTensor that is called in the dataset code. Any dataset code that yields CUDA tensors has always been working fine.",,pytorch/vision,2269

@@ -1,0 +1,828 @@
+diff --git a/CHANGELOG.txt b/CHANGELOG.txt
+index 14fc81db12d..4b06dd31b16 100644
+--- a/CHANGELOG.txt
++++ b/CHANGELOG.txt
+@@ -33,6 +33,11 @@ Changes:
+      FDSN server URLs (#2878)
+  - obspy.clients.filesystem:
+    * add get_waveforms_bulk() method to SDS client (see #2616, #2626)
++ - obspy.io
++   * add support to resolve the SEED id of picks for nlloc hyp files and
++     nordic files, refactor the same functionality for SeismicHandler evt
++     and HypoDD pha files. Some parameter names therefore changed in the
++     latter, but former parameter names are still supported (see #2251)
+  - obspy.io.css:
+    * open CSS waveforms even if gzip-compressed (see #2736)
+  - obspy.io.hypodd
+diff --git a/obspy/clients/fdsn/__init__.py b/obspy/clients/fdsn/__init__.py
+index 45be317b131..4c13ece461b 100644
+--- a/obspy/clients/fdsn/__init__.py
++++ b/obspy/clients/fdsn/__init__.py
+@@ -245,7 +245,7 @@
+ 
+ # insert supported URL mapping list dynamically in docstring
+ # we need an if clause because add_doctests() executes the file once again
+-if r"%s" in Client.__init__.__doc__:
++if Client.__init__.__doc__ is not None and r"%s" in Client.__init__.__doc__:
+     Client.__init__.__doc__ = \
+         Client.__init__.__doc__ % \
+         str(sorted(URL_MAPPINGS.keys())).strip("[]")
+diff --git a/obspy/core/inventory/util.py b/obspy/core/inventory/util.py
+index 7561d43ca51..111b5bfa948 100644
+--- a/obspy/core/inventory/util.py
++++ b/obspy/core/inventory/util.py
+@@ -1073,6 +1073,141 @@ def _warn_on_invalid_uri(uri):
+         warnings.warn(msg)
+ 
+ 
++def _add_resolve_seedid_doc(func):
++    """
++    The following parameters deal with the problem, that the format
++    only stores station names for the picks, but the Pick object expects
++    a SEED id. The SEED id is looked up for every pick by the
++    following procedure:
++
++    1. look at seedid_map for a direct station name match and use the specified
++       template
++    2. if 1 did not succeed, look if the station is present in inventory and
++       use its first channel as template
++    3. if 1 and 2 did not succeed, use specified default template
++       (default_seedid)
++
++    :param str filename: File or file-like object in text mode.
++    :type inventory: :class:`~obspy.core.inventory.inventory.Inventory`
++    :param inventory: Inventory used to retrieve network code, location code
++        and channel code of stations (SEED id).
++    :param dict seedid_map: Default templates for each station
++        (example: `seedid_map={'MOX': 'GR.{}..HH{}'`).
++        The values must contain three dots and two `{}` which are
++        substituted by station code and component.
++    :param str default_seedid: Default SEED id template.
++        The value must contain three dots and two `{}` which are
++        substituted by station code and component.
++    :param bool warn: Whether or not to warn on failed look ups
++       (no matching data found or ambiguous results) in the inventory
++    """
++    if func.__doc__ is not None:
++        func.__doc__ = func.__doc__ + __doc__
++    return func
++
++
++def _add_resolve_seedid_ph2comp_doc(func):
++    """
++    :param dict ph2comp: mapping of phases to components if format does not
++        specify the component or if the component ends with '?'. Set it to
++        `None` for no mapping of components. (default: {'P': 'Z', 'S': 'N'})
++    """
++    if func.__doc__ is not None:
++        func.__doc__ = func.__doc__ + __doc__
++    return func
++
++
++def _resolve_seedid(station, component, inventory=None,
++                    time=None, seedid_map=None, default_seedid=None,
++                    key='{sta.code}', id_map=None, id_default=None,
++                    phase=None, ph2comp={'P': 'Z', 'S': 'N'},
++                    unused_kwargs=False, warn=True, **kwargs):
++    if not unused_kwargs and len(kwargs) > 0:
++        raise ValueError(f'Unexpected arguments: {kwargs}')
++    if id_map is not None:  # backwards compatibility
++        seedid_map = id_map
++    if id_default is not None:  # backwards compatibility
++        default_seedid = id_default
++    if phase is not None and ph2comp is not None and (
++            component == '' or component.endswith('?')):
++        component = component[:-1] + ph2comp.get(phase.upper(), '')
++    seedid = None
++    if seedid_map is not None and station in seedid_map:
++        seedid = seedid_map[station].format(station, component)
++    elif inventory is not None:
++        seedid = _resolve_seedid_from_inventory(
++                station, component, inventory, time=time, warn=warn)
++    if seedid is None and default_seedid is not None:
++        seedid = default_seedid.format(station, component)
++    if seedid is None:
++        return '', station, None, component
++    else:
++        return tuple(seedid.split('.'))
++
++
++def _resolve_seedid_from_inventory(
++        station, component, inventory, time=None, network=None,
++        location=None, warn=True):
++    """
++    Return a (Network, Station, Location, Channel) tuple.
++
++    Given a station and channel code and station metadata (and optionally a
++    certain point in time), try to resolve the full SEED ID, i.e. fill in
++    a missing/unknown network and/or location code.
++    If no matching data is found in metadata or if ambiguities in the station
++    metadata are encountered, returns ``None`` for network and/or location
++    code.
++
++    Simply returns the given (Network, Station, Location, Channel) input if
++    *both* ``location`` and ``network`` are already specified.
++
++    :type station: str
++    :param station: Station code to look up.
++    :type channel: str
++    :param channel: Channel code to look up.
++    :type inventory: :class:`~obspy.core.inventory.inventory.Inventory`
++    :param inventory: Station metadata to use for look up of missing parts of
++        the full SEED ID.
++    :type time: :class:`~obspy.core.utcdatetime.UTCDateTime`
++    :param time: Optionally restrict lookup from metadata to given timestamp.
++    :type network: str
++    :param network: Also specify network code for lookup (not intended to be
++        used together with ``location``, see above)
++    :type location: str
++    :param location: Also specify location code for lookup (not intended to be
++        used together with ``network``, see above)
++    :type warn: bool
++    :param warn: Whether or not to warn on failed look ups (no matching data
++        found or ambiguous results) that return some ``None``s.
++    :rtype: str
++    :returns: SEED id string
++    """
++    inv = inventory.select(station=station, channel='*' + component, time=time,
++                           network=network, location=location,
++                           keep_empty=False)
++    if len(inv.networks) != 1 or len(inv.networks[0].stations) == 0:
++        if warn:
++            msg = ('No matching metadata found for station '
++                   f'{station}, component {component}.')
++            warnings.warn(msg)
++        return
++    net = inv.networks[0]
++    seedids = [f'{net.code}.{station}.{cha.location_code}.{cha.code}'
++               for cha in net.stations[0] if cha.is_active(time=time)]
++    seedids = [id_[:len(id_) - len(component)] + component for id_ in seedids]
++    if len(seedids) == 0:
++        if warn:
++            msg = ('No matching metadata found for station '
++                   f'{station}, component {component}.')
++            warnings.warn(msg)
++        return
++    if len(set(seedids)) > 1 and warn:
++        msg = ('Multiple SEED ids found for station '
++               f'{station}, component {component}. Use first.')
++        warnings.warn(msg)
++    return seedids.pop(0)
++
++
+ if __name__ == '__main__':
+     import doctest
+     doctest.testmod(exclude_empty=True)
+diff --git a/obspy/core/tests/test_inventory.py b/obspy/core/tests/test_inventory.py
+index 838e1fc7f94..8a277f524f0 100644
+--- a/obspy/core/tests/test_inventory.py
++++ b/obspy/core/tests/test_inventory.py
+@@ -28,7 +28,7 @@
+ from obspy.core.util.testing import ImageComparison
+ from obspy.core.inventory import (Channel, Inventory, Network, Response,
+                                   Station)
+-from obspy.core.inventory.util import _unified_content_strings
++from obspy.core.inventory.util import _unified_content_strings, _resolve_seedid
+ 
+ 
+ class InventoryTestCase(unittest.TestCase):
+@@ -707,6 +707,71 @@ def test_read_inventory_with_path(self):
+         inv1 = read_inventory(path1)
+         self.assertEqual(inv1, read_inventory(self.station_xml1))
+ 
++    def test_resolve_seedid(self):
++        """
++        Test the resolve_seed_id() utility function
++        """
++        t_valid = UTCDateTime(2018, 3, 4)
++        t_invalid = UTCDateTime(1985, 3, 4)
++        inv = read_inventory()
++        self.assertEqual(('GR', 'FUR', '', 'HHZ'),
++                         _resolve_seedid('FUR', 'HHZ', inv))
++        with self.assertWarnsRegex(UserWarning, 'Multiple'):
++            self.assertEqual(('GR', 'FUR', '', 'HHZ'),
++                             _resolve_seedid('FUR', 'HZ', inv))
++        with self.assertWarnsRegex(UserWarning, 'Multiple'):
++            self.assertEqual(('GR', 'FUR', '', 'HHZ'),
++                             _resolve_seedid('FUR', 'Z', inv))
++        self.assertEqual(('GR', 'FUR', '', 'HH?'),
++                         _resolve_seedid('FUR', 'HH?', inv))
++        self.assertEqual(('GR', 'FUR', '', 'HHZ'),
++                         _resolve_seedid('FUR', 'HHZ', inv, time=t_valid))
++        self.assertEqual(
++                ('', 'FUR', '', 'HHZ'),
++                _resolve_seedid('FUR', 'HHZ', time=t_invalid,
++                                default_seedid='.{}..{}'))
++        with self.assertWarnsRegex(UserWarning, 'No matching'):
++            self.assertEqual(
++                    ('', 'FUR', None, 'HHZ'),
++                    _resolve_seedid('FUR', 'HHZ', inv, time=t_invalid))
++        # make a copy, but stripping channels. network lookup should still
++        # work, location code lookup obviously not
++#        inv2 = copy.deepcopy(inv)
++#        for net in inv2:
++#            for sta in net:
++#                sta.channels = []
++#        with warnings.catch_warnings(record=True) as w:
++#            warnings.simplefilter("always")
++#            self.assertEqual(
++#                ('GR', 'FUR', None, 'HHZ'),
++#                _resolve_seedid('FUR', 'HHZ', inv2))
++#        self.assertEqual(len(w), 1)
++#        with warnings.catch_warnings(record=True) as w:
++#            warnings.simplefilter("always")
++#            self.assertEqual(
++#                ('GR', 'FUR', None, 'HHZ'),
++#                _resolve_seedid('FUR', 'HHZ', inv2, time=t_valid))
++#        self.assertTrue(any(
++#            str(w_.message) == 'No matching metadata found for location code.'
++#            for w_ in w))
++        # now add some ambiguity in network code
++        inv = inv.select(network='GR', station='FUR', channel='HHZ',
++                         time=t_valid)
++        inv.networks.append(copy.deepcopy(inv[0]))
++        inv[-1].code = 'XX'
++        with self.assertWarnsRegex(UserWarning, 'No matching'):
++            self.assertEqual(
++                    ('', 'FUR', None, 'HHZ'),
++                    _resolve_seedid('FUR', 'HHZ', inv, time=t_valid))
++        # now add some ambiguity in location code only
++        inv.networks = [inv[0]]
++        inv[0][0].channels.append(copy.deepcopy(inv[0][0][0]))
++        inv[0][0][-1].location_code = '01'
++        with self.assertWarnsRegex(UserWarning, 'Multiple'):
++            self.assertEqual(
++                    ('GR', 'FUR', '', 'HHZ'),
++                    _resolve_seedid('FUR', 'HHZ', inv, time=t_valid))
++
+ 
+ @unittest.skipIf(not BASEMAP_VERSION, 'basemap not installed')
+ @unittest.skipIf(
+diff --git a/obspy/core/util/base.py b/obspy/core/util/base.py
+index e8be9bcf60c..970edbf62f9 100644
+--- a/obspy/core/util/base.py
++++ b/obspy/core/util/base.py
+@@ -548,7 +548,7 @@ def _add_format_plugin_table(func, group, method, numspaces=4):
+     """
+     A function to populate the docstring of func with its plugin table.
+     """
+-    if '%s' in func.__doc__:
++    if func.__doc__ is not None and '%s' in func.__doc__:
+         func.__doc__ = func.__doc__ % make_format_plugin_table(
+             group, method, numspaces=numspaces)
+ 
+diff --git a/obspy/core/util/misc.py b/obspy/core/util/misc.py
+index 3f60cfe1952..3f005b0c278 100644
+--- a/obspy/core/util/misc.py
++++ b/obspy/core/util/misc.py
+@@ -704,27 +704,6 @@ def func(obj, parent=None, attr=None):
+     return func(obj)
+ 
+ 
+-def _seed_id_map(
+-        inventory=None, user_id_map=None, key='{sta.code}',
+-        seed_factory='{net.code}.{{}}.{cha.location_code}.{cha.code:.2}{{}}'):
+-    """
+-    Return mapping between station code and seed id expressions
+-    """
+-    id_map = {}
+-    if inventory is not None:
+-        msg = 'Multiple seed ids found for station {}. Use first.'
+-        for net in inventory:
+-            for sta in net:
+-                for cha in sta:
+-                    k = key.format(net=net, sta=sta, cha=cha)
+-                    v = seed_factory.format(net=net, sta=sta, cha=cha)
+-                    if id_map.setdefault(k, v) != v:
+-                        warnings.warn(msg.format(k))
+-    if user_id_map is not None:
+-        id_map.update(user_id_map)
+-    return id_map
+-
+-
+ if __name__ == '__main__':
+     import doctest
+     doctest.testmod(exclude_empty=True)
+diff --git a/obspy/io/hypodd/pha.py b/obspy/io/hypodd/pha.py
+index 2da615d8889..ea4fa1bb9ce 100644
+--- a/obspy/io/hypodd/pha.py
++++ b/obspy/io/hypodd/pha.py
+@@ -17,13 +17,14 @@
+ from obspy.core.event import (
+     Catalog, Event, Origin, Magnitude, Pick, WaveformStreamID, Arrival,
+     OriginQuality)
+-from obspy.core.util.misc import _seed_id_map
++from obspy.core.inventory.util import (
++    _add_resolve_seedid_doc, _add_resolve_seedid_ph2comp_doc, _resolve_seedid)
+ 
+ 
+ DEG2KM = 111.2
+ 
+ 
+-def _block2event(block, seed_map, id_default, ph2comp, eventid_map):
++def _block2event(block, eventid_map, **kwargs):
+     """
+     Read HypoDD event block
+     """
+@@ -42,10 +43,9 @@ def _block2event(block, seed_map, id_default, ph2comp, eventid_map):
+     arrivals = []
+     for line in lines[1:]:
+         sta, reltime, weight, phase = line.split()
+-        comp = ph2comp.get(phase, '')
+-        wid = seed_map.get(sta, id_default)
+-        _waveform_id = WaveformStreamID(seed_string=wid.format(sta, comp))
+-        pick = Pick(waveform_id=_waveform_id, phase_hint=phase,
++        widargs = _resolve_seedid(sta, '', time=time, phase=phase, **kwargs)
++        wid = WaveformStreamID(*widargs)
++        pick = Pick(waveform_id=wid, phase_hint=phase,
+                     time=time + float(reltime))
+         arrival = Arrival(phase=phase, pick_id=pick.resource_id,
+                           time_weight=float(weight))
+@@ -93,9 +93,9 @@ def _is_pha(filename):
+         return True
+ 
+ 
+-def _read_pha(filename, inventory=None, id_map=None, id_default='.{}..{}',
+-              ph2comp={'P': 'Z', 'S': 'N'}, eventid_map=None,
+-              encoding='utf-8'):
++@_add_resolve_seedid_ph2comp_doc
++@_add_resolve_seedid_doc
++def _read_pha(filename, eventid_map=None, encoding='utf-8', **kwargs):
+     """
+     Read a HypoDD PHA file and returns an ObsPy Catalog object.
+ 
+@@ -104,28 +104,7 @@ def _read_pha(filename, inventory=None, id_map=None, id_default='.{}..{}',
+         ObsPy :func:`~obspy.core.event.read_events` function, call this
+         instead.
+ 
+-    Most optional parameters deal with the problem, that the PHA format
+-    only stores station names for the picks, but the Pick object expects
+-    a SEED id. A SEED id template is retrieved for each station by the
+-    following procedure:
+-
+-    1. look at id_map for a direct station name match and use the specified
+-       template
+-    2. if 1 did not succeed, look if the station is present in inventory and
+-       use its first channel as template
+-    3. if 1 and 2 did not succeed, use specified default template (id_default)
+-
+     :param str filename: File or file-like object in text mode.
+-    :type inventory: :class:`~obspy.core.inventory.inventory.Inventory`
+-    :param inventory: Inventory used to retrieve network code, location code
+-        and channel code of stations (SEED id).
+-    :param dict id_map: Default templates for each station
+-        (example: `id_map={'MOX': 'GR.{}..HH{}'`).
+-        The values must contain three dots and two `{}` which are
+-        substituted by station code and component.
+-    :param str id_default: Default SEED id template.
+-        The value must contain three dots and two `{}` which are
+-        substituted by station code and component.
+     :param dict ph2comp: mapping of phases to components
+         (default: {'P': 'Z', 'S': 'N'})
+     :param dict eventid_map: Desired mapping of hypodd event ids (dict values)
+@@ -139,10 +118,9 @@ def _read_pha(filename, inventory=None, id_map=None, id_default='.{}..{}',
+     """
+     if eventid_map is not None:
+         eventid_map = {v: k for k, v in eventid_map.items()}
+-    seed_map = _seed_id_map(inventory, id_map)
+     with io.open(filename, 'r', encoding=encoding) as f:
+         text = f.read()
+-    events = [_block2event(block, seed_map, id_default, ph2comp, eventid_map)
++    events = [_block2event(block, eventid_map, **kwargs)
+               for block in text.split('#')[1:]]
+     return Catalog(events)
+ 
+diff --git a/obspy/io/hypodd/tests/test_pha.py b/obspy/io/hypodd/tests/test_pha.py
+index 86ba7961e6c..5b23ce901a7 100644
+--- a/obspy/io/hypodd/tests/test_pha.py
++++ b/obspy/io/hypodd/tests/test_pha.py
+@@ -79,15 +79,13 @@ def test_populate_waveform_id(self):
+         with warnings.catch_warnings(record=True) as ws:
+             warnings.resetwarnings()
+             cat = read_events(self.fname, inventory=inv)
+-            self.assertEqual(len(ws), 2)
+-            for w in ws:
+-                self.assertIn('Multiple', str(w.message))
++            self.assertEqual(len(ws), 4)
+         # FUR with channels, WET without channels
+         inv = read_inventory().select(channel='HH?')
+         inv[0][1].channels = []
+         cat = read_events(self.fname, inventory=inv,
+-                          id_default='BLA.{}.11.DH{}',
+-                          id_map={'UBR': 'BLB.{}.00.BH{}'})
++                          default_seedid='BLA.{}.11.DH{}',
++                          seedid_map={'UBR': 'BLB.{}.00.BH{}'}, warn=False)
+         self.assertEqual(len(cat), 2)
+         picks = cat[0].picks + cat[1].picks
+         self.assertEqual(len(picks), 4)
+diff --git a/obspy/io/nlloc/core.py b/obspy/io/nlloc/core.py
+index 93f8eecf753..b05621b6a0f 100644
+--- a/obspy/io/nlloc/core.py
++++ b/obspy/io/nlloc/core.py
+@@ -17,6 +17,8 @@
+ from obspy.core.event import (Arrival, Comment, CreationInfo, Event, Origin,
+                               OriginQuality, OriginUncertainty, Pick,
+                               WaveformStreamID)
++from obspy.core.inventory.util import (
++    _add_resolve_seedid_doc, _add_resolve_seedid_ph2comp_doc, _resolve_seedid)
+ from obspy.geodetics import kilometer2degrees
+ 
+ 
+@@ -40,6 +42,8 @@ def is_nlloc_hyp(filename):
+     return True
+ 
+ 
++@_add_resolve_seedid_ph2comp_doc
++@_add_resolve_seedid_doc
+ def read_nlloc_hyp(filename, coordinate_converter=None, picks=None, **kwargs):
+     """
+     Reads a NonLinLoc Hypocenter-Phase file to a
+@@ -121,14 +125,15 @@ def read_nlloc_hyp(filename, coordinate_converter=None, picks=None, **kwargs):
+     for start, end in zip(lines_start, lines_end):
+         event = _read_single_hypocenter(
+             lines[start:end + 1], coordinate_converter=coordinate_converter,
+-            original_picks=original_picks)
++            original_picks=original_picks, **kwargs)
+         cat.append(event)
+     cat.creation_info.creation_time = UTCDateTime()
+     cat.creation_info.version = "ObsPy %s" % __version__
+     return cat
+ 
+ 
+-def _read_single_hypocenter(lines, coordinate_converter, original_picks):
++def _read_single_hypocenter(lines, coordinate_converter, original_picks,
++                            **kwargs):
+     """
+     Given a list of lines (starting with a 'NLLOC' line and ending with a
+     'END_NLLOC' line), parse them into an Event.
+@@ -310,8 +315,9 @@ def _read_single_hypocenter(lines, coordinate_converter, original_picks):
+         line = line.split()
+         arrival = Arrival()
+         o.arrivals.append(arrival)
+-        station = str(line[0])
+-        phase = str(line[4])
++        station = line[0]
++        channel = line[2]
++        phase = line[4]
+         arrival.phase = phase
+         arrival.distance = kilometer2degrees(float(line[21]))
+         arrival.azimuth = float(line[23])
+@@ -319,17 +325,20 @@ def _read_single_hypocenter(lines, coordinate_converter, original_picks):
+         arrival.time_residual = float(line[16])
+         arrival.time_weight = float(line[17])
+         pick = Pick()
+-        # network codes are not used by NonLinLoc, so they can not be known
+-        # when reading the .hyp file.. to conform with QuakeML standard set an
+-        # empty network code
+-        wid = WaveformStreamID(network_code="", station_code=station)
+         # have to split this into ints for overflow to work correctly
+         date, hourmin, sec = map(str, line[6:9])
+         ymd = [int(date[:4]), int(date[4:6]), int(date[6:8])]
+         hm = [int(hourmin[:2]), int(hourmin[2:4])]
+         t = UTCDateTime(*(ymd + hm), strict=False) + float(sec)
+-        pick.waveform_id = wid
+         pick.time = t
++        # network codes are not used by NonLinLoc, so they can not be known
++        # when reading the .hyp file.. if an inventory is provided, a lookup
++        # is done
++        widargs = _resolve_seedid(
++            station=station, component=channel, time=t, phase=phase,
++            unused_kwargs=True, **kwargs)
++        wid = WaveformStreamID(*widargs)
++        pick.waveform_id = wid
+         pick.time_errors.uncertainty = float(line[10])
+         pick.phase_hint = phase
+         pick.onset = ONSETS.get(line[3].lower(), None)
+diff --git a/obspy/io/nlloc/tests/test_core.py b/obspy/io/nlloc/tests/test_core.py
+index 4e03baff016..7b73db71ef5 100644
+--- a/obspy/io/nlloc/tests/test_core.py
++++ b/obspy/io/nlloc/tests/test_core.py
+@@ -5,8 +5,10 @@
+ import os
+ import re
+ import unittest
++import warnings
+ 
+ from obspy import UTCDateTime, read_events
++from obspy.core.inventory import Inventory, Network, Station, Channel
+ from obspy.core.util import NamedTemporaryFile, get_example_file
+ from obspy.core.util.testing import compare_xml_strings, remove_unique_ids
+ from obspy.io.nlloc.core import is_nlloc_hyp, read_nlloc_hyp, write_nlloc_obs
+@@ -82,6 +84,9 @@ def test_read_nlloc_hyp(self):
+         filename = get_example_file("nlloc_custom.hyp")
+         cat = read_nlloc_hyp(filename,
+                              coordinate_converter=_mock_coordinate_converter)
++        # reset pick channel codes, these got automatically mapped upon reading
++        for pick in cat[0].picks:
++            pick.waveform_id.channel_code = None
+         with open(get_example_file("nlloc_custom.qml"), 'rb') as tf:
+             quakeml_expected = tf.read().decode()
+         with NamedTemporaryFile() as tf:
+@@ -216,6 +221,38 @@ def test_read_nlloc_hyp_via_plugin(self):
+         cat = read_events(filename, format="NLLOC_HYP")
+         self.assertEqual(len(cat), 1)
+ 
++    def test_read_nlloc_with_pick_seed_id_lookup(self):
++        # create some bogus metadata for lookup
++        cha = Channel('HHZ', '00', 0, 0, 0, 0)
++        sta = Station('HM02', 0, 0, 0, channels=[cha])
++        cha = Channel('HHZ', '10', 0, 0, 0, 0)
++        sta2 = Station('YYYY', 0, 0, 0, channels=[cha])
++        net = Network('XX', stations=[sta, sta2])
++        # second network with non matching data
++        cha = Channel('HHZ', '00', 0, 0, 0, 0)
++        sta = Station('ABCD', 0, 0, 0, channels=[cha])
++        cha = Channel('HHZ', '10', 0, 0, 0, 0)
++        sta2 = Station('EFGH', 0, 0, 0, channels=[cha])
++        net2 = Network('YY', stations=[sta, sta2])
++
++        inv = Inventory(networks=[net, net2], source='')
++
++        filename = get_example_file("nlloc_custom.hyp")
++        # we get some warnings since we only provide sufficient metadata for
++        # one pick
++        with warnings.catch_warnings():
++            warnings.simplefilter("ignore")
++            cat = read_events(filename, format="NLLOC_HYP", inventory=inv)
++        self.assertEqual(len(cat), 1)
++        for pick in cat[0].picks:
++            wid = pick.waveform_id
++            if wid.station_code == 'HM02':
++                self.assertEqual(wid.network_code, 'XX')
++                self.assertEqual(wid.location_code, '')
++            else:
++                self.assertEqual(wid.network_code, '')
++                self.assertEqual(wid.location_code, None)
++
+     def test_is_nlloc_hyp(self):
+         # test positive
+         filename = get_example_file("nlloc_custom.hyp")
+diff --git a/obspy/io/nordic/core.py b/obspy/io/nordic/core.py
+index fdad4686092..97419ed4523 100644
+--- a/obspy/io/nordic/core.py
++++ b/obspy/io/nordic/core.py
+@@ -58,6 +58,7 @@
+     Arrival, Amplitude, FocalMechanism, MomentTensor, NodalPlane, NodalPlanes,
+     QuantityError, Tensor, ResourceIdentifier, Comment)
+ from obspy.core.event.header import EventType, EventTypeCertainty
++from obspy.core.inventory.util import _resolve_seedid, _add_resolve_seedid_doc
+ from obspy.io.nordic import NordicParsingError
+ from obspy.io.nordic.utils import (
+     _int_conv, _str_conv, _float_conv, _evmagtonor, _nortoevmag,
+@@ -402,8 +403,9 @@ def _read_spectral_info(tagged_lines, event=None):
+     return spec_inf
+ 
+ 
++@_add_resolve_seedid_doc
+ def read_nordic(select_file, return_wavnames=False, encoding='latin-1',
+-                nordic_format='UKN'):
++                nordic_format='UKN', **kwargs):
+     """
+     Read a catalog of events from a Nordic formatted select file.
+ 
+@@ -444,14 +446,16 @@ def read_nordic(select_file, return_wavnames=False, encoding='latin-1',
+         elif len(event_str) > 0:
+             catalog, wav_names = _extract_event(
+                 event_str=event_str, catalog=catalog, wav_names=wav_names,
+-                return_wavnames=return_wavnames, nordic_format=nordic_format)
++                return_wavnames=return_wavnames, nordic_format=nordic_format,
++                **kwargs)
+             event_str = []
+     f.close()
+     if len(event_str) > 0:
+         # May occur if the last line of the file is not blank as it should be
+         catalog, wav_names = _extract_event(
+             event_str=event_str, catalog=catalog, wav_names=wav_names,
+-            return_wavnames=return_wavnames, nordic_format=nordic_format)
++            return_wavnames=return_wavnames, nordic_format=nordic_format,
++            **kwargs)
+     if return_wavnames:
+         return catalog, wav_names
+     for event in catalog:
+@@ -460,7 +464,7 @@ def read_nordic(select_file, return_wavnames=False, encoding='latin-1',
+ 
+ 
+ def _extract_event(event_str, catalog, wav_names, return_wavnames=False,
+-                   nordic_format='UKN'):
++                   nordic_format='UKN', **kwargs):
+     """
+     Helper to extract event info from a list of line strings.
+ 
+@@ -492,7 +496,7 @@ def _extract_event(event_str, catalog, wav_names, return_wavnames=False,
+     if return_wavnames:
+         wav_names.append(_readwavename(tagged_lines=tagged_lines['6']))
+     new_event = _read_picks(tagged_lines=tagged_lines, new_event=new_event,
+-                            nordic_format=nordic_format)
++                            nordic_format=nordic_format, **kwargs)
+     catalog += new_event
+     return catalog, wav_names
+ 
+@@ -730,7 +734,7 @@ def _read_comments(tagged_lines, event):
+     return event
+ 
+ 
+-def _read_picks(tagged_lines, new_event, nordic_format='UKN'):
++def _read_picks(tagged_lines, new_event, nordic_format='UKN', **kwargs):
+     """
+     Internal pick reader. Use read_nordic instead.
+ 
+@@ -762,9 +766,11 @@ def _read_picks(tagged_lines, new_event, nordic_format='UKN'):
+         nordic_format, phase_ok = check_nordic_format_version(pickline)
+ 
+     if nordic_format == 'NEW':
+-        new_event = _read_picks_nordic_new(pickline, new_event, header, evtime)
++        new_event = _read_picks_nordic_new(pickline, new_event, header, evtime,
++                                           **kwargs)
+     elif nordic_format == 'OLD':
+-        new_event = _read_picks_nordic_old(pickline, new_event, header, evtime)
++        new_event = _read_picks_nordic_old(pickline, new_event, header, evtime,
++                                           **kwargs)
+     elif nordic_format == 'UKN':
+         warnings.warn('Cannot check whether Nordic format is Old or New, is '
+                       'this really a Nordic file?')
+@@ -865,7 +871,7 @@ def check_nordic_format_version(pickline):
+     return nordic_format, is_phase
+ 
+ 
+-def _read_picks_nordic_old(pickline, new_event, header, evtime):
++def _read_picks_nordic_old(pickline, new_event, header, evtime, **kwargs):
+     """
+     Reads the type 4 line of the old Nordic format.
+     """
+@@ -915,8 +921,10 @@ def _read_picks_nordic_old(pickline, new_event, header, evtime):
+             warnings.warn('%s is not currently supported' % header[57:60])
+         finalweight = _int_conv(line[68:70])
+         # Create a new obspy.event.Pick class for this pick
+-        _waveform_id = WaveformStreamID(station_code=line[1:6].strip(),
+-                                        channel_code=line[6:8].strip())
++        widargs = _resolve_seedid(
++            station=line[1:6].strip(), component=line[6:8].strip(), time=time,
++            **kwargs)
++        _waveform_id = WaveformStreamID(*widargs)
+         pick = Pick(waveform_id=_waveform_id, phase_hint=phase,
+                     polarity=polarity, time=time)
+         try:
+@@ -995,7 +1003,7 @@ def _read_picks_nordic_old(pickline, new_event, header, evtime):
+     return new_event
+ 
+ 
+-def _read_picks_nordic_new(pickline, new_event, header, evtime):
++def _read_picks_nordic_new(pickline, new_event, header, evtime, **kwargs):
+     """
+     Reads the type 4 line of the old Nordic format.
+     """
+@@ -1039,10 +1047,14 @@ def _read_picks_nordic_new(pickline, new_event, header, evtime):
+             warnings.warn('%s is not currently supported' % header[60:63])
+         finalweight = _int_conv(line[68:70])
+         # Create a new obspy.event.Pick class for this pick
+-        _waveform_id = WaveformStreamID(station_code=line[1:6].strip(),
+-                                        channel_code=line[6:9].strip(),
+-                                        network_code=line[10:12].strip(),
+-                                        location_code=line[12:14].strip())
++        sta, cha = line[1:6].strip(), line[6:9].strip()
++        net, loc = line[10:12].strip(), line[12:14].strip()
++        if net == '' and loc == '':
++            widargs = _resolve_seedid(station=sta, component=cha, time=time,
++                                      **kwargs)
++        else:
++            widargs = net, sta, loc, cha
++        _waveform_id = WaveformStreamID(*widargs)
+         pick = Pick(waveform_id=_waveform_id, phase_hint=phase,
+                     polarity=polarity, time=time)
+         # agency and operator / author / analyst
+diff --git a/obspy/io/nordic/tests/test_nordic.py b/obspy/io/nordic/tests/test_nordic.py
+index 6aebf054c88..2e145192d53 100644
+--- a/obspy/io/nordic/tests/test_nordic.py
++++ b/obspy/io/nordic/tests/test_nordic.py
+@@ -1152,6 +1152,31 @@ def test_read_uncert_ellipse(self):
+         self.assertAlmostEqual(hor_min, 451.762494786)
+         self.assertAlmostEqual(azi_max, 102.0592301)
+ 
++    def test_read_resolve_seedid(self):
++        testing_path = os.path.join(self.testing_path, '01-0411-15L.S201309')
++        # raises "UserWarning: AIN in header, currently unsupported"
++        with warnings.catch_warnings():
++            warnings.simplefilter('ignore', UserWarning)
++            seedid = 'XX.{}.00.H{}'
++            event = read_nordic(testing_path, default_seedid=seedid)[0]
++        self.assertEqual(len(event.origins), 2)
++        self.assertEqual(len(event.picks), 17)
++        self.assertEqual(event.picks[0].waveform_id.network_code, 'XX')
++        self.assertEqual(event.picks[0].waveform_id.location_code, '00')
++        self.assertEqual(event.picks[0].waveform_id.channel_code[0], 'H')
++
++    def test_read_resolve_seedid_new_format(self):
++        testing_path = os.path.join(self.testing_path, '03-0345-23L.S202101')
++        # raises "UserWarning: AIN in header, currently unsupported"
++        with warnings.catch_warnings():
++            warnings.simplefilter('ignore', UserWarning)
++            seedid = 'XX.{}.00.H{}'
++            event = read_nordic(testing_path, default_seedid=seedid)[0]
++        self.assertEqual(len(event.origins), 1)
++        self.assertEqual(len(event.picks), 50)
++        # no changes because net code and location given in nordic file
++        self.assertNotEqual(event.picks[0].waveform_id.network_code, 'XX')
++
+ 
+ def _assert_similarity(event_1, event_2, strict=False):
+     """
+diff --git a/obspy/io/sh/evt.py b/obspy/io/sh/evt.py
+index 71bd9b8559c..cd536e18cc1 100644
+--- a/obspy/io/sh/evt.py
++++ b/obspy/io/sh/evt.py
+@@ -19,7 +19,7 @@
+                               OriginUncertainty, Pick, ResourceIdentifier,
+                               StationMagnitude, WaveformStreamID)
+ from obspy.core.event.header import EvaluationMode, EventType, PickOnset
+-from obspy.core.util.misc import _seed_id_map
++from obspy.core.inventory.util import _resolve_seedid, _add_resolve_seedid_doc
+ from obspy.io.sh.core import to_utcdatetime
+ 
+ 
+@@ -136,8 +136,8 @@ def _mags(obj, evid, stamag=False, wid=None):
+     return mags, pm
+ 
+ 
+-def _read_evt(filename, inventory=None, id_map=None, id_default='.{}..{}',
+-              encoding='utf-8'):
++@_add_resolve_seedid_doc
++def _read_evt(filename, encoding='utf-8', **kwargs):
+     """
+     Read a SeismicHandler EVT file and returns an ObsPy Catalog object.
+ 
+@@ -146,28 +146,6 @@ def _read_evt(filename, inventory=None, id_map=None, id_default='.{}..{}',
+         ObsPy :func:`~obspy.core.event.read_events` function, call this
+         instead.
+ 
+-    The optional parameters all deal with the problem, that the EVT format
+-    only stores station names for the picks, but the Pick object expects
+-    a SEED id. A SEED id template is retrieved for each station by the
+-    following procedure:
+-
+-    1. look at id_map for a direct station name match and use the specified
+-       template
+-    2. if 1 did not succeed, look if the station is present in inventory and
+-       use its first channel as template
+-    3. if 1 and 2 did not succeed, use specified default template (id_default)
+-
+-    :param str filename: File or file-like object in text mode.
+-    :type inventory: :class:`~obspy.core.inventory.inventory.Inventory`
+-    :param inventory: Inventory used to retrieve network code, location code
+-        and channel code of stations (SEED id).
+-    :param dict id_map: Default templates for each station
+-        (example: `id_map={'MOX': 'GR.{}..HH{}'`).
+-        The values must contain three dots and two `{}` which are
+-        substituted by station code and component.
+-    :param str id_default: Default SEED id template.
+-        The value must contain three dots and two `{}` which are
+-        substituted by station code and component.
+     :param str encoding: encoding used (default: utf-8)
+ 
+     :rtype: :class:`~obspy.core.event.Catalog`
+@@ -178,7 +156,6 @@ def _read_evt(filename, inventory=None, id_map=None, id_default='.{}..{}',
+ 
+         Compare with http://www.seismic-handler.org/wiki/ShmDocFileEvt
+     """
+-    seed_map = _seed_id_map(inventory, id_map)
+     with io.open(filename, 'r', encoding=encoding) as f:
+         temp = f.read()
+     # first create phases and phases_o dictionaries for different phases
+@@ -223,9 +200,11 @@ def _read_evt(filename, inventory=None, id_map=None, id_default='.{}..{}',
+         for p in phases[evid]:
+             sta = p.get('station code', '')
+             comp = p.get('component', '')
+-            wid = seed_map.get(sta, id_default)
+-            wid = WaveformStreamID(seed_string=wid.format(sta, comp))
+-            pick = Pick(waveform_id=wid, **_kw(p, 'pick'))
++            pick_kwargs = _kw(p, 'pick')
++            widargs = _resolve_seedid(
++                    sta, comp, time=pick_kwargs['time'], **kwargs)
++            wid = WaveformStreamID(*widargs)
++            pick = Pick(waveform_id=wid, **pick_kwargs)
+             arrival = Arrival(pick_id=pick.resource_id, **_kw(p, 'arrival'))
+             picks.append(pick)
+             arrivals.append(arrival)
+@@ -261,4 +240,5 @@ def _read_evt(filename, inventory=None, id_map=None, id_default='.{}..{}',
+                    description='Created from SeismicHandler EVT format')
+ 
+ 
+-_read_evt.__doc__ = _read_evt.__doc__ % (SUPPORTED_KEYS,)
++if _read_evt.__doc__ is not None and '%s' in _read_evt.__doc__:
++    _read_evt.__doc__ = _read_evt.__doc__ % (SUPPORTED_KEYS,)
+diff --git a/obspy/io/sh/tests/test_evt.py b/obspy/io/sh/tests/test_evt.py
+index 1632d64d26a..90f54e5b1b0 100644
+--- a/obspy/io/sh/tests/test_evt.py
++++ b/obspy/io/sh/tests/test_evt.py
+@@ -91,8 +91,10 @@ def test_populate_waveform_id(self):
+         # read invenroty - FUR with channels, WET without channels
+         inv = read_inventory().select(channel='HH?')
+         inv[0][1].channels = []
+-        picks = read_events(fname, inventory=inv, id_default='BLA.{}.11.DH{}',
+-                            id_map={'UBR': 'BLB.{}.00.BH{}'})[0].picks
++        cat = read_events(fname, inventory=inv,
++                          default_seedid='BLA.{}.11.DH{}',
++                          seedid_map={'UBR': 'BLB.{}.00.BH{}'}, warn=False)
++        picks = cat[0].picks
+         waveform_ids = [p.waveform_id.get_seed_string() for p in picks]
+         self.assertIn('GR.FUR..HHZ', waveform_ids)
+         self.assertIn('BLA.WET.11.DHZ', waveform_ids)

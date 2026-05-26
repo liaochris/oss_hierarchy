@@ -1,6 +1,24 @@
 Import('*')
 
+slide_graphics = ['#source/talk/graphics/boto_2020_1.png', '#source/talk/graphics/organizational_resilience_google.png']
 
-#target = ['#output/talk/TemplateSlidesLatex.pdf', '#temp/TemplateLatex.handout.pdf']
+autofill_sources = [
+    '#output/autofill/event_study_autofill.tex',
+    '#output/autofill/forest_autofill.tex',
+    '#output/autofill/panel_autofill.tex',
+    '#output/autofill/config_autofill.tex',
+    '#output/autofill/pc_autofill.tex',
+]
 
-#env.Latex(target, source)
+table_sources = [
+    '#output/tables/collaboration.tex',
+    '#output/tables/shared_knowledge.tex',
+    '#output/tables/discussion_quality.tex',
+    '#output/tables/investment_new_talent.tex',
+    '#output/tables/problem_solving_routines.tex',
+]
+
+target = ['#output/talk/slides.pdf']
+source = ['#source/talk/slides.tex',
+          '#source/paper/references.bib'] + slide_graphics + autofill_sources + table_sources
+env.Latex(target, source)

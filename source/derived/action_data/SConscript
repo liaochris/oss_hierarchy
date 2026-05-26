@@ -1,0 +1,24 @@
+Import('*')
+
+combine_source = [
+    '#source/derived/action_data/combine_action_data.py',
+    '#output/derived/hashes/scrape_issue.txt',
+    '#output/derived/hashes/scrape_pr.txt',
+    '#output/derived/hashes/scrape_linked_prs.txt',
+]
+combine_target = [
+    '#output/derived/hashes/repo_actions.txt',
+    '#output/derived/action_data/dropped_stats.csv',
+    '#output/derived/action_data/repo_component_tracking.csv',
+]
+env.Python(combine_target, combine_source)
+
+
+clean_source = [
+    '#source/derived/action_data/clean_text.py',
+    '#output/derived/hashes/repo_actions.txt',
+]
+clean_target = [
+    '#output/derived/hashes/cleaned_text.txt',
+]
+env.Python(clean_target, clean_source)

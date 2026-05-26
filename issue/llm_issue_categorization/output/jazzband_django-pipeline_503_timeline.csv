@@ -1,0 +1,13 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,adborden,2015-10-02T08:57:42Z,Why compile files in the static root?,https://github.com/jazzband/django-pipeline/issues/503,jazzband/django-pipeline,503
+IssueOpened,adborden,2015-10-02T08:57:42Z,"Forgive me if this is a silly question, I'm not an expert in django's staticfiles so maybe I'm missing some context. I don't understand why the compilation happens in the `STATIC_ROOT` as opposed to the source directory. If you have relative paths in your files, those relative paths are dependent on `STATIC_ROOT` which might change based on settings and environment.. This is fine as long as the relative paths don't refer higher than the static dir, but that limits it's usage. Here's an example:
+
+I use npm to manage client dependencies, including LESS/CSS. By convention, the node\_modules are at the root of the project (outside of any static directory). If my LESS code has a relative import into the node\_modules, it breaks when copied/copiled in the STATIC\_ROOT because node\_modules isn't reachable from there. Moving node\_modules into STATIC\_ROOT isn't practical either due to all the non-static things in it, like test code/binaries, and copying it can also take quite some time.
+
+Other examples for using relative paths might be importing `package.json` or referencing shared javascript code in your project.
+
+Some of the finders like FileSystemFinder and AppDirectoryFinder seem to exist mostly just as an ignore list, which says to me that we're pulling more things into STATIC\_ROOT than we actually want.
+
+Please enlighten me, thank you!",https://github.com/jazzband/django-pipeline/issues/503,jazzband/django-pipeline,503
+IssueComment,adborden,2015-10-02T08:59:56Z,I should clarify that this is the behavior I see when running `collectstatic`.,,jazzband/django-pipeline,503
+MentionedByIssue,blaze33,2016-03-09T19:45:26Z,,https://github.com/jazzband/django-pipeline/issues/549,jazzband/django-pipeline,503

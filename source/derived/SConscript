@@ -1,9 +1,7 @@
 Import('*')
-import os
 
-target = ['#output/derived/collect_github_repos/linked_pypi_github.csv']
-source = ['#source/derived/collect_github_repos/link_pypi_github.py']
-for file in os.listdir('../../drive/output/scrape/pypi_site_info'):
-    source.append(f'#drive/output/scrape/pypi_site_info/{file}')
-
-env.Python(target, source)
+SConscript('create_bot_list/SConscript')
+SConscript('graph_structure/SConscript')
+SConscript('action_data/SConscript')
+SConscript('org_outcomes_practices/SConscript')
+SConscript('analysis_panel/SConscript')

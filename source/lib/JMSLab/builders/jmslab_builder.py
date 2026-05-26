@@ -145,7 +145,6 @@ class JMSLabBuilder(object):
         Actually execute the system call attribute.
         Raise an informative exception on error.
         '''
-        
         traceback = ''
         raise_system_call_exception = False
         try:
@@ -215,7 +214,7 @@ class JMSLabBuilder(object):
                 builder_log_msg = '*** Builder log created: {%s}\n' \
                                 '*** Builder log completed: {%s}\n%s' \
                                 % (self.start_time, end_time, content)
-                
+
         with open(self.log_file, mode = 'w') as f:
             f.write(builder_log_msg)
         return None

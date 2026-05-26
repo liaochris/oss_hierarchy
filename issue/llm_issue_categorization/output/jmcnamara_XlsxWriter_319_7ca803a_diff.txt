@@ -1,0 +1,118 @@
+diff --git a/dev/docs/source/bugs.rst b/dev/docs/source/bugs.rst
+index a0833707c..c940df626 100644
+--- a/dev/docs/source/bugs.rst
++++ b/dev/docs/source/bugs.rst
+@@ -9,8 +9,8 @@ submit bug reports.
+ "Content is Unreadable. Open and Repair"
+ ----------------------------------------
+ 
+-Very, very occasionally you may see an Excel warning when opening an XlsxWriter
+-file like:
++You may occasionally see an Excel warning when opening an XlsxWriter file
++like:
+ 
+    Excel could not open file.xlsx because some content is unreadable. Do you
+    want to open and repair this workbook.
+@@ -18,9 +18,9 @@ file like:
+ This ominous sounding message is Excel's default warning for any validation
+ error in the XML used for the components of the XLSX file.
+ 
+-If you encounter an issue like this you should open an issue on GitHub with a
+-program to replicate the issue (see below) or send one of the failing output
+-files to the :ref:`author`.
++The error message and the actual file aren't helpful in debugging issues like
++this. If you do encounter this warning you should open an issue on GitHub with
++a program to replicate it (see below).
+ 
+ 
+ "Exception caught in workbook destructor. Explicit close() may be required"
+diff --git a/dev/docs/source/working_with_tables.rst b/dev/docs/source/working_with_tables.rst
+index 73fbb576c..c8bcfdc0a 100644
+--- a/dev/docs/source/working_with_tables.rst
++++ b/dev/docs/source/working_with_tables.rst
+@@ -199,14 +199,15 @@ The default table style is 'Table Style Medium 9'.
+ name
+ ----
+ 
+-The ``name`` parameter can be used to set the name of the table::
++By default tables are named ``Table1``, ``Table2``, etc. The ``name``
++parameter can be used to set the name of the table::
+ 
+     worksheet.add_table('B3:F7', {'name': 'SalesData'})
+ 
+-By default tables are named ``Table1``, ``Table2``, etc. If you override the
+-table name you must ensure that it doesn't clash with an existing table name
+-and that it follows Excel's requirements for table names (for example that it
+-doesn't contain spaces).
++If you override the table name you must ensure that it doesn't clash with an
++existing table name and that it follows Excel's requirements for table names,
++see the `Microsoft Office documentation
++<http://office.microsoft.com/en-001/excel-help/define-and-use-names-in-formulas-HA010147120.aspx>`_.
+ 
+ If you need to know the name of the table, for example to use it in a formula,
+ you can get it as follows::
+diff --git a/xlsxwriter/workbook.py b/xlsxwriter/workbook.py
+index b8655d769..acafee581 100644
+--- a/xlsxwriter/workbook.py
++++ b/xlsxwriter/workbook.py
+@@ -373,21 +373,23 @@ def define_name(self, name, formula):
+             sheet_index = -1
+ 
+         # Warn if the defined name contains invalid chars as defined by Excel.
+-        if (not re.match(r'^[\w\\][\w.]*$', name, re.UNICODE)
++        if (not re.match(r'^[\w\\][\w\\.]*$', name, re.UNICODE)
+                 or re.match(r'^\d', name)):
+-            warn("Invalid Excel characters in defined_name(): '%s'" % name)
++            warn("Invalid Excel characters in defined_name(): '%s'"
++                 % force_unicode(name))
+             return -1
+ 
+         # Warn if the defined name looks like a cell name.
+         if re.match(r'^[a-zA-Z][a-zA-Z]?[a-dA-D]?[0-9]+$', name):
+-            warn("Name looks like a cell name in defined_name(): '%s'" % name)
++            warn("Name looks like a cell name in defined_name(): '%s'"
++                 % force_unicode(name))
+             return -1
+ 
+         # Warn if the name looks like a R1C1 cell reference.
+         if (re.match(r'^[rcRC]$', name)
+                 or re.match(r'^[rcRC]\d+[rcRC]\d+$', name)):
+             warn("Invalid name '%s' like a RC cell ref in defined_name()"
+-                 % name)
++                 % force_unicode(name))
+             return -1
+ 
+         self.defined_names.append([name, sheet_index, formula, False])
+diff --git a/xlsxwriter/worksheet.py b/xlsxwriter/worksheet.py
+index 68049171d..752e925f8 100644
+--- a/xlsxwriter/worksheet.py
++++ b/xlsxwriter/worksheet.py
+@@ -2269,6 +2269,28 @@ def add_table(self, first_row, first_col, last_row, last_col,
+                      % force_unicode(name))
+                 return -3
+ 
++            # Warn if the name contains invalid chars as defined by Excel.
++            if (not re.match(r'^[\w\\][\w\\.]*$', name, re.UNICODE)
++                    or re.match(r'^\d', name)):
++                warn("Invalid Excel characters in add_table(): '%s'"
++                     % force_unicode(name))
++                return -1
++
++            # Warn if the name looks like a cell name.
++            if re.match(r'^[a-zA-Z][a-zA-Z]?[a-dA-D]?[0-9]+$', name):
++                warn("Name looks like a cell name in add_table(): '%s'"
++                     % force_unicode(name))
++                return -1
++
++            # Warn if the name looks like a R1C1 cell reference.
++            if (re.match(r'^[rcRC]$', name)
++                    or re.match(r'^[rcRC]\d+[rcRC]\d+$', name)):
++                warn("Invalid name '%s' like a RC cell ref in add_table()"
++                     % force_unicode(name))
++                return -1
++
++
++
+         # Set the table style.
+         if 'style' in options:
+             table['style'] = options['style']

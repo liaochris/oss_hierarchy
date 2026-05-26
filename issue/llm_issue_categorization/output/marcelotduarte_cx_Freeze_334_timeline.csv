@@ -1,0 +1,20 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,ronpandolfi,2017-12-09T00:39:37Z,Creating virtualenv from frozen app gives Fatal Python error: Py_Initialize: Unable to get the locale encoding,https://github.com/marcelotduarte/cx_Freeze/issues/334,marcelotduarte/cx_Freeze,334
+IssueOpened,ronpandolfi,2017-12-09T00:39:37Z,"Running 6.0b1, in a frozen build\_exe build on linux, I tried to create a virtualenv from within the frozen application with `virtualenv.create_environment`. This causes the error:
+
+```
+Fatal Python error: Py_Initialize: Unable to get the locale encoding
+ModuleNotFoundError: No module named 'encodings'
+
+Current thread 0x00007f7666022380 (most recent call first):
+ERROR: The executable /home/rp/.config/xicam/venvs/default/bin/Xi-cam is not functioning
+ERROR: It thinks sys.prefix is '/home/rp/PycharmProjects/xi-cam2/xicam' (should be '/home/rp/.config/xicam/venvs/default')
+ERROR: virtualenv is not compatible with this system or executable
+```
+
+The encodings package is actually in the build/lib directory, but virtualenv seems to crash at virtualenv.py:1393  
+`norm_home_dir = norm_home_dir.decode(sys.getfilesystemencoding())`",https://github.com/marcelotduarte/cx_Freeze/issues/334,marcelotduarte/cx_Freeze,334
+IssueComment,anthony-tuininga,2017-12-09T21:20:14Z,You're trying to create a virtual environment from within the frozen application? You're probably going to need to understand the internals of virtualenv to make that work. Good luck!,,marcelotduarte/cx_Freeze,334
+ClosedEvent,anthony-tuininga,2017-12-09T21:20:14Z,Closed by anthony-tuininga in ,,marcelotduarte/cx_Freeze,334
+MentionedByIssue,ronpandolfi,2017-12-12T19:29:34Z,,https://github.com/pypa/virtualenv/issues/1114,marcelotduarte/cx_Freeze,334
+IssueComment,ronpandolfi,2017-12-12T19:30:05Z,"I've asked the virtualenv board, in case anyone else has this question: [pypa/virtualenv#1114](https://github.com/pypa/virtualenv/issues/1114)",,marcelotduarte/cx_Freeze,334

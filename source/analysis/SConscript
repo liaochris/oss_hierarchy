@@ -1,4 +1,7 @@
 Import('*')
 
-#env.R(target, source)
-
+SConscript('event_study/SConscript')
+SConscript('event_study_forest/SConscript')
+SConscript('analyze_forest/SConscript')
+SConscript('summ_stats/SConscript')
+SConscript('model_prediction/SConscript')

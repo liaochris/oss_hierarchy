@@ -2,30 +2,29 @@ Import('*')
 import os
 
 
+autofill_sources = [
+    '#output/autofill/event_study_autofill.tex',
+    '#output/autofill/forest_autofill.tex',
+    '#output/autofill/panel_autofill.tex',
+    '#output/autofill/config_autofill.tex',
+    '#output/autofill/pc_autofill.tex',
+]
+
+table_sources = [
+    '#output/tables/outcome_summary_table.tex',
+    '#output/tables/collaboration.tex',
+    '#output/tables/shared_knowledge.tex',
+    '#output/tables/discussion_quality.tex',
+    '#output/tables/investment_new_talent.tex',
+    '#output/tables/problem_solving_routines.tex',
+]
+
 target = ['#output/paper/main.pdf']
-source = ['#source/paper/main.tex','#source/paper/references.bib']
-for file in os.listdir('sections/'):
-    if '.tex' in file:
-        source.append(f"#source/paper/sections/{file}")
+source = ['#source/paper/main.tex', '#source/paper/references.bib',
+          '#source/figures/figure_helpers.tex'] + autofill_sources + table_sources
 env.Latex(target, source)
 
-for file in os.listdir('sections/'):
-    if '.tex' in file:
-        file_pdf = file.replace('.tex','.pdf')
-        target = [f"#output/paper/sections/{file_pdf}"]
-        source = [f"#source/paper/sections/{file}"]
-env.Latex(target, source)
 
-for file in os.listdir('external/'):
-    if '.tex' in file:
-        file_pdf = file.replace('.tex','.pdf')
-        target = [f"#output/paper/external/{file_pdf}"]
-        source = [f"#source/paper/external/{file}"]
-env.Latex(target, source)
-
-for file in os.listdir('literature/'):
-    if '.tex' in file:
-        file_pdf = file.replace('.tex','.pdf')
-        target = [f"#output/paper/literature/{file_pdf}"]
-        source = [f"#source/paper/literature/{file}"]
+target = ['#output/paper/model.pdf']
+source = ['#source/paper/model.tex']
 env.Latex(target, source)

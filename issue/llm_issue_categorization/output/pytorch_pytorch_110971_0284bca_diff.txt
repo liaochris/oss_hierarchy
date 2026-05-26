@@ -1,0 +1,74 @@
+diff --git a/test/test_cuda.py b/test/test_cuda.py
+index f438b6e0e84c0..8f823acd15340 100644
+--- a/test/test_cuda.py
++++ b/test/test_cuda.py
+@@ -3240,6 +3240,24 @@ def check_output(script: str) -> str:
+             rc = check_output(f"import torch; import ctypes;x=ctypes.c_int(-1);print({cuda_driver_api_call})")
+             self.assertEqual(rc, "3")
+ 
++    @unittest.skipIf(not TEST_MULTIGPU, "requires multiple devices")
++    @unittest.skipIf(TEST_WITH_ROCM, "too lazy to debug this on ROCm")
++    def test_device_count_not_cached_pre_init(self):
++        test_script = """\
++import torch
++import os
++r1 = torch.cuda.device_count()
++os.environ['CUDA_VISIBLE_DEVICES'] = '0'
++r2 = torch.cuda.device_count()
++torch.empty(10, device='cuda')
++print(f"{r1}, {r2}")
++"""
++
++        r = subprocess.check_output([sys.executable, "-c", test_script]).decode("ascii").strip()
++
++        x = torch.cuda.device_count()
++        self.assertEqual(f"{x}, 1", r)
++
+ 
+ @torch.testing._internal.common_utils.markDynamoStrictTest
+ class TestCudaMallocAsync(TestCase):
+diff --git a/test/test_cuda_nvml_based_avail.py b/test/test_cuda_nvml_based_avail.py
+index 2b7487682a906..809e8026dcd6f 100644
+--- a/test/test_cuda_nvml_based_avail.py
++++ b/test/test_cuda_nvml_based_avail.py
+@@ -34,7 +34,7 @@ class TestExtendedCUDAIsAvail(TestCase):
+ 
+     def setUp(self):
+         super().setUp()
+-        torch.cuda.device_count.cache_clear()  # clear the lru_cache on this method before our test
++        torch.cuda._cached_device_count = None  # clear the lru_cache on this method before our test
+ 
+     @staticmethod
+     def in_bad_fork_test() -> bool:
+diff --git a/torch/cuda/__init__.py b/torch/cuda/__init__.py
+index b042126d99e21..eb78243748697 100644
+--- a/torch/cuda/__init__.py
++++ b/torch/cuda/__init__.py
+@@ -739,14 +739,25 @@ def _get_nvml_device_index(device: Optional[Union[int, Device]]) -> int:
+     return visible_devices[idx]
+ 
+ 
+-@lru_cache(maxsize=1)
++_cached_device_count: Optional[int] = None
++
++
+ def device_count() -> int:
+     r"""Return the number of GPUs available."""
++    global _cached_device_count
+     if not _is_compiled():
+         return 0
++    if _cached_device_count is not None:
++        return _cached_device_count
+     # bypass _device_count_nvml() if rocm (not supported)
+     nvml_count = -1 if torch.version.hip else _device_count_nvml()
+-    return torch._C._cuda_getDeviceCount() if nvml_count < 0 else nvml_count
++    r = torch._C._cuda_getDeviceCount() if nvml_count < 0 else nvml_count
++    # NB: Do not cache the device count prior to CUDA initialization, because
++    # the number of devices can change due to changes to CUDA_VISIBLE_DEVICES
++    # setting prior to CUDA initialization.
++    if _initialized:
++        _cached_device_count = r
++    return r
+ 
+ 
+ def get_arch_list() -> List[str]:

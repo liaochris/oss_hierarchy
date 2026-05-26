@@ -1,0 +1,44 @@
+Import('*')
+
+from source.lib.python.config_loaders import LoadGlobalSettings, LoadPipelineInputs
+from source.lib.python.repo_utils import MakeRepoNameSafe
+
+globals_data = LoadGlobalSettings("../../../source/lib/config/global_settings.json")
+pipeline_cfg = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
+reference_repo = globals_data['reference_github_repo']
+reference_repo_safe_name = MakeRepoNameSafe(reference_repo)
+importance_type = pipeline_cfg["importance_types"]["run"][0]
+rolling_label = f"rolling{pipeline_cfg['rolling_periods']['run'][0]}"
+control_group = pipeline_cfg["control_groups"]["run"][0]
+exact_samples = sorted(
+    [s for s in pipeline_cfg["qualified_samples"]["run"] if "_" not in s],
+    key=lambda s: int(s.removeprefix("exact"))
+)
+
+summary_source = [
+    '#source/analysis/summ_stats/create_project_summary.py',
+    '#source/lib/config/global_settings.json',
+    '#source/lib/config/pipeline_inputs.json',
+    '#source/lib/config/analysis_parameters.json',
+    '#source/lib/config/importance_specifications.json',
+    '#source/lib/config/paper_settings.json',
+    '#source/lib/config/feature_variables.json',
+    '#output/scrape/pypi_downloads/popular_python_packages.csv',
+    '#output/scrape/pypi_site_info/linked_pypi_github.csv',
+    '#output/scrape/extract_github_data/repo_id_history_final.csv',
+    f'#drive/output/scrape/extract_github_data/repo_level_data/issue/{reference_repo_safe_name}.parquet',
+    f'#drive/output/scrape/extract_github_data/repo_level_data/pr/{reference_repo_safe_name}.parquet',
+    '#output/derived/graph_structure/exported_graphs_log.csv',
+    f'#drive/output/derived/org_outcomes_practices/org_panel/{importance_type}/{rolling_label}/panel.parquet',
+]
+summary_source += [
+    f'#output/derived/analysis_panel/{importance_type}/{rolling_label}/{sample}/{control_group}/panel.parquet'
+    for sample in exact_samples
+]
+summary_target = [
+    '#output/analysis/summ_stats/project_summary.parquet',
+    '#output/analysis/summ_stats/project_summary.log',
+    '#output/analysis/summ_stats/summary_table.txt',
+    '#output/autofill/config_autofill.tex',
+]
+env.Python(summary_target, summary_source)

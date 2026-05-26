@@ -1,0 +1,273 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,jdrowne,2019-10-14T03:26:48Z,VERR_ACCESS_DENIED when using 'createhd' with Vagrant and Virtualbox,https://github.com/ansible/molecule/issues/2366,ansible/molecule,2366
+IssueOpened,jdrowne,2019-10-14T03:26:48Z,"# Issue Type
+
+* Bug report
+
+# Molecule and Ansible details
+
+```
+ansible 2.8.5
+  config file = None
+  configured module search path = ['/home/juliett/.ansible/plugins/modules', '/usr/share/ansible/plugins/modules']
+  ansible python module location = /usr/local/lib/python3.6/dist-packages/ansible
+  executable location = /usr/local/bin/ansible
+  python version = 3.6.8 (default, Oct  7 2019, 12:59:55) [GCC 8.3.0]
+molecule, version 2.22
+```
+
+Molecule installation method (one of):
+
+* pip
+
+Ansible installation method (one of):
+
+* pip
+
+# Desired Behavior
+
+Molecule creates an instance with an additional hard drive based on:
+
+molecule.yml:
+
+```
+driver:
+  name: vagrant
+  provider:
+    name: virtualbox
+lint:
+  name: yamllint
+platforms:
+  - name: ubuntu1604
+    box: ubuntu/xenial64
+    memory: 2048
+    cpus: 2
+    provider_raw_config_args:
+      - ""customize [ 'createhd', '--filename', './tmpDisk.vdi', '--variant', 'Fixed', '--size', 20 * 1024 ]""
+      - ""customize [ 'storageattach', :id, '--storagectl', 'SATAController', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', './tmpDisk.vdi' ]""
+```
+
+# Actual Behaviour
+
+```
+### 2019-10-13 23:25:55 ###
+### 2019-10-13 23:25:55 ###
+#<Thread:0x00005556b8418f70@/usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/batch_action.rb:71 run> terminated with exception (report_on_exception is true):
+/usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/customize.rb:32:in `rescue in block in call': A customization command failed: (Vagrant::Errors::VMCustomizationFailed)
+
+[""createhd"", ""--filename"", ""./tmpDisk.vdi"", ""--variant"", ""Fixed"", ""--size"", 20480]
+
+The following error was experienced:
+
+#<Vagrant::Errors::VBoxManageError: There was an error while executing `VBoxManage`, a CLI used by Vagrant
+for controlling VirtualBox. The command and stderr is shown below.
+
+Command: [""createhd"", ""--filename"", ""./tmpDisk.vdi"", ""--variant"", ""Fixed"", ""--size"", ""20480""]
+
+Stderr: 0%...
+Progress state: VBOX_E_FILE_ERROR
+VBoxManage: error: Failed to create medium
+VBoxManage: error: Could not create the medium storage unit '/usr/local/lib/python3.6/dist-packages/molecule/provisioner/ansible/playbooks/vagrant/tmpDisk.vdi'.
+VBoxManage: error: VDI: cannot create image '/usr/local/lib/python3.6/dist-packages/molecule/provisioner/ansible/playbooks/vagrant/tmpDisk.vdi' (VERR_ACCESS_DENIED)
+VBoxManage: error: Details: code VBOX_E_FILE_ERROR (0x80bb0004), component MediumWrap, interface IMedium
+VBoxManage: error: Context: ""RTEXITCODE handleCreateMedium(HandlerArg*)"" at line 450 of file VBoxManageDisk.cpp
+>
+
+Please fix this customization and try again.
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/customize.rb:28:in `block in call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/customize.rb:22:in `each'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/customize.rb:22:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/sane_defaults.rb:38:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builtin/set_hostname.rb:16:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/forward_ports.rb:31:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/network_fix_ipv6.rb:41:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/network.rb:123:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/clear_network_interfaces.rb:26:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/prepare_nfs_settings.rb:19:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builtin/synced_folders.rb:87:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builtin/synced_folder_cleanup.rb:28:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/synced_folders/nfs/action_cleanup.rb:25:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/prepare_nfs_valid_ids.rb:12:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builtin/handle_forwarded_port_collisions.rb:49:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/prepare_forwarded_port_collision_params.rb:30:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builtin/env_set.rb:19:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builtin/provision.rb:80:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/clear_forwarded_ports.rb:15:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/set_name.rb:19:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/clean_machine_folder.rb:17:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/check_accessible.rb:18:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:95:in `block in finalize_action'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builder.rb:116:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/runner.rb:66:in `block in run'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/util/busy.rb:19:in `busy'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/runner.rb:66:in `run'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builtin/call.rb:53:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:95:in `block in finalize_action'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builder.rb:116:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/runner.rb:66:in `block in run'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/util/busy.rb:19:in `busy'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/runner.rb:66:in `run'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builtin/call.rb:53:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:95:in `block in finalize_action'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builder.rb:116:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/runner.rb:66:in `block in run'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/util/busy.rb:19:in `busy'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/runner.rb:66:in `run'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builtin/call.rb:53:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builtin/box_check_outdated.rb:79:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builtin/config_validate.rb:25:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/check_virtualbox.rb:17:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:95:in `block in finalize_action'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:95:in `block in finalize_action'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builder.rb:116:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/runner.rb:66:in `block in run'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/util/busy.rb:19:in `busy'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/runner.rb:66:in `run'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builtin/call.rb:53:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builtin/config_validate.rb:25:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:95:in `block in finalize_action'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:95:in `block in finalize_action'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builder.rb:116:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/runner.rb:66:in `block in run'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/util/busy.rb:19:in `busy'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/runner.rb:66:in `run'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builtin/call.rb:53:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/plugins/providers/virtualbox/action/check_virtualbox.rb:17:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/warden.rb:34:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/builder.rb:116:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/runner.rb:66:in `block in run'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/util/busy.rb:19:in `busy'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/action/runner.rb:66:in `run'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/machine.rb:227:in `action_raw'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/machine.rb:202:in `block in action'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/environment.rb:592:in `lock'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/machine.rb:188:in `call'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/machine.rb:188:in `action'
+	from /usr/share/rubygems-integration/all/gems/vagrant-2.0.2/lib/vagrant/batch_action.rb:82:in `block (2 levels) in run'
+A customization command failed:
+
+[""createhd"", ""--filename"", ""./tmpDisk.vdi"", ""--variant"", ""Fixed"", ""--size"", 20480]
+
+The following error was experienced:
+
+#<Vagrant::Errors::VBoxManageError: There was an error while executing `VBoxManage`, a CLI used by Vagrant
+for controlling VirtualBox. The command and stderr is shown below.
+
+Command: [""createhd"", ""--filename"", ""./tmpDisk.vdi"", ""--variant"", ""Fixed"", ""--size"", ""20480""]
+
+Stderr: 0%...
+Progress state: VBOX_E_FILE_ERROR
+VBoxManage: error: Failed to create medium
+VBoxManage: error: Could not create the medium storage unit '/usr/local/lib/python3.6/dist-packages/molecule/provisioner/ansible/playbooks/vagrant/tmpDisk.vdi'.
+VBoxManage: error: VDI: cannot create image '/usr/local/lib/python3.6/dist-packages/molecule/provisioner/ansible/playbooks/vagrant/tmpDisk.vdi' (VERR_ACCESS_DENIED)
+VBoxManage: error: Details: code VBOX_E_FILE_ERROR (0x80bb0004), component MediumWrap, interface IMedium
+VBoxManage: error: Context: ""RTEXITCODE handleCreateMedium(HandlerArg*)"" at line 450 of file VBoxManageDisk.cpp
+>
+
+Please fix this customization and try again.
+```",https://github.com/ansible/molecule/issues/2366,ansible/molecule,2366
+LabeledEvent,jdrowne,2019-10-14T03:26:48Z,bug,,ansible/molecule,2366
+IssueComment,jdrowne,2019-10-14T03:28:22Z,"Following Vagrantfile works fine on the same machine:
+
+```
+disk = './secondDisk.vdi'
+Vagrant.configure(2) do |config|
+  config.vm.define ""iscsitarget"" do |iscsitarget|
+    iscsitarget.vm.box = ""ubuntu/trusty64""
+    iscsitarget.vm.hostname = ""iscsitarget""
+
+    iscsitarget.vm.provider ""virtualbox"" do |vb|
+      unless File.exist?(disk)
+        vb.customize ['createhd', '--filename', disk, '--variant', 'Fixed', '--size', 20 * 1024]
+      end
+      vb.memory = ""1024""
+      vb.customize ['storageattach', :id,  '--storagectl', 'SATAController', '--port', 1, '--device', 0, '--type', 'hdd', '--medium', disk]
+    end
+  end
+end
+```",,ansible/molecule,2366
+IssueComment,decentral1se,2019-10-14T08:51:39Z,[#1556](https://github.com/ansible/molecule/issues/1556) was related?,,ansible/molecule,2366
+IssueComment,jdrowne,2019-10-14T16:01:33Z,"[@decentral1se](https://github.com/decentral1se) I tried adding `customize [ 'modifyvm', :id, '--uartmode1', 'disconnected' ]` to my `molecule.yml` and to `/usr/local/lib/python3.6/dist-packages/molecule/driver/vagrant.py` but I get the same error. But yes, it seems that Molecule is trying to create `tmpDisk.vdi` within `/usr/local/lib/python3.6/dist-packages/molecule/provisioner/ansible/playbooks/vagrant/` rather than within the `$TMPDIR`.",,ansible/molecule,2366
+IssueComment,splashx,2019-10-18T11:20:46Z,[@jdrowne](https://github.com/jdrowne) did you manage to solve this by chance?,,ansible/molecule,2366
+IssueComment,decentral1se,2019-10-18T13:50:19Z,"To anyone passing by, we're really in need of someone to take on maintenance of this driver. If you have any spare time or you rely on this driver in some way to get things done, please get in touch.",,ansible/molecule,2366
+IssueComment,elisdg,2019-12-16T18:30:17Z,"EDIT2:  
+... changing the path in the provider\_raw\_config\_args-customization to reflect the `{{ item }}`, the code below is now working...
+
+---
+
+I struggled with the same behavior in molecule.  
+But after getting this also in kitchenci, I discovered: [hashicorp/vagrant#8107](https://github.com/hashicorp/vagrant/issues/8107)  
+**Problem**: molecule doesnt ""close"" the disks when it fails, and also it doesnt close it on ""destroying""  
+Look for the molecule-machine in `vboxmanage list hdds`
+
+The **workaround** is (at least in my case) to delete the disks in the VirtualBox ""Virtual Media Manager"", or:
+
+```
+vboxmanage list vms   |perl -laE'`vboxmanage unregistervm --delete $F[1]`'       # remove ALL VMs
+vboxmanage list hdds  |perl -laE'`vboxmanage closemedium disk --delete $F[1]`    # remove ALL disks
+```
+
+After this I was able to run `molecule converge` whith the following ""create.yml""-file:
+
+```
+---
+- hosts: localhost
+  connection: local
+  tasks:
+    - name: Create instances
+      molecule_vagrant:
+        instance_name: ""{{ item }}""
+        platform_box: debian/stretch64
+        provider_name: virtualbox
+        provider_memory: 768
+        provider_cpus: 1
+        provider_raw_config_args:
+          - ""customize [ 'modifyvm', :id, '--uartmode1', 'disconnected' ]""
+          - ""customize [ 'createhd', '--filename', '{{ item }}/sdb.vmdk', '--format', 'vmdk', '--size', '30000' ]""
+          - ""customize [ 'storagectl', :id, '--name', 'SATA Controller', '--portcount', '4']""
+          - ""customize [ 'storageattach', :id, '--storagectl', 'SATA Controller', '--port', '4', '--device', '0', '--type', 'hdd', '--medium', '{{ item }}/sdb.vmdk']""
+        provision: true
+        state: up
+      with_items:
+        - demo-1
+        - demo-2
+```",,ansible/molecule,2366
+LabeledEvent,ssbarnea,2020-01-14T11:05:51Z,vagrant,,ansible/molecule,2366
+IssueComment,ssbarnea,2020-01-14T12:21:14Z,"Molecule Vagrant driver was moved to <https://github.com/pycontribs/molecule-vagrant/issues> and if this issue is still valid, please raise a ticket there. Thanks.",,ansible/molecule,2366
+ClosedEvent,ssbarnea,2020-01-14T12:21:14Z,Closed by ssbarnea in ,,ansible/molecule,2366

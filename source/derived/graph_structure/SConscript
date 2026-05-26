@@ -1,0 +1,59 @@
+Import('*')
+
+from source.lib.python.config_loaders import LoadGlobalSettings
+from source.lib.python.repo_utils import MakeRepoNameSafe
+
+globals_data = LoadGlobalSettings("../../../source/lib/config/global_settings.json")
+ref = MakeRepoNameSafe(globals_data['reference_github_repo'])
+
+def _six_month_periods(start_str, end_str):
+    from datetime import date
+    y, m, _ = (int(x) for x in start_str.split('-'))
+    ey, em, _ = (int(x) for x in end_str.split('-'))
+    periods = []
+    while (y, m) <= (ey, em):
+        periods.append(f"{y}{str(m).zfill(2)}")
+        m += 6
+        if m > 12:
+            m -= 12
+            y += 1
+    return periods
+
+time_periods = _six_month_periods(globals_data['github_start_date'], globals_data['github_end_date'])
+
+source = [
+    '#source/derived/graph_structure/create_graphs.py',
+    '#output/derived/hashes/repo_actions.txt',
+]
+target = [
+    '#output/derived/hashes/interactions.txt',
+    '#output/derived/graph_structure/exported_graphs_log.csv',
+] + [
+    f'#drive/output/derived/graph_structure/graphs/{tp}/{ref}.gexf'
+    for tp in time_periods
+]
+env.Python(target, source)
+
+source = [
+    '#source/derived/graph_structure/calculate_degree.py',
+    '#output/derived/hashes/interactions.txt',
+] + [
+    f'#drive/output/derived/graph_structure/graphs/{tp}/{ref}.gexf'
+    for tp in time_periods
+]
+target = [
+    '#output/derived/hashes/graph_degrees.txt',
+]
+env.Python(target, source)
+
+source = [
+    '#source/derived/graph_structure/calculate_importance.py',
+    '#source/lib/config/importance_specifications.json',
+    '#output/derived/hashes/graph_degrees.txt',
+    '#output/derived/hashes/repo_actions.txt',
+]
+target = [
+    '#output/derived/hashes/important_members.txt',
+    '#output/derived/graph_structure/importance_summary.csv',
+]
+env.Python(target, source)

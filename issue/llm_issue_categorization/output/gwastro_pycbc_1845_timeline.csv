@@ -1,0 +1,76 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,duncanmmacleod,2017-08-17T09:00:33Z,pip install failing with missing descr.txt,https://github.com/gwastro/pycbc/issues/1845,gwastro/pycbc,1845
+IssueOpened,duncanmmacleod,2017-08-17T09:00:33Z,"I am getting the following error when trying to install `pycbc` into an empty virtualenv:
+
+```
+$ virtualenv-2.7 ~/opt/pycbc
+New python executable in /Users/duncan/opt/pycbc/bin/python
+Installing setuptools, pip, wheel...done.
+$ . ~/opt/pycbc/bin/activate
+(pycbc) $ pip install pycbc
+Collecting pycbc
+  Downloading PyCBC-1.7.6.tar.gz (2.8MB)
+    100% |████████████████████████████████| 2.9MB 517kB/s
+    Complete output from command python setup.py egg_info:
+    No module named decorator
+    Traceback (most recent call last):
+      File ""<string>"", line 1, in <module>
+      File ""/private/var/folders/xh/jdrqg2bx3s5f4lkq0rf2903c0000gq/T/pip-build-AKcpFn/pycbc/setup.py"", line 346, in <module>
+        long_description = open('descr.txt').read(),
+    IOError: [Errno 2] No such file or directory: 'descr.txt'
+
+    ----------------------------------------
+Command ""python setup.py egg_info"" failed with error code 1 in /private/var/folders/xh/jdrqg2bx3s5f4lkq0rf2903c0000gq/T/pip-build-AKcpFn/pycbc/
+```
+
+I think [cbf09de](https://github.com/gwastro/pycbc/commit/cbf09deb1bfbb82537b680e23e4c378338d79646) broke the build because the `descr.txt` file isn't included in the upload to pypi.python.org.",https://github.com/gwastro/pycbc/issues/1845,gwastro/pycbc,1845
+IssueComment,ahnitz,2017-08-17T09:26:42Z,"Can verify, I'll look into this and get a new release out.
+
+[…](#)
+
+On Thu, Aug 17, 2017 at 11:00 AM, Duncan Macleod \*\*\*@\*\*\*.\*\*\*> wrote:
+I am getting the following error when trying to install pycbc into an
+empty virtualenv:
+$ virtualenv-2.7 ~/opt/pycbc
+New python executable in /Users/duncan/opt/pycbc/bin/python
+Installing setuptools, pip, wheel...done.
+$ . ~/opt/pycbc/bin/activate
+(pycbc) $ pip install pycbc
+Collecting pycbc
+Downloading PyCBC-1.7.6.tar.gz (2.8MB)
+100% |████████████████████████████████| 2.9MB 517kB/s
+Complete output from command python setup.py egg\_info:
+No module named decorator
+Traceback (most recent call last):
+File ""<string>"", line 1, in <module>
+File ""/private/var/folders/xh/jdrqg2bx3s5f4lkq0rf2903c0000gq/T/pip-build-AKcpFn/pycbc/setup.py"", line 346, in <module>
+long\_description = open('descr.txt').read(),
+IOError: [Errno 2] No such file or directory: 'descr.txt'
+----------------------------------------
+Command ""python setup.py egg\_info"" failed with error code 1 in /private/var/folders/xh/jdrqg2bx3s5f4lkq0rf2903c0000gq/T/pip-build-AKcpFn/pycbc/
+I think [cbf09de](https://github.com/gwastro/pycbc/commit/cbf09deb1bfbb82537b680e23e4c378338d79646)
+<[cbf09de](https://github.com/gwastro/pycbc/commit/cbf09deb1bfbb82537b680e23e4c378338d79646)>
+broke the build because the descr.txt file isn't included in the upload
+to pypi.python.org.
+—
+You are receiving this because you are subscribed to this thread.
+Reply to this email directly, view it on GitHub
+<[#1845](https://github.com/gwastro/pycbc/issues/1845)>, or mute the thread
+<<https://github.com/notifications/unsubscribe-auth/ACGrRvpViooipDZF2dXabUPOlpTZHYKsks5sZAEygaJpZM4O5-Lt>>
+.
+
+--
+Dr. Alexander Nitz
+Max Planck Institute for Gravitational Physics (Albert Einstein Institute)
+Callinstrasse 38
+D-30167 Hannover, Germany
+Tel: +49 511 762-17097",,gwastro/pycbc,1845
+AssignedEvent,ahnitz,2017-08-17T09:27:23Z,ahnitz assigned ahnitz,,gwastro/pycbc,1845
+LabeledEvent,ahnitz,2017-08-17T09:27:29Z,bug,,gwastro/pycbc,1845
+IssueComment,ahnitz,2017-08-17T10:27:46Z,"Please try the latest release 1.7.7 that I just put out. This should be resolved. Thanks for the report!
+
+<https://pypi.org/project/PyCBC/1.7.7/>",,gwastro/pycbc,1845
+ClosedEvent,ahnitz,2017-08-17T10:27:46Z,Closed by ahnitz in ,,gwastro/pycbc,1845
+IssueComment,duncanmmacleod,2017-08-17T12:43:44Z,"[@ahnitz](https://github.com/ahnitz), this new release works as expected, thanks for the quick turnaround.",,gwastro/pycbc,1845
+IssueComment,duncan-brown,2017-08-17T12:50:44Z,[@duncanmmacleod](https://github.com/duncanmmacleod) unfortunately this release is messed up. Please don't use it. I will make a new release soon.,,gwastro/pycbc,1845
+IssueComment,duncan-brown,2017-08-18T02:32:01Z,[@duncanmmacleod](https://github.com/duncanmmacleod) fixed.,,gwastro/pycbc,1845

@@ -1,0 +1,75 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,mruberry,2021-12-06T18:20:27Z,Tracker: Jiterator improvements,https://github.com/pytorch/pytorch/issues/69463,pytorch/pytorch,69463
+IssueOpened,mruberry,2021-12-06T18:20:27Z,"Jiterator TODOs:
+
+* Support float16 and bfloat16 (can be tested by jiterating i0) [Low precision support for jiterator #70157](https://github.com/pytorch/pytorch/pull/70157)
+* Support complex64 and complex128 (can be tested by jiterating tanh backward or sgn) [Add complex support for Jiterator, port sinc to Jiterator #71577](https://github.com/pytorch/pytorch/pull/71577)
+* Support scalar inputs (can be testing by jiterating maximum for integer inputs) [Enable cpu scalar arguments for jiterator #69861](https://github.com/pytorch/pytorch/pull/69861)
+* Caching mechanism to be able to reuse compiled kernels in the different processes (e.g. on multiple runs of the same script)
+* if more popular and perf sensitive operations are moved to jiterator, we can invest in kernel improvements, e.g. faster float <-> low precision conversion needed for amp, faster broadcast addition etc.
+* support for functors that have state. Currently we are calling functions, thus cannot support functors that require runtime state (as opposed to the constants that can be hardcoded at compile time), such as `threshold` or addition/subtraction with `alpha`
+
+cc [@ezyang](https://github.com/ezyang) [@gchanan](https://github.com/gchanan) [@zou3519](https://github.com/zou3519) [@bdhirsh](https://github.com/bdhirsh) [@jbschlosser](https://github.com/jbschlosser) [@ngimel](https://github.com/ngimel)",,pytorch/pytorch,69463
+LabelEvent,mruberry,2021-12-06T18:20:27.000Z,"mruberry added high priority module: cudaRelated to torch.cuda, and CUDA support in generalRelated to torch.cuda, and CUDA support in general triagedThis issue has been looked at a team member, and triaged and prioritized into an appropriate moduleThis issue has been looked at a team member, and triaged and prioritized into an appropriate module trackerA tracking issueA tracking issue on Dec 6, 2021",,pytorch/pytorch,69463
+LabelEvent,pytorch-probot,2021-12-06T18:20:29.000Z,"pytorch-probot added triage review on Dec 6, 2021",,pytorch/pytorch,69463
+LabelEvent,facebook-github-bot,2021-12-06T18:20:29.000Z,"facebook-github-bot added oncall: jitAdd this issue/PR to JIT oncall triage queueAdd this issue/PR to JIT oncall triage queue on Dec 6, 2021",,pytorch/pytorch,69463
+IssueComment,mruberry,2021-12-06T18:38:29.000Z,cc [@zasdfgbnm](https://github.com/zasdfgbnm) -- I heard you might be looking into supporting complex jit inputs and computation?,,pytorch/pytorch,69463
+UnclassifiedEventType,mruberry,2021-12-06T18:38:39.000Z,"mruberryremoved oncall: jitAdd this issue/PR to JIT oncall triage queueAdd this issue/PR to JIT oncall triage queue triage review on Dec 6, 2021",,pytorch/pytorch,69463
+IssueComment,zasdfgbnm,2021-12-06T18:41:00.000Z,"Yes, I had a conversation with [@csarofeen](https://github.com/csarofeen) about making `complex.h` standalone (don't include other pytorch headers)",,pytorch/pytorch,69463
+IssueComment,ngimel,2021-12-06T18:48:52.000Z,"[@zasdfgbnm](https://github.com/zasdfgbnm) this would also require switching to libcudacxx, like in [#66469](https://github.com/pytorch/pytorch/pull/66469)?",,pytorch/pytorch,69463
+MentionedByIssue,zasdfgbnm,2022-01-10T21:53:41.000Z,"zasdfgbnm mentioned this on Jan 10, 2022
+[RFC] Make c10/util/complex.h include-free #71127",https://github.com/pytorch/pytorch/issues/71127,pytorch/pytorch,69463
+MentionedByPR,kshitij12345,2022-01-12T10:04:36.000Z,"kshitij12345 mentioned this on Jan 12, 2022
+[jiterator] polygamma #71162",https://github.com/pytorch/pytorch/pull/71162,pytorch/pytorch,69463
+MentionedByPR,kshitij12345,2022-01-21T13:31:33.000Z,"kshitij12345 mentioned this on Jan 21, 2022
+[jiterator] polygamma  : Refactor approach #71634",https://github.com/pytorch/pytorch/pull/71634,pytorch/pytorch,69463
+MentionedByCommit,facebook-github-bot,2022-01-22T06:47:56.000Z,"facebook-github-botadded a commit that references this issue on Jan 22, 2022[jiterator] polygamma (#71162)...0d3f8c5
+[jiterator] polygamma (#71162)
+
+Summary:
+Reference: https://github.com/pytorch/pytorch/issues/69463
+
+TODO:
+* [x] Add note regarding how to capture value and it's limitations.
+
+Pull Request resolved: https://github.com/pytorch/pytorch/pull/71162
+
+Reviewed By: ngimel
+
+Differential Revision: D33697346
+
+Pulled By: mruberry
+
+fbshipit-source-id: 0308a6c12cf4b488ab26bdae14291c1f6dbba9ab",https://github.com/pytorch/pytorch/commit/0d3f8c52a17b63079c0d09c965d76cc27cd69146,pytorch/pytorch,69463
+MentionedByCommit,facebook-github-bot,2022-01-22T06:47:56.000Z,"facebook-github-botadded a commit that references this issue on Jan 22, 2022[jiterator] polygamma (#71162)...0d3f8c5",https://github.com/pytorch/pytorch/commit/0d3f8c52a17b63079c0d09c965d76cc27cd69146,pytorch/pytorch,69463
+MentionedByCommit,pytorchmergebot,2022-01-22T06:49:13.000Z,"pytorchmergebotadded a commit that references this issue on Jan 22, 2022[jiterator] polygamma (#71162)...f269f99
+[jiterator] polygamma (#71162)
+
+Summary:
+Reference: https://github.com/pytorch/pytorch/issues/69463
+
+TODO:
+* [x] Add note regarding how to capture value and it's limitations.
+
+Pull Request resolved: https://github.com/pytorch/pytorch/pull/71162
+
+Reviewed By: ngimel
+
+Differential Revision: D33697346
+
+Pulled By: mruberry
+
+fbshipit-source-id: 0308a6c12cf4b488ab26bdae14291c1f6dbba9ab
+(cherry picked from commit 0d3f8c52a17b63079c0d09c965d76cc27cd69146)",https://github.com/pytorch/pytorch/commit/f269f990f232233738176a6e406390d8b3392348,pytorch/pytorch,69463
+MentionedByCommit,pytorchmergebot,2022-01-22T06:49:13.000Z,"pytorchmergebotadded a commit that references this issue on Jan 22, 2022[jiterator] polygamma (#71162)...f269f99",https://github.com/pytorch/pytorch/commit/f269f990f232233738176a6e406390d8b3392348,pytorch/pytorch,69463
+UnclassifiedEventType,,,,,pytorch/pytorch,69463
+UnclassifiedEventType,,,,,pytorch/pytorch,69463
+UnclassifiedEventType,,,,,pytorch/pytorch,69463
+LabelEvent,cyyever,2022-02-03T06:35:56.000Z,"cyyever added 2 commits that reference this issue on Feb 3, 2022[jiterator] polygamma (#71162)...33a9aa1[jiterator] polygamma (#71162)...ac0fa3e",,pytorch/pytorch,69463
+IssueComment,ezyang,2022-02-07T01:24:04.000Z,"A suggestion for another improvement: at least internally at FB, which should be able to collect telemetry about how popular particular variants of kernels are. It would be nice to somehow work this into the ""jiterate or no jiterate"" decision in a way that makes it easier for people to see (e.g., maintaining a list of ""here is what we think should be jiterated next"").
+
+For bonus points, figure out how to make this an opt in telemetry system for open source users.",,pytorch/pytorch,69463
+LabelEvent,cyyever,2022-02-09T03:54:01.000Z,"cyyever added 2 commits that reference this issue on Feb 8, 2022[jiterator] polygamma (#71162)...771960c[jiterator] polygamma (#71162)...fd9972f",,pytorch/pytorch,69463
+ClosedEvent,ngimel,2022-12-27T00:52:41.000Z,"[ngimel closed this as completed on Dec 26, 2022",,pytorch/pytorch,69463
+MentionedByPR,khushi-411,2023-01-31T10:56:06.000Z,"khushi-411 mentioned this on Jan 31, 2023
+[complex] nansum & nanmean #93199",https://github.com/pytorch/pytorch/pull/93199,pytorch/pytorch,69463

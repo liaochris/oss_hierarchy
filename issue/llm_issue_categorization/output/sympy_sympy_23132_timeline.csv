@@ -1,0 +1,19 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,muhsinider,2022-02-20T16:02:06Z,How to convert sympy.core.numbers.Float types to just native python float type,https://github.com/sympy/sympy/issues/23132,sympy/sympy,23132
+IssueOpened,muhsinider,2022-02-20T16:02:06Z,"my code finds the roots of a nonlinear equation as follows:İ
+
+T(K)= 399  
+-0.0937999028234458 - 4.15858122699766e-24\*I <class 'sympy.core.add.Add'>  
+T(K)= 449  
+0.00365302829594929 <class 'sympy.core.numbers.Float'>  
+T(K)= 499  
+0.0688176963782414 <class 'sympy.core.numbers.Float'>  
+T(K)= 549  
+0.137782216780566 <class 'sympy.core.numbers.Float'>  
+T(K)= 599  
+0.202639297806409 <class 'sympy.core.numbers.Float'>  
+These results can not be used for any other python calculations.  
+How can I convert them to normal float numbers or complex numbers? It works if the data was converted to a list by hand but not directly within code",https://github.com/sympy/sympy/issues/23132,sympy/sympy,23132
+IssueComment,oscarbenjamin,2022-02-20T16:14:21Z,Just call `float` or `complex` on the numbers.,,sympy/sympy,23132
+IssueComment,oscarbenjamin,2022-02-20T16:15:38Z,GitHub issues are not for asking for help with using sympy. You should use the sympy mailing list or StackOverflow for that.,,sympy/sympy,23132
+ClosedEvent,oscarbenjamin,2022-02-20T16:15:38Z,Closed by oscarbenjamin in ,,sympy/sympy,23132

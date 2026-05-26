@@ -1,0 +1,621 @@
+\documentclass[aspectratio=169]{beamer}
+\setbeameroption{hide notes}
+\usepackage{graphicx}
+\usepackage[abspath]{currfile}
+\usepackage{ifthen, pdftexcmds}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{appendixnumberbeamer}
+\usepackage[authoryear]{natbib}
+\usepackage{bibentry}
+\usepackage{tikz}
+
+\newcommand*{\dir}{.}
+
+\makeatletter
+\ifnum\pdf@strcmp{\currfilepath}{slides.tex}=0
+  \renewcommand*{\dir}{./../..}
+\fi
+\makeatother
+
+\AtBeginSection[]{
+\begin{frame}
+  \begin{beamercolorbox}[center]{title}
+    \usebeamerfont{title}\insertsectionhead
+  \end{beamercolorbox}
+\end{frame}
+}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}{
+  \leavevmode%
+  \hbox{%
+    \begin{beamercolorbox}[wd=.72\paperwidth,ht=2.8ex,dp=1.2ex,leftskip=1em]{author in head/foot}%
+      \usebeamerfont{author in head/foot}\insertsectionhead
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.28\paperwidth,ht=2.8ex,dp=1.2ex,rightskip=1.5em,sep=0pt,right]{author in head/foot}%
+      \usebeamerfont{author in head/foot}\insertframenumber{} / \inserttotalframenumber
+    \end{beamercolorbox}%
+  }%
+}
+\setbeamercovered{invisible}
+\beamerdefaultoverlayspecification{<+->}
+\hypersetup{
+  colorlinks=true,
+  citecolor=blue,
+  linkcolor=blue,
+  urlcolor=blue
+}
+
+\definecolor{dimtext}{RGB}{120,120,120}
+\newcommand<>{\focus}[1]{\temporal#2{{\color{white}#1}}{{\color{black}#1}}{{\color{black}#1}}}
+\newcommand{\draftnote}{\vspace{0.4em}{\footnotesize\color{dimtext}Draft slide; examples and framing are still being refined.}}
+\newcommand{\linkbutton}[2]{\hyperlink{#2}{\beamergotobutton{#1}}}
+\newcommand{\backbutton}[1]{\hyperlink{#1}{\beamergotobutton{Back}}}
+\newcommand{\plotplaceholder}[2][0.92\linewidth]{%
+  \fbox{\parbox[c][0.52\textheight][c]{#1}{\centering\small #2}}
+}
+\newcommand{\smallplotplaceholder}[2][0.92\linewidth]{%
+  \fbox{\parbox[c][0.18\textheight][c]{#1}{\centering\small #2}}
+}
+\newcommand{\safeincludegraphics}[3][\linewidth]{%
+  \IfFileExists{#2}{%
+    \includegraphics[width=#1]{#2}%
+  }{%
+    \plotplaceholder[#1]{#3}%
+  }%
+}
+
+\newcommand{\bottomcenterbuttons}[1]{%
+  \begin{tikzpicture}[remember picture,overlay]
+    \node[anchor=south,yshift=12pt] at (current page.south) {#1};
+  \end{tikzpicture}%
+}
+
+\newcommand{\bottomrightbutton}[1]{%
+  \begin{tikzpicture}[remember picture,overlay]
+    \node[anchor=south west,xshift=1em,yshift=12pt] at (current page.south west) {#1};
+  \end{tikzpicture}%
+}
+
+\title{Organizational resilience: Evidence from open source software}
+\author{Chris Liao}
+\institute{cliao@hbs.edu}
+\date{}
+
+\begin{document}
+
+\input{\dir/output/autofill/event_study_autofill.tex}
+\input{\dir/output/autofill/forest_autofill.tex}
+\input{\dir/output/autofill/panel_autofill.tex}
+\input{\dir/output/autofill/config_autofill.tex}
+\input{\dir/output/autofill/pc_autofill.tex}
+
+\frame{\titlepage}
+\bibliographystyle{\dir/source/paper/aea}
+\nobibliography{\dir/source/paper/references}
+
+% Notes on slide content
+% Decide whether I want transitions or not
+% Decide how much of background content I should cut down on. 
+
+
+% Notes on formatting slides
+% All slide titles and content should be sentence case.
+
+
+\begin{frame}{Motivation}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{Organizational resilience matters.}
+  \item<2-> \focus<2>{Every organization faces disruptions, from macroeconomic shocks like COVID to local shocks like the loss of a key member.}
+  \item<3-> \focus<3>{Resilient organizations can weather disruptions and continue functioning.}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{What predicts resilience?}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{There is no shortage of advice on resilience.}
+\end{itemize}
+\focus<1->{\includegraphics[width=.7\linewidth]{\dir/source/talk/graphics/organizational_resilience_google.png}}
+\end{frame}
+
+
+\begin{frame}{What predicts resilience? (continued)}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{But most evidence is qualitative or observational.}
+  \begin{itemize}
+    \item<1-> \focus<1>{Case studies and surveys suggest that talent investment, communication, redundancy, and routines matter \citep{annarelli_strategic_2016,hillmann_organizational_2021}.}
+    \item<1-> \focus<1>{Findings may not generalize if highlighted practices are driven by setting-specific unobservables.}
+  \end{itemize}
+  \item<2-> \focus<2>{Existing quantitative work studies broad organizational attributes, such as social and environmental practices or financial resources, rather than specific organizational practices \citep{gittell_relationships_2006,ortiz-de-mandojana_long-term_2016,desjardine_bouncing_2019}.}
+\end{itemize}
+\end{frame}
+
+% Notes for presentation
+% 1. work in the second step is purely descriptive 
+\begin{frame}{Research question}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{What organizational practices predict increased organizational resilience?}
+  \begin{itemize}
+    \item<1-> \focus<1>{Can organizational practices alone predict which organizations are more resilient?}
+    \item<1-> \focus<1>{Which practices predict increased resilience?}
+  \end{itemize}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{This paper}
+\small
+\begin{itemize} 
+  \item<1-> \focus<1>{I define resilience using two components.}
+  \begin{itemize}
+    \item<1-> \focus<1>{Shock: the abrupt departure of a key member from an organization.}
+    \item<1-> \focus<1>{Outcome: the organization's ability to keep doing its primary task after the departure.}
+  \end{itemize}
+  \item<2-> \focus<2>{The empirical setting is \textbf{open source software}.}
+  \begin{itemize}
+    \item<2-> \focus<2>{OSS is economically important \citep{hoffmann_value_2024}.}
+    \item<2-> \focus<2>{Organizational activity is unusually visible.}
+    \item<2-> \focus<2>{Organizations developing OSS share a common goal: maintain and improve software.}
+  \end{itemize}
+  \item<3-> \focus<3>{I study five categories of organizational practices.}
+  \begin{itemize}
+    \item<3-> \focus<3>{Collaboration, knowledge redundancy, discussion quality, investment in new talent, and problem-solving routines.}
+  \end{itemize}
+\end{itemize}
+\end{frame}
+
+% SLIDES todo: add numbers
+\begin{frame}{Main findings}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{Key member departures cause large disruptions to organizations.}
+  \item<2-> \focus<2>{No single category of practices systematically predicts increased resilience to departures.}
+  \item<3-> \focus<3>{Practices are complementary, because specific combinations of practices do predict increased resilience to departures.}
+\end{itemize}
+\end{frame}
+
+% Notes for presentation
+% 1. Touched on work in management - will focus on economics work
+% 2. Work on the effects of plausibly exogenous departures can rarely because granular data on team or organizational activities is typically unavailable
+% 3. I differ from Work on management practices in two ways: a) granular activity, rather than top down orders and b) study resilience, not activity during "normal periods"
+% 4. Highlight specific practices that are complementary for predicting increased resilience to departure
+\begin{frame}{Related literature}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{Effects of plausibly exogenous departures.}
+  \begin{itemize}
+    \item<1-> \focus<1>{\citet{waldinger_quality_2010}, \citet{azoulay_superstar_2010}, \citet{jaravel_team-specific_2018}, \citet{khanna_aftermath_2021}, and \citet{jager_how_2024}.}
+  \end{itemize}
+  \item<2-> \focus<2>{Effects of management practices.}
+  \begin{itemize}
+    \item<2-> \focus<2>{\citet{bloom_measuring_2007}, \citet{ichniowski_insider_2012}, \citet{bloom_management_differ_2012}, \citet{bloom_india_2012}, \citet{bloom_drives_2019}, \citet{bloom_2020_last}, and \citet{bandiera_ceo_2020}.}
+  \end{itemize}
+  \item<3-> \focus<3>{Complementarities between practices.}
+  \begin{itemize}
+    \item<3-> \focus<3>{\citet{milgrom_Manufacturing_1990}, \citet{MILGROM1995179}, and \citet{brynjolfsson_complementarity_2012}.}
+  \end{itemize}
+\end{itemize} 
+\end{frame}
+
+% To discuss with Jesse. I can do either two things
+% 1. Keep the current roadmap below
+% 2. Change the roadmap to follow Data, Model and Results (more standard)
+\begin{frame}{Roadmap}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{Background and data}
+  \item<2-> \focus<2>{Model of resilience}
+  \item<3-> \focus<3>{Predicting resilience using practices}
+  \item<4-> \focus<4>{Predictors of resilience}
+\end{itemize}
+\end{frame}
+
+
+% Section: This is part of the background and data section
+\section{Background and data}
+
+\begin{frame}{Background on open source software}
+  \small
+  \begin{itemize}
+    \item<1-> \focus<1>{OSS organizations range from small volunteer projects to teams embedded in firms such as Google Cloud and Amazon Web Services, as well as nonprofits such as the Linux Foundation.}
+    \item<2-> \focus<2>{They vary in size and governance, but share a common goal: maintain existing software and deliver improvements.}
+    \item<3-> \focus<3>{Much of their work is publicly observable.}
+  \end{itemize}
+\end{frame}
+
+
+\begin{frame}{Sample}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{Population: OSS organizations developing widely-used Python libraries.}
+  \begin{itemize}
+    \item<1-> \focus<1>{Final sample: \NumOrgs{} organizations, after applying data-availability and suitability restrictions.}
+    \item<1-> \focus<1>{Examples include the Python APIs for Google Cloud and Amazon Web Services.}
+  \end{itemize}
+  \item<2-> \focus<2>{Time frame: Activity from \SampleStart--\SampleEnd, aggregated into six-month periods.}
+  \item<3-> \focus<3>{Unit of observation: one OSS organization.}
+\end{itemize}
+\end{frame}
+
+% DATA
+% Measurements
+%    Outcomes: Focus on outcomes related to software-development.
+%    Two subbullets: In most organizations, to make a change to the codebase, you open a pull request.
+%    If the changes are to be incorporated, the pull request is merged into the codebase. Many merged pulls are bundled into new releases.
+%    Include graphic from paper about pulls -> releases?
+%    Organizational Practices:
+%    Two subbullets:
+%    List each of the 5 categories. Include those really neat buttons at the bottom people have to link to tables describing each practice and PCA loading
+%    Use 1st PC to aggregate practices into a single score.
+\begin{frame}{Outcomes}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{I focus on outcomes tied directly to software development and release.}
+  \item<2-> \focus<2>{Within an organization, a typical workflow is:}
+  \begin{enumerate}
+    \item<2-> \focus<2>{Members open pull requests to propose code changes.}
+    \item<2-> \focus<2>{A subset of those pull requests is merged into the codebase; the number of pull requests merged is my primary outcome.}
+    \item<2-> \focus<2>{Bundles of merged changes are released as software updates.}
+  \end{enumerate}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}[label=main-measures]{Practices}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{I measure five categories of organizational practices: collaboration, knowledge redundancy, discussion quality, investment in new talent, and problem-solving routines.}
+  \item<2-> \focus<2>{Each category combines several underlying measures.}
+  \item<3-> \focus<3>{Each measure is computed over the five pre-periods.}
+  \item<4-> \focus<4>{I summarize each category with its first principal component.}
+\end{itemize}
+
+\bottomrightbutton{%
+  \scriptsize
+  \linkbutton{Collaboration}{app-collaboration}\hspace{0.2em}
+  \linkbutton{Knowledge}{app-knowledge}\hspace{0.2em}
+  \linkbutton{Discussion}{app-discussion}\hspace{0.2em}
+  \linkbutton{New talent}{app-new-talent}\hspace{0.2em}
+  \linkbutton{Routines}{app-routines}%
+}
+\end{frame}
+
+% DATA
+% Important members
+%    I model the network of interactions between members as an indirected graph
+%    I use graph centrality measures (be specific about the measure) to define the 3 most important members in each period.
+%    A departure is important if a member, in at least 3 consecutive periods, was in the top 3 and then left immediately (no further activity observed)
+\begin{frame}{Identifying important members}
+\begin{columns}[T,onlytextwidth]
+  \begin{column}{0.5\textwidth}
+  \small
+  \begin{itemize}
+    \item<1-> \focus<1>{For each six-month period, I build an undirected interaction graph.}
+    \item<2-> \focus<2>{Single-period key members are the top three members by degree centrality, including ties.}
+    \item<3-> \focus<3>{A \textit{key member} is someone who stays in that top group for three consecutive periods.}
+    \item<4-> \focus<4>{An abrupt departure occurs when a key member is active in period $t$ and never appears again.}
+  \end{itemize}
+  \end{column}
+  \begin{column}{0.45\textwidth}
+  \centering
+  \uncover<1->{%
+    {\scriptsize Python Amazon Web Services SDK (\textit{boto/boto3}), first half of 2020.}
+    \smallskip
+    
+    \includegraphics[width=\linewidth]{\dir/source/talk/graphics/boto_2020_1.png}%
+  }
+  \end{column}
+\end{columns}
+\end{frame}
+
+% Presentation notes:
+% 1. Just mentino treated and control, then describe the rest as some sample filtering. 
+\begin{frame}{Final analysis sample}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{Treated organizations experience exactly one abrupt key-member departure during the sample window.}
+  \item<2-> \focus<2>{Control organizations experience zero abrupt key-member departures.}
+  \item<3-> \focus<3>{Never-treated organizations are assigned a quasi-treatment date, drawn from the empirical distribution of treatment dates, to define event time.}
+  \item<4-> \focus<4>{All organizations must have one key member at event time zero and at least five pre- and five post-periods of observed activity.}
+\end{itemize}
+\end{frame}
+
+
+\section{Model of resilience}
+
+\begin{frame}{Estimating resilience}
+\small
+Following \citet{sun_estimating_2021}, I specify
+\begin{equation*}<1->
+Y_{i,t}^{SD} = \alpha_i + \lambda_t + \sum_{e \neq \infty}\sum_{k \neq -1} \delta_{e,k} Z_{i,t}^{e,k} + \varepsilon_{i,t}.
+\end{equation*}
+\begin{itemize}
+  \item<2-> \focus<2>{$Y_{i,t}^{SD}$ is standardized across the five most recent pre-periods, so coefficients are in standard deviation units.}
+  \item<3-> \focus<3>{$Z_{i,t}^{e,k}$ is an indicator for whether organization $i$ was treated at time $e$ and is observed at event time $k$.}
+  \item<4-> \focus<4>{$\alpha_i$ and $\lambda_t$ are organization and calendar-time fixed effects.}
+  \item<5-> \focus<5>{$\delta_{e,k}$ identifies treatment cohort $e$-specific resilience $k$ periods after departure under parallel trends and no anticipation.}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Plausibility of identifying assumptions}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{Parallel trends}
+  \begin{itemize}
+    \item<1-> \focus<1>{Survey evidence from \citet{miller_why_2019} suggests that abrupt departures are driven by events unrelated to organizational unobservables, such as job changes, graduation, marriage, and children.}
+    \item<1-> \focus<1>{These reflect transitions in life, not obvious responses to latent organizational decline or dissatisfaction with project leadership.}
+  \end{itemize}
+  \item<2-> \focus<2>{No anticipation}
+  \begin{itemize}
+    \item<2-> \focus<2>{A violation would require organizations to change behavior months before the departure date.}
+    \item<2-> \focus<2>{With six-month periods, that seems unlikely; for example, tech-industry notice periods are typically around two weeks.}
+  \end{itemize}
+\end{itemize}
+\end{frame}
+
+% MODEL
+% Presentation notes - Pretrends look good
+\begin{frame}[label=main-average]{Average resilience to departure}
+\begin{columns}[T,onlytextwidth]
+  \begin{column}{0.35\textwidth}
+  \small
+  \begin{itemize}
+    \item<1-> \focus<1>{Main outcome: pull requests merged.}
+    \item<2-> \focus<2>{Key-member departures lower merged pull requests by around 0.82 standard deviations on average.}
+    \item<3-> \focus<3>{The decline is immediate and persistent over time.}
+  \end{itemize}
+  \end{column}
+  \begin{column}{0.6\textwidth}
+  \uncover<1->{%
+    \plotplaceholder[\linewidth]{Event-study plot for pull requests merged}%
+  }
+  \end{column}
+\end{columns}
+
+\bottomrightbutton{%
+  \scriptsize\linkbutton{Other outcomes}{app-average-outcomes}%
+}
+\end{frame}
+
+
+
+\section{Predicting resilience using practices}
+
+\begin{frame}[label=main-single]{Single practices have limited predictive power}
+\small
+\begin{itemize}
+  \item I classify organizations as high or low adopters of each practice category based on whether their principal-component score is above or below the median.
+  \item I then estimate resilience separately for the high- and low-adoption groups.
+  \item No single practice category systematically predicts increased resilience.
+\end{itemize}
+\end{frame}
+
+
+% Presentation notes:
+% 1. Holds for all practices
+% This suggests two things - the median split is a bad method, or practices have no predictive power
+\begin{frame}{Single-practice example: collaboration}
+\centering
+\plotplaceholder[0.88\linewidth]{Illustrative event-study for collaboration score}
+\bottomrightbutton{%
+  \scriptsize\linkbutton{Other categories}{app-single-outcomes}%
+}
+\end{frame}
+
+\begin{frame}{Flaws of single-practice median splits?}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{They ignore nonlinearities and interactions across practices.}
+  \item<2-> \focus<2>{Evaluating interaction effects via subsetting quickly becomes infeasible and creates multiple-testing concerns.}
+  \item<3-> \focus<3>{Machine learning allows me to model nonlinearities and interactions without enumerating them individually.}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Modeling heterogeneity in resilience}
+\small
+% TODO: Add an appendix slide describing how this is estimated, following the
+% steps in source/lib/event_study_forest.R.
+I reformulate the event study as a partially linear model with two key changes:
+\begin{equation*}<1->
+Y_{i,t}^{SD} = \alpha_i + f_t(X_i) + \sum_{e \neq \infty}\sum_{k \neq -1} \delta_{e,k}(X_i) Z_{i,t}^{e,k} + \varepsilon_{i,t}
+\end{equation*}
+\begin{itemize}
+  \item<2-> \focus<2>{Treatment effects vary with observables through $\delta_{e,k}(X_i)$.}
+  \item<3-> \focus<3>{A flexible baseline term, $f_t(X_i)$, replaces calendar-time fixed effects.}
+  \item<4-> \focus<4>{Under conditional parallel trends and no anticipation, $\delta_{e,k}(X_i)$ identifies conditional average resilience for organizations in cohort $e$ at event time $k$ with pre-period practices $X_i$.}
+  \item<5-> \focus<5>{I estimate this using a generalized random forest adapted to panel-data settings.}
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Predicting resilience using practices}
+\small
+\begin{enumerate}
+  \item<1-> \focus<1>{I split the sample into 10 folds.}
+  \item<2-> \focus<2>{I use nine folds to estimate $\delta_{e,k}(X_i)$ and then predict resilience in the held-out fold.}
+  \begin{itemize}
+    \item<2-> \focus<2>{Predictions for the held-out fold use only pre-period organizational practices $X_i$.}
+  \end{itemize}
+  \item<3-> \focus<3>{I repeat this across folds and classify organizations above and below the median pooled doubly robust prediction as high and low resilience.}
+  \item<4-> \focus<4>{I then estimate separate event studies for the predicted high- and low-resilience groups.}
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Combinations of practices predict resilience}
+\begin{columns}[T,onlytextwidth]
+  \begin{column}<1->{0.49\textwidth}
+  \centering
+  \plotplaceholder[\linewidth]{Event-study split using the continuous practice-score vector in the forest.}%
+
+  {\footnotesize Continuous practice scores}
+  \end{column}
+  \begin{column}<2->{0.49\textwidth}
+  \centering
+  \plotplaceholder[\linewidth]{Event-study split using binary high/low versions of the five practice scores.}
+
+  {\footnotesize Coarsened high/low practice scores}
+  \end{column}
+\end{columns}
+\medskip
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{Using the continuous practice scores, the forest identifies a clear resilience gap between the predicted high- and low-resilience groups.}
+  \item<2-> \focus<2>{The same pattern appears when I use coarsened high/low practice scores, although the separation is weaker.}
+\end{itemize}
+\end{frame}
+
+% Presentation notes
+% Ties are arbitrarily broken. 
+\begin{frame}{Constructing a ground truth benchmark}
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{A prediction exercise needs a benchmark to assess prediction quality.}
+  \item<2-> \focus<2>{I construct an oracle benchmark for the largest possible resilience gap between two equally sized groups.}
+  \begin{itemize}
+    \item<2-> \focus<2>{I group organizations by their five-practice combination.}
+    \item<2-> \focus<2>{I estimate average resilience for each combination using the event study model.}
+    \item<2-> \focus<2>{I rank combinations by estimated resilience and split organizations into equally sized high- and low-resilience groups.}
+  \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Comparing with an oracle benchmark}
+\begin{columns}[T,onlytextwidth]
+  \begin{column}<1->{0.49\textwidth}
+  \centering
+  \plotplaceholder[\linewidth]{Oracle benchmark comparison.}
+
+  {\footnotesize Oracle benchmark}
+  \end{column}
+  \begin{column}<2->{0.49\textwidth}
+  \centering
+  \plotplaceholder[\linewidth]{Coarsened-forest comparison.}
+
+  {\footnotesize Coarsened forest split}
+  \end{column}
+\end{columns}
+\medskip
+\small
+\begin{itemize}
+  \item<1-> \focus<1>{The oracle benchmark shows the largest resilience gap achievable from the five-practice combinations.}
+  \item<2-> \focus<2>{The coarsened-forest split shows how much of that gap the prediction exercise recovers out of sample.}
+\end{itemize}
+\end{frame}
+
+
+\appendix
+\section{Appendix}
+\beamerdefaultoverlayspecification{}
+
+\begin{frame}[label=app-collaboration]{Collaboration details}
+\footnotesize
+\begin{itemize}
+  \item Interpretation: higher scores mean work is shared across more members rather than concentrated in a small subset.
+  \item The first principal component explains \CollabVarianceExplained\% of the variance in the underlying measures.
+\end{itemize}
+\input{\dir/output/tables/collaboration.tex}
+
+\bottomrightbutton{\backbutton{main-measures}}
+\end{frame}
+
+
+\begin{frame}[label=app-knowledge]{Knowledge redundancy details}
+\footnotesize
+\begin{itemize}
+  \item Interpretation: higher scores mean more members can work across multiple problem types, so the organization loses less know-how when one person leaves.
+  \item The first principal component explains \KnowledgeVarianceExplained\% of the variance in the underlying measures.
+\end{itemize}
+\input{\dir/output/tables/shared_knowledge.tex}
+
+\bottomrightbutton{\backbutton{main-measures}}
+\end{frame}
+
+
+\begin{frame}[label=app-discussion]{Discussion quality details}
+\footnotesize
+\begin{itemize}
+  \item Interpretation: higher scores mean discussions are more responsive and more constructive.
+  \item The first principal component explains \DiscussionVarianceExplained\% of the variance in the underlying measures.
+\end{itemize}
+\input{\dir/output/tables/discussion_quality.tex}
+
+\bottomrightbutton{\backbutton{main-measures}}
+\end{frame}
+
+
+\begin{frame}[label=app-new-talent]{Investment in new talent details}
+\footnotesize
+\begin{itemize}
+  \item Interpretation: higher scores mean the organization has more infrastructure for onboarding and integrating new contributors.
+  \item The first principal component explains \TalentVarianceExplained\% of the variance in the underlying measures.
+\end{itemize}
+\input{\dir/output/tables/investment_new_talent.tex}
+
+\bottomrightbutton{\backbutton{main-measures}}
+\end{frame}
+
+
+\begin{frame}[label=app-routines]{Problem-solving routines details}
+\footnotesize
+\begin{itemize}
+  \item Interpretation: higher scores mean the organization has more formal structure for allocating, reviewing, and documenting work.
+  \item The first principal component explains \RoutinesVarianceExplained\% of the variance in the underlying measures.
+\end{itemize}
+\input{\dir/output/tables/problem_solving_routines.tex}
+
+\bottomrightbutton{\backbutton{main-measures}}
+\end{frame}
+
+
+\begin{frame}[label=app-average-outcomes]{Average resilience: other outcomes}
+\small
+\begin{itemize}
+  \item Pull requests opened fall by about 0.83 standard deviations on average over the five post-periods.
+  \item Software releases fall by about 0.47 standard deviations on average over the five post-periods.
+\end{itemize}
+\begin{block}{Additional event studies}
+\small
+This slide reports the corresponding event studies for pull requests opened and software releases.
+\end{block}
+
+\bottomrightbutton{\backbutton{main-average}}
+\end{frame}
+
+
+\begin{frame}[label=app-single-outcomes]{Single-practice results: other categories}
+\begin{columns}[T,onlytextwidth]
+  \begin{column}{0.49\textwidth}
+  \centering
+  \smallplotplaceholder[\linewidth]{Single-practice event-study split for knowledge redundancy.}
+  
+  {\footnotesize Knowledge redundancy}
+  \medskip
+  
+  \smallplotplaceholder[\linewidth]{Single-practice event-study split for investment in new talent.}
+  
+  {\footnotesize Investment in new talent}
+  \end{column}
+  \begin{column}{0.49\textwidth}
+  \centering
+  \smallplotplaceholder[\linewidth]{Single-practice event-study split for discussion quality.}
+  
+  {\footnotesize Discussion quality}
+  \medskip
+  
+  \smallplotplaceholder[\linewidth]{Single-practice event-study split for problem-solving routines.}
+  
+  {\footnotesize Problem-solving routines}
+  \end{column}
+\end{columns}
+
+\bottomrightbutton{\backbutton{main-single}}
+\end{frame}
+\end{document}

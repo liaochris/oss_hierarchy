@@ -1,0 +1,21 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,mcarilli,2021-09-08T20:00:39Z,Backend capability chart for nccl GPU send/recv may be stale,https://github.com/pytorch/pytorch/issues/64688,pytorch/pytorch,64688
+IssueOpened,mcarilli,2021-09-08T20:00:39Z,"## 📚 Documentation
+
+The backend capability chart <https://pytorch.org/docs/master/distributed.html#backends> says nccl can't do GPU send/recv. But the implementations of send/recv in ProcessGroupNCCL look reasonable to me.
+
+Should we change the nccl GPU send and recv ❌ s to ✔️ s, or are the ❌ s still deliberate (maybe you still consider the implementations WIP for some reason)?
+
+cc [@pietern](https://github.com/pietern) [@mrshenli](https://github.com/mrshenli) [@pritamdamania87](https://github.com/pritamdamania87) [@zhaojuanmao](https://github.com/zhaojuanmao) [@satgera](https://github.com/satgera) [@rohan-varma](https://github.com/rohan-varma) [@gqchen](https://github.com/gqchen) [@aazzolini](https://github.com/aazzolini) [@osalpekar](https://github.com/osalpekar) [@jiayisuse](https://github.com/jiayisuse) [@agolynski](https://github.com/agolynski) @SciPioneer [@H-Huang](https://github.com/H-Huang) [@mrzzd](https://github.com/mrzzd) [@cbalioglu](https://github.com/cbalioglu) [@gcramer23](https://github.com/gcramer23)",https://github.com/pytorch/pytorch/issues/64688,pytorch/pytorch,64688
+LabeledEvent,mcarilli,2021-09-08T20:01:03Z,oncall: distributed,,pytorch/pytorch,64688
+LabeledEvent,mcarilli,2021-09-08T20:01:09Z,module: nccl,,pytorch/pytorch,64688
+IssueComment,pritamdamania87,2021-09-08T20:22:01Z,"[@mcarilli](https://github.com/mcarilli) I think we should update this, my understanding is that send/recv works fine, the issue currently is with batch\_isend\_irecv which needs some work to fix a few issues.
+
+[@mrshenli](https://github.com/mrshenli) [@rohan-varma](https://github.com/rohan-varma) Are you aware of any issues with the vanilla send/recv API?",,pytorch/pytorch,64688
+IssueComment,rohan-varma,2021-09-20T17:51:06Z,"AFAIK these APIs were released with prototype support and we haven't yet made concrete efforts to understand any user feedback/API limitations (other than the issues with `batch_isend_irecv`) to graduate these to beta and ensure long-term support.
+
+[@pritamdamania87](https://github.com/pritamdamania87) [@mingzhe09088](https://github.com/mingzhe09088) do either of you have context on the batch\_isend\_irecv issues and what needs to be done to fix them?
+
+[@mcarilli](https://github.com/mcarilli) If the implementations look reasonable to you and there's no major usability/performance issues, we can probably graduate them to beta.",,pytorch/pytorch,64688
+IssueComment,rohan-varma,2022-03-11T17:01:05Z,cc [@kwen2501](https://github.com/kwen2501),,pytorch/pytorch,64688
+MentionedByIssue,rohan-varma,2022-03-11T17:02:27Z,,https://github.com/pytorch/pytorch/issues/73960,pytorch/pytorch,64688

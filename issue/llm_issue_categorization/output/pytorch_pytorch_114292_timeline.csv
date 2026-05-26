@@ -1,0 +1,38 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,voznesenskym,2023-11-21T18:49:02Z,"Tracing per-param sharding FSDP: User Defined Objects as inputs to HOPs (autograd.Function, specifically) ",https://github.com/pytorch/pytorch/issues/114292,pytorch/pytorch,114292
+IssueOpened,voznesenskym,2023-11-21T18:49:02Z,"### 🐛 Describe the bug
+
+parent: [#114286](https://github.com/pytorch/pytorch/issues/114286)
+
+Pretty self explanatory. There are cases where UDOs can show up in HOPs - we should support them.
+
+### Versions
+
+main
+
+cc [@mrshenli](https://github.com/mrshenli) [@pritamdamania87](https://github.com/pritamdamania87) [@zhaojuanmao](https://github.com/zhaojuanmao) [@satgera](https://github.com/satgera) [@rohan-varma](https://github.com/rohan-varma) [@gqchen](https://github.com/gqchen) [@aazzolini](https://github.com/aazzolini) [@osalpekar](https://github.com/osalpekar) [@jiayisuse](https://github.com/jiayisuse) [@H-Huang](https://github.com/H-Huang) [@kwen2501](https://github.com/kwen2501) [@awgu](https://github.com/awgu) [@penguinwu](https://github.com/penguinwu) [@fegin](https://github.com/fegin) [@XilunWu](https://github.com/XilunWu) [@wanchaol](https://github.com/wanchaol) [@fduwjj](https://github.com/fduwjj) [@wz337](https://github.com/wz337) [@tianyu-l](https://github.com/tianyu-l) [@wconstab](https://github.com/wconstab) [@yf225](https://github.com/yf225) [@ezyang](https://github.com/ezyang) [@msaroufim](https://github.com/msaroufim) [@bdhirsh](https://github.com/bdhirsh) [@anijain2305](https://github.com/anijain2305) [@zou3519](https://github.com/zou3519) [@ydwu4](https://github.com/ydwu4) [@kiukchung](https://github.com/kiukchung) [@LucasLLC](https://github.com/LucasLLC) [@d4l3k](https://github.com/d4l3k)",,pytorch/pytorch,114292
+LabelEvent,bdhirsh,2023-11-21T23:10:53.000Z,"bdhirsh added oncall: pt2 on Nov 21, 2023",,pytorch/pytorch,114292
+LabelEvent,ezyang,2023-11-22T15:06:56.000Z,"ezyang added triagedThis issue has been looked at a team member, and triaged and prioritized into an appropriate moduleThis issue has been looked at a team member, and triaged and prioritized into an appropriate module module: fsdp module: higher order operatorstorch.cond and similartorch.cond and similar on Nov 22, 2023",,pytorch/pytorch,114292
+IssueComment,ezyang,2023-11-22T15:08:07.000Z,"This showed up when we did torchrec enablement and I do not see a good route to handling this. The problem is that UDO is a Dynamo level concept, but HOPs have to make it all the way to AOTAutograd, where we are generally not allowed to be passing around UDOs anymore (it needs to be all primitive types). So you have to do the complicated via compiled autograd route, similar to how we were handling backward hooks.",,pytorch/pytorch,114292
+LabelEvent,ezyang,2023-11-22T15:08:14.000Z,"ezyang added module: compiled autogradcompiled_autogradcompiled_autograd on Nov 22, 2023",,pytorch/pytorch,114292
+IssueComment,awgu,2023-11-22T17:01:40.000Z,"For context, this autograd function looks like:
+
+In flat-parameter FSDP, we have `ViewBackward` -> `SplitWithSizesBackward` -> `FlatParameter` `AccumulateGrad` as backward functions that always run after any input tensor's backward function because the `view` and `split` are called before `forward()`. In that case, using a post-accumulate grad hook on the `FlatParameter` gives a point in the execution where the gradients with respect to the input tensors *and* with respect to the parameters must have been computed so we can both free parameters and reduce-scatter their gradients.
+
+However, this approach does not carry over directly to per-parameter FSDP where the original parameters are the leafs with respect to autograd. Their gradients may be computed before gradients with respect to input tensors, so if we registered a multi-grad hook on the parameters, that hook cannot safely free parameters. We may need to register a multi-grad hook on the parameters and the input tensors together. Would that be easier to trace than this custom autograd function?
+
+For this custom autograd function, my implementation extracts the tensors that require gradient from the forward input tensors and passes them into the autograd function forward above. I have confirmed that this approach resolves longstanding FSDP issues like [#94857](https://github.com/pytorch/pytorch/issues/94857).",,pytorch/pytorch,114292
+IssueComment,ezyang,2023-11-22T17:42:57.000Z,What exactly is `param_group` here? Is it possible to pass a list of tensors and then reconstruct the param group later in backwards? That would also resolve the problem here.,,pytorch/pytorch,114292
+IssueComment,awgu,2023-11-22T17:53:40.000Z,"The hook that we want to run (`_post_backward()`) will need a reference to the `param_group`, which is the user-defined object (IIUC). It holds necessary state like references to the parameters, streams, mixed precision information, etc.
+
+Would it change anything if we partially applied the `param_group` into `_post_backward()` so that the definition looked something like:
+
+Passing a list of tensors and reconstructing is unlikely since there are non-tensor information that we need in the hook.",,pytorch/pytorch,114292
+IssueComment,ezyang,2023-11-22T18:01:00.000Z,"That doesn't help because hook is still a user defined object.
+
+To be clear, there *is* a way to make autograd functions like this work, but it's much more similar to how we made register hook work: you need compiled autograd to deal with reconstruction out the other end.",,pytorch/pytorch,114292
+LabelEvent,penguinwu,2023-11-29T11:55:37.000Z,"penguinwu added module: pt2-dispatcherPT2  dispatcher-related issues (e.g., aotdispatch, functionalization, faketensor, custom-op,PT2  dispatcher-related issues (e.g., aotdispatch, functionalization, faketensor, custom-op, module: distributed on Nov 29, 2023",,pytorch/pytorch,114292
+LabelEvent,albanD,2023-12-08T20:56:09.000Z,"albanD added oncall: distributedAdd this issue/PR to distributed oncall triage queueAdd this issue/PR to distributed oncall triage queue and removed module: distributed on Dec 8, 2023",,pytorch/pytorch,114292
+AssigneeEvent,yf225,2024-02-27T07:24:30.000Z,"yf225self- assigned thison Feb 27, 2024",,pytorch/pytorch,114292
+IssueComment,zou3519,2024-07-02T19:21:13.000Z,"We support UDOs as inputs to autograd.Function now, please reopen if not.",,pytorch/pytorch,114292
+ClosedEvent,zou3519,2024-07-02T19:21:13.000Z,"[zou3519 closed this as completed on Jul 2, 2024",,pytorch/pytorch,114292

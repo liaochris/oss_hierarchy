@@ -1,0 +1,7 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,premal,2018-03-28T05:47:38Z,Framework does not get HeartBeats,https://github.com/douban/pymesos/issues/93,douban/pymesos,93
+IssueOpened,premal,2018-03-28T05:47:38Z,"Hi [@windreamer](https://github.com/windreamer),  
+In this commit, [04501d1#diff-ab924b88fb1411cfeab6024b822161a8R95](https://github.com/douban/pymesos/commit/04501d10f8568065f626ec3fe8689d4f8fdbf9ee#diff-ab924b88fb1411cfeab6024b822161a8R95) , a change was made to suppress the Heart Beats events to the framework. Was there a reason behind it?",https://github.com/douban/pymesos/issues/93,douban/pymesos,93
+IssueComment,windreamer,2018-03-29T04:53:28Z,"Hi [@premal](https://github.com/premal) ,  
+According to <http://mesos.apache.org/documentation/latest/scheduler-http-api/#heartbeat> , only the scheduler not the user needs to be aware of the heart beat. So we just receive and ignore it. And of course, we should monitor the heart beat interval to avoid network partition, but we have not implemented this.",,douban/pymesos,93
+ClosedEvent,windreamer,2018-04-02T07:03:37Z,Closed by windreamer in ,,douban/pymesos,93

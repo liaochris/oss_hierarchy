@@ -1,0 +1,30 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,typoon,2019-11-09T02:59:52Z,Filter regex does not work like Python,https://github.com/mitmproxy/mitmproxy/issues/3689,mitmproxy/mitmproxy,3689
+IssueOpened,typoon,2019-11-09T02:59:52Z,"#### Problem Description
+
+Hello. I am trying to filter the flows in a case insensitive manner. The documentation (<https://docs.mitmproxy.org/stable/concepts-filters/>) says that the accepted regex is just like Python:
+
+> Regexes are Python-style
+
+It doesn't seem to be the case.
+
+If I try to enter the filter `~bq (?i)user`, I get the error `Invalid interception filter: ~bq (?i)user`.
+
+The expected result was that I would see any flows that contain the word `user` in the request in a case insensitive way.
+
+#### Steps to reproduce the behavior:
+
+1. Make a couple of requests to add a few flows to mitmproxy
+2. Press `f` and type the filter ~bq (?i)user
+3. Notice the error message
+
+#### System Information
+
+$ mitmproxy --version  
+Mitmproxy: 4.0.4  
+Python: 3.7.3  
+OpenSSL: OpenSSL 1.1.1b 26 Feb 2019  
+Platform: Linux-5.0.0-31-generic-x86\_64-with-Ubuntu-19.04-disco",https://github.com/mitmproxy/mitmproxy/issues/3689,mitmproxy/mitmproxy,3689
+LabeledEvent,typoon,2019-11-09T02:59:52Z,kind/triage,,mitmproxy/mitmproxy,3689
+MentionedByPR,typoon,2019-11-13T03:55:50Z,Improve Command Bar UX,https://github.com/mitmproxy/mitmproxy/pull/3693,mitmproxy/mitmproxy,3689
+ClosedEvent,mhils,2019-11-21T13:13:09Z,Closed by mhils in #3693,https://github.com/mitmproxy/mitmproxy/pull/3693,mitmproxy/mitmproxy,3689

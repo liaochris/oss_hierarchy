@@ -1,0 +1,29 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,lionjiadong,2021-04-08T09:47:16Z,"After creating a new task, all previous tasks are not running",https://github.com/celery/django-celery-beat/issues/398,celery/django-celery-beat,398
+IssueOpened,lionjiadong,2021-04-08T09:47:16Z,"### Summary:
+
+Include a *brief* descrioption of the problem here, and fill out the version info below.
+
+* Celery Version: 5.05
+* Celery-Beat Version: 2.2
+
+### Exact steps to reproduce the issue:
+
+1. in django admin add three task  
+   [![image](https://user-images.githubusercontent.com/48214591/114005265-f69b8800-9891-11eb-9c10-63633d12d662.png)](https://user-images.githubusercontent.com/48214591/114005265-f69b8800-9891-11eb-9c10-63633d12d662.png)  
+   interval\_test, interval\_test2, interval\_test3
+2. Every time you create one, you will find that the previously created task will no longer run  
+   [![image](https://user-images.githubusercontent.com/48214591/114005485-29458080-9892-11eb-9819-8111ac139591.png)](https://user-images.githubusercontent.com/48214591/114005485-29458080-9892-11eb-9819-8111ac139591.png)  
+   interval测试 : Normal operation after creation,  
+   interval测试2 : interval测试 does not run after creation  
+   interval测试3 : interval测试 and interval测试2 does not run after creation",https://github.com/celery/django-celery-beat/issues/398,celery/django-celery-beat,398
+IssueComment,auvipy,2021-04-15T03:59:11Z,I am not sure its a celery issue or not,,celery/django-celery-beat,398
+IssueComment,lionjiadong,2021-04-19T10:49:32Z,"> I am not sure its a celery issue or not
+
+There will be problems with the database management plan",,celery/django-celery-beat,398
+IssueComment,yashikakhurana,2021-04-25T07:19:49Z,"I faced the same issue when I was trying to inherit the PeriodicTask. Can you provide more insights, may be I could help then.",,celery/django-celery-beat,398
+IssueComment,lionjiadong,2021-04-25T07:26:49Z,"> 当我尝试继承PeriodicTask时，我遇到了同样的问题。您能否提供更多见解，也许可以帮助您。
+
+I reset the last\_run\_at of all tasks every time I create or modify a task to ensure that each task will be executed as scheduled",,celery/django-celery-beat,398
+IssueComment,yashikakhurana,2021-04-25T08:25:23Z,have you tried restarting celery whenever you modify or create something?,,celery/django-celery-beat,398
+IssueComment,yashikakhurana,2021-04-25T08:26:31Z,FYI my issue was resolved using `signals.pre_delete() and signals.pre_save().`,,celery/django-celery-beat,398

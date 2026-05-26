@@ -7,6 +7,7 @@ import source.lib.JMSLab as jms
 sys.path.append('config')
 sys.dont_write_bytecode = True # Don't write .pyc files
 
+os.environ['PYTHONPATH'] = '.'
 env = Environment(ENV = {'PATH' : os.environ['PATH']},
                   IMPLICIT_COMMAND_DEPENDENCIES = 0,
                   BUILDERS = {'R'         : Builder(action = jms.build_r),
@@ -22,5 +23,9 @@ Export('env')
 
 jms.start_log('develop', '')
 
+SConscript('source/analysis/SConscript')
 SConscript('source/derived/SConscript')
-#SConscript('source/scrape/SConscript')
+SConscript('source/figures/SConscript')
+SConscript('source/paper/SConscript')
+SConscript('source/tables/SConscript')
+SConscript('source/talk/SConscript')

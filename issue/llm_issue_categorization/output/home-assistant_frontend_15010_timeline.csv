@@ -1,0 +1,75 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,jefft4,2023-01-05T18:38:56Z,Dashboard (overview page) does not load and cannot be used while integrations are connecting - long delay before UI is functional,https://github.com/home-assistant/frontend/issues/15010,home-assistant/frontend,15010
+IssueOpened,jefft4,2023-01-05T18:38:56Z,"### Checklist
+
+* I have updated to the latest available Home Assistant version.
+* I have cleared the cache of my browser.
+* I have tried a different browser to see if it is related to my browser.
+
+### Describe the issue you are experiencing
+
+When integrations are slow to start up or to connect to their remote devices, the 'Overview' page shows the busy spinner and 'HA is starting, please wait...' until the integration either succeeds or times out. This can go on for several minutes in some cases.
+
+I have observed this with the Logitech Harmony and Solax integrations. I will try to force failures in some others to confirm that it is a generic issue rather than with just some integrations.
+
+### Describe the behavior you expected
+
+I would expect the dashboard to load after at most a delay of a few seconds, with whatever entities are available. If need be, a message or greying-out of widgets could indicate that some have not yet completed loading.
+
+Integrations, connectors, etc should be isolated from the rest of the system, especially the core and the UI, so that they cannot impact on other components. Nothing should wait long for integrations to load, especially if it adversely impacts on automations or UX. All the loading should be happening in parallel and independently and after a short timeout, everyone gets on with their day and leaves any failed components to fix themselves in the background.
+
+### Steps to reproduce the issue
+
+1. Create a failure mode for an integration - e.g. make the remote device inaccessible
+2. Start up the HA system
+3. Wait. And wait... and wait... and you get the idea! ;-)  
+   ...
+
+### What version of Home Assistant Core has the issue?
+
+2023.1.0 ; 2022.12 was same
+
+### What was the last working version of Home Assistant Core?
+
+*No response*
+
+### In which browser are you experiencing the issue with?
+
+Chrome 108.0.5359.125 (Official Build) (64-bit)
+
+### Which operating system are you using to run this browser?
+
+Windows 11 Pro 22H2
+
+### State of relevant entities
+
+*No response*
+
+### Problem-relevant frontend configuration
+
+*No response*
+
+### Javascript errors shown in your browser console/inspector
+
+*No response*
+
+### Additional information
+
+*No response*",https://github.com/home-assistant/frontend/issues/15010,home-assistant/frontend,15010
+IssueComment,jefft4,2023-01-05T18:39:31Z,[![image](https://user-images.githubusercontent.com/14252625/210855746-33a2dd12-657e-4a3c-9a80-c686923c0723.png)](https://user-images.githubusercontent.com/14252625/210855746-33a2dd12-657e-4a3c-9a80-c686923c0723.png),,home-assistant/frontend,15010
+IssueComment,piitaya,2023-01-06T10:04:13Z,This means that the state machine is not ready so we didn't display anything (because 0 entities are available).,,home-assistant/frontend,15010
+IssueComment,jefft4,2023-01-06T10:24:02Z,"I'm not familiar with the internal architecture of HA... What's that state machine controlling and why are 0 entities available?  
+Only the failing integration, <10 entities, is not available; the other 200+ entities, from z-wave, zigbee, etc - are just fine and ought to be made available to the UI.
+
+Are you saying that the state machine is effectively processing integrations in series and is stuck waiting for the failing integration before it can make the rest available? That would be exactly my point - the whole system is waiting for a long time on one component that has a problem; that's not resilient. I would expect to see integrations started and checked in parallel so that no one component can cause issues to the overall experience.
+
+Does this wait on the state machine also mean that automations and events from other integrations are not running?",,home-assistant/frontend,15010
+IssueComment,github-actions,2023-04-06T11:01:39Z,"There hasn't been any activity on this issue recently. Due to the high number of incoming GitHub notifications, we have to clean some of the old issues, as many of them have already been resolved with the latest updates.  
+Please make sure to update to the latest Home Assistant version and check if that solves the issue. Let us know if that works for you by adding a comment 👍  
+This issue has now been marked as stale and will be closed if no further activity occurs. Thank you for your contributions.",,home-assistant/frontend,15010
+LabeledEvent,github-actions,2023-04-06T11:01:40Z,stale,,home-assistant/frontend,15010
+IssueComment,bramkragten,2023-04-06T12:22:15Z,"this is not a frontend issue, but an issue with specific integrations",,home-assistant/frontend,15010
+ClosedEvent,bramkragten,2023-04-06T12:22:21Z,Closed by bramkragten in ,,home-assistant/frontend,15010
+ClosedEvent,bramkragten,2023-04-06T12:22:30Z,Closed by bramkragten in ,,home-assistant/frontend,15010
+IssueComment,jefft4,2023-04-06T13:34:42Z,"Multiple specific integrations, then, including officially-supported ones.  
+Is there a clear document of expected behaviours for integrations that I can point to when raising this issue against each integration?",,home-assistant/frontend,15010

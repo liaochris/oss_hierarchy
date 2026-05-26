@@ -1,0 +1,199 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,JenniferHem,2023-06-13T09:02:17Z,[BUG]: Chemprop V2 fails when predict is used,https://github.com/chemprop/chemprop/issues/410,chemprop/chemprop,410
+IssueOpened,JenniferHem,2023-06-13T09:02:17Z,"**Describe the bug**  
+An Error is raised when trying to use `trainer.predict`
+
+```
+MisconfigurationException                 Traceback (most recent call last)
+Cell In[8], line 1
+----> 1 trainer.predict(mpnn, test_loader)
+
+File [~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/trainer.py:846](https://vscode-remote+wsl-002bubuntu-002d22-002e04.vscode-resource.vscode-cdn.net/home/hemmerj3/Code/chemprop2-playground/~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/trainer.py:846), in Trainer.predict(self, model, dataloaders, datamodule, return_predictions, ckpt_path)
+    844     raise TypeError(f""`Trainer.predict()` requires a `LightningModule`, got: {model.__class__.__qualname__}"")
+    845 self.strategy._lightning_module = model or self.lightning_module
+--> 846 return call._call_and_handle_interrupt(
+    847     self, self._predict_impl, model, dataloaders, datamodule, return_predictions, ckpt_path
+    848 )
+
+File [~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/call.py:38](https://vscode-remote+wsl-002bubuntu-002d22-002e04.vscode-resource.vscode-cdn.net/home/hemmerj3/Code/chemprop2-playground/~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/call.py:38), in _call_and_handle_interrupt(trainer, trainer_fn, *args, **kwargs)
+     36         return trainer.strategy.launcher.launch(trainer_fn, *args, trainer=trainer, **kwargs)
+     37     else:
+---> 38         return trainer_fn(*args, **kwargs)
+     40 except _TunerExitException:
+     41     trainer._call_teardown_hook()
+
+File [~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/trainer.py:893](https://vscode-remote+wsl-002bubuntu-002d22-002e04.vscode-resource.vscode-cdn.net/home/hemmerj3/Code/chemprop2-playground/~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/trainer.py:893), in Trainer._predict_impl(self, model, dataloaders, datamodule, return_predictions, ckpt_path)
+    887 self._ckpt_path = self._checkpoint_connector._set_ckpt_path(
+    888     self.state.fn, ckpt_path, model_provided=model_provided, model_connected=self.lightning_module is not None
+    889 )
+    891 self._predicted_ckpt_path = self.ckpt_path  # TODO: remove in v1.8
+--> 893 results = self._run(model, ckpt_path=self.ckpt_path)
+    895 assert self.state.stopped
+    896 self.predicting = False
+
+File [~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/trainer.py:1057](https://vscode-remote+wsl-002bubuntu-002d22-002e04.vscode-resource.vscode-cdn.net/home/hemmerj3/Code/chemprop2-playground/~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/trainer.py:1057), in Trainer._run(self, model, ckpt_path)
+   1053 self._checkpoint_connector.restore_training_state()
+   1055 self._checkpoint_connector.resume_end()
+-> 1057 results = self._run_stage()
+   1059 log.detail(f""{self.__class__.__name__}: trainer tearing down"")
+   1060 self._teardown()
+
+File [~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/trainer.py:1135](https://vscode-remote+wsl-002bubuntu-002d22-002e04.vscode-resource.vscode-cdn.net/home/hemmerj3/Code/chemprop2-playground/~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/trainer.py:1135), in Trainer._run_stage(self)
+   1133     return self._run_evaluate()
+   1134 if self.predicting:
+-> 1135     return self._run_predict()
+   1136 self._run_train()
+
+File [~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/trainer.py:1185](https://vscode-remote+wsl-002bubuntu-002d22-002e04.vscode-resource.vscode-cdn.net/home/hemmerj3/Code/chemprop2-playground/~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/trainer.py:1185), in Trainer._run_predict(self)
+   1184 def _run_predict(self) -> Optional[_PREDICT_OUTPUT]:
+-> 1185     self.reset_predict_dataloader(self.lightning_module)
+   1186     # reset trainer on this loop and all child loops in case user connected a custom loop
+   1187     self.predict_loop.trainer = self
+
+File [~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/trainer.py:1623](https://vscode-remote+wsl-002bubuntu-002d22-002e04.vscode-resource.vscode-cdn.net/home/hemmerj3/Code/chemprop2-playground/~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/trainer.py:1623), in Trainer.reset_predict_dataloader(self, model)
+   1621 enable_prediction = self.limit_predict_batches > 0
+   1622 if source.is_defined() and enable_prediction:
+-> 1623     self.num_predict_batches, self.predict_dataloaders = self._data_connector._reset_eval_dataloader(
+   1624         RunningStage.PREDICTING, model=pl_module
+   1625     )
+
+File [~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/connectors/data_connector.py:377](https://vscode-remote+wsl-002bubuntu-002d22-002e04.vscode-resource.vscode-cdn.net/home/hemmerj3/Code/chemprop2-playground/~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/connectors/data_connector.py:377), in DataConnector._reset_eval_dataloader(self, mode, model)
+    369     apply_to_collection(
+    370         loader.loaders if isinstance(loader, CombinedLoader) else loader,
+    371         DataLoader,
+    372         self._check_eval_shuffling,
+    373         mode=mode,
+    374     )
+    376 # add samplers
+--> 377 dataloaders = [self._prepare_dataloader(dl, mode=mode) for dl in dataloaders if dl is not None]
+    379 # add worker_init_fn for correct seeding in worker processes
+    380 apply_to_collection(
+    381     dataloaders, dtype=DataLoader, function=_auto_add_worker_init_fn, rank=self.trainer.global_rank
+    382 )
+
+File [~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/connectors/data_connector.py:377](https://vscode-remote+wsl-002bubuntu-002d22-002e04.vscode-resource.vscode-cdn.net/home/hemmerj3/Code/chemprop2-playground/~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/connectors/data_connector.py:377), in (.0)
+    369     apply_to_collection(
+    370         loader.loaders if isinstance(loader, CombinedLoader) else loader,
+    371         DataLoader,
+    372         self._check_eval_shuffling,
+    373         mode=mode,
+    374     )
+    376 # add samplers
+--> 377 dataloaders = [self._prepare_dataloader(dl, mode=mode) for dl in dataloaders if dl is not None]
+    379 # add worker_init_fn for correct seeding in worker processes
+    380 apply_to_collection(
+    381     dataloaders, dtype=DataLoader, function=_auto_add_worker_init_fn, rank=self.trainer.global_rank
+    382 )
+
+File [~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/connectors/data_connector.py:284](https://vscode-remote+wsl-002bubuntu-002d22-002e04.vscode-resource.vscode-cdn.net/home/hemmerj3/Code/chemprop2-playground/~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/trainer/connectors/data_connector.py:284), in DataConnector._prepare_dataloader(self, dataloader, shuffle, mode)
+    281         shuffle = True if mode == RunningStage.TRAINING else _is_dataloader_shuffled(dataloader)
+    283     sampler = self._resolve_sampler(dataloader, shuffle=shuffle, mode=mode)
+--> 284     dataloader = _update_dataloader(dataloader, sampler, mode=mode)
+    286 dataloader = self.trainer.strategy.process_dataloader(dataloader)
+    288 if cycle_iterator is not None:
+
+File [~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/utilities/data.py:159](https://vscode-remote+wsl-002bubuntu-002d22-002e04.vscode-resource.vscode-cdn.net/home/hemmerj3/Code/chemprop2-playground/~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/utilities/data.py:159), in _update_dataloader(dataloader, sampler, mode)
+    156 def _update_dataloader(
+    157     dataloader: DataLoader, sampler: Union[Sampler, Iterable], mode: Optional[RunningStage] = None
+    158 ) -> DataLoader:
+--> 159     dl_args, dl_kwargs = _get_dataloader_init_args_and_kwargs(dataloader, sampler, mode)
+    160     dataloader = _reinstantiate_wrapped_cls(dataloader, *dl_args, **dl_kwargs)
+    161     return dataloader
+
+File [~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/utilities/data.py:249](https://vscode-remote+wsl-002bubuntu-002d22-002e04.vscode-resource.vscode-cdn.net/home/hemmerj3/Code/chemprop2-playground/~/miniconda3/envs/chemprop2/lib/python3.11/site-packages/pytorch_lightning/utilities/data.py:249), in _get_dataloader_init_args_and_kwargs(dataloader, sampler, mode, disallow_batch_sampler)
+    247         sorted_missing_kwargs = sorted(missing_kwargs)
+    248         dataloader_cls_name = dataloader.__class__.__name__
+--> 249         raise MisconfigurationException(
+    250             f""Trying to inject parameters into the `{dataloader_cls_name}` instance. ""
+    251             ""This would fail as it doesn't expose all its attributes in the `__init__` signature. ""
+    252             f""The missing arguments are {sorted_missing_kwargs}. HINT: If you wrote the `{dataloader_cls_name}` ""
+    253             ""class, add the `__init__` arguments or allow passing `**kwargs`""
+    254         )
+    256 if _FaultTolerantMode.detect_current_mode().is_automatic:
+    257     dl_args, dl_kwargs = _apply_fault_tolerant_automatic_capture_dataset_wrapper(
+    258         was_wrapped, arg_names, dl_args, dl_kwargs
+    259     )
+
+MisconfigurationException: Trying to inject parameters into the `MolGraphDataLoader` instance. This would fail as it doesn't expose all its attributes in the `__init__` signature. The missing arguments are ['batch_sampler', 'drop_last', 'sampler']. HINT: If you wrote the `MolGraphDataLoader` class, add the `__init__` arguments or allow passing `**kwargs`
+```
+
+**Environment**
+
+* python version 3.11.3
+* chemprop installed from branch dev/v2
+* torch 2.0.1
+* lightning 2022.10.25
+* OS WSL with Ubunto 22.04 LTS",https://github.com/chemprop/chemprop/issues/410,chemprop/chemprop,410
+LabeledEvent,JenniferHem,2023-06-13T09:02:17Z,bug,,chemprop/chemprop,410
+IssueComment,JenniferHem,2023-06-13T12:32:29Z,"I found a fix if you add the arguments with the stars it works. I believe the issue is that to reinitialize for the predict the function needs to have all arguments from super. So you can add the arguments directly or allow \*\*kwargs in the MolGraphDataLoader to be able to achieve similar things.
+
+```
+class MolGraphDataLoader(DataLoader):
+    def __init__(
+        self,
+        dataset: MolGraphDatasetBase,
+        batch_size: int = 50,
+        num_workers: int = 0,
+        class_balance: bool = False,
+        seed: Optional[int] = None,
+        shuffle: bool = True,
+        **multiprocessing_context = None,
+        **batch_sampler = None,
+        **drop_last = None,
+        **sampler = None
+    ):
+```
+
+For the code I just used the code from your example.py script in the v2 folder and used .predict instead of test (see also the MLPDS chemprop chat). Happy to provide the full script there.",,chemprop/chemprop,410
+LabeledEvent,kevingreenman,2023-06-13T14:55:52Z,mlpds,,chemprop/chemprop,410
+MentionedByPR,JenniferHem,2023-07-05T15:00:59Z,Fix minor bugs in v2,https://github.com/chemprop/chemprop/pull/417,chemprop/chemprop,410
+IssueComment,JenniferHem,2023-09-22T10:08:58Z,"Update: In the current v2/dev this still fails:
+
+```
+Traceback (most recent call last):
+  File ""/home/hemmerj3/Code/chemprop2-playground/scripts/example_new.py"", line 59, in <module>
+    preds = trainer.predict(mpnn, test_loader)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""/home/hemmerj3/miniconda3/envs/chemprop2_1_test/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py"", line 852, in predict
+    return call._call_and_handle_interrupt(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""/home/hemmerj3/miniconda3/envs/chemprop2_1_test/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py"", line 43, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""/home/hemmerj3/miniconda3/envs/chemprop2_1_test/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py"", line 894, in _predict_impl
+    results = self._run(model, ckpt_path=ckpt_path)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""/home/hemmerj3/miniconda3/envs/chemprop2_1_test/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py"", line 980, in _run
+    results = self._run_stage()
+              ^^^^^^^^^^^^^^^^^
+  File ""/home/hemmerj3/miniconda3/envs/chemprop2_1_test/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py"", line 1018, in _run_stage
+    return self.predict_loop.run()
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File ""/home/hemmerj3/miniconda3/envs/chemprop2_1_test/lib/python3.11/site-packages/lightning/pytorch/loops/utilities.py"", line 181, in _decorator
+    return loop_run(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""/home/hemmerj3/miniconda3/envs/chemprop2_1_test/lib/python3.11/site-packages/lightning/pytorch/loops/prediction_loop.py"", line 101, in run
+    self.setup_data()
+  File ""/home/hemmerj3/miniconda3/envs/chemprop2_1_test/lib/python3.11/site-packages/lightning/pytorch/loops/prediction_loop.py"", line 145, in setup_data
+    dl = _process_dataloader(trainer, dl)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""/home/hemmerj3/miniconda3/envs/chemprop2_1_test/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py"", line 499, in _process_dataloader
+    dataloader = trainer._data_connector._prepare_dataloader(dataloader, shuffle=is_shuffled, mode=stage)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""/home/hemmerj3/miniconda3/envs/chemprop2_1_test/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py"", line 201, in _prepare_dataloader
+    return _update_dataloader(dataloader, sampler, mode=mode)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""/home/hemmerj3/miniconda3/envs/chemprop2_1_test/lib/python3.11/site-packages/lightning/pytorch/utilities/data.py"", line 132, in _update_dataloader
+    dl_args, dl_kwargs = _get_dataloader_init_args_and_kwargs(dataloader, sampler, mode)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File ""/home/hemmerj3/miniconda3/envs/chemprop2_1_test/lib/python3.11/site-packages/lightning/pytorch/utilities/data.py"", line 221, in _get_dataloader_init_args_and_kwargs
+    raise MisconfigurationException(
+lightning.fabric.utilities.exceptions.MisconfigurationException: Trying to inject parameters into the `MolGraphDataLoader` instance. This would fail as it doesn't expose all its attributes in the `__init__` signature. The missing arguments are ['batch_sampler', 'drop_last', 'sampler']. HINT: If you wrote the `MolGraphDataLoader` class, add the `__init__` arguments or allow passing `**kwargs`
+```
+
+is there a chance to get a quick fix? I can open a pull request, just would need to know if the preference is to pass \*\*kwargs or the specific arguments? (However as those would not be used in the current code I am not sure to handle such a situation gracefully or if a re-write to consider passed arguments would need to be conducted)",,chemprop/chemprop,410
+MilestonedEvent,kevingreenman,2023-09-27T01:35:24Z,added to milestone: v2.0.0-beta,,chemprop/chemprop,410
+IssueComment,kevingreenman,2023-09-27T01:47:49Z,I think [@davidegraff](https://github.com/davidegraff)'s [comment](https://github.com/chemprop/chemprop/pull/417#discussion_r1273528716) on [#417](https://github.com/chemprop/chemprop/pull/417) suggests using \*\*kwargs,,chemprop/chemprop,410
+MentionedByPR,kevingreenman,2023-10-04T20:07:58Z,v2 CLI - initial train and predict functionality,https://github.com/chemprop/chemprop/pull/469,chemprop/chemprop,410
+IssueComment,kevingreenman,2023-10-04T20:34:14Z,Fixed by [#471](https://github.com/chemprop/chemprop/pull/471) with `**kwargs` in `MolGraphDataLoader`,,chemprop/chemprop,410
+ClosedEvent,kevingreenman,2023-10-04T20:34:14Z,Closed by kevingreenman in ,,chemprop/chemprop,410

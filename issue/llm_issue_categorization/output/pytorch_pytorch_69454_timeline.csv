@@ -1,0 +1,25 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,mruberry,2021-12-06T15:43:02Z,DISABLED test_type_promotion (__main__.TestBinaryUfuncs),https://github.com/pytorch/pytorch/issues/69454,pytorch/pytorch,69454
+IssueOpened,mruberry,2021-12-06T15:43:02Z,"platforms: rocm
+
+Disabling temporarily because type promotion between CUDA and ROCm is slightly different for gcd until the jiterator updates to include bfloat16, float16, and complex dtype support.
+
+cc [@mruberry](https://github.com/mruberry)",https://github.com/pytorch/pytorch/issues/69454,pytorch/pytorch,69454
+IssueComment,pytorch-probot,2021-12-06T15:43:20Z,"Hello there! From the DISABLED prefix in this issue title, it looks like you are attempting to disable a test in PyTorch CI. The information I have parsed is below:
+
+* Test name: `test_type_promotion (__main__.TestBinaryUfuncs)`
+* Platforms for which to skip the test: rocm
+
+Within ~15 minutes, `test_type_promotion (__main__.TestBinaryUfuncs)` will be disabled in PyTorch CI for these platforms: rocm. Please verify that your test name looks correct, e.g., `test_cuda_assert_async (__main__.TestCuda)`.
+
+To modify the platforms list, please include a line in the issue body, like below. The default action will disable the test for all platforms if no platforms list is specified.
+
+```
+Platforms: case-insensitive, list, of, platforms
+```
+
+We currently support the following platforms: asan, linux, mac, macos, rocm, win, windows.",,pytorch/pytorch,69454
+LabeledEvent,mruberry,2021-12-06T15:43:21Z,module: tests,,pytorch/pytorch,69454
+LabeledEvent,mruberry,2021-12-06T15:43:21Z,triaged,,pytorch/pytorch,69454
+AssignedEvent,mruberry,2021-12-06T15:43:23Z,mruberry assigned mruberry,,pytorch/pytorch,69454
+ClosedEvent,mruberry,2021-12-06T18:09:48Z,Closed by mruberry in ,,pytorch/pytorch,69454

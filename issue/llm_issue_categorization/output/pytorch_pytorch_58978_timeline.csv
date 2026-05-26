@@ -1,0 +1,45 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,skyline75489,2021-05-26T07:49:57Z,[1.9 RC1] CMake failed to correctly link torch & c10 libraries on Windows,https://github.com/pytorch/pytorch/issues/58978,pytorch/pytorch,58978
+IssueOpened,skyline75489,2021-05-26T07:49:57Z,"I'm using CMake with Visual Studio with this `CMakeLists.txt`:
+
+```
+cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+project(TestProject)
+set(CMAKE_CXX_STANDARD 14)
+
+list(APPEND CMAKE_PREFIX_PATH ""D:/Lib/libtorch-win-shared-with-deps-1.9.0-rc1/libtorch"")
+
+find_package(torch REQUIRED)
+add_executable(TestProject ${SOURCES})
+
+target_compile_features(TestProject PUBLIC cxx_range_for)
+target_link_libraries(TestProject ${TORCH_LIBRARIES})
+```
+
+This is what `build.ninja` looks like with 1.8.1:
+
+```
+#############################################
+# Link the executable TestProject.exe
+build TestProject.exe: CXX_EXECUTABLE_LINKER__TestProject_RelWithDebInfo CMakeFiles\TestProject.dir\LibTorchTestApp.cpp.obj | 
+D$:\Lib\libtorch-win-shared-with-deps-1.8.1+cu102\libtorch\lib\torch.lib D$:\Lib\libtorch-win-shared-with-deps-1.8.1+cu102\libtorch\lib\torch_cuda.lib 
+...
+FLAGS = /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /Zi /O2 /Ob1 /DNDEBUG
+LINK_FLAGS = /machine:x64 /debug /INCREMENTAL /subsystem:console
+LINK_LIBRARIES = D:\Lib\libtorch-win-shared-with-deps-1.8.1+cu102\libtorch\lib\c10.lib
+```
+
+But with 1.9.0-rc1 it looks like this:
+
+```
+# Link the executable TestProject.exe
+build TestProject.exe: CXX_EXECUTABLE_LINKER__TestProject_RelWithDebInfo CMakeFiles\TestProject.dir\LibTorchTestApp.cpp.obj | torch-NOTFOUND
+...
+FLAGS = /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MD /Zi /O2 /Ob1 /DNDEBUG
+LINK_FLAGS = /machine:x64 /debug /INCREMENTAL /subsystem:console
+LINK_LIBRARIES = torch-NOTFOUND  -Wl,--no-as-needed,""D:/Lib/libtorch-win-shared-with-deps-1.9.0-rc1/libtorch/lib/libtorch_cpu.so"" -Wl,--as-needed  c10-NOTFOUND  -Wl,--no-as-needed,""D:/Lib/libtorch-win-shared-with-deps-1.9.0-rc1/libtorch/lib/libtorch.so""
+```
+
+The `libtorch/lib/libtorch_cpu.so` is shockingly strange as it does not event exist on Windows.",https://github.com/pytorch/pytorch/issues/58978,pytorch/pytorch,58978
+IssueComment,skyline75489,2021-05-26T08:02:13Z,OK this is false alarm. I'm targeting the wrong library. The library itself is a Linux one.,,pytorch/pytorch,58978
+ClosedEvent,skyline75489,2021-05-26T08:02:13Z,Closed by skyline75489 in ,,pytorch/pytorch,58978

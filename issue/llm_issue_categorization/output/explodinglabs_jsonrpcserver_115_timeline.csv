@@ -1,0 +1,35 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,akuzia,2020-02-08T12:10:34Z,Argument to change method name in decorator?,https://github.com/explodinglabs/jsonrpcserver/issues/115,explodinglabs/jsonrpcserver,115
+IssueOpened,akuzia,2020-02-08T12:10:34Z,"I wonder is there a convinient way to change method name? I've found some comments in Methods class, tryed to use decorators to change function `__name__` values. Is there a possibility to include kwargs to method decorator, lke in jsonrpc [add\_method](https://json-rpc.readthedocs.io/en/latest/dispatcher.html#jsonrpc.dispatcher.Dispatcher.add_method)?
+
+```
+from jsonrpcserver import method, serve
+
+
+@method(name='generic.ping')
+def ping():
+    return ""pong""
+
+
+if __name__ == ""__main__"":
+    serve()
+```
+
+so calls like:
+
+```
+{
+	""id"":""d3fa8fd5-259e-9e02-6d07-25dbf49e410f"",
+	""jsonrpc"":""2.0"",
+	""method"":""generic.ping""
+}
+```
+
+will be possible?",https://github.com/explodinglabs/jsonrpcserver/issues/115,explodinglabs/jsonrpcserver,115
+IssueComment,bcb,2020-02-09T01:40:54Z,Yes I agree we should add this.,,explodinglabs/jsonrpcserver,115
+IssueComment,akuzia,2020-02-27T20:52:07Z,"[@bcb](https://github.com/bcb) I've looked into sources, looks like this functionality already been implemented, but was removed not so long ago in [5020573](https://github.com/explodinglabs/jsonrpcserver/commit/502057335cfaa5c7fc7cc57293e89923d9a5f576), why?",,explodinglabs/jsonrpcserver,115
+IssueComment,bcb,2020-02-27T21:12:55Z,"I can’t remember why this was done.
+
+Happy for it to be added back, if you want to make a PR.",,explodinglabs/jsonrpcserver,115
+MentionedByPR,deptyped,2020-07-08T19:47:05Z,Add ability to use custom method name,https://github.com/explodinglabs/jsonrpcserver/pull/127,explodinglabs/jsonrpcserver,115
+ClosedEvent,bcb,2020-07-10T02:29:46Z,Closed by bcb in #127,https://github.com/explodinglabs/jsonrpcserver/pull/127,explodinglabs/jsonrpcserver,115

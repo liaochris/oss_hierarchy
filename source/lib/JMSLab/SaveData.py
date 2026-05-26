@@ -7,7 +7,6 @@ import pathlib
 
 def SaveData(df, keys, out_file, log_file = '', append = False, sortbykey = True):
     extension = CheckExtension(out_file)
-    CheckColumnsNotList(df)
     CheckKeys(df, keys)
     # reorder df so keys are on the left
     cols_reordered = keys + [col for col in df.columns if col not in keys]
@@ -25,17 +24,9 @@ def CheckExtension(out_file):
         extension = [out_file.suffix]
     else:
         raise ValueError('Output file format must either be string or pathlib.PosixPath')
-    if not extension[0] in ['.csv', '.dta']:
-        raise ValueError("File extension should be one of .csv or .dta.")
+    if not extension[0] in ['.csv', '.dta', '.parquet']:
+        raise ValueError("File extension should be one of .csv, .dta or .parquet.")
     return extension[0]
-
-def CheckColumnsNotList(df):
-    type_list = [any(df[col].apply(lambda x: type(x) == list)) for col in df.columns]
-    if any(type_list):
-        type_list_columns = df.columns[type_list]
-        raise TypeError("No column can be of type list - check the following columns: " + ", ".join(type_list_columns))
-       
-      
 
 def CheckKeys(df, keys):
     if not isinstance(keys, list):
@@ -88,7 +79,9 @@ def SaveDf(df, keys, out_file, sortbykey, extension):
         df.to_csv(out_file, index = False)
     if extension == '.dta':
         df.to_stata(out_file, write_index = False)
-
+    if extension == '.parquet':
+        df.to_parquet(out_file, index = False)
+        
     print(f"File '{out_file}' saved successfully.")
     
 

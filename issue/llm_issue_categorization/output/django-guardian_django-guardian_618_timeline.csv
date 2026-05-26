@@ -1,0 +1,30 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,johnthagen,2019-06-29T18:57:48Z,"ReadTheDocs missing 1.5.0, 1.5.1 and 2.0.0 releases",https://github.com/django-guardian/django-guardian/issues/618,django-guardian/django-guardian,618
+IssueOpened,johnthagen,2019-06-29T18:57:48Z,"The current latest published docs are several years out of date: <https://django-guardian.readthedocs.io/>
+
+The last release is 1.4.9 from 2017. It was quite confusing as a new user to be reading the old docs and not realize how out of date they were until much later.
+
+Could 1.5.0, 1.5.1, and 2.0.0 be added to that site?",https://github.com/django-guardian/django-guardian/issues/618,django-guardian/django-guardian,618
+IssueComment,ad-m,2019-06-29T18:58:55Z,"[@lukaszb](https://github.com/lukaszb) could you add ""adobrawy"" as maintainer on readthedocs.io?",,django-guardian/django-guardian,618
+MentionedByIssue,johnthagen,2019-07-13T13:59:28Z,,https://github.com/rpkilby/django-rest-framework-guardian/issues/5,django-guardian/django-guardian,618
+IssueComment,jagooding,2019-07-14T03:25:19Z,Can the documentation be auto built and uploaded as a part of the release process?,,django-guardian/django-guardian,618
+IssueComment,ad-m,2019-07-14T09:13:30Z,"The documentation should be automatically built for each commit on the ""master"" branch. That's how readthedocs works, and that's how it was before. Due to changes in permissions in GitHub, the process has been stopped and must be set up again.",,django-guardian/django-guardian,618
+IssueComment,ad-m,2019-07-14T09:18:31Z,"I sent an e-mail. In the absence of a response, we will abandon the current readthedocs.io and we will build the documentation in a different way than before.",,django-guardian/django-guardian,618
+IssueComment,brianmay,2019-07-15T03:24:23Z,"It looks like this has already been done, you should have access.",,django-guardian/django-guardian,618
+IssueComment,ad-m,2019-07-15T20:13:10Z,"[@brianmay](https://github.com/brianmay) , I asked [@lukaszb](https://github.com/lukaszb) directly & got answer with access immediatly. Builds fixed. Docs for 1.5.0, 1.5.1, 2.0.0 and `latest` fixed & builded. 🎆",,django-guardian/django-guardian,618
+ClosedEvent,ad-m,2019-07-15T20:13:13Z,Closed by ad-m in ,,django-guardian/django-guardian,618
+MentionedByIssue,ad-m,2019-07-15T20:14:51Z,,https://github.com/django-guardian/django-guardian/issues/609,django-guardian/django-guardian,618
+IssueComment,johnthagen,2019-07-18T19:16:18Z,"[@ad-m](https://github.com/ad-m) The `latest` read the docs link doesn't seem to be pointing to the latest. Is the `master` branch build not set up properly?
+
+See this: <https://django-guardian.readthedocs.io/en/latest/userguide/assign.html>  
+Versus: <https://django-guardian.readthedocs.io/en/stable/userguide/assign.html>
+
+Also, it seems like 2.0.0 link is broken?: <https://django-guardian.readthedocs.io/en/v2.0.0/userguide/assign.html>",,django-guardian/django-guardian,618
+IssueComment,ad-m,2019-07-20T16:50:44Z,"> The latest read the docs link doesn't seem to be pointing to the latest. Is the master branch build not set up properly?
+
+I verified & setup one more time webhooks integration. I hope it will works now.
+
+> Also, it seems like 2.0.0 link is broken?
+
+It works now . I triggered build for 2.0.0 manually again at <https://readthedocs.org/projects/django-guardian/builds/>.",,django-guardian/django-guardian,618
+IssueComment,johnthagen,2019-07-20T17:02:53Z,"[@ad-m](https://github.com/ad-m) Looks good now, thanks!",,django-guardian/django-guardian,618

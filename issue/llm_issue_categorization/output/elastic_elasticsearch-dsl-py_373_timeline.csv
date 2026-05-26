@@ -1,0 +1,25 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,0x64746b,2016-03-21T17:19:22Z,Equality check on documents behaves unexpectedly,https://github.com/elastic/elasticsearch-dsl-py/issues/373,elastic/elasticsearch-dsl-py,373
+IssueOpened,0x64746b,2016-03-21T17:19:22Z,"```
+In [1]: from elasticsearch_dsl import DocType, String
+
+In [2]: class Author(DocType):
+    name = String()
+   ...:     
+
+In [3]: a = Author(name='George Orwell')
+
+In [4]: b = Author(name='George Orwell')
+
+In [5]: a == b
+Out[5]: True
+
+In [6]: a != b
+Out[6]: True
+```
+
+Am I holding it wrong?  
+dtk",https://github.com/elastic/elasticsearch-dsl-py/issues/373,elastic/elasticsearch-dsl-py,373
+LabeledEvent,honzakral,2016-03-21T17:23:54Z,Category: Bug,,elastic/elasticsearch-dsl-py,373
+IssueComment,honzakral,2016-03-21T17:23:59Z,"No, you are not - it's just that we have defined `__eq__` but not `__ne__`, my bad.",,elastic/elasticsearch-dsl-py,373
+ClosedEvent,honzakral,2016-03-21T17:45:11Z,Closed by honzakral in a903a1,https://github.com/elastic/elasticsearch-dsl-py/commit/b97ed033e7676069ff8f933ae433246e8aa903a1,elastic/elasticsearch-dsl-py,373

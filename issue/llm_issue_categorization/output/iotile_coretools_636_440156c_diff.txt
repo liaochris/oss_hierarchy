@@ -1,0 +1,169 @@
+diff --git a/iotilecore/RELEASE.md b/iotilecore/RELEASE.md
+index 67470955a..6b8647c8e 100644
+--- a/iotilecore/RELEASE.md
++++ b/iotilecore/RELEASE.md
+@@ -2,6 +2,11 @@
+ 
+ All major changes in each released version of `iotile-core` are listed here.
+ 
++## HEAD
++
++- Fix problem loading `module_settings.json` files for components that had been
++  built before on python 3.  (Issue #636)
++
+ ## 3.25.0
+ 
+ - Add support for a `__NO_EXTENSION__` flag in classes so that
+diff --git a/iotilecore/iotile/core/dev/iotileobj.py b/iotilecore/iotile/core/dev/iotileobj.py
+index ae7f288d7..c4917dd59 100644
+--- a/iotilecore/iotile/core/dev/iotileobj.py
++++ b/iotilecore/iotile/core/dev/iotileobj.py
+@@ -242,7 +242,7 @@ def _load_settings(self, info):
+             if os.path.exists(os.path.join(self.output_folder, 'module_settings.json')):
+                 release_settings = os.path.join(self.output_folder, 'module_settings.json')
+ 
+-                with open(release_settings, 'rb') as infile:
++                with open(release_settings, 'r') as infile:
+                     release_dict = json.load(infile)
+ 
+                 import dateutil.parser
+diff --git a/iotilecore/test/test_dev/oldstyle_built_component/build/output/module_settings.json b/iotilecore/test/test_dev/oldstyle_built_component/build/output/module_settings.json
+new file mode 100644
+index 000000000..e9f8c9c43
+--- /dev/null
++++ b/iotilecore/test/test_dev/oldstyle_built_component/build/output/module_settings.json
+@@ -0,0 +1,58 @@
++{	
++	"module_targets": 
++	{
++		"tile_gpio": ["lpc824"]
++	},
++
++	"dependency_versions": {
++        "iotile_standard_library_lib_cortexm0p_runtime": "1.1.0",
++        "iotile_standard_library_hw_accelerometer_v2": "2.0.1",
++        "iotile_standard_library_lib_lpc824": "1.3.1",
++        "iotile_standard_library_lib_common": "1.3.0"
++    },
++    
++    "release_date": "2018-12-05T21:50:38.283000",
++    "release": true,
++   
++	"modules":
++	{
++		"tile_gpio":
++		{
++			"overlays":
++			{
++				"lpc824":
++				{
++					"defines":
++					{
++						"kModuleHardwareType":	"kLPC824HardwareType"
++					}
++				}
++			},
++			
++			"depends":
++			{
++				"iotile_standard_library/common": ["include_directories"],
++				"iotile_standard_library/liblpc824": ["include_directories", "liblpc824_lpc824.a"],
++				"iotile_standard_library/libcortexm0p_runtime": ["include_directories", "cortex_m0p_cdb_application.ld", "libcortexm0p_runtime_lpc824.a"]
++			},
++
++			"domain": "iotile_standard_library",
++
++			"defines":
++			{
++				"kVoltageControlPin": 9,
++				"kVoltageSourcePin1": 8,
++				"kVoltageSourcePin2": 23,
++				"kVoltageSensePin2": 14,
++				"kVoltageSenseChannel2": 2, 
++				"kSensePin": 6,
++				"kSenseChannel": 1
++			},
++
++			"products":
++			{
++				"python/gpio1_proxy.py": "proxy_module"
++			}
++		}
++	}
++}
+diff --git a/iotilecore/test/test_dev/oldstyle_built_component/module_settings.json b/iotilecore/test/test_dev/oldstyle_built_component/module_settings.json
+new file mode 100644
+index 000000000..3c2f5aa57
+--- /dev/null
++++ b/iotilecore/test/test_dev/oldstyle_built_component/module_settings.json
+@@ -0,0 +1,48 @@
++{	
++	"module_targets": 
++	{
++		"tile_gpio": ["lpc824"]
++	},
++
++	"modules":
++	{
++		"tile_gpio":
++		{
++			"overlays":
++			{
++				"lpc824":
++				{
++					"defines":
++					{
++						"kModuleHardwareType":	"kLPC824HardwareType"
++					}
++				}
++			},
++			
++			"depends":
++			{
++				"iotile_standard_library/common": ["include_directories"],
++				"iotile_standard_library/liblpc824": ["include_directories", "liblpc824_lpc824.a"],
++				"iotile_standard_library/libcortexm0p_runtime": ["include_directories", "cortex_m0p_cdb_application.ld", "libcortexm0p_runtime_lpc824.a"]
++			},
++
++			"domain": "iotile_standard_library",
++
++			"defines":
++			{
++				"kVoltageControlPin": 9,
++				"kVoltageSourcePin1": 8,
++				"kVoltageSourcePin2": 23,
++				"kVoltageSensePin2": 14,
++				"kVoltageSenseChannel2": 2, 
++				"kSensePin": 6,
++				"kSenseChannel": 1
++			},
++
++			"products":
++			{
++				"python/gpio1_proxy.py": "proxy_module"
++			}
++		}
++	}
++}
+diff --git a/iotilecore/test/test_dev/test_iotile.py b/iotilecore/test/test_dev/test_iotile.py
+index 4fa6c7bd3..728adbe0b 100644
+--- a/iotilecore/test/test_dev/test_iotile.py
++++ b/iotilecore/test/test_dev/test_iotile.py
+@@ -106,6 +106,17 @@ def test_builtnewstyle_component():
+     assert tile.release_date == datetime.datetime(2018, 3, 15, 14, 42, tzinfo=tzutc())
+ 
+ 
++def test_builtoldstyle_component():
++    """Make sure we can load a v2 file format component."""
++    tile = load_tile('oldstyle_built_component')
++
++    assert tile.release is False
++    assert tile.short_name == 'tile_gpio'
++    assert tile.output_folder != tile.folder
++    assert tile.can_release is False
++    assert tile.release_date == datetime.datetime(2018, 12, 5, 21, 50, 38, 283000)
++
++
+ def test_load_invaliddepends():
+     with pytest.raises(DataError) as excinfo:
+         _tile = load_tile('comp_w_depslist')

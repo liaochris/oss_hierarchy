@@ -1,0 +1,18 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,ajdapretnar,2019-04-12T11:46:15Z,GeoMap: improve legend,https://github.com/biolab/orange3-geo/issues/52,biolab/orange3-geo,52
+IssueOpened,ajdapretnar,2019-04-12T11:46:15Z,"##### Issue
+
+Legend can get very big and is useless in parts.
+
+[![Screen Shot 2019-04-12 at 12 35 37](https://user-images.githubusercontent.com/12524972/56033847-bdbd8c80-5d25-11e9-988c-55136c5348be.png)](https://user-images.githubusercontent.com/12524972/56033847-bdbd8c80-5d25-11e9-988c-55136c5348be.png)
+
+##### Fixes
+
+* Remove Size from legend. The current implementation is useless and other solutions are only marginally better.
+* Limit the number of shape values to 5. 9 is too much. Also they should be the same as in core Orange. See [Legend and Size setting: don't show more than 5 values orange3#3748](https://github.com/biolab/orange3/issues/3748).
+* Have better continuous legend. Either copy Scatter Plot ('discretize' colors) or have it them same as in Choropleth, which is really nice (allows you to define custom color steps).",https://github.com/biolab/orange3-geo/issues/52,biolab/orange3-geo,52
+IssueComment,ajdapretnar,2019-04-12T11:46:34Z,[@BlazZupan](https://github.com/BlazZupan) Please see if you agree with this.,,biolab/orange3-geo,52
+AssignedEvent,ajdapretnar,2019-04-12T11:46:39Z,ajdapretnar assigned BlazZupan,,biolab/orange3-geo,52
+LabeledEvent,ajdapretnar,2019-04-12T11:46:54Z,suggestion,,biolab/orange3-geo,52
+IssueComment,ajdapretnar,2019-10-28T09:37:49Z,"Fixed in [#77](https://github.com/biolab/orange3-geo/pull/77), with the new widget based on Scatter Plot.",,biolab/orange3-geo,52
+ClosedEvent,ajdapretnar,2019-11-06T10:07:44Z,Closed by ajdapretnar in ,,biolab/orange3-geo,52

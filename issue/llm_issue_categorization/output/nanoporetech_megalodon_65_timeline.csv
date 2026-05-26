@@ -1,0 +1,14 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,PengNi,2020-10-23T07:29:07Z,Using bootstrap modified base annotation to train a model,https://github.com/nanoporetech/megalodon/issues/65,nanoporetech/megalodon,65
+IssueOpened,PengNi,2020-10-23T07:29:07Z,"Hi,
+
+I have a question that, if I want to train a modified base model, is using only Ground Truth Aided Bootstrap Modified Base Annotation enough? or I should fisrt use Bootstrap Modified Base Annotation (calibration files) to train, and then use Ground Truth Aided Bootstrap Modified Base Annotation to train a second round.
+
+Thanks in advance!
+
+Best,  
+Peng",https://github.com/nanoporetech/megalodon/issues/65,nanoporetech/megalodon,65
+LabeledEvent,marcus1487,2020-10-23T13:52:20Z,question,,nanoporetech/megalodon,65
+IssueComment,marcus1487,2020-10-23T14:25:06Z,"Both the ""Bootstrap Modified Base Annotation"" and ""Ground Truth Aided Bootstrap Modified Base Annotation"" require a model which can detect the modified base of interest with some accuracy. So either of these methods requires a first round (or at least an appropriate modified base model to start from). If a ground truth is available, it is recommended to use the ground truth aided method given an initial model. There is no need to train a bootstrap model first. I have not tested whether a three step approach (initial model -> bootstrap model -> ground truth aided bootstrap model) might improve the final performance.",,nanoporetech/megalodon,65
+IssueComment,PengNi,2020-10-23T14:41:10Z,"OK, I get it. Thanks for your response!",,nanoporetech/megalodon,65
+ClosedEvent,PengNi,2020-10-23T14:41:18Z,Closed by PengNi in ,,nanoporetech/megalodon,65

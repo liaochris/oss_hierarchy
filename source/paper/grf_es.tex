@@ -419,15 +419,15 @@ There are many known procedures for estimating $\Pr(G_i=g\mid X_i)$, including u
 The estimation of $\E[T_{i,t}\mid X_i=x]$ follows a similar logic. 
 Note that the $s$-th row of $T_{i,t}$ can be redefined as
 \begin{equation*}
-    T_{i,t}^s = \mathbf{1}\{s=t\} + \mathbf{1}\{s = Q_i - 1\}.
+    T_{i,t}^s = \mathbf{1}\{s=t\} - \mathbf{1}\{s = Q_i - 1\}.
 \end{equation*}
 The two indicators will never both be $1$ because all observations at event time $-1$ are omitted. 
 Hence, 
 \begin{align*}
 \E[T_{i,t}^s \mid X_i] 
-&= \E[\mathbf{1}\{s = t\} \mid X_i] + \E[\mathbf{1}\{s = Q_i - 1\} \mid X_i] \\[4pt]
-&= \E[\mathbf{1}\{t = s\} \mid X_i] + \E[\mathbf{1}\{Q_i = s + 1\} \mid X_i] \\[4pt]
-&= \mathbf{1}\{t = s\} + \Pr(Q_i = s + 1 \mid X_i).
+&= \E[\mathbf{1}\{s = t\} \mid X_i] - \E[\mathbf{1}\{s = Q_i - 1\} \mid X_i] \\[4pt]
+&= \E[\mathbf{1}\{t = s\} \mid X_i] - \E[\mathbf{1}\{Q_i = s + 1\} \mid X_i] \\[4pt]
+&= \mathbf{1}\{t = s\} - \Pr(Q_i = s + 1 \mid X_i).
 \end{align*}
 since the time period $t$ and row $s$ are known by definition. 
 

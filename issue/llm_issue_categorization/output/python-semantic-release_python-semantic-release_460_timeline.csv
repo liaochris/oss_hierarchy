@@ -1,0 +1,81 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,bergsmith,2022-06-22T16:26:40Z,"""semantic-release version"" not updating pyproject.toml or git tag",https://github.com/python-semantic-release/python-semantic-release/issues/460,python-semantic-release/python-semantic-release,460
+IssueOpened,bergsmith,2022-06-22T16:26:40Z,"## The problem
+
+I'm using PSR (v7.29.2) with poetry and when running `semantic-release version` I receive the following output:
+
+```
+Creating new version
+Current version: 0.1.0, Current release version: 0.2.0
+```
+
+However, the pyproject.toml file still has `version = ""0.1.0""` and no new tags are generated. Per the docs, this should ""Figure out the new version number, update and commit it, and create a tag."", but seemingly nothing is happening except the new version determination. No warnings or errors are observed using -v WARNING or -v ERROR, respectively.
+
+## Expected behavior
+
+I expected the version number to be updated to `0.2.0` in pyproject.toml, a new tag to be generated, and the change to be committed.
+
+Also, per <https://py-pkgs.org/07-releasing-versioning> I expected to the following output:
+
+```
+Creating new version
+Current version: 0.1.0
+Bumping with a minor version to 0.2.0
+```
+
+Maybe that is no longer expected output, but at least expecting notification of bump.
+
+## Additional context",,python-semantic-release/python-semantic-release,460
+LabelEvent,bergsmith,2022-06-22T16:26:40.000Z,"bergsmith added bugSomething isn't working properlySomething isn't working properly on Jun 22, 2022",,python-semantic-release/python-semantic-release,460
+IssueComment,mholmeslinder,2022-07-01T19:53:37.000Z,"I'm having a similar issue.
+
+`Current version: 0.3.8, Current release version: 0.3.6`
+
+with setup.cfg looking like
+
+(we had been using bump2version, and I plan on deprecating that when I get this up and running).
+
+I'm honestly uncertain where the `0.3.6` is coming from - I can't find that version number anywhere in the repo atm.",,python-semantic-release/python-semantic-release,460
+IssueComment,CandiedCode,2022-07-01T22:47:17.000Z,[@mholmeslinder](https://github.com/mholmeslinder) my guess would be it has to do with your latest git tag? I'd guess the version in setup.py >= your latest github tag.,,python-semantic-release/python-semantic-release,460
+IssueComment,codejedi365,2022-07-03T02:43:02.000Z,"[@bergsmith](https://github.com/bergsmith), recommend you add the stdout log here that you get from running the debug command:
+
+You should see close to the bottom the regular expression that it attempts to match against the files that have the version number in them and it will include `num_matches=#` if it finds your version number. I recently had a similar issue (however mine still added the tag), and it was because the regular expression did not match properly. You might find the default regex used with the config `version_variable` is a bit limited IMO and not quite applicable to the entire `semver` standard, especially when considering pre-release trailing markers. If your case is like mine, you have to convert over to using the `version_pattern` config instead. I will be opening an issue on the embedded regex when I have the time.
+
+Example:
+
+Also, you should post your configuration parameters and associated version file locations for further support.",,python-semantic-release/python-semantic-release,460
+IssueComment,codejedi365,2022-07-03T02:51:21.000Z,"[@mholmeslinder](https://github.com/mholmeslinder), I agree with [@CandiedCode](https://github.com/CandiedCode). The two numbers are generated differently. The first is dependent on your `version_source` variable which derives the version from tags or your config files. The second version is purely generated based on what tags are on the repository or an explicit commit message with the version number in the subject.
+
+If you take a look at `semantic_release.history.__init__.py`, you can see the differences in the two functions that generate those numbers, `get_current_version()` and `get_current_release_version()` respectively.",,python-semantic-release/python-semantic-release,460
+IssueComment,aborsu,2022-07-07T08:09:58.000Z,"Hello, we're having issues when adding new projects that already have a non 0.0.0 version but didn't create commits with the version number.  
+[get\_current\_release\_version\_by\_commits](https://github.com/relekang/python-semantic-release/blame/55c9f4d44853b003d0822cc80cdf7f352d80f869/semantic_release/history/__init__.py) returns 0.0.0
+
+We get this in the logs:
+
+I don't have time to debug further so we're rolling back to 7.28.1 for now.",,python-semantic-release/python-semantic-release,460
+IssueComment,codejedi365,2022-07-10T18:52:33.000Z,"[@aborsu](https://github.com/aborsu) what configuration settings are you using? Looking at `get_current_release_version()`, if you set your configuration to `version_source = ""tag""`, it will use your tags to detect the current release version instead of the commits.
+
+The ""current version"" as described in the log is detected from an entry in your configuration file or a tag depending on your `version_source` value too.",,python-semantic-release/python-semantic-release,460
+IssueComment,bheijden,2022-07-22T07:15:25.000Z,"When your `version_source= ""commit""` (which it is per default, if not specified otherwise in your pyproject.toml), it seems that it will recursively look back at previous commit messages, apply a regex for the pattern `x.y.z.` and use the first match it has as the current release version.
+
+This means that if you have an unrelated commit message with that pattern anywhere and finds that before the tag, it will probably produce an error stating your versions do not match.
+
+In my case I had a commit message that bumped the version of some dependency: `chore: bump eagerx from 0.1.25 to 0.1.26`. Due to this line, semantic-version, `get_current_release_version()` would output `0.1.25` even though the latest tag would actually say `0.1.8`.
+
+I just checkend and this behavior is not there yet in `python_semantic_release-7.28.1-py3-none-any.whl`, but is there in version `python_semantic_release-7.29.0-py3-none-any.whl`. As a matter of fact, checking the `current_release_version` was introduced in `7.29.0` it seems?",,python-semantic-release/python-semantic-release,460
+IssueComment,kierun,2022-07-22T15:48:42.000Z,"[@bheijden](https://github.com/bheijden) Your explanation seems correct. I have a commit with `pip: bump types-requests from 2.28.0 to 2.28.2 (#23)` from dependabot. It is indeed the `2.28.0` that `semantic-release publish -v debug --noop` picks up:
+
+I am using `python-semantic-release 7.29.6`.
+
+Downgrading to `7.28.0` allows the operation to proceed as expected.",,python-semantic-release/python-semantic-release,460
+MentionedByIssue,bheijden,2022-07-25T05:40:43.000Z,"bheijden mentioned this on Jul 25, 2022
+Difference between version 7.28.1 and 7.29.0 when doing semantic-release publish #450",https://github.com/python-semantic-release/python-semantic-release/issues/450,python-semantic-release/python-semantic-release,460
+IssueComment,github-actions,2022-08-13T00:19:23.000Z,This bug report has been labelled as *help wanted* since there has been no activity in the last 3 weeks. It will not be closed.,,python-semantic-release/python-semantic-release,460
+LabelEvent,github-actions,2022-08-13T00:19:24.000Z,"github-actions added help-wantedExtra attention is requiredExtra attention is required on Aug 12, 2022",,python-semantic-release/python-semantic-release,460
+UnclassifiedEventType,github-actions,2022-10-23T00:29:11.000Z,"github-actionsremoved help-wantedExtra attention is requiredExtra attention is required on Oct 22, 2022",,python-semantic-release/python-semantic-release,460
+IssueComment,github-actions,2022-11-13T01:44:10.000Z,This bug report has been labelled as *help wanted* since there has been no activity in the last 3 weeks. It will not be closed.,,python-semantic-release/python-semantic-release,460
+LabelEvent,github-actions,2022-11-13T01:44:11.000Z,"github-actions added help-wantedExtra attention is requiredExtra attention is required and removed help-wantedExtra attention is requiredExtra attention is required on Nov 12, 2022",,python-semantic-release/python-semantic-release,460
+IssueComment,github-actions,2024-03-26T07:20:53.000Z,"This issue is stale because it has not been confirmed or planned by the maintainers and has been open 90 days with no recent activity. It will be closed in 7 days, if no further activity occurs. Thank you for your contributions.",,python-semantic-release/python-semantic-release,460
+LabelEvent,github-actions,2024-03-26T07:20:53.000Z,"github-actions added stale on Mar 26, 2024",,python-semantic-release/python-semantic-release,460
+IssueComment,github-actions,2024-04-02T07:23:41.000Z,This issue was closed because activity was dormant for 97 days.,,python-semantic-release/python-semantic-release,460
+ClosedEvent,github-actions,2024-04-02T07:23:41.000Z,"[github-actions closed this as not planned on Apr 2, 2024",,python-semantic-release/python-semantic-release,460

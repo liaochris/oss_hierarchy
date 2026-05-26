@@ -1,0 +1,13 @@
+Import('*')
+
+source = [
+    '#source/derived/create_bot_list/create_bot_list.py',
+    '#output/derived/hashes/scrape_issue.txt',
+    '#output/derived/hashes/scrape_pr.txt',
+]
+
+target = [
+    '#output/derived/create_bot_list/bot_list.csv',
+]
+
+env.Python(target, source)

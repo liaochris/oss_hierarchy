@@ -1,0 +1,64 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,SILIZ4,2021-11-04T15:08:11Z,[BUG]: Segfault/double free when returning vector<vector<int>>,https://github.com/pybind/pybind11/issues/3441,pybind/pybind11,3441
+IssueOpened,SILIZ4,2021-11-04T15:08:11Z,"### Required prerequisites
+
+* Make sure you've read the [documentation](https://pybind11.readthedocs.io). Your issue may be addressed there.
+* Search the [issue tracker](https://github.com/pybind/pybind11/issues) and [Discussions](https:/pybind/pybind11/discussions) to verify that this hasn't already been reported. +1 or comment there if it has.
+* Consider asking first in the [Gitter chat room](https://gitter.im/pybind/Lobby) or in a [Discussion](https:/pybind/pybind11/discussions/new).
+
+### Problem description
+
+I'm using ArchLinux, an Intel processor, pybind11 version 2.6.1 and python version 3.9.7.
+
+I want to generate a square matrix (vector<vector>) with a certain algorithm and use this matrix in python. However, when the square matrix has dimensions greater than 6x6, I get segmentation faults or double free error at the return statement.
+
+```
+$ python -c ""import pybind_crash; pybind_crash.generate_matrix(10)""
+finished generating
+double free or corruption (out)
+[1]    247496 abort (core dumped)  python -c ""import pybind_crash; pybind_crash.generate_matrix(10)""
+```
+
+### Reproducible example code
+
+```
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <vector>
+
+
+typedef std::vector<std::vector<int>> Matrix;
+
+Matrix generateMatrix(int size) {
+    Matrix matrix(size, std::vector<int>{size, 0});
+
+    for (size_t i=0; i<size; i++)
+        for (size_t j=i+1; j<size; j++)
+            matrix[i][j] = 1;
+    printf(""finished generating\n"");
+
+    return matrix;
+}
+
+PYBIND11_MODULE(pybind_crash, m) {
+    m.def(""generate_matrix"", &generateMatrix);
+}
+```",https://github.com/pybind/pybind11/issues/3441,pybind/pybind11,3441
+LabeledEvent,SILIZ4,2021-11-04T15:08:11Z,triage,,pybind/pybind11,3441
+IssueComment,jagerman,2021-11-20T16:23:39Z,"This is a C++ issue, nothing to do with pybind11. It is caused by this statement:
+
+```
+Matrix matrix(size, std::vector<int>{size, 0});
+```
+
+constructing an inner vector of size *2*, because `std::vector<int>{size, 0}` matches the initializer\_list constructor of vector (since both `size` and `0` are ints), and so your inner vectors are size 2 (containing values `size` and `0`). (This is an annoyance and source of bugs in C++ -- the same thing can happen with the std::string constructor).
+
+The simplest solution is to use `( )` instead of `{ }` on the inner constructor:
+
+```
+Matrix matrix(size, std::vector<int>(size, 0));
+```
+
+which will give you the expected size×size 2d vector. (And here you *can* use `{}` on the *outer* constructor, because the second argument here is not an int and so the initializer list constructor doesn't match).",,pybind/pybind11,3441
+ClosedEvent,jagerman,2021-11-20T16:23:40Z,Closed by jagerman in ,,pybind/pybind11,3441
+MentionedByIssue,rwgk,2023-02-10T17:10:00Z,,https://github.com/google/pybind11clif/issues/3441,pybind/pybind11,3441

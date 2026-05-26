@@ -1,0 +1,33 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,ger01d,2021-03-13T11:07:53Z,Changing the optimization algorithm,https://github.com/Phylliade/ikpy/issues/108,Phylliade/ikpy,108
+IssueOpened,ger01d,2021-03-13T11:07:53Z,"Is it possible to change the optimization algorithm with a function call, or is it only possible to statically change line 134 in *inverse\_kinematics.py*?  
+With *L-BFGS-B* and joint boundaries I noticed a jumpy behavior in the end effector positions of the kinematic model, so I changed it to *SLSQP*.
+
+The models, where this problems come up, can be found here:  
+[quadruped model](https://github.com/ger01d/kinematic-model-opencat)",https://github.com/Phylliade/ikpy/issues/108,Phylliade/ikpy,108
+IssueComment,stale,2021-06-02T15:06:23Z,This issue has been automatically marked as stale because it has not had recent activity. It will be closed if no further activity occurs. Thank you for your contributions.,,Phylliade/ikpy,108
+LabeledEvent,stale,2021-06-02T15:06:26Z,wontfix,,Phylliade/ikpy,108
+ClosedEvent,stale,2021-06-10T03:16:09Z,Closed by stale in ,,Phylliade/ikpy,108
+LabeledEvent,Phylliade,2021-07-08T08:51:44Z,enhancement,,Phylliade/ikpy,108
+IssueComment,Phylliade,2021-07-08T08:53:11Z,"Hello [@ger01d](https://github.com/ger01d),
+
+Did changing the optimization method to SLSQP solve your issue?
+
+In the meantime, I will add a method to select the optimization algorithm in the constructor",,Phylliade/ikpy,108
+IssueComment,ger01d,2021-07-08T16:33:00Z,"Hi [@Phylliade](https://github.com/Phylliade),
+
+yes, changing to SLSQP solved the problem. Thanks for bringing this feature into the code.",,Phylliade/ikpy,108
+MentionedByPR,Phylliade,2021-07-10T15:00:57Z,Add support for prismatic joint,https://github.com/Phylliade/ikpy/pull/109,Phylliade/ikpy,108
+ClosedEvent,Phylliade,2021-07-10T15:06:36Z,Closed by Phylliade in #109,https://github.com/Phylliade/ikpy/pull/109,Phylliade/ikpy,108
+IssueComment,Phylliade,2021-07-10T15:16:20Z,"Hello [@ger01d](https://github.com/ger01d),  
+Support for customizable optimization algorithms has landed on master and on `v3.2`. Just use the `optimization_method` of the `Chain.inverse_kinematics`.",,Phylliade/ikpy,108
+IssueComment,MarcDcls,2022-04-25T09:32:01Z,"Hi [@Phylliade](https://github.com/Phylliade),
+
+It seems that the argument `optimization_method` is never used in `inverse_kinematic_optimization` , can we really change the optimization algorithm through this argument ?",,Phylliade/ikpy,108
+IssueComment,Phylliade,2022-04-26T09:43:17Z,"Hello [@MarcDcls](https://github.com/MarcDcls) , yep you're right, this parameter is not used anymore",,Phylliade/ikpy,108
+IssueComment,Phylliade,2022-04-26T09:48:25Z,"[@marc](https://github.com/MarcDcls), do you need access to the old optimization method, based on L-BFGS-B?
+
+In [#123](https://github.com/Phylliade/ikpy/issues/123), access to L-BFGS-B is required because the new optimization method it breaks performances on some cases (to be dug)",,Phylliade/ikpy,108
+IssueComment,MarcDcls,2022-04-29T07:24:10Z,"Hi [@Phylliade](https://github.com/Phylliade),
+
+I wanted to test several optimization methods to find the one that fit the best my problem. I've managed to do it by myself so I don't have issue anymore. Thank you for your help",,Phylliade/ikpy,108

@@ -1,0 +1,40 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,Christopher-A,2019-01-02T18:50:41Z,Python ValueError when launching URH,https://github.com/jopohl/urh/issues/592,jopohl/urh,592
+IssueOpened,Christopher-A,2019-01-02T18:50:41Z,"When I launch URH I receive the following error:  
+Traceback (most recent call last):  
+File ""/usr/local/bin/urh"", line 11, in   
+sys.exit(main())  
+File ""/usr/local/lib/python3.7/site-packages/urh/main.py"", line 84, in main  
+import urh.cythonext.signal\_functions  
+File ""**init**.pxd"", line 918, in init urh.cythonext.signal\_functions  
+ValueError: numpy.ufunc size changed, may indicate binary incompatibility. Expected 216 from C header, got 192 from PyObject
+
+I've tried different versions of numpy with no success.
+
+##### Platform Specifications
+
+* OS: MacOS 10.14.1
+* URH version: 2.5.3
+* Python version: Python 3.7.2
+* Installed via pip3",https://github.com/jopohl/urh/issues/592,jopohl/urh,592
+IssueComment,jopohl,2019-01-02T19:05:30Z,"Quoting myself from [this thread](https://github.com/jopohl/urh/issues/273):
+
+Can't reproduce. Here is what I did:
+
+1. Create a fresh OSX 10.14 VM.
+2. Download Python from official website.
+3. `sudo python -m pip3 install urh`  
+   a. Click through all these flashing up fancy OSX dialogs  
+   b. run `sudo python3 -m pip install urh` again
+4. Start URH -> works
+
+I suppose you have some varying python libraries on your system. OSX is very good at messing this up. Is it possible you installed some python libraries with brew and others with pip? This may explain the issue.",,jopohl/urh,592
+LabeledEvent,jopohl,2019-01-02T19:05:52Z,macOS,,jopohl/urh,592
+LabeledEvent,jopohl,2019-01-02T19:05:59Z,installation,,jopohl/urh,592
+IssueComment,jopohl,2019-01-02T19:57:31Z,"Just a shot in the dark: Is your cython up-to-date?
+
+```
+python3 -m pip install --upgrade cython
+```",,jopohl/urh,592
+IssueComment,Christopher-A,2019-01-04T20:01:13Z,"Per that thread, downgrading to 2.5.1 has worked for me.",,jopohl/urh,592
+ClosedEvent,Christopher-A,2019-01-04T20:01:13Z,Closed by Christopher-A in ,,jopohl/urh,592

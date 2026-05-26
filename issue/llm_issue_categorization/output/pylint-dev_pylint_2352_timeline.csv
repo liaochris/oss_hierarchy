@@ -1,0 +1,40 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,pbasista,2018-07-27T08:04:51Z,Crash when checking code with bare raise followed by bare except,https://github.com/pylint-dev/pylint/issues/2352,pylint-dev/pylint,2352
+IssueOpened,pbasista,2018-07-27T08:04:51Z,"The current master branch version [4365080](https://github.com/pylint-dev/pylint/commit/436508032373c9c6a876a042c0ab36ede8fc8f63) crashes when checking the following code:
+
+```
+try:
+    pass
+except RuntimeError:
+    raise
+except:
+    print(""a failure"")
+```
+
+### Current behavior
+
+```
+internal error with sending report for module ['test.py']
+'NoneType' object has no attribute 'infer'
+```
+
+### Expected behavior
+
+No crash and no `try-except-raise` warning reported. This usage of bare raise together with bare except is in my opinion justified and pylint should not warn about using bare raise in this case. It may still warn about using bare except, but that is another topic.
+
+### pylint --version output
+
+```
+pylint 2.0.0
+astroid 2.0.1
+Python 3.6.6 (default, Jun 27 2018, 14:44:17) 
+[GCC 8.1.0]
+```
+
+The crashing behavior was introduced by PR [#2308](https://github.com/pylint-dev/pylint/pull/2308). It contains a comment identifying the place where the issue occurs.",https://github.com/pylint-dev/pylint/issues/2352,pylint-dev/pylint,2352
+MentionedByPR,pbasista,2018-07-27T08:05:57Z,`try-except-raise` should consider parent class handlers.,https://github.com/pylint-dev/pylint/pull/2308,pylint-dev/pylint,2352
+AssignedEvent,sushobhit27,2018-07-27T12:32:31Z,sushobhit27 assigned sushobhit27,,pylint-dev/pylint,2352
+IssueComment,sushobhit27,2018-07-27T12:34:48Z,[@pbasista](https://github.com/pbasista) I will provide a fix for this.,,pylint-dev/pylint,2352
+MentionedByPR,sushobhit27,2018-07-27T15:28:23Z,consider bare except also for try-except-raise,https://github.com/pylint-dev/pylint/pull/2353,pylint-dev/pylint,2352
+IssueComment,PCManticore,2018-07-31T07:17:05Z,"[#2353](https://github.com/pylint-dev/pylint/pull/2353) fixed the crash you are getting. Regarding the other comment for `try-except-raise`, I disagree. It's rarely the case that a bare raise together with a bare except are justified, the only case that I could think of is when you want to handle more specialised exception before a general one, but there might be better ways to approach that use case as well.",,pylint-dev/pylint,2352
+ClosedEvent,PCManticore,2018-07-31T07:17:07Z,Closed by PCManticore in ,,pylint-dev/pylint,2352

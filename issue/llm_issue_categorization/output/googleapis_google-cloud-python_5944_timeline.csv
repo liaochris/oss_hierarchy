@@ -1,0 +1,99 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,hishnash,2018-09-12T04:09:57Z,FireStore: Saving items that have both empty object values and SERVER_TIMESTAMP results in missing attributes.,https://github.com/googleapis/google-cloud-python/issues/5944,googleapis/google-cloud-python,5944
+IssueOpened,hishnash,2018-09-12T04:09:57Z,"When saving data to firestore with an attribute that is an empty `{}`:
+
+if the date fields are `firestore.SERVER_TIMESTAMP` then the field with an empty `{}` is not persisted to the db but if the date fields are `Datetime` instances then the empty object fields are persisted.
+
+### OS type and version
+
+1. MacOS 10.13.6 (17G2307)
+2. DOCKER container: Linux version 4.9.93-linuxkit-aufs (root@856d34d1168e) (gcc version 6.4.0 (Alpin  
+   e 6.4.0) ) [Add support for namespaces #1](https://github.com/googleapis/google-cloud-python/issues/1) SMP Wed Jun 6 16:55:56 UTC 2018
+
+### Python version and virtual environment information `python --version`
+
+Python 3.6.6
+
+### google-cloud-python versions
+
+google-api-core==1.3.0  
+google-auth==1.5.1  
+google-cloud-core==0.28.1  
+google-cloud-firestore==0.29.0  
+google-cloud-storage==1.11.0  
+google-resumable-media==0.3.1
+
+### Stacktrace if available
+
+NA
+
+### Steps to reproduce
+
+1. save to the db:
+
+```
+data = {
+     'date_created': firestore.SERVER_TIMESTAMP,
+     'date_modified': firestore.SERVER_TIMESTAMP,
+     'resources': {}
+}
+
+transaction.set(
+    reference,
+    data,
+    option=db.write_option(exists=False),
+)
+```
+
+2. look in firestore and notice `resources` attribute is not present.
+
+save with `date_created` and `date_modified` = `datetime.datetime.utcnow()` and `resources` attributes is set with an empty object value.",,googleapis/google-cloud-python,5944
+LabelEvent,tseaver,2018-09-12T05:43:12.000Z,"tseaver added type: bugError or flaw in code with unintended results or allowing sub-optimal usage patterns.Error or flaw in code with unintended results or allowing sub-optimal usage patterns. priority: p2Moderately-important priority. Fix may not be included in next release.Moderately-important priority. Fix may not be included in next release. api: firestoreIssues related to the Firestore API.Issues related to the Firestore API. status: investigatingThe issue is under investigation, which is determined to be non-trivial.The issue is under investigation, which is determined to be non-trivial. on Sep 12, 2018",,googleapis/google-cloud-python,5944
+AssigneeEvent,tseaver,2018-09-18T21:15:24.000Z,"tseaverself- assigned thison Sep 18, 2018",,googleapis/google-cloud-python,5944
+IssueComment,tseaver,2018-09-18T21:16:00.000Z,"I can verify that the ~~error is present~~ empty dict value is omitted in `google.cloud.firestore_v1._helpers.pbs_for_set` (i.e, we are not copying the empty dict *before* we send it on the wire to the back-end).",,googleapis/google-cloud-python,5944
+IssueComment,tseaver,2018-09-18T22:11:11.000Z,"[@lukesneeringer](https://github.com/lukesneeringer) added an explicit skip of empty dicts in `_helpers.process_server_timestamp` in [8d03ef8](https://github.com/googleapis/google-cloud-python/commit/8d03ef8894b2056e6653087c11efe1ee9623bec5).
+
+[@jba](https://github.com/jba) Can you confirm one way or another whether skipping empty dict values is correct?",,googleapis/google-cloud-python,5944
+IssueComment,jba,2018-09-20T23:19:21.000Z,[@schmidt-sebastian](https://github.com/schmidt-sebastian),,googleapis/google-cloud-python,5944
+IssueComment,schmidt-sebastian,2018-09-20T23:33:22.000Z,"You can implement this in a couple different ways, but in order to get the conformance tests to pass, you need to send the absolute minimum requests that produces the desired outcome:
+
+This cases are covered well by the conformance tests, and I am a little surprised that this is broken. Let me know if I am not understanding this correctly.",,googleapis/google-cloud-python,5944
+IssueComment,tseaver,2018-09-21T14:57:52.000Z,[@schmidt-sebastian](https://github.com/schmidt-sebastian) The reported case is a combination of the two. The code in Python which generates the server transform ends up munging the data (to comb out the server timestamp fields) and ends up dropping empty maps.,,googleapis/google-cloud-python,5944
+IssueComment,tseaver,2018-09-21T15:00:06.000Z,I think the intent of the code in place is to avoid sending an empty map if the original map contained only server transforms: it overlooks the case that the map was originally empty.,,googleapis/google-cloud-python,5944
+IssueComment,jba,2018-09-21T17:03:01.000Z,@jadekler to add this case to the conformance tests.,,googleapis/google-cloud-python,5944
+MentionedByPR,tseaver,2018-09-21T17:40:00.000Z,"tseaver mentioned this on Sep 21, 2018
+Firestore: don't omit originally-empty map values when processing timestamps. #6050",https://github.com/googleapis/google-cloud-python/pull/6050,googleapis/google-cloud-python,5944
+IssueComment,tseaver,2018-09-21T17:41:17.000Z,PR [#6050](https://github.com/googleapis/google-cloud-python/pull/6050) implements a fix based on the understanding I noted above.,,googleapis/google-cloud-python,5944
+ClosedEvent,tseaver,2018-09-22T00:40:14.000Z,"[tseaver closed this as completedin #6050 on Sep 21, 2018",https://github.com/googleapis/google-cloud-python/pull/6050,googleapis/google-cloud-python,5944
+MentionedByCommit,tseaver,2018-09-22T00:40:16.000Z,"tseaveradded a commit that references this issue on Sep 21, 2018Firestore: don't omit originally-empty map values when processing tim…...This issue will close once commit dc904ea is merged into the 'main' branch.Verifieddc904ea
+Firestore: don't omit originally-empty map values when processing timestamps. (#6050)
+
+Closes #5944.",https://github.com/googleapis/google-cloud-python/commit/dc904eab43bbe1b14ed3a090dc524d573f6632fd,googleapis/google-cloud-python,5944
+MentionedByCommit,tseaver,2018-09-22T00:40:16.000Z,"tseaveradded a commit that references this issue on Sep 21, 2018Firestore: don't omit originally-empty map values when processing tim…...This issue will close once commit dc904ea is merged into the 'main' branch.Verifieddc904ea",https://github.com/googleapis/google-cloud-python/commit/dc904eab43bbe1b14ed3a090dc524d573f6632fd,googleapis/google-cloud-python,5944
+MentionedByPR,jdpedrie,2018-09-24T17:33:12.000Z,"jdpedrie mentioned this on Sep 24, 2018
+Fix handling of empty sets in Firestore updates google-cloud-php#1316",https://github.com/googleapis/google-cloud-php/pull/1316,googleapis/google-cloud-python,5944
+MentionedByCommit,jdpedrie,2018-10-02T15:21:27.000Z,"jdpedrieadded a commit that references this issue on Oct 2, 2018Fix handling of empty sets in Firestore updates (#1316)...Verified24b19a0
+Fix handling of empty sets in Firestore updates (#1316)
+
+For context see:
+
+* https://github.com/GoogleCloudPlatform/google-cloud-python/issues/5944
+* https://github.com/googleapis/google-cloud-common/pull/264
+
+In PHP we can differentiate between Firestore maps and arrays based on whether the PHP array is associative or not. That difference gets considerably trickier when considering empty arrays. To create an empty map in PHP's Firestore client, you must explicitly provide `(object) []`.",https://github.com/googleapis/google-cloud-php/commit/24b19a0ac76bb14230c73447b8c6691a13d4a711,googleapis/google-cloud-python,5944
+MentionedByCommit,jdpedrie,2018-10-02T15:21:27.000Z,"jdpedrieadded a commit that references this issue on Oct 2, 2018Fix handling of empty sets in Firestore updates (#1316)...Verified24b19a0",https://github.com/googleapis/google-cloud-php/commit/24b19a0ac76bb14230c73447b8c6691a13d4a711,googleapis/google-cloud-python,5944
+MentionedByCommit,dwsupplee,2018-10-08T14:28:45.000Z,"dwsuppleeadded a commit that references this issue on Oct 8, 2018Fix handling of empty sets in Firestore updates (#1316)...0c2c132
+Fix handling of empty sets in Firestore updates (#1316)
+
+For context see:
+
+* https://github.com/GoogleCloudPlatform/google-cloud-python/issues/5944
+* https://github.com/googleapis/google-cloud-common/pull/264
+
+In PHP we can differentiate between Firestore maps and arrays based on whether the PHP array is associative or not. That difference gets considerably trickier when considering empty arrays. To create an empty map in PHP's Firestore client, you must explicitly provide `(object) []`.",https://github.com/googleapis/google-cloud-php-firestore/commit/0c2c132201f1c1f6783fbf7c8caac5a5babcf63f,googleapis/google-cloud-python,5944
+MentionedByCommit,dwsupplee,2018-10-08T14:28:45.000Z,"dwsuppleeadded a commit that references this issue on Oct 8, 2018Fix handling of empty sets in Firestore updates (#1316)...0c2c132",https://github.com/googleapis/google-cloud-php-firestore/commit/0c2c132201f1c1f6783fbf7c8caac5a5babcf63f,googleapis/google-cloud-python,5944
+MentionedByCommit,parthea,2025-11-24T22:48:48.000Z,"partheaadded a commit that references this issue on Nov 24, 2025Firestore: don't omit originally-empty map values when processing tim…...This issue will close once commit 0141019 is merged into the 'main' branch.0141019
+Firestore: don't omit originally-empty map values when processing timestamps. (#6050)
+
+Closes #5944.",https://github.com/googleapis/google-cloud-python/commit/0141019300c753cf2e953d79e679e581359808ea,googleapis/google-cloud-python,5944
+MentionedByCommit,parthea,2025-11-24T22:48:48.000Z,"partheaadded a commit that references this issue on Nov 24, 2025Firestore: don't omit originally-empty map values when processing tim…...This issue will close once commit 0141019 is merged into the 'main' branch.0141019",https://github.com/googleapis/google-cloud-python/commit/0141019300c753cf2e953d79e679e581359808ea,googleapis/google-cloud-python,5944

@@ -1,0 +1,25 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,NSC9,2024-04-28T01:05:05Z,Display Function Cannot Combine Vector Arrows with Subscripts In Jupyter Notebooks,https://github.com/sympy/sympy/issues/26549,sympy/sympy,26549
+IssueOpened,NSC9,2024-04-28T01:05:05Z,"I am using Sympy v1.9
+
+[![Screenshot from 2024-04-27 20-01-39](https://private-user-images.githubusercontent.com/90940891/326221632-eab23223-8519-4c1e-aa02-f6c56d398876.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3Njk2NTY2MDgsIm5iZiI6MTc2OTY1NjMwOCwicGF0aCI6Ii85MDk0MDg5MS8zMjYyMjE2MzItZWFiMjMyMjMtODUxOS00YzFlLWFhMDItZjZjNTZkMzk4ODc2LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNjAxMjklMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjYwMTI5VDAzMTE0OFomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTRmODJkZDQ1MTVjMjI0NWU2MWU5OWEyOGEzNmViNDc2OThlZTA3OWVjMmIyOTg4MzQ4MmM4MjE1M2IwOTYxNjMmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.SiIa6wAWvfZdrdsYGrcM_9fBVrBPiNoyVdWpjq_jwdw)](https://private-user-images.githubusercontent.com/90940891/326221632-eab23223-8519-4c1e-aa02-f6c56d398876.png?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3Njk2NTY2MDgsIm5iZiI6MTc2OTY1NjMwOCwicGF0aCI6Ii85MDk0MDg5MS8zMjYyMjE2MzItZWFiMjMyMjMtODUxOS00YzFlLWFhMDItZjZjNTZkMzk4ODc2LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNjAxMjklMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjYwMTI5VDAzMTE0OFomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTRmODJkZDQ1MTVjMjI0NWU2MWU5OWEyOGEzNmViNDc2OThlZTA3OWVjMmIyOTg4MzQ4MmM4MjE1M2IwOTYxNjMmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.SiIa6wAWvfZdrdsYGrcM_9fBVrBPiNoyVdWpjq_jwdw)
+
+```
+display(Symbol('v\u20D7'))
+v0,v0x=symbols('v_0 v_0x')
+display(v0,v0x)
+display(Symbol(f'{v0}\u20D7'))
+```
+
+As one can see, splicing a subscripted symbol into another symbol to add a vector on top simply puts the arrow above the subscripted zero.",https://github.com/sympy/sympy/issues/26549,sympy/sympy,26549
+IssueComment,sylee957,2024-04-28T10:36:14Z,"I'm not familiar about the tricks with \u20D7, however, it looks you are using the unicode combining characters. <https://en.wikipedia.org/wiki/Combining_character>
+
+However, I don't think that the combining character is compatible with every LaTeX as you expected, beyond basic cases,  
+and I don't think that this is any issue with SymPy, because it happens before SymPy. `v_0\u20D7` is interpreted as 3 glyphs, `v`, `_`, `0\u20D7`.
+
+Obviously, there are more advanced tricks with unicode that may work around this, and you may combine with unicode subscripts, such as `Symbol('v\u20D7\u2080')` for workaround, however, that may not be desirable because you may face much more confusing compatibility issues with LaTeX later.
+
+I may suggest to wrap symbol names inside LaTeX control sequences like `\overrightarrow`, such as  
+`Symbol('\overrightarrow{v_0}')` and it should display correctly as $\overrightarrow{v\_0}$
+
+I also generally suggest to avoid tricks with unicode, and try to find LaTeX control sequences that does same work. I rarely use unicode combining characters, or unicode subscripts or superscripts, because they are not sufficient for many math formula.",,sympy/sympy,26549

@@ -1,0 +1,55 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,davidclin,2018-12-21T20:39:30Z,c7n-mailer: No module named c7n.mu,https://github.com/cloud-custodian/cloud-custodian/issues/3275,cloud-custodian/cloud-custodian,3275
+IssueOpened,davidclin,2018-12-21T20:39:30Z,"I'm doing a fresh install of the c7n\_mailer tool from master and encountering `ImportError: No module named c7n.mu` when executing the command c7n-mailer:
+
+```
+(c7n_mailer) [ec2-user@cloudcustodian-mfa-launcher cloud-custodian]$ c7n-mailer
+Traceback (most recent call last):
+  File ""/usr/bin/c7n-mailer"", line 11, in 
+    load_entry_point('c7n-mailer', 'console_scripts', 'c7n-mailer')()
+  File ""/usr/lib/python2.7/site-packages/pkg_resources/__init__.py"", line 572, in load_entry_point
+    return get_distribution(dist).load_entry_point(group, name)
+  File ""/usr/lib/python2.7/site-packages/pkg_resources/__init__.py"", line 2755, in load_entry_point
+    return ep.load()
+  File ""/usr/lib/python2.7/site-packages/pkg_resources/__init__.py"", line 2408, in load
+    return self.resolve()
+  File ""/usr/lib/python2.7/site-packages/pkg_resources/__init__.py"", line 2414, in resolve
+    module = __import__(self.module_name, fromlist=['__name__'], level=0)
+  File ""/home/ec2-user/cloud-custodian/tools/c7n_mailer/c7n_mailer/cli.py"", line 10, in 
+    from c7n_mailer import deploy, utils
+  File ""/home/ec2-user/cloud-custodian/tools/c7n_mailer/c7n_mailer/deploy.py"", line 20, in 
+    from c7n.mu import (
+ImportError: No module named c7n.mu
+```
+
+There are the steps I used:
+
+```
+*** Install repository***
+$ git clone https://github.com/capitalone/cloud-custodian
+
+*** Install dependencies (with virtualenv) ***
+$ virtualenv c7n_mailer
+$ source c7n_mailer/bin/activate
+$ cd cloud-custodian/tools/c7n_mailer
+$ pip install -r requirements.txt
+
+*** Install extensions ***
+$ sudo python setup.py develop
+
+*** Verify Installation ***
+$ c7n-mailer
+$ custodian
+```
+
+What am I doing wrong?
+
+I'm using the latest Amazon Linux2 AMI, ami-009d6802948d06e52 (64-bit x86).",https://github.com/cloud-custodian/cloud-custodian/issues/3275,cloud-custodian/cloud-custodian,3275
+IssueComment,kapilt,2018-12-28T00:07:31Z,"i think its the sudo command thats causing problems, as it will exit the virtualenv",,cloud-custodian/cloud-custodian,3275
+IssueComment,kapilt,2018-12-31T22:50:12Z,"fwiw, i dropped the sudo and ran the same in amazon linux docker container without issue, i'd suggest doing the same, extensions compilation and venv install doesn't need sudo.",,cloud-custodian/cloud-custodian,3275
+IssueComment,kapilt,2018-12-31T22:52:25Z,"if you really do need sudo you should give full path to venv binary on python, and be prepared to chmod depending on your default umask for the venv installs.",,cloud-custodian/cloud-custodian,3275
+LabeledEvent,kapilt,2018-12-31T22:53:00Z,kind/question,,cloud-custodian/cloud-custodian,3275
+IssueComment,davidclin,2019-01-02T19:42:21Z,Thanks. The `sudo` was what did me in. Appreciate the help!,,cloud-custodian/cloud-custodian,3275
+ClosedEvent,davidclin,2019-01-02T19:42:21Z,Closed by davidclin in ,,cloud-custodian/cloud-custodian,3275
+IssueComment,davidclin,2019-01-02T19:43:15Z,Issue resolved!,,cloud-custodian/cloud-custodian,3275
+MentionedByIssue,jawadmrahman350,2021-10-04T19:26:30Z,,https://github.com/cloud-custodian/cloud-custodian/issues/6926,cloud-custodian/cloud-custodian,3275

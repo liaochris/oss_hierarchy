@@ -1,0 +1,134 @@
+Import('*')
+
+from source.lib.python.config_loaders import LoadGlobalSettings, LoadPipelineInputs
+
+_g      = LoadGlobalSettings("../../../source/lib/config/global_settings.json")
+_cfg    = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
+rolling = f"rolling{_g['rolling_periods']}"
+
+importance_types = _cfg["importance_types"]["run"] + _cfg["importance_types"]["extended"]
+rolling_periods  = [f"rolling{p}" for p in _cfg["rolling_periods"]["run"] + _cfg["rolling_periods"]["extended"]]
+all_subsets      = ["all"] + importance_types
+bot_list         = '#output/derived/create_bot_list/bot_list.csv'
+
+env.Python(
+    target=[
+        '#output/derived/hashes/org_outcomes.txt',
+    ],
+    source=[
+        '#source/derived/org_outcomes_practices/org_outcomes.py',
+        '#output/derived/hashes/repo_actions.txt',
+        '#drive/output/scrape/pypi_downloads/pypi_monthly_downloads.parquet',
+        '#output/scrape/pypi_site_info/linked_pypi_github.csv',
+        '#output/scrape/extract_github_data/repo_id_history_final.csv',
+        # pypi_version_downloads is a glob of per-package parquets; not enumerable statically
+    ],
+)
+
+env.Python(
+    target=[
+        f'#output/derived/hashes/repo_collaboration_{s}_{rolling}.txt'
+        for s in all_subsets
+    ],
+    source=[
+        '#source/derived/org_outcomes_practices/collaboration.py',
+        '#source/derived/org_outcomes_practices/helpers.py',
+        '#output/derived/hashes/repo_actions.txt',
+        '#output/derived/hashes/interactions.txt',
+        '#output/derived/hashes/important_members.txt',
+        bot_list,
+    ],
+)
+
+env.Python(
+    target=[
+        f'#output/derived/hashes/repo_shared_knowledge_{s}_{rolling}.txt'
+        for s in all_subsets
+    ],
+    source=[
+        '#source/derived/org_outcomes_practices/shared_knowledge.py',
+        '#source/derived/org_outcomes_practices/helpers.py',
+        '#output/derived/hashes/repo_actions.txt',
+        '#output/derived/hashes/important_members.txt',
+        bot_list,
+    ],
+)
+
+env.Python(
+    target=[
+        f'#output/derived/hashes/repo_discussion_quality_{s}_{rolling}.txt'
+        for s in all_subsets
+    ],
+    source=[
+        '#source/derived/org_outcomes_practices/discussion_quality.py',
+        '#source/derived/org_outcomes_practices/helpers.py',
+        '#source/derived/org_outcomes_practices/constants.json',
+        '#output/derived/hashes/repo_actions.txt',
+        '#output/derived/hashes/interactions.txt',
+        '#output/derived/hashes/cleaned_text.txt',
+        '#output/derived/hashes/important_members.txt',
+        bot_list,
+        # graph_structure/graphs GEXF files used by CalculateNetworkClustering; not enumerable statically
+    ],
+)
+
+env.Python(
+    target=[
+        f'#output/derived/hashes/repo_investment_in_new_talent_{s}_{rolling}.txt'
+        for s in all_subsets
+    ],
+    source=[
+        '#source/derived/org_outcomes_practices/investment_in_new_talent.py',
+        '#source/derived/org_outcomes_practices/helpers.py',
+        '#source/derived/org_outcomes_practices/constants.json',
+        '#output/derived/hashes/repo_actions.txt',
+        '#output/derived/hashes/interactions.txt',
+        '#output/derived/hashes/important_members.txt',
+        bot_list,
+    ],
+)
+
+env.Python(
+    target=[
+        f'#output/derived/hashes/repo_organizational_routines_{rolling}.txt',
+    ],
+    source=[
+        '#source/derived/org_outcomes_practices/organizational_routines.py',
+        '#source/derived/org_outcomes_practices/helpers.py',
+        '#output/derived/hashes/repo_actions.txt',
+    ],
+)
+
+panel_targets = []
+panel_sources = [
+    '#source/derived/org_outcomes_practices/org_panel.py',
+    '#source/lib/config/analysis_parameters.json',
+    '#source/lib/config/global_settings.json',
+    '#source/lib/config/importance_specifications.json',
+    '#source/lib/config/pipeline_inputs.json',
+    '#output/derived/hashes/org_outcomes.txt',
+    '#output/derived/hashes/important_members.txt',
+]
+
+for rolling_period in rolling_periods:
+    rp = rolling_period.replace("rolling", "")
+    panel_sources.extend([
+        f'#output/derived/hashes/repo_collaboration_all_rolling{rp}.txt',
+        f'#output/derived/hashes/repo_shared_knowledge_all_rolling{rp}.txt',
+        f'#output/derived/hashes/repo_discussion_quality_all_rolling{rp}.txt',
+        f'#output/derived/hashes/repo_investment_in_new_talent_all_rolling{rp}.txt',
+        f'#output/derived/hashes/repo_organizational_routines_rolling{rp}.txt',
+    ])
+    for importance_type in importance_types:
+        panel_targets.extend([
+            f'#drive/output/derived/org_outcomes_practices/org_panel/{importance_type}/{rolling_period}/panel.parquet',
+            f'#output/derived/org_outcomes_practices/org_panel_{importance_type}_{rolling_period}.log',
+        ])
+        panel_sources.extend([
+            f'#output/derived/hashes/repo_collaboration_{importance_type}_rolling{rp}.txt',
+            f'#output/derived/hashes/repo_shared_knowledge_{importance_type}_rolling{rp}.txt',
+            f'#output/derived/hashes/repo_discussion_quality_{importance_type}_rolling{rp}.txt',
+            f'#output/derived/hashes/repo_investment_in_new_talent_{importance_type}_rolling{rp}.txt',
+        ])
+
+env.Python(panel_targets, panel_sources)

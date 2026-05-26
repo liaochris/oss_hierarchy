@@ -1,0 +1,28 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,kellerza,2016-10-09T12:09:59Z,Don't reset the developer tool views when switching between them,https://github.com/home-assistant/frontend/issues/124,home-assistant/frontend,124
+IssueOpened,kellerza,2016-10-09T12:09:59Z,"Since the web optimization, if you switch developer tab tools, the complete view gets re-built.
+
+It would be nice if data entered in these views are not lost when switching between them.
+
+During testing there is a lot of switching between ""Templates"", ""Entities"", ""Services"", ""Events"" and copying data between them. If they reset it slows down this process significantly",https://github.com/home-assistant/frontend/issues/124,home-assistant/frontend,124
+LabeledEvent,justweb1,2016-10-09T12:11:56Z,Enhancement,,home-assistant/frontend,124
+LabeledEvent,justweb1,2016-10-09T12:11:56Z,hacktoberfest,,home-assistant/frontend,124
+IssueComment,balloob,2016-10-11T07:43:01Z,"The problem is [here](https://github.com/home-assistant/home-assistant-polymer/blob/master/src/layouts/home-assistant-main.html#L28-L49). Right now all non-states panels will be resolved in the `partial-panel-resolver`, which will remove panels that are no longer used from the DOM.
+
+It would be better if it would hide the old element and render the new one. Only downside there is that the hidden elements would still be subscribed to the data and thus each update will cause a lot of updates. This means that each panel will have to be aware if it is visible or not and unsubscribe if that is the case.
+
+Extra bonus: the related Pivotal story: <https://www.pivotaltracker.com/story/show/127563225>",,home-assistant/frontend,124
+IssueComment,justweb1,2016-10-12T12:51:24Z,"<https://github.com/home-assistant/home-assistant-polymer/blob/master/src/layouts/partial-panel-resolver.html#L88-L94>
+
+I think this is the code that would need to be updated.",,home-assistant/frontend,124
+IssueComment,justweb1,2016-10-14T00:41:53Z,I think this one is a little beyond my understanding at this point. I'll watch it to learn though.,,home-assistant/frontend,124
+IssueComment,justweb1,2016-10-17T13:50:24Z,[@balloob](https://github.com/balloob) Could we save the state with local storage?,,home-assistant/frontend,124
+MentionedByPR,justweb1,2016-10-18T13:01:21Z,Improve ha-panel-dev-serivce.html,https://github.com/home-assistant/frontend/pull/130,home-assistant/frontend,124
+IssueComment,justweb1,2016-10-18T13:02:25Z,[@kellerza](https://github.com/kellerza) [@balloob](https://github.com/balloob) `<app-localstorage-document>` works to fix this issue. See [#130](https://github.com/home-assistant/frontend/pull/130),,home-assistant/frontend,124
+IssueComment,kellerza,2016-11-23T05:32:11Z,"Works very well for services, thanks [@justweb1](https://github.com/justweb1)!
+
+It would be a nice to have for events and states, but services really are the most used.",,home-assistant/frontend,124
+ClosedEvent,kellerza,2016-11-23T05:32:11Z,Closed by kellerza in ,,home-assistant/frontend,124
+MentionedByCommit,tkdrob,2021-04-20T01:19:43Z,duplicated [home-assistant#124](https://github.com/home-assistant/frontend/issues/124) for 2.0.0 docs,https://github.com/tkdrob/frontend/commit/92267907732980a73da60ca3db9e8d6770c91409,home-assistant/frontend,124
+MentionedByCommit,tkdrob,2021-04-20T01:19:43Z,Merge pull request [home-assistant#124](https://github.com/home-assistant/frontend/issues/124) from home-assistant/olbjan-patch-1,https://github.com/tkdrob/frontend/commit/bd48d24ecbb8dccc6089e988b4a58d5ef5fbc869,home-assistant/frontend,124
+MentionedByCommit,tkdrob,2021-04-20T01:19:44Z,Merge pull request [home-assistant#125](https://github.com/home-assistant/frontend/issues/125) from home-assistant/olbjan-patch-2,https://github.com/tkdrob/frontend/commit/7995699e383b6ac195d483c85ec7619f88d77ea0,home-assistant/frontend,124

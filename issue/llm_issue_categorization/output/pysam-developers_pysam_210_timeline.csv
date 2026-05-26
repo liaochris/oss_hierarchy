@@ -1,0 +1,29 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,andyrimmer,2016-01-20T11:33:23Z,Use of properties without caching in VariantRecord could cause unintentional performance problems,https://github.com/pysam-developers/pysam/issues/210,pysam-developers/pysam,210
+IssueOpened,andyrimmer,2016-01-20T11:33:23Z,"The lazy parsing implemented in VariantRecord is great, but currently caching of e.g. the INFO data must be done by the user of the class. If used in the following way, the user will incur the penalty of unpacking the INFO data many times without being aware of it unless they go and look into the code.
+
+```
+for x in listOfPossibleInfoFields:
+    if x in record.info:
+        doSomethingWithX(x)
+```
+
+One solution is to implement a per-instance cache on the VariantRecord class.",https://github.com/pysam-developers/pysam/issues/210,pysam-developers/pysam,210
+IssueComment,AndreasHeger,2016-01-24T20:52:43Z,"Thanks! It might take a little to implement this.
+
+[@bioinformed](https://github.com/bioinformed), what is your suggestion?",,pysam-developers/pysam,210
+IssueComment,bioinformed,2016-01-27T07:42:41Z,"**Quick answer**  
+Is the following sufficiently faster?
+
+```
+    for key, value in record.info.iteritems():
+        if key in setOfUsefulInfoFields:
+            doSomethingWithInfo(record, key, value)
+```
+
+**Longer answer**  
+The current proxy classes and properties are pretty fast, in spite of the overhead involved in creating Python objects for keys and values every time they are accessed. Do you have an example where the overhead is substantial relative to any real processing done in Python? If so, the next simple optimization would be to cache Python string versions of chrom/info/format string keys. Although easy enough to implement, I've put it off intentionally because it is possible for other non-pysam-aware C or Cython code to modify header objects under the hood. This can lead to loss of coherence between the C and Python objects and could result in incorrect results or segmentation faults.
+
+Full per-instance caches are certainly possible, but can also suffer from the same coherence problems and greatly increase the memory footprint of variant objects. Unless cache management was extremely explicit, the extra storage overhead could easily make materializing modestly large sets of variants prohibitively expensive (say a few 10s of thousands).",,pysam-developers/pysam,210
+IssueComment,AndreasHeger,2016-02-28T23:34:26Z,"Closing for now, let us see how this plays out in practice.",,pysam-developers/pysam,210
+ClosedEvent,AndreasHeger,2016-02-28T23:34:26Z,Closed by AndreasHeger in ,,pysam-developers/pysam,210

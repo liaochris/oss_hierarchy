@@ -10,11 +10,13 @@ In order to access the Google Cloud BigQuery data for python downloads, I used t
    - For step 3, the BigQuery API is automatically enabled for new projects
    - For step 4, we're using `Client-Provided Authentication` so [create a service account](https://cloud.google.com/iam/docs/service-accounts-create#iam-service-accounts-create-console), create a new key, download the `.json` file with your key and then run `export GOOGLE_APPLICATION_CREDENTIALS=<<downloaded_json_location>>`
 2. I then installed `google-cloud-bigquery` in my virtual environment
-3. I ran the script `source/scrape/docs/query_github_data.py` to obtain event-level GitHub data
 
 ### Description
-- `docs/query_github_data.py` queries Google BQ for GitHub data
-- `docs/README.md` contains the README.md of the gharchive.org repository
+- `code/query_all_repo_identities.py` queries Google BQ to select all repo name and ID pairs associated with top Python projects
+- `code/group_repo_identities.py` groups repo name and ID pairs into GitHub repos. It also identifies forks and archived data (if applicable)
+- `code/query_github_data.py` queries Google BQ for GitHub data
+- `code/transform_event_to_repo_level.py` transforms GitHub event-level data into repo-level data for issue and pull request events
+- `docs/github_archive_readme.md` contains the README.md of the gharchive.org repository
 - `docs/LICENSE.md` contains the LICENSE.md of the gharchive.org repository
 
 ### Terms of Use
@@ -30,5 +32,11 @@ From the [GitHub Archive repository website](https://github.com/igrigorik/gharch
 
 
 ### Notes
-- Uses `output/derived/collect_github_repos/linked_pypi_github.csv` to filter GitHub repositories
 - Total cost of queries does not exceed Google BQ's $300 dollars in credit. 
+
+### Run Order
+1. Set up `GOOGLE_APPLICATION_CREDENTIALS` following above
+2. Run `source/scrape/extract_github_data/code/query_all_repo_identities.py`
+3. Run `source/scrape/extract_github_data/code/group_repo_identities.py`
+4. Run `source/scrape/extract_github_data/code/query_github_data.py`
+4. Run `source/scrape/extract_github_data/code/transform_event_to_repo_level.py`

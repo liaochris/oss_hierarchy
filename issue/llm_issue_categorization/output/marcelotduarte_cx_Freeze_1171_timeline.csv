@@ -1,0 +1,178 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,marcelotduarte,2021-07-20T21:49:14Z,patchelf issues,https://github.com/marcelotduarte/cx_Freeze/issues/1171,marcelotduarte/cx_Freeze,1171
+IssueOpened,marcelotduarte,2021-07-20T21:49:14Z,"Originally posted by **Fox214** July 9, 2021  
+Hi,
+
+I've been using cx\_freeze for years for a linux program. I recently tried the latest version which forces me to install patchelf in order to build. I was using patchelf after the process on a few selected files to make sure I got the right version of them and simply force ignore LD\_LIBRARY\_PATH anyways. The problem I'm having is after patchelf runs my program just seg faults and core dumps. I think its being too aggressive, i'm not certain if patchelf itself is corrupting some of the .so files, or the cx\_freeze call is editing them in a manner that causes the fail.
+
+I would like to propose some changes to the flow:
+
+1. allow cx\_freeze to run without patchelf. Probably best to make an option to disable, but if were as simple as if not in the users path it skips the processing that would work too. (it fails currently if its not in my path)
+2. If the user does run it, the default can be do everything but having the ability to either tell it which files to run or skip would be beneficial. I have no preference toward either method, supporting both may be best as different users might have a preferred one. For the explicit list it could be a ilst of tuples with (filename, patchelf args) structure (if the 2nd one blank it would use the default settings), an omit list could just be a list of files
+3. you should do a chmod +w (via os.chmod()) type operation before running patchelf, otherwise it fails.
+
+[@marcelotduarte](https://github.com/marcelotduarte)  
+marcelotduarte  
+11 days ago  
+Maintainer
+
+When I decided to include patchelf in cx-freeze, I even thought of something like your option 1. Use if installed.  
+The problem was that I had to help a lot of people with issues and that were directly connected to rpath. As most large packages use manylinux and consequently use patchelf to tune rpath, I saw the need to tweak it again for cx-freeze.  
+Maybe the right thing would be to find out which package used patchelf and use them only.  
+Leaving patchelf as an option will not work. Anyone who doesn't have it installed won't install it and then complain that it's not working and I'll have to ask to install it. Only in pure python projects (they don't use C extensions) you don't really need patchelf, in which case it won't fail and won't force installation. If the guy didn't install it, there won't be an error.  
+Of course, I'm not saying it's perfect, I've had to fix one or two bugs because of patchelf and I think there's one more open. But I think it's easier to fix them (because I'll have to fix them anyway) than to guide people to install patchelf after discovering that this is the cause, the lack of it.
+
+I suggest you give me your system details and errors on issue [#1132](https://github.com/marcelotduarte/cx_Freeze/issues/1132) if you think it's the same type of error you encountered.  
+1 reply  
+[@Fox214](https://github.com/Fox214)  
+Fox214  
+11 days ago  
+Author
+
+I'm not sure I started seeing segfaults with 6.5.3 (I did not try 6.5.1 or 6.5.2) my code is much more complex than that test case and is on CentOS 7.
+
+But I got a preliminary build to work with 6.7 and i checked there are 179 so files in the build, 53 of them have altered RPATHs, 49 of them are incorrect and I can tell from looking at readelf -d.
+
+If I unset LD\_LIBRARY\_PATH before running cx\_freeze (I set this so libraries are standardized and I do not get different behavior across the compute farm) only 36 files are edited, and the path seems reasonable. (otherwise it contained my LD\_LIBRARY\_PATH in it, which is not what I want) it still core dumps, possible due to the issue [#1132](https://github.com/marcelotduarte/cx_Freeze/issues/1132) (this occurs on 3.7.x and 3.8.x for me too)",,marcelotduarte/cx_Freeze,1171
+IssueComment,marcelotduarte,2021-07-20T21:50:55.000Z,[@Fox214](https://github.com/Fox214) I converted to an issue. Soon I'll take a look at it.,,marcelotduarte/cx_Freeze,1171
+IssueComment,Fox214,2021-07-21T02:53:43.000Z,"Ok thanks, I did verify 6.5.2 is the last version that works for me (if you ping me here I can test the new versions).
+
+Sorry this is light on the details but the modules I've had to tinker with to get to work (particularly with patchelf, possibly with includes etc..) have been numpy, scipy, scikit-learn, matplotlib and pyqt5, some of the issues seem to have been transitory (ie affecting just one or a couple specific versions) I think I ran into an issue the other day for some portion of matplotlib that needed the execution bit set (similar to the write bit I mention in point 3 above) i had to copy the entire python library to a new directory and do a chmod +x on my file and point cx\_Freeze to that. (might have been the ldd step?)
+
+If someone does a chmod 400 to their python directory I think cxfreeze should still work on it so it can do a chmod +w or chmod +x as needed on the files after it copies them.
+
+I apologize for lack of better information, i've spent days doing ldd/readelf -d on files and sometimes using more complex methods to tease out how to link everything so it works and its complex and involves a large number of files, at which point I don't have time to try and boil things down to a simple case :(
+
+Hard for me to say if the seg fault is from patchelf or something else, I get similar seg faults if files are not linked correctly. I can always rerun patchelf afterwards to fix things, but I'd rather not. Having the ability to turn it off would also allow me to see if it is patchelf causing the problem or if its independent of that.",,marcelotduarte/cx_Freeze,1171
+IssueComment,marcelotduarte,2021-07-21T14:14:57.000Z,"As I said before:
+
+When I decided to include patchelf in cx-freeze, I even thought of something like your option 1. Use if installed.  
+The problem was that I had to help a lot of people with issues and that were directly connected to rpath. As most large packages use manylinux and consequently use patchelf to tune rpath, I saw the need to tweak it again for cx-freeze.
+
+Some of the packages that I remember is numpy, pillow, pyzmq, ... that is distributed using manylinux and use patchelf, so I decide to use it too, because what cx-freeze does is a distribution of various packages in an app.
+
+numpy uses patchelf in manylinux, but if you compile it from sources, it doesn't use patchelf. Do you compile it from sources?
+
+In older versions of patchelf I already saw reports of segfaults. But with v 0.12 it is more stable. I know that CentOS does not have patchelf in its distribution, then, how do you install it? Do you compile it from source like described [here](https://cx-freeze.readthedocs.io/en/latest/installation.html#requirement-for-linux)?
+
+Is your python compiled from sources or compiled with configure option --with-lto?",,marcelotduarte/cx_Freeze,1171
+IssueComment,marcelotduarte,2021-07-21T14:30:16.000Z,"If someone does a chmod 400 to their python directory I think cxfreeze should still work on it so it can do a chmod +w or chmod +x as needed on the files after it copies them.
+
+I think that issue [#659](https://github.com/marcelotduarte/cx_Freeze/issues/659) and rejected PR [#661](https://github.com/marcelotduarte/cx_Freeze/pull/661) are related.",,marcelotduarte/cx_Freeze,1171
+IssueComment,Fox214,2021-07-22T03:30:29.000Z,"I've run into issues with older patchelf (and 0.12) but the new version has definitely fixed some of those bugs. Also sorry if I wasn't clear the more common reason I've seen patchelf create seg faults is not because patchelf did the something wrong, but because the user told patchelf to link files in a manner that will not work, sometimes you get a stderr message stating if can't find an .so file (easy enough to fix) but sometimes it just core dumps. (and some times those can be analyzed and sometimes they cannot). Also if it was not clear my entire paragraph was a relatively short summation of my tinkering with patchelf over several years. I think I built 0.12 from source initially to work around a bug I was having with 0.8, but eventually my IT group installed it and I deleted the version I built.
+
+Yes my python was built with ""-with-lto"" (at least on linux, we have powerPC too, not sure about that version) and all the modules are installed with pip (I do occasionally need to build something but I think recent versions of most modules and pip have worked out)
+
+Regarding the file permissions: right now it seems the program is failing if its not set correctly (execute for ldd, write for patchelf), and there does not seem to be away to fix it other than copying read only files so you own them and changing them ahead of time. I think any of the following would be an improvement:
+
+1 and 2 are effectively the same thing although one of them may perform better (alternatively it could be a setup option if there was some concern about automatically doing this). 3 could obviously cause things to not work correctly, but its may be possible to fix in the build process (it may depend which file/how as well), but having it not being able to run at all is not a good position.",,marcelotduarte/cx_Freeze,1171
+IssueComment,marcelotduarte,2021-07-22T07:55:40.000Z,"I think I built 0.12 from source initially to work around a bug I was having with 0.8, but eventually my IT group installed it and I deleted the version I built.
+
+Please try to install like described [here](https://cx-freeze.readthedocs.io/en/latest/installation.html#requirement-for-linux) to to rule out this possibility. It will take a minute.
+
+Yes my python was built with ""-with-lto""
+
+In issue [#1132](https://github.com/marcelotduarte/cx_Freeze/issues/1132) it gave segfault but it didn't give indications of using lto, but when I saw that it was using lto, I realized that this could be the problem.  
+Please test the new beta version to rule out this possibility.  
+pip install cx-freeze==6.8b1
+
+Please try it out and report. If fails try to debug or show me traceback, logs, etc like the guy did at [#1132](https://github.com/marcelotduarte/cx_Freeze/issues/1132).  
+I'll try to use a docker to simulate some operations (to be honest I use a docker with centOS6 for some tests with samples from cx-freeze. I'm going to make one with centOS7). Send me a output of:  
+python -m sysconfig
+
+Regarding the file permissions
+
+I'll read this part in the next step.",,marcelotduarte/cx_Freeze,1171
+IssueComment,Fox214,2021-07-28T03:22:08.000Z,"Sorry it will likely be a couple of weeks before I will have time to test any of this, but I will try and get to it and provide feedback.",,marcelotduarte/cx_Freeze,1171
+IssueComment,Fox214,2021-08-18T20:42:21.000Z,"Ok so trying to look at this:
+
+I will try 6.8b1 tomorrow most likely",,marcelotduarte/cx_Freeze,1171
+IssueComment,marcelotduarte,2021-08-18T23:42:50.000Z,"Try 6.8b2 that has more fixes.  
+pip install cx-freeze==6.8b2",,marcelotduarte/cx_Freeze,1171
+IssueComment,Fox214,2021-08-19T00:27:05.000Z,"8b1 nominally worked for me, I've not ran anything complex nor investigated any details.",,marcelotduarte/cx_Freeze,1171
+IssueComment,Fox214,2021-08-19T12:41:26.000Z,"8b2 I'm having issues with:  
+Traceback (most recent call last):  
+File "".../CPython/3.8.2/linux64/lib/python3.8/site-packages/cx\_Freeze/freezer.py"", line 1053, in \_post\_copy\_hook  
+relative = dependent\_file.relative\_to(source\_dir)  
+File "".../CPython/3.8.2/linux64/lib/python3.8/pathlib.py"", line 899, in relative\_to  
+raise ValueError(""{!r} does not start with {!r}""
+
+ValueError: '.../lib64/libstdc++.so.6' does not start with' .../CPython/3.8.2/linux64/lib/python3.8/site-packages/matplotlib/backends'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):  
+File ""setup.py"", line 635, in   
+setup( name =...  
+File ""...CPython/3.8.2/linux64/lib/python3.8/site-packages/cx\_Freeze/dist.py"", line 447, in setup  
+setuptools.setup(\*\*attrs)  
+File "".../CPython/3.8.2/linux64/lib/python3.8/site-packages/setuptools/**init**.py"", line 145, in setup  
+return distutils.core.setup(\*\*attrs)  
+File ""../CPython/3.8.2/linux64/lib/python3.8/distutils/core.py"", line 148, in setup  
+dist.run\_commands()  
+File "".../CPython/3.8.2/linux64/lib/python3.8/distutils/dist.py"", line 966, in run\_commands  
+self.run\_command(cmd)  
+File "".../CPython/3.8.2/linux64/lib/python3.8/distutils/dist.py"", line 985, in run\_command  
+cmd\_obj.run()  
+File "".../CPython/3.8.2/linux64/lib/python3.8/distutils/command/build.py"", line 135, in run  
+self.run\_command(cmd\_name)  
+File "".../CPython/3.8.2/linux64/lib/python3.8/distutils/cmd.py"", line 313, in run\_command  
+self.distribution.run\_command(command)  
+File "".../CPython/3.8.2/linux64/lib/python3.8/distutils/dist.py"", line 985, in run\_command  
+cmd\_obj.run()  
+File "".../CPython/3.8.2/linux64/lib/python3.8/site-packages/cx\_Freeze/dist.py"", line 317, in run  
+freezer.Freeze()  
+File "".../CPython/3.8.2/linux64/lib/python3.8/site-packages/cx\_Freeze/freezer.py"", line 623, in Freeze  
+self.\_write\_modules(library\_zip, finder)  
+File "".../CPython/3.8.2/linux64/lib/python3.8/site-packages/cx\_Freeze/freezer.py"", line 546, in \_write\_modules  
+self.\_copy\_file(  
+File "".../CPython/3.8.2/linux64/lib/python3.8/site-packages/cx\_Freeze/freezer.py"", line 175, in \_copy\_file  
+self.\_post\_copy\_hook(  
+File "".../CPython/3.8.2/linux64/lib/python3.8/site-packages/cx\_Freeze/freezer.py"", line 1062, in \_post\_copy\_hook  
+relative = file.relative\_to(targetdir)  
+File "".../CPython/3.8.2/linux64/lib/python3.8/pathlib.py"", line 899, in relative\_to  
+raise ValueError(""{!r} does not start with {!r}""  
+ValueError: 'lib-linux64/lib/matplotlib/libstdc++.so.6' does not start with 'lib-linux64/lib/matplotlib/backends'",,marcelotduarte/cx_Freeze,1171
+IssueComment,Fox214,2021-08-19T17:40:03.000Z,"I went back and redid it with 8b1, if I set LD\_LIBRARY\_PATH before hand, the files are wrong (not sure if they would work on another network) but everything tested ok on the current network.
+
+If I do not set LD\_LIBRARY\_PATH i had to fiddle with a couple things, but I got it to work, and the results of the RPATH's look reasonable.
+
+Both passed all my regressions.",,marcelotduarte/cx_Freeze,1171
+IssueComment,marcelotduarte,2021-08-19T18:00:25.000Z,"PR [#1181](https://github.com/marcelotduarte/cx_Freeze/pull/1181) and [#1201](https://github.com/marcelotduarte/cx_Freeze/pull/1201) changed this a bit. In my test [#1201](https://github.com/marcelotduarte/cx_Freeze/pull/1201) is necessary in py36/37.  
+I see you use matplotlib. Will you be able to create a sample so that I can reproduce this error that you had in the [previous comment](https://github.com/marcelotduarte/cx_Freeze/issues/1171#issuecomment-901881667) and try to figure out the logic in this case?  
+What is the backend you're using with matplotlib?
+
+If I understood, in summary:  
+6.5.2 ok  
+6.6,6.7 fail  
+6.8b1 fail  
+6.8b1 with LD\_LIBRARY\_PATH fail  
+6.8b1 without LD\_LIBRARY\_PATH ok  
+6.8b2 fail?",,marcelotduarte/cx_Freeze,1171
+IssueComment,Fox214,2021-08-19T21:01:03.000Z,"I can see if I can come up with a small sample to do the matplot lib issue.
+
+6.5.2 ok  
+6.6,6.7 fail  
+6.8b1 pass with both, with LD\_LIBRARY\_PATH the RPATHs are wrong, (because LD\_LIBRARY\_PATH was absolute) so not sure what happens if I move the code (within network or off network) if its extraneous paths it may still be ok) it appears I do not need to set this during compile  
+6.8b2 fail (matplot lib issues)",,marcelotduarte/cx_Freeze,1171
+MentionedByIssue,marcelotduarte,2021-09-03T00:21:57.000Z,"marcelotduarte mentioned this on Sep 2, 2021
+Wrong output for ""Fatal Python error: init_fs_encoding: failed to get the Python codec of the filesystem encoding"" #1197",https://github.com/marcelotduarte/cx_Freeze/issues/1197,marcelotduarte/cx_Freeze,1171
+IssueComment,marcelotduarte,2021-09-03T00:24:23.000Z,"I released a new beta today.  
+pip install cx-Freeze==6.8b4",,marcelotduarte/cx_Freeze,1171
+MentionedByPR,marcelotduarte,2021-09-03T05:57:23.000Z,"marcelotduarte mentioned this on Sep 3, 2021
+Patchelf needs permission to write #1232",https://github.com/marcelotduarte/cx_Freeze/pull/1232,marcelotduarte/cx_Freeze,1171
+IssueComment,marcelotduarte,2021-09-03T06:31:41.000Z,"And new with PR [#1232](https://github.com/marcelotduarte/cx_Freeze/pull/1232)  
+pip install cx-Freeze==6.8b5",,marcelotduarte/cx_Freeze,1171
+IssueComment,marcelotduarte,2021-09-07T06:31:05.000Z,"cx\_Freeze 6.8 has just been released.  
+pip install --upgrade cx\_Freeze  
+Assuming this has been resolved.  
+If you had issues please open a new issue.",,marcelotduarte/cx_Freeze,1171
+ClosedEvent,marcelotduarte,2021-09-07T06:31:05.000Z,"[marcelotduarte closed this as completed on Sep 7, 2021",,marcelotduarte/cx_Freeze,1171
+IssueComment,Fox214,2021-09-17T16:26:41.000Z,"I was able to get 6.8 to work. Sorry busy with other stuff last few weeks. (it does fail if I set LD\_LIBRARY\_PATH, but is ok without it)
+
+I assume you do not need a testcase for matplotlib now?",,marcelotduarte/cx_Freeze,1171
+IssueComment,marcelotduarte,2021-09-17T16:32:55.000Z,"LD\_LIBRARY\_PATH should work if use a different [init\_script](https://cx-freeze.readthedocs.io/en/latest/setup_script.html#cx-freeze-executable) ConsoleSetLibPath
+
+I assume you do not need a testcase for matplotlib now?
+
+Yes, please open a new issue.",,marcelotduarte/cx_Freeze,1171

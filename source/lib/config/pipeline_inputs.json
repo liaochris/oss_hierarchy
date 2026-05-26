@@ -1,0 +1,53 @@
+{
+  "importance_types": {
+    "run": [
+      "important_degree_top3"
+    ],
+    "extended": [
+      "important_degree_z2"
+    ]
+  },
+  "rolling_periods": {
+    "run": [
+      5
+    ],
+    "extended": []
+  },
+  "qualified_samples": {
+    "run": [
+      "exact1",
+      "exact2",
+      "exact_1_2"
+    ],
+    "extended": [
+      "exact3"
+    ]
+  },
+  "control_groups": {
+    "run": [
+      "nevertreated"
+    ],
+    "extended": [
+      "notyettreated"
+    ]
+  },
+  "feature_sets": {
+    "run": [
+      "pc_score_binary",
+      "pc_score"
+    ],
+    "extended": [
+      "all_covariates"
+    ]
+  },
+  "event_study_splits": {
+    "run": [
+      "full_sample",
+      "pc_score"
+    ],
+    "extended": [
+      "org_practice"
+    ]
+  },
+  "forest_training_outcome": "pull_request_merged"
+}

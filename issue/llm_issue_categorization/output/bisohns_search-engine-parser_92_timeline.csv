@@ -1,0 +1,54 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,zakaryan2004,2020-07-15T15:34:18Z,"First search result is always given in next searches, even on different engines",https://github.com/bisohns/search-engine-parser/issues/92,bisohns/search-engine-parser,92
+IssueOpened,zakaryan2004,2020-07-15T15:34:18Z,"**Describe the bug**  
+After doing a search once, the next searches always return the same result of the first one, both when the same or different search engine is used.
+
+**To Reproduce**  
+Steps to reproduce the behavior:
+
+1. Open python console
+2. Import search\_engine\_parser
+3. Initialize GoogleSearch()
+4. Search keyword 'apple' (or anything else) using Google(or another) Engine
+5. Print the results
+6. Search keyword 'orange' (or anything different) using Google(or another, can be different from the first) Engine.
+7. Print the results
+8. Notice that the results are the same
+
+**Code samples**  
+from search\_engine\_parser import GoogleSearch  
+google\_search = GoogleSearch()  
+res\_apple = google\_search.search('apple', 1)  
+print(res\_apple[0])  
+res\_orange = google\_search.search('orange', 1)  
+print(res\_orange[0])
+
+from search\_engine\_parser.core.engines.yahoo import Search as YahooSearch  
+from search\_engine\_parser.core.engines.google import Search as GoogleSearch2  
+yahoo\_search = YahooSearch()  
+google\_search\_2 = GoogleSearch2()  
+res\_banana = google\_search\_2.search('banana', 1)  
+print(res\_banana[0])  
+res\_apricot = yahoo\_search.search('apricot', 1)  
+print(res\_apricot[0])
+
+**Expected behavior**  
+The search results should be different.
+
+**Desktop (please complete the following information):**
+
+* OS: Ubuntu 18.04 LTS on WSL2
+* Python Version: 3.6.9
+* Search-engine-parser version: 0.6
+
+**Additional context**  
+The bug doesn't happen in version 0.5.4.",https://github.com/bisohns/search-engine-parser/issues/92,bisohns/search-engine-parser,92
+LabeledEvent,zakaryan2004,2020-07-15T15:34:18Z,bug,,bisohns/search-engine-parser,92
+IssueComment,zakaryan2004,2020-07-15T15:39:39Z,"Also present on the latest source, disabling cache there doesn't fix the issue (also cache doesn't exist in 0.6).",,bisohns/search-engine-parser,92
+IssueComment,MeNsaaH,2020-07-16T01:12:17Z,"[@zakaryan2004](https://github.com/zakaryan2004) Thanks for your issue, it has been fixed and a newer 0.61 will be deployed",,bisohns/search-engine-parser,92
+IssueComment,zakaryan2004,2020-07-16T07:03:10Z,I have fetched the latest commits from master and the issue still exists.,,bisohns/search-engine-parser,92
+MentionedByCommit,MeNsaaH,2020-07-16T07:54:46Z,FIX: Search Results not changing even with different Queries and Engi…,https://github.com/bisohns/search-engine-parser/commit/1d9c492903ba1c6eb0a1b5a5614c37a0e1f450e6,bisohns/search-engine-parser,92
+MentionedByPR,MeNsaaH,2020-07-16T07:55:09Z,FIX: Search Results not changing even with different Queries and Engine,https://github.com/bisohns/search-engine-parser/pull/96,bisohns/search-engine-parser,92
+ClosedEvent,MeNsaaH,2020-07-16T07:55:50Z,Closed by MeNsaaH in #96,https://github.com/bisohns/search-engine-parser/pull/96,bisohns/search-engine-parser,92
+IssueComment,MeNsaaH,2020-07-16T07:56:30Z,[@zakaryan2004](https://github.com/zakaryan2004) you can try now with the latest HEAD.,,bisohns/search-engine-parser,92
+IssueComment,zakaryan2004,2020-07-16T08:06:38Z,"Ok, now works.",,bisohns/search-engine-parser,92

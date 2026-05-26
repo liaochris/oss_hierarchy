@@ -1,0 +1,44 @@
+type,author,date,text,url,repo_name,issue_number
+IssueTitle,pytorch-bot,2023-06-06T06:39:36Z,DISABLED test_bernoulli2_cpu (__main__.CpuTests),https://github.com/pytorch/pytorch/issues/103062,pytorch/pytorch,103062
+IssueOpened,pytorch-bot,2023-06-06T06:39:36Z,"Platforms: rocm
+
+This test was disabled because it is failing in CI. See [recent examples](https://hud.pytorch.org/flakytest?name=test_bernoulli2_cpu&suite=CpuTests) and the most recent trunk [workflow logs](https://github.com/pytorch/pytorch/runs/14028145924).
+
+Over the past 3 hours, it has been determined flaky in 2 workflow(s) with 2 failures and 2 successes.
+
+**Debugging instructions (after clicking on the recent samples link):**  
+DO NOT ASSUME THINGS ARE OKAY IF THE CI IS GREEN. We now shield flaky tests from developers so CI will thus be green but it will be harder to parse the logs.  
+To find relevant log snippets:
+
+1. Click on the workflow logs linked above
+2. Click on the Test step of the job so that it is expanded. Otherwise, the grepping will not work.
+3. Grep for `test_bernoulli2_cpu`
+4. There should be several instances run (as flaky tests are rerun in CI) from which you can study the logs.
+
+Test file path: `inductor/test_torchinductor.py` or `inductor/test_torchinductor.py`
+
+cc [@voznesenskym](https://github.com/voznesenskym) [@penguinwu](https://github.com/penguinwu) [@EikanWang](https://github.com/EikanWang) [@jgong5](https://github.com/jgong5) [@Guobing-Chen](https://github.com/Guobing-Chen) [@XiaobingSuper](https://github.com/XiaobingSuper) [@zhuhaozhe](https://github.com/zhuhaozhe) [@blzheng](https://github.com/blzheng) [@Xia-Weiwen](https://github.com/Xia-Weiwen) [@wenzhe-nrv](https://github.com/wenzhe-nrv) [@jiayisunx](https://github.com/jiayisunx) [@peterbell10](https://github.com/peterbell10) [@ipiszy](https://github.com/ipiszy) [@ngimel](https://github.com/ngimel) [@yf225](https://github.com/yf225)",https://github.com/pytorch/pytorch/issues/103062,pytorch/pytorch,103062
+LabeledEvent,pytorch-bot,2023-06-06T06:39:36Z,module: flaky-tests,,pytorch/pytorch,103062
+LabeledEvent,pytorch-bot,2023-06-06T06:39:36Z,module: inductor,,pytorch/pytorch,103062
+LabeledEvent,pytorch-bot,2023-06-06T06:39:36Z,skipped,,pytorch/pytorch,103062
+LabeledEvent,pytorch-bot,2023-06-06T06:39:36Z,triaged,,pytorch/pytorch,103062
+IssueComment,pytorch-bot,2023-06-06T06:39:38Z,"Hello there! From the DISABLED prefix in this issue title, it looks like you are attempting to disable a test in PyTorch CI. The information I have parsed is below:
+
+* Test name: `test_bernoulli2_cpu (__main__.CpuTests)`
+* Platforms for which to skip the test: rocm
+* Disabled by `pytorch-bot[bot]`
+
+Within ~15 minutes, `test_bernoulli2_cpu (__main__.CpuTests)` will be disabled in PyTorch CI for these platforms: rocm. Please verify that your test name looks correct, e.g., `test_cuda_assert_async (__main__.TestCuda)`.
+
+To modify the platforms list, please include a line in the issue body, like below. The default action will disable the test for all platforms if no platforms list is specified.
+
+```
+Platforms: case-insensitive, list, of, platforms
+```
+
+We currently support the following platforms: asan, dynamo, inductor, linux, mac, macos, rocm, win, windows.",,pytorch/pytorch,103062
+IssueComment,pytorch-bot,2023-06-06T09:39:49Z,"Another case of trunk flakiness has been found [here](https://github.com/pytorch/pytorch/runs/14029787694).  
+Please verify the issue was opened after this instance, that the platforms list includes all of  
+[rocm], or disable bot might not be working as expected.",,pytorch/pytorch,103062
+IssueComment,pytorch-bot,2023-06-20T06:39:48Z,Resolving the issue because the test is not flaky anymore after 600 reruns without any failures and the issue hasn't been updated in 14 days. Please reopen the issue to re-disable the test if you think this is a false positive,,pytorch/pytorch,103062
+ClosedEvent,pytorch-bot,2023-06-20T06:39:49Z,Closed by pytorch-bot in ,,pytorch/pytorch,103062
