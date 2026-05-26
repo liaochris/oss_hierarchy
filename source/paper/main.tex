@@ -372,7 +372,8 @@ In contrast, non-key members usually engage only when they encounter issues rele
 \subsection{Identifying Key Members}\label{sec:key_members}
 
 Identifying an organization's key members requires a measure of each member’s prominence.
-I quantify prominence using the organization’s social network, modeled as an undirected, weighted graph whose nodes represent members and whose edge weights capture the number of interactions between them.\footnote{An interaction occurs when one member’s comment in a discussion thread follows another member’s post or comment.}
+I quantify prominence using the organization’s social network, modeled as an undirected, weighted graph whose nodes represent members and whose edge weights capture the number of interactions between them.\footnote{An interaction occurs when one member’s comment in a discussion thread follows another member’s post or comment. 
+For the first comment in a pull request review thread, the pull request thread opener is treated as the default receiver.}
 Each graph is built from six months of activity, representing either the first or second half of the calendar year.
 This network-based measure has two advantages: it aggregates interactions across all discussions and it draws on established graph-theoretic notions of centrality to identify the most prominent members.
 %\longterm[inline]{Appendix Section~\ref{sec:app_data} provides additional detail about the social network's construction. }
@@ -448,9 +449,11 @@ I use three organizational outcomes to measure resilience at time $t$: the numbe
 Let $Y_{i,t}$ denote a generic outcome. 
 To ensure cross-organization comparability, I standardize each organization’s outcome values using the organization-level mean and standard deviation from its five most recent pre-periods ($-5 \leq k \leq -1$), yielding standardized outcomes $Y_{i,t}^{SD}$ measured in within-organization standard deviations. 
 
-I impose two additional sample restrictions.
-First, all organizations must have exactly one key member at the quasi-treatment date, ensuring that differences between treated and control organizations are not driven by differences in the organizational structure.
+I impose three additional sample restrictions.
+First, all organizations must have one or two key members at the quasi-treatment date, ensuring that differences between treated and control organizations are not driven by differences in the organizational structure.
+I estimate the event study separately for organizations with exactly one and exactly two key members, then combine the estimates using inverse-variance weighting---assigning each sub-sample's estimate a weight proportional to the inverse of its squared standard error---which yields the minimum-variance linear combination of two independent estimates.
 Second, each organization must have observed activity for at least \NumPostPeriod{} pre- and \NumPostPeriod{} post-periods.
+Third, each organization must have a non-degenerate pre-period baseline for every active outcome: organizations where any outcome has all-identical pre-period values (e.g., zero software releases in every pre-period) are excluded, as standardization requires positive variance.
 The final sample features \NumOrgs{} OSS organizations and includes major GitHub projects, such as \texttt{pytorch/pytorch}, the flagship deep learning framework; \texttt{googleapis/google-cloud-Python}, the Python Google Cloud software development kit (SDK); and \texttt{boto/boto3}, the Python Amazon Web Services SDK. Table~\ref{tab:outcome_summary} provides summary statistics for the outcomes and project distribution, and plots the distribution of observed, quasi-treatment and treatment dates. 
 
 \input{output/tables/outcome_summary_table}
@@ -462,8 +465,8 @@ The final sample features \NumOrgs{} OSS organizations and includes major GitHub
 I investigate the relationship between five organizational practices---\textit{collaboration}, \textit{knowledge level}, \textit{discussion quality}, \textit{investment in new talent}, and \textit{problem-solving routines}---and organizational resilience.
 The choice of these practices is motivated by prior work in management and software engineering, as discussed in the \hyperref[sec:literature]{Related Literature} section.
 Each practice includes several measures.
-For each organization, I compute each measure over its five most recent pre-periods and standardize the resulting values.
-I then aggregate the standardized measures within each practice using the first principal component to form a composite “practice score.”
+For each organization, I compute each measure over its five most recent pre-periods and standardize the resulting pooled values.
+I then aggregate the standardized measures within each practice using the first principal component to form a composite “practice score.”\footnote{When necessary, I flip the sign of the first principal component so that a higher score corresponds to greater adoption of the practice.}
 Higher practice scores correspond to greater adoption of the practice within the organization.
 The following sections describe the measures within each practice and the construction of their composite scores.
 
@@ -510,7 +513,7 @@ For example, organizations with ``good first issues'' and a contributing guide h
 
 \subsection{Problem-Solving Routines}
 Problem-solving routines can enhance organizational resilience by establishing structured plans that guide action during times of crisis.
-I measure whether organizations have problem-solving routines using six measures: how frequently tasks are labeled, whether members are explicitly assigned to tasks, whether members are explicitly assigned to review tasks, whether the organization uses templates to systematize issues and pull requests, and whether it formally designates individuals as responsible for specific parts of the codebase.
+I measure whether organizations have problem-solving routines using six measures: how frequently tasks are labeled, whether members are explicitly assigned to tasks, whether members are explicitly assigned to review tasks, whether the organization uses issue templates and pull request templates to systematize contributions, and whether it formally designates individuals as responsible for specific parts of the codebase.
 The first PC is statistically meaningful, explaining \RoutinesVarianceExplained\% of the total variance across the \RoutinesMeasureCount{} measures.
 
 Table~\ref{tab:problem_solving_routines_metrics} provides detailed definitions of all \RoutinesMeasureCount{} measures.
@@ -573,7 +576,7 @@ On average over the \NumPostPeriod{} post-periods, a key member’s departure re
 Since the quantity of new software releases declines, users will directly experience the effects of the departure through less timely bug fixes and fewer new features.
 Given that reliance on OSS is widespread, this indicates that low organizational resilience in OSS projects may have substantial downstream economic consequences.
 
-The bottom-left of each panel reports the p-value from the Wald test of the pre-trend null hypothesis $\delta_k = 0$ for the five plotted pre-periods, following \citealt{freyaldenhoven_visualization_2021}. 
+The bottom-left of each panel reports the p-value from the Wald test of the pre-trend null hypothesis $\delta_k = 0$ for four estimated pre-periods (the reference period is excluded), following \citealt{freyaldenhoven_visualization_2021}. 
 For two of the three organizational outcomes, I fail to reject the null of no pre-trends. 
 For pull requests merged, the null is marginally rejected at the 5\% level. 
 I do not consider this especially problematic for two reasons: the estimated effects are the opposite sign of the pre-trend coefficients and the pre-trend estimates closest to the treatment date are statistically indistinguishable from zero.
@@ -582,7 +585,7 @@ Unobserved trends most threatening to identification would likely manifest as st
 \subsection{Simple Tests of Organizational Resilience} \label{sec:org_resilience_indiv_tests}
 Next, I test the hypothesis that organizations with higher organizational practice scores are more resilient.
 Each organization has a vector of five practice scores $X_i$, with $X_{ij}$ denoting the score for practice $j$. 
-For each practice $j$, I apply the \textit{Median Split}, separating organizations into high and low score groups, $C_{ij} \in \{\text{high}, \text{low}\}$, depending on whether $X_{ij}$ lies above or below the cross-organizational median.
+For each practice $j$, I apply the \textit{Median Split}, separating organizations into high and low score groups, $C_{ij} \in \{\text{high}, \text{low}\}$, depending on whether $X_{ij}$ lies above or below the cross-organizational median.\footnote{Organizations without a valid practice score — due to insufficient data to compute the PC — are excluded from that practice's comparison. The share excluded is reported in each practice's measure table.}
 
 \input{source/figures/event_study_collab}
 
@@ -675,7 +678,7 @@ Hence, allowing for organizational practice-dependent baseline heterogeneity is 
 
 The estimation procedure for $\hat{\delta}_{e,k}(x)$ follows \cite{athey_generalized_2019}, with two caveats.\footnote{I use the default hyperparameters as of version 2.4.0.}
 First, as discussed in Appendix C of \cite{liao_generalized_2025}, treatment propensity scores are adapted to the panel data and staggered treatment adoption setting.\footnote{\cite{athey_generalized_2019} use a probability forest to estimate treatment propensity. }
-Second, any given organization $i$, $\hat{\delta}_{e, k}(X_i)$ is estimated following a $k$-fold procedure.\footnote{Instead of a k-fold estimation procedure, \cite{athey_generalized_2019} use out-of-bag predictions, which for a given observation $i$, exclude trees trained on subsamples that include $i$. $k-$fold estimation is more time-intensive but is precisely
+Second, any given organization $i$, $\hat{\delta}_{e, k}(X_i)$ is estimated following a k-fold procedure, where $k = \NumFolds$.\footnote{Instead of a k-fold estimation procedure, \cite{athey_generalized_2019} use out-of-bag predictions, which for a given observation $i$, exclude trees trained on subsamples that include $i$. $k-$fold estimation is more time-intensive but is precisely
 covered by theory. }
 Using a $k-$fold procedure ensures that small biases from the outcome and propensity score models used for estimation will not affect $\hat{\delta}_{e,k}(x)$.
 
@@ -709,7 +712,7 @@ This indicates that the same combinations of organizational practices underpin r
 
 
 The second limitation of the Median Split is that it partitions organizations along a naive threshold rather than using data-driven splits of organizational practices. 
-To assess the value of allowing the model to partition organizations along a finer score space, I apply Algorithm~\ref{alg:forest_split} using the continuous organizational practice scores $X_i$ as covariates to assign organizations to high and low resilience subsets. 
+To assess the value of allowing the model to partition organizations along a finer score space, I apply Algorithm~\ref{alg:forest_split} using the continuous organizational practice scores $X_i$ as covariates---and the same pull requests merged training outcome---to assign organizations to high and low resilience subsets. 
 Figure~\ref{fig:event_study_forest_continuous} plots separate event study estimates for the high and low resilience subsets defined by this procedure across all organizational outcomes. 
 I find that the differences between high and low resilience organizations grows even larger when the model can partition along the full continuous distribution of practice scores. 
 On average across the \NumPostPeriod{} post-periods, organizations in the high resilience subset open \ForestContPRsOpenedDiff{} standard deviations more pull requests, merge \ForestContPRsMergedDiff{} more pull requests, and produce \ForestContReleasesDiff{} standard deviations more software releases than organizations predicted to be less resilient.
@@ -825,8 +828,8 @@ Trees of depth four and higher are computationally infeasible to train without s
 
 \subsection{Exploring the Coarsened Space of Organizational Practices} \label{sec:coarsened_exploration}
 A key insight from Figure~\ref{fig:event_study_forest_coarse} is that coarsening continuous practice scores into binary high/low scores using a median split only slightly reduces the generalized random forest’s ability to separate high resilience and low resilience organizations.
-This motivates a complementary interpretability approach: instead of working with continuous scores, I classify organizations into one of 32 categories corresponding to all possible combinations of the five binary practice indicators.
-Although the coarsening discards information, I believe the modest loss in predictive precision is outweighed by the interpretability gained from reducing the continuous practice space to a manageable set of 32 combinations. 
+This motivates a complementary interpretability approach: instead of working with continuous scores, I classify organizations into one of 32 categories corresponding to all possible combinations of the five binary practice indicators. The median threshold for each score is computed separately within each sub-sample of organizations with exactly one and exactly two key members at event time 0. 
+Although the coarsening discards information, I believe the modest loss in predictive precision is outweighed by the interpretability gained from reducing the continuous practice space to a manageable set of 32 combinations.
 
 
 \input{source/figures/pc_score_combo}
@@ -871,6 +874,7 @@ First, studying how the composition of software releases changes following key m
 To better understand the causal drivers of resilience, it would be valuable to examine the mechanisms through which organizations maintain resilience and assess whether these mechanisms align with the hypotheses discovered in this paper.
 Finally, since adopting organizational practices involves meaningful tradeoffs, incorporating these tradeoffs into the analytical framework would deepen our understanding of the broader relationship between practices and organizational outcomes.
 
+\iffalse
 \section{Next Steps}
 \subsection{Estimating reach}
 I'm hoping to quantify the impact of reduced software development activity in OSS organizations. For example, if I can quantify how issues/pull requests affect users or other major OSS, I can describe the benefits of resilience not in terms of these units. 
@@ -891,6 +895,7 @@ The categories are:
 I quantify how issues \& pull requests affect downstream projects by checking whether a major OSS project would have been affected by an issue
 
 \subfile{source/paper/model}
+\fi
 
 \newpage
 \input{output/tables/collaboration}

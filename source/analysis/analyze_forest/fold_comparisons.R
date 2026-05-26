@@ -22,11 +22,9 @@ Main <- function() {
             if (is.null(forest_results_data)) next
 
             pc_score_cols <- colnames(forest_results_data$df)[grepl("_pc_score$", colnames(forest_results_data$df))]
-            binarized              <- BinarizePCScores(forest_results_data$df, pc_score_cols)
+            binarized              <- BinarizePCScores(forest_results_data$sub_dfs, pc_score_cols)
             df_binarized_pc_scores <- binarized$df
-            sub_bins               <- lapply(forest_results_data$sub_dfs, function(sub_df)
-              sub_df %>% mutate(across(all_of(pc_score_cols),
-                                       ~ ifelse(.x > binarized$medians[cur_column()], "high", "low"))))
+            sub_bins               <- binarized$sub_dfs
 
             pc_combo_att_summary <- df_binarized_pc_scores %>%
               group_by(across(all_of(pc_score_cols))) %>%

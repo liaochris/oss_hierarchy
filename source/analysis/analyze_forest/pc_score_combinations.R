@@ -20,7 +20,7 @@ Main <- function() {
             forest_results_data <- LoadForestResults(INDIR_FOREST, importance_type, rolling_panel, qualified_sample, control_group, norm_label)
 
             pc_score_cols <- colnames(forest_results_data$df)[grepl("_pc_score$", colnames(forest_results_data$df))]
-            binarized <- BinarizePCScores(forest_results_data$df, pc_score_cols)
+            binarized <- BinarizePCScores(forest_results_data$sub_dfs, pc_score_cols)
             df_bins   <- binarized$df
 
             combo_summary <- df_bins %>%

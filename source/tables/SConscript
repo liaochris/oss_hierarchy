@@ -24,8 +24,11 @@ _pc_group_tex_names = {
     "investment_in_new_talent": "investment_new_talent",
     "problem_solving_routines": "problem_solving_routines",
 }
+_pc_excluded_pct_groups = {"collaboration", "shared_knowledge", "investment_in_new_talent"}
 for _group, _tex in _pc_group_tex_names.items():
-    env.Tablefill(
+    _target = env.Tablefill(
         f'#output/tables/{_tex}.tex',
         [f'#source/tables/{_tex}.tex',
          f'#output/derived/analysis_panel/pc_loadings_{_group}.txt'])
+    if _group in _pc_excluded_pct_groups:
+        env.Depends(_target, '#output/autofill/pc_autofill.tex')

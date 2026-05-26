@@ -56,11 +56,13 @@ LoadAnalysisPanel <- function(importance_type, rolling_panel, qualified_sample, 
   }
 }
 
-BinarizePCScores <- function(df, pc_cols) {
-  medians <- sapply(pc_cols, function(col) median(df[[col]], na.rm = TRUE))
-  df_binarized <- df %>% mutate(across(all_of(pc_cols),
-                                   ~ ifelse(.x > medians[cur_column()], "high", "low"),
-                                   .names = "{.col}"))
-  list(df = df_binarized, medians = medians)
+BinarizePCScores <- function(sub_dfs, pc_cols) {
+  binarized_list <- lapply(sub_dfs, function(sub_df) {
+    medians <- sapply(pc_cols, function(col) median(sub_df[[col]], na.rm = TRUE))
+    sub_df %>% mutate(across(all_of(pc_cols),
+                             ~ ifelse(.x > medians[cur_column()], "high", "low"),
+                             .names = "{.col}"))
+  })
+  list(df = bind_rows(binarized_list), sub_dfs = binarized_list)
 }
 

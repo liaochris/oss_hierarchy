@@ -139,24 +139,33 @@ FitEventStudy <- function(df, outcome, control_group, method = c("cs", "sa", "es
 
 WeightedAggregateCoefMatrix <- function(coef_mat_list, obs_counts) {
   shared_event_times <- Reduce(intersect, lapply(coef_mat_list, rownames))
-  total_obs     <- sum(obs_counts)
-  weights       <- obs_counts / total_obs
-  weight_matrix <- matrix(weights, nrow = length(shared_event_times),
-                           ncol = length(obs_counts), byrow = TRUE)
+  ref_period         <- "-1"
+  ivw_times          <- setdiff(shared_event_times, ref_period)
 
-  estimates <- vapply(coef_mat_list, function(m) m[shared_event_times, "estimate"],
-                      numeric(length(shared_event_times)))
-  sds       <- vapply(coef_mat_list, function(m) m[shared_event_times, "sd"],
-                      numeric(length(shared_event_times)))
+  estimates <- vapply(coef_mat_list, function(m) m[ivw_times, "estimate"],
+                      numeric(length(ivw_times)))
+  sds       <- vapply(coef_mat_list, function(m) m[ivw_times, "sd"],
+                      numeric(length(ivw_times)))
+
+  # Inverse-variance weighting: w_s = (1/σ_s²) / Σ(1/σ_s²)
+  precisions    <- 1 / sds^2
+  total_prec    <- rowSums(precisions)
+  weight_matrix <- precisions / total_prec
 
   agg_estimate <- rowSums(estimates * weight_matrix)
-  agg_sd       <- sqrt(rowSums(sds^2 * weight_matrix^2))
+  agg_sd       <- 1 / sqrt(total_prec)
 
   result <- cbind(estimate = agg_estimate, sd = agg_sd,
                   ci_low   = agg_estimate - 1.96 * agg_sd,
                   ci_high  = agg_estimate + 1.96 * agg_sd)
-  rownames(result) <- shared_event_times
-  result
+  rownames(result) <- ivw_times
+
+  if (ref_period %in% shared_event_times) {
+    ref_row <- matrix(0, nrow = 1, ncol = ncol(result),
+                      dimnames = list(ref_period, colnames(result)))
+    result  <- rbind(result, ref_row)
+  }
+  result[order(as.numeric(rownames(result))), , drop = FALSE]
 }
 
 ComputeSharedYLim <- function(coef_mats, pad_frac = 0.05) {

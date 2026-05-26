@@ -235,6 +235,7 @@ def GenerateConfigAutofill():
 
     NumPostPeriod = analysis_params["max_event_time"]
     NumTrees      = analysis_params["trees_in_forest_event_study"]
+    NumFolds      = analysis_params["n_folds"]
 
     primary_spec   = importance_specs[paper_settings["primary_importance_type"]]
     TopK           = primary_spec["top_k"]
@@ -258,7 +259,7 @@ def GenerateConfigAutofill():
     GenerateAutofillMacros(
         [
             ["PipMinMonthlyDownloads"],
-            ["NumPostPeriod", "NumTrees", "TopK", "MinConsecutive", "TimePeriod",
+            ["NumPostPeriod", "NumTrees", "NumFolds", "TopK", "MinConsecutive", "TimePeriod",
              "NumMonthsObserved", "MinConsecutiveMonths",
              "CollabMeasureCount", "KnowledgeMeasureCount", "DiscussionMeasureCount",
              "TalentMeasureCount", "RoutinesMeasureCount"],

@@ -269,9 +269,9 @@ Five organizational practice categories are measured using the action-level data
 
 **Releases**: Using version-level download data (Step 1.7), each version's first observed download date is used to assign a release period. Releases are classified as: *major* (X.0 or X.0.0), *minor* (X.Y or X.Y.0, Y ≠ 0), *patch* (X.Y.Z, Z ≠ 0), or *other* (non-numeric components). New releases of each type are counted per period.
 
-**Primary release outcomes**: `overall_new_release_count` (all new versions), `major_minor_release_count` (major and minor versions only).
+**Primary release outcomes**: `overall_new_release_count` (all new versions).
 
-**Extension release outcomes**: `major_new_release_count`, `minor_new_release_count`, `patch_new_release_count`, `other_new_release_count`, `major_minor_patch_release_count`.
+**Extension release outcomes**: `major_minor_release_count` (major and minor versions only), `major_new_release_count`, `minor_new_release_count`, `patch_new_release_count`, `other_new_release_count`, `major_minor_patch_release_count`.
 
 **Output**: `drive/output/derived/org_outcomes_practices/org_outcomes/{repo}.parquet`
 
@@ -341,11 +341,11 @@ I measure how projects signal openness to newcomers and whether newcomers advanc
 
 **Newcomer guidelines** (`has_good_first_issue`, `has_contributing_guide`, `has_code_of_conduct`): `has_good_first_issue` is 1 in any period with at least one issue labeled "good first issue." `has_contributing_guide` and `has_code_of_conduct` are set to 1 from the first period the file appears in the git history and are forward filled(Step 1.6).
 
+**Newcomer adoption** (`pull_request_merged_rate_weighted`, `pull_request_review_rate_weighted`): In each period, "newcomers" are members whose first activity occurred in the 3 periods immediately preceding the current one (i.e., between 18 and 0 months before the current period, exclusive). Among newcomers who had not yet performed a given high-responsibility action, I compute the fraction who do so for the first time — weighted by the number of eligible newcomers using a rolling weighted mean. PR review rates are restricted to July 2020 onward due to data availability. Although these are primary measures, they are excluded from the practice PC score due to excessive missing values: `pull_request_review_rate_weighted` is only available from July 2020 onward, and both measures are missing in periods with no eligible newcomers.
+
 **Extension**
 
 `pct_good_first_issue`: Fraction of issues carrying the "good first issue" label, rolling-averaged.
-
-**Newcomer adoption** (`pull_request_merged_rate_weighted`, `pull_request_review_rate_weighted`): In each period, "newcomers" are members whose first activity occurred in the 3 periods immediately preceding the current one (i.e., between 18 and 0 months before the current period, exclusive). Among newcomers who had not yet performed a given high-responsibility action, I compute the fraction who do so for the first time — weighted by the number of eligible newcomers using a rolling weighted mean. PR review rates are restricted to July 2020 onward due to data availability.
 
 `any_activity_rate_weighted` (**Extension**): Same newcomer definition and weighting, but the action is performing *any* high-responsibility action (PR merge or PR review) for the first time.
 
@@ -361,7 +361,11 @@ I measure organizational use of formal routines that structure how work is assig
 
 **Problem assignment** (`mean_has_reviewer`, `mean_has_tag`, `mean_has_assignee`): For each thread in the rolling window, I record whether it had at least one requested reviewer (PRs only), label, or assignee. Each `mean_has_*` is the fraction of threads with that feature.
 
-**Governance files** (`has_codeowners`, `has_issue_template`, `has_pr_template`, `issue_template_count`): Forward-filled binary indicators from the period each file first appears in the git history (Step 1.6), treated as absorbing. Zero-filled for periods before GitHub introduced CODEOWNERS (July 2017) and issue/PR templates (January 2016). `issue_template_count` is the rolling-mean count of distinct issue template filenames over the window, reflecting how persistently the project has used this feature rather than just whether templates currently exist.
+**Governance files** (`has_codeowners`, `has_issue_template`, `has_pr_template`): Forward-filled binary indicators from the period each file first appears in the git history (Step 1.6), treated as absorbing. Zero-filled for periods before GitHub introduced CODEOWNERS (July 2017) and issue/PR templates (January 2016).
+
+**Extension**
+
+`issue_template_count`: Rolling-mean count of distinct issue template filenames over the window, reflecting how persistently the project has used issue templates rather than just whether they currently exist. Computed but not included in the primary PC score.
 
 **Output**: `drive/output/derived/org_outcomes_practices/repo_organizational_routines/rolling5/{repo}.parquet`
 
@@ -393,7 +397,7 @@ This step creates the panel of organizations used in estimation. Composite covar
 
 **Quasi-treatment and event time**: `quasi_treatment_group` from Step 4.7 serves as the reference period for treated and never-treated repositories alike. Event time is defined as `time_index − quasi_treatment_group`.
 
-**Sample qualification** (`FilterQualifiedSample`): Restricts to repositories where the count of `num_important_qualified` members at the quasi-treatment period equals a target value. Primary specifications are `exact1` (exactly 1 qualified important member) and `exact2` (exactly 2); `exact3` is an extension. This ensures each unit has a well-defined important member whose departure can be studied.
+**Sample qualification** (`FilterQualifiedSample`): Restricts to repositories where the count of `num_important_qualified` members at the quasi-treatment period equals a target value. The primary specification is `exact_1_2` (organizations with exactly 1 or 2 qualified important members, estimated separately and combined via inverse-variance weighting); `exact1` and `exact2` are the two sub-samples that make up this primary, and `exact3` is an extension.
 
 **Control group** (`FilterControlGroup`): Two variants are used. The **primary** variant (`nevertreated`) keeps repositories with at most 1 total departure, using zero-departure repositories as never-treated controls. The **extension** variant (`notyettreated`) keeps only treated repositories and uses units not yet treated at a given event time as controls.
 

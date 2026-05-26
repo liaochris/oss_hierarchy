@@ -63,7 +63,7 @@ def ProcessDataset(importance_type, rolling_period, active_outcomes, pc_groups_c
                     and rolling_period == PRIMARY_ROLLING_LABEL
                     and qualified_sample == PRIMARY_QUALIFIED_SAMPLE
                     and control_group == PRIMARY_CONTROL_GROUP):
-                GenerateCanonicalAutofill(prepared_panel, pc_loading_metadata, pc_groups_cfg)
+                GenerateCanonicalAutofill(prepared_panel, repo_pc_scores, pc_loading_metadata, pc_groups_cfg)
 
 
 def BuildPreparedSample(panel, active_outcomes, qualified_sample, control_group):
@@ -247,7 +247,7 @@ def SaveSampleOutputs(panel, repo_pc_scores, pc_loading_metadata, pc_excluded_va
              outdir / "pc_score_excluded_vars.csv", outdir / "pc_score_excluded_vars.log")
 
 
-def GenerateCanonicalAutofill(panel, pc_loading_metadata, pc_groups_cfg):
+def GenerateCanonicalAutofill(panel, repo_pc_scores, pc_loading_metadata, pc_groups_cfg):
     AUTOFILL_OUTDIR.mkdir(parents=True, exist_ok=True)
 
     NumOrgs = str(panel["repo_name"].nunique())
@@ -268,10 +268,25 @@ def GenerateCanonicalAutofill(panel, pc_loading_metadata, pc_groups_cfg):
     DiscussionVarianceExplained = variance.get("discussion_quality", float("nan"))
     TalentVarianceExplained = variance.get("investment_in_new_talent", float("nan"))
     RoutinesVarianceExplained = variance.get("problem_solving_routines", float("nan"))
+
+    total_repos = len(repo_pc_scores)
+    binary_scores = CoarsenScoresToAboveBelowMedian(repo_pc_scores)
+    def _excl_pct(group_name):
+        col = f"{group_name}_pc_score_binary"
+        n_missing = binary_scores[col].isna().sum() if col in binary_scores.columns else 0
+        return n_missing / total_repos * 100
+    CollabPCExcludedPct     = _excl_pct("collaboration")
+    KnowledgePCExcludedPct  = _excl_pct("shared_knowledge")
+    DiscussionPCExcludedPct = _excl_pct("discussion_quality")
+    TalentPCExcludedPct     = _excl_pct("investment_in_new_talent")
+    RoutinesPCExcludedPct   = _excl_pct("problem_solving_routines")
+
     GenerateAutofillMacros(
         ["CollabVarianceExplained", "KnowledgeVarianceExplained",
          "DiscussionVarianceExplained", "TalentVarianceExplained",
-         "RoutinesVarianceExplained"],
+         "RoutinesVarianceExplained",
+         "CollabPCExcludedPct", "KnowledgePCExcludedPct",
+         "DiscussionPCExcludedPct", "TalentPCExcludedPct", "RoutinesPCExcludedPct"],
         "{:.1f}",
         str(AUTOFILL_OUTDIR / "pc_autofill.tex"),
     )
