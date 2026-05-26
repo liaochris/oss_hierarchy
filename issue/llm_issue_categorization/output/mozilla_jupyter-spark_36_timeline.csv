@@ -1,8 +1,0 @@
-type,author,date,text,url,repo_name,issue_number
-IssueTitle,mdboom,2018-02-13T15:43:34Z,Doesn't work with multiple notebook kernels (or multiple spark contexts),https://github.com/mozilla/jupyter-spark/issues/36,mozilla/jupyter-spark,36
-IssueOpened,mdboom,2018-02-13T15:43:34Z,"As reported by [@dmvieira](https://github.com/dmvieira) in [this comment](https://github.com/mozilla/jupyter-spark/issues/25#issuecomment-305505778), the plugin doesn't work correctly if there are multiple notebook kernels running (or multiple spark contexts in the same notebook), since the plugin is essentially designed with one running spark context/instance in mind.
-
-That said, that's a tricky issue to solve in the general case. It would require examining the pyspark objects in the cell to see which spark instances they are connected to.
-
-Alternatively, best advice is probably to start the spark instance manually outside of Jupyter/Pyspark, and then write the pyspark calls to use that instance rather than creating their own instances. (This is essentially the same advice for running against a remote spark). Probably can solve that with a little documentation.",https://github.com/mozilla/jupyter-spark/issues/36,mozilla/jupyter-spark,36
-IssueComment,mdboom,2018-02-13T15:57:49Z,Oops... This is a duplicate of [#22](https://github.com/mozilla/jupyter-spark/issues/22).,,mozilla/jupyter-spark,36

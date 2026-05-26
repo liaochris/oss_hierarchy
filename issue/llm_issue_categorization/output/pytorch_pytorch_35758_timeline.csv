@@ -1,8 +1,0 @@
-type,author,date,text,url,repo_name,issue_number
-IssueTitle,mrshenli,2020-03-31T14:58:46Z,UserRRef should store error if it sees any and prevent subsequent usage,https://github.com/pytorch/pytorch/issues/35758,pytorch/pytorch,35758
-IssueOpened,mrshenli,2020-03-31T14:58:46Z,"[@jjlilley](https://github.com/jjlilley) brought this up in [#35331](https://github.com/pytorch/pytorch/pull/35331). Currently, if `UserRRef` encountered an error internally or when running user-facing APIs, it would report the error but nothing prevents the application from using the `UserRRef` again. However, as some error could have messed up RRef internal states, especially for the ones that have impact on reference counting, we should store those error in the UserRRef, delete the UserRRef and prevent subsequent usage on the RRef.
-
-cc [@pietern](https://github.com/pietern) [@mrshenli](https://github.com/mrshenli) [@pritamdamania87](https://github.com/pritamdamania87) [@zhaojuanmao](https://github.com/zhaojuanmao) [@satgera](https://github.com/satgera) [@gqchen](https://github.com/gqchen) [@aazzolini](https://github.com/aazzolini) [@rohan-varma](https://github.com/rohan-varma) [@xush6528](https://github.com/xush6528) [@jjlilley](https://github.com/jjlilley) [@osalpekar](https://github.com/osalpekar)",https://github.com/pytorch/pytorch/issues/35758,pytorch/pytorch,35758
-LabeledEvent,mrshenli,2020-03-31T14:58:46Z,feature,,pytorch/pytorch,35758
-LabeledEvent,mrshenli,2020-03-31T14:58:46Z,triaged,,pytorch/pytorch,35758
-LabeledEvent,mrshenli,2020-03-31T14:58:46Z,module: rpc,,pytorch/pytorch,35758
