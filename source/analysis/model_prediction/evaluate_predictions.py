@@ -4,23 +4,31 @@ import pandas as pd
 from pathlib import Path
 from itertools import product
 
-from source.lib.python.config_loaders import LoadPipelineInputs, LoadAnalysisParameters
+from source.lib.python.config_loaders import LoadPipelineInputs, LoadAnalysisParameters, LoadModelPredictionConfig
 
 _ap = LoadAnalysisParameters()
+_model_prediction_config = LoadModelPredictionConfig()
 
-INDIR_PREDICTIONS = Path("output/analysis/model_prediction")
-OUTDIR            = Path("output/analysis/model_prediction")
-VARIANTS          = ["observed", "same_period", "opened_cohort"]
-QUALIFIED_SAMPLES = {"exact1", "exact2", "exact_1_2"}
+INDIR_PREDICTIONS     = Path("output/analysis/model_prediction")
+OUTDIR                = Path("output/analysis/model_prediction")
+VARIANTS              = _model_prediction_config["variants"]["run"]
+ESTIMATION_APPROACHES = _model_prediction_config["member_probability_estimation"]["run"]
+QUALIFIED_SAMPLES     = {"exact1", "exact2", "exact_1_2"}
 POST_TIMES        = list(range(1, _ap["max_event_time"] + 1))
 EVAL_KEYS         = [*[str(t) for t in POST_TIMES], "1_5"]
 
+OUTCOMES = ["open", "review_rate", "merge_rate"]
+METRIC_LABELS = {
+    "signed_std_residual":    "Signed std. residual (model-implied)",
+    "squared_std_residual":   "Squared std. residual, centered (model-implied)",
+    "percentage_point_error": "Prediction error: percentage points",
+    "percent_error":          "Prediction error: % deviation",
+}
+
 ERROR_METRICS = [
-    ("error_open_pct",       "Prediction error: % deviation from predicted"),
-    ("error_review_rate_pp", "Prediction error: percentage point difference from predicted"),
-    ("error_merge_rate_pp",  "Prediction error: percentage point difference from predicted"),
-    ("error_review_rate_pct", "Prediction error: % deviation from predicted"),
-    ("error_merge_rate_pct",  "Prediction error: % deviation from predicted"),
+    (f"{metric}_{outcome}", f"{METRIC_LABELS[metric]}: {outcome.replace('_', ' ')}")
+    for metric in _model_prediction_config["error_metrics"]["run"]
+    for outcome in OUTCOMES
 ]
 
 
@@ -30,15 +38,16 @@ def Main():
     qualified_samples = [s for s in cfg["qualified_samples"]["run"] if s in QUALIFIED_SAMPLES]
     control_groups    = cfg["control_groups"]["run"]
 
-    for variant, importance_type, qualified_sample, control_group in product(
-        VARIANTS, importance_types, qualified_samples, control_groups
+    for variant, importance_type, qualified_sample, control_group, estimation_approach in product(
+        VARIANTS, importance_types, qualified_samples, control_groups, ESTIMATION_APPROACHES
     ):
-        RunCombination(variant, importance_type, qualified_sample, control_group)
+        RunCombination(variant, importance_type, qualified_sample, control_group, estimation_approach)
+        RunPrePeriodEvaluation(variant, importance_type, qualified_sample, control_group, estimation_approach)
 
 
-def RunCombination(variant, importance_type, qualified_sample, control_group):
-    pred_dir = INDIR_PREDICTIONS / variant / "predictions" / importance_type / qualified_sample / control_group
-    base     = OUTDIR / variant / "evaluation" / importance_type / qualified_sample / control_group
+def RunCombination(variant, importance_type, qualified_sample, control_group, estimation_approach):
+    pred_dir = INDIR_PREDICTIONS / variant / "predictions" / estimation_approach / importance_type / qualified_sample / control_group
+    base     = OUTDIR / variant / "evaluation" / estimation_approach / importance_type / qualified_sample / control_group
 
     all_summary_rows = []
 
@@ -81,6 +90,33 @@ def RunCombination(variant, importance_type, qualified_sample, control_group):
             pd.DataFrame(summary_rows).to_csv(outdir / "prediction_error_summary.csv", index=False)
 
     pd.DataFrame(all_summary_rows).to_csv(base / "prediction_error_summary_all.csv", index=False)
+
+
+PRE_PERIOD_METRICS = [
+    (f"{metric}_{outcome}", f"{METRIC_LABELS[metric]}: {outcome.replace('_', ' ')}")
+    for metric in ["signed_std_residual", "squared_std_residual"]
+    for outcome in OUTCOMES
+]
+
+
+def RunPrePeriodEvaluation(variant, importance_type, qualified_sample, control_group, estimation_approach):
+    pre_period_path = (
+        OUTDIR / variant / "pre_period" / estimation_approach
+        / importance_type / qualified_sample / control_group / "pre_period_evaluation.parquet"
+    )
+    df = pd.read_parquet(pre_period_path)
+
+    subgroups = {"treated": df[df["is_treated"]], "control": df[~df["is_treated"]]}
+
+    for group_name, df_group in subgroups.items():
+        outdir = (
+            OUTDIR / variant / "pre_period" / estimation_approach
+            / importance_type / qualified_sample / control_group / group_name
+        )
+        outdir.mkdir(parents=True, exist_ok=True)
+
+        for col, label in PRE_PERIOD_METRICS:
+            PlotErrorDistribution(df_group[col], label, outdir / f"{col}.png")
 
 
 CLIP_LIMIT = 500
