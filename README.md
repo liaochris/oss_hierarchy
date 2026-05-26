@@ -28,8 +28,6 @@ live under `source/`, generated artifacts live under `output/` or
   normal source control.
 - `output/`
   Smaller generated outputs, logs, and review artifacts.
-- `plan/`
-  Planning notes for larger empirical and code changes.
 
 ## Workflow Essentials
 
@@ -86,7 +84,3 @@ of each `SConscript` over repeated ad hoc arrays.
 - [`HANDOFF.md`](HANDOFF.md) - current handoff notes and implementation context.
 - [`oop_event_study_forest.md`](oop_event_study_forest.md) - event-study forest
   OOP/package refactor todo list.
-- [`plan/model_prediction_improvements.md`](plan/model_prediction_improvements.md)
-  - planned model-prediction improvements.
-- [`plan/PCA_kfold_plan.md`](plan/PCA_kfold_plan.md) - plan for K-fold PCA
-  feature construction.
