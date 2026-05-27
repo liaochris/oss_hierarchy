@@ -1,9 +1,0 @@
-type,author,date,text,url,repo_name,issue_number
-IssueTitle,srush,2017-09-08T02:15:55Z,Adding an attribute as a buffer should throw in error,https://github.com/pytorch/pytorch/issues/2670,pytorch/pytorch,2670
-IssueOpened,srush,2017-09-08T02:15:55Z,"We had a bug in OpenNMT where we first created an attribute `self.mask` and then tried to add `mask` as a buffer. This behavior will cause `self.mask` to exist, but not be cast with `.cuda`. We think this behavior is counter-intuitive, and it should throw an error.
-
-[@JianyuZhan](https://github.com/JianyuZhan)",https://github.com/pytorch/pytorch/issues/2670,pytorch/pytorch,2670
-MentionedByPR,srush,2017-09-08T02:16:10Z,Make mask a buffer.,https://github.com/OpenNMT/OpenNMT-py/pull/240,pytorch/pytorch,2670
-IssueComment,apaszke,2017-09-08T02:27:09Z,I believe this has been fixed in [#2108](https://github.com/pytorch/pytorch/pull/2108). Can you please confirm this?,,pytorch/pytorch,2670
-IssueComment,srush,2017-09-08T02:33:02Z,"Cool, thanks!",,pytorch/pytorch,2670
-ClosedEvent,srush,2017-09-08T02:33:04Z,Closed by srush in ,,pytorch/pytorch,2670

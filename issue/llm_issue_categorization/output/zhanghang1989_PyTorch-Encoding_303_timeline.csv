@@ -1,6 +1,0 @@
-type,author,date,text,url,repo_name,issue_number
-IssueTitle,ghost,2020-07-30T04:16:02Z,"ASPP Atrous rates = [12,24,36]?",https://github.com/zhanghang1989/PyTorch-Encoding/issues/303,zhanghang1989/PyTorch-Encoding,303
-IssueOpened,ghost,2020-07-30T04:16:02Z,"In paper, You wrote that you will use rates [6, 12,24] Atrous rates as you might see in the image below. But [your code](https://github.com/zhanghang1989/PyTorch-Encoding/blob/master/encoding/models/sseg/deeplab.py#L61) defaults as [12,24,36]. I wonder why they are different. [Here](https://pytorch.org/docs/master/generated/torch.nn.Conv2d.html) is the Pytorch's conv2d dilation definition.  
-[![image](https://user-images.githubusercontent.com/50353282/88880054-c57ca980-d266-11ea-8147-55bb5c030633.png)](https://user-images.githubusercontent.com/50353282/88880054-c57ca980-d266-11ea-8147-55bb5c030633.png)",https://github.com/zhanghang1989/PyTorch-Encoding/issues/303,zhanghang1989/PyTorch-Encoding,303
-IssueComment,lxtGH,2020-08-19T03:06:37Z,"[@Heonjin](https://github.com/Heonjin) If the network output stride is 16, we use rates [6, 12,24] . If the network output stride is 8, we use rates [12,24,36].",,zhanghang1989/PyTorch-Encoding,303
-ClosedEvent,,2020-08-20T13:20:21Z,Closed by None in ,,zhanghang1989/PyTorch-Encoding,303
