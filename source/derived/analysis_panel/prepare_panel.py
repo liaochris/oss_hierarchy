@@ -250,7 +250,8 @@ def SaveSampleOutputs(panel, repo_pc_scores, pc_loading_metadata, pc_excluded_va
 def GenerateCanonicalAutofill(panel, repo_pc_scores, pc_loading_metadata, pc_groups_cfg):
     AUTOFILL_OUTDIR.mkdir(parents=True, exist_ok=True)
 
-    NumOrgs = str(panel["repo_name"].nunique())
+    pc_score_cols = [c for c in repo_pc_scores.columns if c.endswith("_pc_score")]
+    NumOrgs = str(repo_pc_scores.dropna(subset=pc_score_cols)["repo_name"].nunique())
     SampleStart = str(int(panel["time_period"].min().year))
     SampleEnd = str(int(panel["time_period"].max().year))
     GenerateAutofillMacros(
@@ -297,7 +298,7 @@ def GenerateCanonicalAutofill(panel, repo_pc_scores, pc_loading_metadata, pc_gro
 def GeneratePCLoadingTablefills(pc_loading_metadata, pc_groups_cfg, autofill_outdir):
     tab_labels = {
         "collaboration":            "collaboration_metrics",
-        "shared_knowledge":         "shared_knowledge_metrics",
+        "shared_knowledge":         "knowledge_level_metrics",
         "discussion_quality":       "discussion_quality_metrics",
         "investment_in_new_talent": "investment_new_talent_metrics",
         "problem_solving_routines": "problem_solving_routines_metrics",

@@ -1,7 +1,6 @@
 import warnings
 
 import numpy as np
-import pandas as pd
 from scipy.stats import poisson, nbinom
 from statsmodels.discrete.discrete_model import NegativeBinomial
 from statsmodels.discrete.count_model import ZeroInflatedPoisson

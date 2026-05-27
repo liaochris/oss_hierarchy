@@ -1,18 +1,40 @@
+\newcommand{\panelheight}{0.14\textheight} % adjust as needed
+
 \begin{figure}[t]
     \centering
-    \caption{Social Network for \texttt{boto/boto3}}
-    \includegraphics[width=.4\linewidth]{temp/boto_2020_1.png}
-    \label{fig:boto_social_network}
+    \caption{OSS Development Workflow and Social Network}
+    % ---------- Subfigure 1 (caption on TOP) ----------
+    \begin{subfigure}[t]{0.48\textwidth}
+        \centering
+        \caption{Release Production Workflow}
+        \label{fig:development_pipeline}
+        % force TikZ to match the same height as the PNG
+        \vspace{0pt}
+        \resizebox{!}{\panelheight}{%
+            \input{source/figures/dev_pipeline.tikz}
+        }
+    \end{subfigure}
+    \hfill
+    % ---------- Subfigure 2 (caption on TOP) ----------
+    \begin{subfigure}[t]{0.48\textwidth}
+        \centering
+        \caption{Social Network for \texttt{boto/boto3}}
+        \label{fig:boto_social_network}
+        \vspace{0pt}
+        \includegraphics[height=\panelheight]{temp/boto_2020_1.png}
+    \end{subfigure}
 
-  \begin{minipage}{1\textwidth}
-    \textbf{Figure notes:} 
-    Figure~\ref{fig:boto_social_network} depicts the social network for \texttt{boto/boto3}, the Amazon Web Services Software Development Kit for Python, during the first half of 2020. 
-    Each node represents a member and is scaled by its degree, defined as the number of members they interact with.
-    Each edge between nodes represents interactions between members; edge thickness is positively related to the quantity of interactions between members. 
-    The three nodes representing the three \textit{single-period key members} and their corresponding edges are colored in red.
-\end{minipage}
+    \vspace{4mm} % optional spacing between plots and notes
 
+    % ---------- Figure Notes ----------
+    \begin{minipage}{1\textwidth}
+        \footnotesize
+        \textbf{Figure notes:} 
+        Panel~\ref{fig:development_pipeline} depicts the development process for an OSS to produce a new software release. 
+        Panel~\ref{fig:boto_social_network} depicts the social network for \texttt{boto/boto3}, the Amazon Web Services Software Development Kit for Python, during the first half of 2020. 
+        Each node represents a member and is scaled by its degree, defined as the number of members they interact with.
+        Each edge between nodes represents interactions between members; edge thickness is positively related to the quantity of interactions between members. 
+        The three nodes representing the three \textit{single-period key members} and their corresponding edges are colored in red.
+    \end{minipage}
 
-
-     
 \end{figure}

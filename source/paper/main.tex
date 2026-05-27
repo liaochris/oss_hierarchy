@@ -297,7 +297,7 @@ I define organizational resilience as the capacity of organizations to respond t
 Other definitions used by the literature include an organization's ability to respond to adversity, crisis, stress, turbulence, a competitive environment or unexpected events. See Table 2 of \cite{hillmann_organizational_2021} for papers associated with each definition.} 
 I measure organizational resilience by analyzing organizational outcomes observed following the disruptive event.
 The five categories of organizational practices in my analysis are \textit{collaboration}, \textit{knowledge level}, \textit{discussion quality}, \textit{investment in new talent} and \textit{problem-solving routines}.
-These categories map to common themes emphasized by the organizational resilience and have all been found to bolster resilience.\footnote{Three of the four concepts that \cite{duchek_organizational_2020} describes as ``general attributes that may facilitate an organization's resilience'' cover my categories. What  \cite{duchek_organizational_2020} terms \textit{redundancy} covers collaboration and knowledge level, \textit{positive relationships} covers discussion quality and investment in new talent and \textit{specific organizational strategies} covers organizational routines. 
+These categories map to common themes emphasized by the organizational resilience literature and have all been found to bolster resilience.\footnote{Three of the four concepts that \cite{duchek_organizational_2020} describes as ``general attributes that may facilitate an organization's resilience'' cover my categories. What  \cite{duchek_organizational_2020} terms \textit{redundancy} covers collaboration and knowledge level, \textit{positive relationships} covers discussion quality and investment in new talent and \textit{specific organizational strategies} covers organizational routines. 
 The fourth type is adequate resources, which is less applicable to OSS organizations as most organizations are made up of volunteers who collaborate remotely.}
 
 Existing empirical research in management examines individual organizational practices in isolation or the combined effects of multiple practices without considering complementarities between practices. 
@@ -353,7 +353,7 @@ To propose changes to the codebase, members open a \textit{pull request} (PR) th
 Pull request \textit{reviewers} discuss broader aspects of the proposal through \textit{pull request comments} and address specific code changes through \textit{review comments}, before making determinations through \textit{reviews}.
 If the \textit{reviewers} approve the proposed changes, the pull request is \textit{merged} into the codebase.
 Merged changes become available to users only when the organization publishes a new \textit{software release}, which bundles one or more PRs and provides an updated version of the library.
-Figure~\ref{fig:development_pipeline} depicts the process that an OSS organization undergoes to produce a new software release. 
+Figure~\ref{fig:development_pipeline} depicts the process that an OSS organization undergoes to produce a new software release.
 
 \input{source/figures/social_network}
 
@@ -419,8 +419,8 @@ However, as discussed in Section~\ref{sec:abrupt_departure_motivation}, the prim
 These transitions determine the timing of departure independently of unobserved organizational trends.
 For instance, when an OSS member has a child, the resulting reduction in available free time, which manifests as OSS disengagement, is unrelated to changes within the OSS organization.
 Similarly, when contributors graduate or change jobs, disengagement follows from that transition.
-Job changes, in particular, are usually driven by compensation, career progression, or relocation—factors orthogonal to the OSS organization’s trajectory, 
-Even when contributors use the software at work, job transitions need not reflect trends in the OSS organization.
+Job changes, in particular, are usually driven by compensation, career progression, or relocation—factors orthogonal to the OSS organization’s trajectory,
+even when contributors use the software at work, job transitions need not reflect trends in the OSS organization.
 Some employers restrict OSS participation during work hours, and contributors who switch firms may stop contributing simply because the new job no longer requires or permits it.
 When an employer itself manages the OSS organization, the software typically represents a minor or non-revenue-generating part of the firm’s operations, making it unlikely that unobserved OSS-level shocks drive or determine the timing of job exits. 
 Hence, it is also unlikely that a decline in the OSS’s popularity would lead employees to depart or firms to dismiss them.
@@ -472,7 +472,7 @@ The following sections describe the measures within each practice and the constr
 
 \subsection{Collaboration}
 Collaboration can enhance resilience to member departures because it ensures multiple people have experience with solving a problem.
-This mitigates the risk the ability to complete a task may be retained when someone leaves.
+This mitigates the risk that the ability to complete a task is lost when someone leaves.
 I measure collaboration in an organization using five measures: the average number of participants per discussion, the percentage of discussions involving multiple members, and the degree to which participation is concentrated among a few individuals or dispersed across many—measured using the Herfindahl–Hirschman Index (HHI) for all discussions, issue threads, and pull request threads respectively.
 The first principal component (PC) is statistically meaningful, explaining \CollabVarianceExplained\% of the total variance across the \CollabMeasureCount{} measures.
 
@@ -482,9 +482,9 @@ For instance, a higher average number of participants per discussion increases t
 
 \subsection{Knowledge Level}
 Organizations with higher knowledge levels are more resilient because each member has the knowledge to handle many tasks. 
-This means that the loss of one member does not necessarily cause the organization loses all the knowledge held by that member.
+This means that the loss of one member does not necessarily cause the organization to lose all the knowledge held by that member.
 I measure an organization's knowledge level using two measures: the \% of members involved in both issue and pull request threads; and the average \# of unique activities members engage in.
-The first PC is statistically meaningful, explaining \KnowledgeVarianceExplained\% of the total variance across the \KnowledgeMeasureCount{} measures.
+The first principal component is statistically meaningful, explaining \KnowledgeVarianceExplained\% of the total variance across the \KnowledgeMeasureCount{} measures.
 
 Table~\ref{tab:knowledge_level_metrics} provides detailed definitions of all \KnowledgeMeasureCount{} measures.
 Organizations with higher knowledge level scores have more knowledgeable members, which suggests higher levels of knowledge level in the organization.
@@ -577,8 +577,8 @@ Since the quantity of new software releases declines, users will directly experi
 Given that reliance on OSS is widespread, this indicates that low organizational resilience in OSS projects may have substantial downstream economic consequences.
 
 The bottom-left of each panel reports the p-value from the Wald test of the pre-trend null hypothesis $\delta_k = 0$ for four estimated pre-periods (the reference period is excluded), following \citealt{freyaldenhoven_visualization_2021}. 
-For two of the three organizational outcomes, I fail to reject the null of no pre-trends. 
-For pull requests merged, the null is marginally rejected at the 5\% level. 
+% For two of the three organizational outcomes, I fail to reject the null of no pre-trends.
+% For pull requests merged, the null is marginally rejected at the 5\% level.
 I do not consider this especially problematic for two reasons: the estimated effects are the opposite sign of the pre-trend coefficients and the pre-trend estimates closest to the treatment date are statistically indistinguishable from zero.
 Unobserved trends most threatening to identification would likely manifest as statistically significant pre-trends in the periods immediately prior to departure—which I do not observe.
 
@@ -602,7 +602,7 @@ This pattern suggests that if high collaboration scores do increase resilience, 
 
 Appendix Figures~\ref{fig:event_study_practice_categories_knowledge_quality}--~\ref{fig:event_study_practice_categories_investment_routines} extend the analysis in Figure~\ref{fig:event_study_collab} to the remaining organizational practice categories: knowledge level, discussion quality, investment in new talent, and problem-solving routines. 
 I find that no individual organizational practice independently predicts greater resilience as its adoption increases.
-This finding contrasts sharply with findings from the management and software engineering that increased adoption of these practices strengthens resilience.
+This finding contrasts sharply with findings from the management and software engineering literatures, which find that increased adoption of these practices strengthens resilience.
 
 Two identifying assumptions allow $\hat{\delta}_k^{high,collab}$ and $\hat{\delta}_k^{low,collab}$ (and their counterparts for other organizational practices) to be interpreted as causal effects (caused by departures).  
 Given an organization's multi-valued vector of all five organizational practice scores $X_i$, 
@@ -814,12 +814,6 @@ For a given fold, observations are separated into the high and low resilience su
 Figure~\ref{fig:event_study_forest_depth2} depicts separate event study estimates of average organizational resilience for organizations classified as high and low resilience, using the \textit{policy tree split} with a tree of depth 2. 
 Economically meaningful and statistically significant differences between high and low resilience subsets cannot be identified for all outcomes. 
 
-Appendix Figure~\ref{fig:event_study_forest_depth13} reports analogous results for trees of depth 1 and depth 3. 
-Again, meaningful differences between the high and low resilience subsets do not emerge.
-The depth-1 tree also serves as an interesting hypothesis test: since interactions are shut down, does allowing a data-driven split, rather than the median-based approach in Section~\ref{sec:org_resilience_indiv_tests}, enable any single organizational practice to reliably separate resilient from non-resilient organizations? 
-Consistent with the limited improvement in resilience classification when moving from binary to continuous practice scores observed in Section~\ref{sec:forest_splits}, the data-driven split yields little additional predictive power. 
-The failure of the depth-3 tree further suggests that the relationship between organizational practices and resilience is highly complex. 
-
 Trees of depth four and higher are computationally infeasible to train without substantial regularity assumptions. 
 
 
@@ -828,14 +822,14 @@ Trees of depth four and higher are computationally infeasible to train without s
 
 \subsection{Exploring the Coarsened Space of Organizational Practices} \label{sec:coarsened_exploration}
 A key insight from Figure~\ref{fig:event_study_forest_coarse} is that coarsening continuous practice scores into binary high/low scores using a median split only slightly reduces the generalized random forest’s ability to separate high resilience and low resilience organizations.
-This motivates a complementary interpretability approach: instead of working with continuous scores, I classify organizations into one of 32 categories corresponding to all possible combinations of the five binary practice indicators. The median threshold for each score is computed separately within each sub-sample of organizations with exactly one and exactly two key members at event time 0. 
+This motivates a complementary interpretability approach: instead of working with continuous scores, I classify organizations into one of 32 categories corresponding to all possible combinations of the five binary practice indicators. The median threshold for each score is computed separately within each sub-sample of organizations with exactly one and exactly two key members at the quasi-treatment date. 
 Although the coarsening discards information, I believe the modest loss in predictive precision is outweighed by the interpretability gained from reducing the continuous practice space to a manageable set of 32 combinations.
 
 
 \input{source/figures/pc_score_combo}
-Figure~\ref{fig:practice_combo} displays all combinations of coarsened organizational practice scores, ordered in descending order by the mean of the doubly robust average post-period treatment effect across all organizations in the combination. 
+Figure~\ref{fig:pc_score_combo} displays all combinations of coarsened organizational practice scores, ordered in descending order by the mean of the doubly robust average post-period treatment effect across all organizations in the combination. 
 Recall from Section~\ref{sec:org_resilience_indiv_tests} that high collaboration scores do not suggest increased resilience, and for some outcomes, high collaboration scores suggest decreased resilience. 
-This pattern is observed in Figure~\ref{fig:practice_combo} as well; 9 of the 16 combinations with high collaboration scores belong in the top half of combinations, ordered by resilience, whereas the remaining 7 belong in the bottom half. 
+This pattern is observed in Figure~\ref{fig:pc_score_combo} as well; 9 of the 16 combinations with high collaboration scores belong in the top half of combinations, ordered by resilience, whereas the remaining 7 belong in the bottom half. 
 Across all organizational practice scores, I again observe that high values for a practice score are not systematically associated with increased resilience. 
 
 However, high collaboration does suggest increased resilience when accompanied by high knowledge level scores within the organization and/or high discussion quality. 
@@ -847,7 +841,7 @@ Six of the eight practice combinations that contain both high collaboration and 
 One explanation is that collaboration is only effective  at inducing resilience when coordinated well.
 Collaborators that are negative or slow to respond may hinder rather than enhance their team's performance, especially following disruptive situations \citep{gittell_2002_management}. 
 This finding also builds on existing research emphasizing that effective collaboration depends on overcoming coordination and communication challenges during ``normal times'' \citep{cross_2020, DIETRICHSON2022257}. 
-Organizations with higher knowledge and discussion-quality scores are not systematically more resilient; rather, high collaboration scores appears to be the necessary ingredient that associates these practices with enhanced organizational resilience.
+Organizations with higher knowledge and discussion-quality scores are not systematically more resilient; rather, high collaboration scores appear to be the necessary ingredient that associates these practices with enhanced organizational resilience.
 
 
 A third observation is that organizations with high collaboration, high knowledge levels, and high discussion quality scores are more resilient only when they also have either high scores in investment in new talent and/or problem-solving routines.
