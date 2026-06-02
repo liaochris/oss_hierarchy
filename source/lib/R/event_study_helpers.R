@@ -137,28 +137,24 @@ FitEventStudy <- function(df, outcome, control_group, method = c("cs", "sa", "es
   list(plot = plot_obj, results = dyn_mat, att_overall = method_result$att_overall)
 }
 
-WeightedAggregateCoefMatrix <- function(coef_mat_list, obs_counts) {
+WeightedAggregateCoefMatrix <- function(coef_mat_list, n_treated) {
   shared_event_times <- Reduce(intersect, lapply(coef_mat_list, rownames))
   ref_period         <- "-1"
-  ivw_times          <- setdiff(shared_event_times, ref_period)
+  est_times          <- setdiff(shared_event_times, ref_period)
 
-  estimates <- vapply(coef_mat_list, function(m) m[ivw_times, "estimate"],
-                      numeric(length(ivw_times)))
-  sds       <- vapply(coef_mat_list, function(m) m[ivw_times, "sd"],
-                      numeric(length(ivw_times)))
+  estimates <- vapply(coef_mat_list, function(m) m[est_times, "estimate"], numeric(length(est_times)))
+  sds       <- vapply(coef_mat_list, function(m) m[est_times, "sd"],       numeric(length(est_times)))
 
-  # Inverse-variance weighting: w_s = (1/σ_s²) / Σ(1/σ_s²)
-  precisions    <- 1 / sds^2
-  total_prec    <- rowSums(precisions)
-  weight_matrix <- precisions / total_prec
+  sample_weights <- n_treated / sum(n_treated)
+  w_mat          <- matrix(sample_weights, nrow = length(est_times), ncol = length(n_treated), byrow = TRUE)
 
-  agg_estimate <- rowSums(estimates * weight_matrix)
-  agg_sd       <- 1 / sqrt(total_prec)
+  agg_estimate <- rowSums(estimates * w_mat)
+  agg_sd       <- sqrt(rowSums(sds^2 * w_mat^2))
 
   result <- cbind(estimate = agg_estimate, sd = agg_sd,
                   ci_low   = agg_estimate - 1.96 * agg_sd,
                   ci_high  = agg_estimate + 1.96 * agg_sd)
-  rownames(result) <- ivw_times
+  rownames(result) <- est_times
 
   if (ref_period %in% shared_event_times) {
     ref_row <- matrix(0, nrow = 1, ncol = ncol(result),

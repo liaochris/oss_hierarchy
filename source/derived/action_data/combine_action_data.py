@@ -4,7 +4,7 @@ import json
 import numpy as np
 from joblib import Parallel, delayed
 from source.lib.JMSLab.SaveData import SaveData
-from source.lib.python.filesystem_utils import CleanDirs, WriteDirectoryHash
+from source.lib.python.filesystem_utils import CleanDirs, WriteContentHash
 from source.lib.python.data_utils import JsonDeserialize, JsonSerialize
 from source.lib.python.repo_utils import MakeRepoNameSafe
 
@@ -39,7 +39,7 @@ def Main():
                  STATS_DIR / "dropped_stats.csv",
                  STATS_DIR / "dropped_stats.log")
 
-    WriteDirectoryHash(OUTDIR, HASH_FILE)
+    WriteContentHash(LOG_DIR, HASH_FILE)
 
 
 def CleanOutputs():

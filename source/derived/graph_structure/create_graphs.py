@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 import networkx as nx
 from joblib import Parallel, delayed
-from source.lib.python.filesystem_utils import CleanDirs, WriteDirectoryHash
+from source.lib.python.filesystem_utils import CleanDirs, WriteContentHash
 from source.lib.python.repo_utils import MakeRepoNameSafe, MakeRepoNameOriginal
 from source.lib.python.data_utils import ImputeTimePeriod, JsonSerialize
 from source.lib.python.config_loaders import LoadGlobalSettings
@@ -36,7 +36,7 @@ def Main():
         log_df['per_period_exported'] = log_df['per_period_exported'].apply(JsonSerialize)
         SaveData(log_df, ['repo'], LOG_DIR / "exported_graphs_log.csv", LOG_DIR / "exported_graphs_log.log")
 
-    WriteDirectoryHash(OUTDIR / "interactions", HASH_FILE)
+    WriteContentHash(LOG_DIR / "interactions", HASH_FILE)
 
 
 def CleanOutputs():
