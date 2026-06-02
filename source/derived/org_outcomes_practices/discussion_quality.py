@@ -4,7 +4,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from source.lib.python.filesystem_utils import CleanDirs, WriteDirectoryHash
+from source.lib.python.filesystem_utils import CleanDirs, WriteContentHash
 from source.lib.python.data_utils import ImputeTimePeriod
 from source.lib.python.config_loaders import LoadGlobalSettings, LoadImportanceSpecifications, LoadGlobals
 from source.derived.org_outcomes_practices.helpers import AddTypeBroad, ApplyRolling, ConcatStatsByTimePeriod, FilterOnImportant, LoadBotList, LoadFilteredImportantMembers
@@ -47,9 +47,9 @@ def Main():
 
     _hash_dir = Path("output/derived/hashes")
     for subset in subsets:
-        subdir = OUTDIR / subset / f"rolling{ROLLING_PERIODS}"
-        if subdir.exists():
-            WriteDirectoryHash(subdir, _hash_dir / f"repo_discussion_quality_{subset}_rolling{ROLLING_PERIODS}.txt")
+        log_subdir = LOG_OUTDIR / subset / f"rolling{ROLLING_PERIODS}"
+        if log_subdir.exists():
+            WriteContentHash(log_subdir, _hash_dir / f"repo_discussion_quality_{subset}_rolling{ROLLING_PERIODS}.txt")
 
 
 def CleanOutputs():

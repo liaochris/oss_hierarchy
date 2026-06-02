@@ -91,7 +91,7 @@ RunFullSampleEventStudies <- function(outcome_specs, outdir_slice,
   if (aggregated) {
     sub_panels <- lapply(sub_samples, function(s)
       LoadPreparedSample(INDIR_PREP, importance_type, rolling_panel, s, control_group))
-    obs_counts <- vapply(sub_panels, nrow, integer(1))
+    n_treated <- vapply(sub_panels, function(p) length(unique(p$repo_name[p$treatment_group != 0])), integer(1))
   }
 
   coeffs             <- list()
@@ -102,7 +102,7 @@ RunFullSampleEventStudies <- function(outcome_specs, outdir_slice,
     if (aggregated) {
       sub_results <- lapply(sub_panels, function(p)
         FitEventStudy(p, spec$outcome, control_group, "sa", normalize = spec$normalize, title = "")$results)
-      results <- WeightedAggregateCoefMatrix(sub_results, obs_counts)
+      results <- WeightedAggregateCoefMatrix(sub_results, n_treated)
       es_list <- list(list(results = results))
     } else {
       es      <- FitEventStudy(panel, spec$outcome, control_group, "sa", title = "", normalize = spec$normalize)
@@ -152,10 +152,10 @@ RunPCScoreEventStudies <- function(outcome_specs, pc_group_cfg, outdir_slice,
             function(sub_panel, pc_groups) sub_panel %>% filter(repo_name %in% pc_groups[[pc_group_name]][[repo_field]]),
             sub_pc_score_panels, sub_pc_score_groups, SIMPLIFY = FALSE
           )
-          side_obs_counts <- vapply(sub_side_panels, nrow, integer(1))
-          side_results    <- lapply(sub_side_panels, function(p)
+          n_treated    <- vapply(sub_side_panels, function(p) length(unique(p$repo_name[p$treatment_group != 0])), integer(1))
+          side_results <- lapply(sub_side_panels, function(p)
             FitEventStudy(p, spec$outcome, control_group, "sa", normalize = spec$normalize, title = "")$results)
-          WeightedAggregateCoefMatrix(side_results, side_obs_counts)
+          WeightedAggregateCoefMatrix(side_results, n_treated)
         }), c("low", "high"))
         es_list <- lapply(agg_by_side, function(m) list(results = m))
       } else {

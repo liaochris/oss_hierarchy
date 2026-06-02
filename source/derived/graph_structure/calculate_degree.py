@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from joblib import Parallel, delayed
-from source.lib.python.filesystem_utils import CleanDirs, WriteDirectoryHash
+from source.lib.python.filesystem_utils import CleanDirs, WriteContentHash
 from source.lib.JMSLab.SaveData import SaveData
 
 INDIR_INTERACTIONS = Path("drive/output/derived/graph_structure/interactions")
@@ -17,11 +17,11 @@ LOG_DIR = Path("output/derived/graph_structure/graph_degrees")
 def Main():
     CleanOutputs()
     ProcessRepos(INDIR_INTERACTIONS, INDIR_GRAPHS, OUTDIR)
-    WriteDirectoryHash(OUTDIR, HASH_FILE)
+    WriteContentHash(LOG_DIR, HASH_FILE)
 
 
 def CleanOutputs():
-    CleanDirs([OUTDIR, LOG_DIR / "interactions"])
+    CleanDirs([OUTDIR, LOG_DIR])
 
 
 def ProcessRepos(indir_interactions, indir_graphs, outdir, n_jobs=-1):

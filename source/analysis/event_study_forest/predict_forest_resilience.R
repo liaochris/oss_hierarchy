@@ -244,7 +244,7 @@ RunAggregatedSplitEventStudies <- function(sub_panels, sub_forest_results, split
 
       is_valid      <- !vapply(sub_results, is.null, logical(1))
       valid_results <- sub_results[is_valid]
-      valid_counts  <- vapply(group_filtered_panels[is_valid], nrow, integer(1))
+      valid_counts  <- vapply(group_filtered_panels[is_valid], function(p) length(unique(p$repo_name[p$treatment_group != 0])), integer(1))
       if (length(valid_results) == 0) return(NULL)
       WeightedAggregateCoefMatrix(valid_results, valid_counts)
     })

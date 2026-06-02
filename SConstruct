@@ -2,7 +2,11 @@
 import os
 import sys
 import atexit
+import resource
 import source.lib.JMSLab as jms
+
+soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+resource.setrlimit(resource.RLIMIT_NOFILE, (min(hard, 65536), hard))
 
 sys.path.append('config')
 sys.dont_write_bytecode = True # Don't write .pyc files

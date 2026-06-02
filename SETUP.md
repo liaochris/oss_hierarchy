@@ -36,8 +36,17 @@ export PYTHONPATH=.
 
 ## Dependencies
 
-Install Python dependencies from `source/lib/requirements.txt` 
-Install R dependencies from `source/lib/requirements.r`
+Install Python dependencies with:
+
+```bash
+python -m pip install -r source/lib/requirements.txt
+```
+
+Install R dependencies with:
+
+```bash
+Rscript source/lib/requirements.r
+```
 
 ## Data and Output Locations
 

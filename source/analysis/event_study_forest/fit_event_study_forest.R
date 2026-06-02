@@ -58,7 +58,7 @@ Main <- function() {
 
       pipeline <- NewEventStudyForestPipeline(FOREST_TRAINING_OUTCOME, rolling_period)
       pipeline <- PrepareData(pipeline, df_data, feature_cols, marg_dist)
-      pipeline <- FitOutOfSample(pipeline, outdir_datastore, use_existing = TRUE)
+      pipeline <- FitOutOfSample(pipeline, outdir_datastore)
       pipeline <- Assemble(pipeline)
       Save(pipeline, outdir)
     }
