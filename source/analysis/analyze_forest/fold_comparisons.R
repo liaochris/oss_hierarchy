@@ -24,7 +24,7 @@ Main <- function() {
 
             pc_score_cols <- colnames(forest_results_data$df)[grepl("_pc_score$", colnames(forest_results_data$df))]
             binarized              <- BinarizePCScores(forest_results_data$sub_dfs, pc_score_cols)
-            df_binarized_pc_scores <- binarized$df
+            df_binarized_pc_scores <- binarized$df %>% drop_na(all_of(pc_score_cols))
             sub_bins               <- binarized$sub_dfs
 
             pc_combo_att_summary <- df_binarized_pc_scores %>%
@@ -75,6 +75,7 @@ BuildFoldSummaries <- function(sub_dfs, sub_bins, pc_score_cols,
     if (length(fold_rows) == 0) return(NULL)
 
     bind_rows(fold_rows) %>%
+      drop_na(all_of(pc_score_cols)) %>%
       group_by(across(all_of(pc_score_cols))) %>%
       summarize(att_doubly_robust_mean = mean(fold_att, na.rm = TRUE), count = n(), .groups = "drop") %>%
       arrange(-att_doubly_robust_mean) %>%

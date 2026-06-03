@@ -21,7 +21,7 @@ Main <- function() {
 
             pc_score_cols <- colnames(forest_results_data$df)[grepl("_pc_score$", colnames(forest_results_data$df))]
             binarized <- BinarizePCScores(forest_results_data$sub_dfs, pc_score_cols)
-            df_bins   <- binarized$df
+            df_bins   <- binarized$df %>% drop_na(all_of(pc_score_cols))
 
             combo_summary <- df_bins %>%
               group_by(across(all_of(pc_score_cols))) %>%
