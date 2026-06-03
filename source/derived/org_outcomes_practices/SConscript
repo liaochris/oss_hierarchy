@@ -2,12 +2,12 @@ Import('*')
 
 from source.lib.python.config_loaders import LoadGlobalSettings, LoadPipelineInputs
 
-_g      = LoadGlobalSettings("../../../source/lib/config/global_settings.json")
-_cfg    = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
-rolling = f"rolling{_g['rolling_periods']}"
+GLOBALS      = LoadGlobalSettings("../../../source/lib/config/global_settings.json")
+CONFIG    = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
+rolling = f"rolling{GLOBALS['rolling_periods']}"
 
-importance_types = _cfg["importance_types"]["run"] + _cfg["importance_types"]["extended"]
-rolling_periods  = [f"rolling{p}" for p in _cfg["rolling_periods"]["run"] + _cfg["rolling_periods"]["extended"]]
+importance_types = CONFIG["importance_types"]["run"] + CONFIG["importance_types"]["extended"]
+rolling_periods  = [f"rolling{p}" for p in CONFIG["rolling_periods"]["run"] + CONFIG["rolling_periods"]["extended"]]
 all_subsets      = ["all"] + importance_types
 bot_list         = '#output/derived/create_bot_list/bot_list.csv'
 

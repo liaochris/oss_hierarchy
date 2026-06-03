@@ -12,13 +12,14 @@ autofill_sources = [
 
 table_sources = [
     '#output/tables/collaboration.tex',
-    '#output/tables/shared_knowledge.tex',
+    '#output/tables/knowledge_level.tex',
     '#output/tables/discussion_quality.tex',
-    '#output/tables/investment_new_talent.tex',
+    '#output/tables/investment_in_new_talent.tex',
     '#output/tables/problem_solving_routines.tex',
 ]
 
 target = ['#output/talk/slides.pdf']
 source = ['#source/talk/slides.tex',
-          '#source/paper/references.bib'] + slide_graphics + autofill_sources + table_sources
+          '#source/paper/references.bib',
+          '#source/paper/aea.bst'] + slide_graphics + autofill_sources + table_sources
 env.Latex(target, source)

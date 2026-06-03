@@ -1,15 +1,16 @@
 Import('*')
 
-from source.lib.python.config_loaders import LoadGlobalSettings, LoadPipelineInputs
+from source.lib.python.config_loaders import LoadGlobalSettings, LoadPaperSettings, LoadPipelineInputs
 from source.lib.python.repo_utils import MakeRepoNameSafe
 
 globals_data = LoadGlobalSettings("../../../source/lib/config/global_settings.json")
 pipeline_cfg = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
+paper_cfg = LoadPaperSettings("../../../source/lib/config/paper_settings.json")
 reference_repo = globals_data['reference_github_repo']
 reference_repo_safe_name = MakeRepoNameSafe(reference_repo)
-importance_type = pipeline_cfg["importance_types"]["run"][0]
-rolling_label = f"rolling{pipeline_cfg['rolling_periods']['run'][0]}"
-control_group = pipeline_cfg["control_groups"]["run"][0]
+importance_type = paper_cfg["primary_importance_type"]
+rolling_label = paper_cfg["primary_rolling_label"]
+control_group = paper_cfg["primary_control_group"]
 exact_samples = sorted(
     [s for s in pipeline_cfg["qualified_samples"]["run"] if "_" not in s],
     key=lambda s: int(s.removeprefix("exact"))

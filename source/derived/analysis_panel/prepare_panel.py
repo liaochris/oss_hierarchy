@@ -300,7 +300,7 @@ def GeneratePCLoadingTablefills(pc_loading_metadata, pc_groups_cfg, autofill_out
         "collaboration":            "collaboration_metrics",
         "shared_knowledge":         "knowledge_level_metrics",
         "discussion_quality":       "discussion_quality_metrics",
-        "investment_in_new_talent": "investment_new_talent_metrics",
+        "investment_in_new_talent": "investment_in_new_talent_metrics",
         "problem_solving_routines": "problem_solving_routines_metrics",
     }
     for group_name, cfg in pc_groups_cfg.items():

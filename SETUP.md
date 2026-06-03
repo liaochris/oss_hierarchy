@@ -53,8 +53,7 @@ Rscript source/lib/requirements.r
 - `source/` contains source scripts and small source-controlled inputs.
 - `output/` contains generated outputs, logs, and review artifacts.
 - `drive/output/` contains large generated artifacts.
-- `temp/` may be used for temporary or intermediate files and is not expected to
-  be under version control.
+- `temp/` may be used for temporary or intermediate files and is not under version control.
 
 Generated output directories should generally mirror the relevant `source/`
 subtree. For example, code in `source/analysis/foo/` should write to a matching
