@@ -34,9 +34,9 @@ DATASETS = {
         "all": INDIR_CHARS / "repo_collaboration/all",
         "imp": INDIR_CHARS / "repo_collaboration",
     },
-    "shared_knowledge": {
-        "all": INDIR_CHARS / "repo_shared_knowledge/all",
-        "imp": INDIR_CHARS / "repo_shared_knowledge",
+    "knowledge_level": {
+        "all": INDIR_CHARS / "repo_knowledge_level/all",
+        "imp": INDIR_CHARS / "repo_knowledge_level",
     },
     "discussion_quality": {
         "all": INDIR_CHARS / "repo_discussion_quality/all",
@@ -136,7 +136,7 @@ def BuildColumnsDict(col_dicts):
     keys = [
         "df_outcomes",
         "df_collaboration", "df_collaboration_imp",
-        "df_shared_knowledge", "df_shared_knowledge_imp",
+        "df_knowledge_level", "df_knowledge_level_imp",
         "df_discussion_quality", "df_discussion_quality_imp",
         "df_investment_in_new_talent", "df_investment_in_new_talent_imp",
         "df_organizational_routines",

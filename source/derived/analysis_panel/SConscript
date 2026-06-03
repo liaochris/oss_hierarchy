@@ -35,7 +35,7 @@ for importance_type in IMPORTANCE_TYPES:
                 call_targets.extend(f'{base}/{f}' for f in OUTPUT_FILES)
 
         if importance_type == IMPORTANCE_TYPES[0] and rolling_period == ROLLING_PERIODS[0]:
-            _pc_groups = ["collaboration", "shared_knowledge", "discussion_quality",
+            _pc_groups = ["collaboration", "knowledge_level", "discussion_quality",
                           "investment_in_new_talent", "problem_solving_routines"]
             call_targets += (
                 ['#output/autofill/panel_autofill.tex', '#output/autofill/pc_autofill.tex']

@@ -8,7 +8,7 @@ NormalizePCGroupName <- function(category_name) {
 PCGroupFriendlyLabel <- function(group_name) {
   label_map <- c(
     collaboration = "Collaboration score",
-    shared_knowledge = "Knowledge level score",
+    knowledge_level = "Knowledge level score",
     discussion_quality = "Discussion quality score",
     investment_in_new_talent = "Investment in new talent score",
     problem_solving_routines = "Problem-solving routines score"
@@ -17,7 +17,7 @@ PCGroupFriendlyLabel <- function(group_name) {
 }
 
 PCGroupSignFlip <- function(group_name) {
-  identical(group_name, "shared_knowledge")
+  identical(group_name, "knowledge_level")
 }
 
 PCGroupsConfig <- function(feature_cfg) {

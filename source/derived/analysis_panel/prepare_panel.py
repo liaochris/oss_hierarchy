@@ -265,7 +265,7 @@ def GenerateCanonicalAutofill(panel, repo_pc_scores, pc_loading_metadata, pc_gro
         .set_index("group")["variance_explained_pc_score"]
     )
     CollabVarianceExplained = variance.get("collaboration", float("nan"))
-    KnowledgeVarianceExplained = variance.get("shared_knowledge", float("nan"))
+    KnowledgeVarianceExplained = variance.get("knowledge_level", float("nan"))
     DiscussionVarianceExplained = variance.get("discussion_quality", float("nan"))
     TalentVarianceExplained = variance.get("investment_in_new_talent", float("nan"))
     RoutinesVarianceExplained = variance.get("problem_solving_routines", float("nan"))
@@ -277,7 +277,7 @@ def GenerateCanonicalAutofill(panel, repo_pc_scores, pc_loading_metadata, pc_gro
         n_missing = binary_scores[col].isna().sum() if col in binary_scores.columns else 0
         return n_missing / total_repos * 100
     CollabPCExcludedPct     = _excl_pct("collaboration")
-    KnowledgePCExcludedPct  = _excl_pct("shared_knowledge")
+    KnowledgePCExcludedPct  = _excl_pct("knowledge_level")
     DiscussionPCExcludedPct = _excl_pct("discussion_quality")
     TalentPCExcludedPct     = _excl_pct("investment_in_new_talent")
     RoutinesPCExcludedPct   = _excl_pct("problem_solving_routines")
@@ -296,15 +296,15 @@ def GenerateCanonicalAutofill(panel, repo_pc_scores, pc_loading_metadata, pc_gro
 
 
 def GeneratePCLoadingTablefills(pc_loading_metadata, pc_groups_cfg, autofill_outdir):
-    tab_labels = {
-        "collaboration":            "collaboration_metrics",
-        "shared_knowledge":         "knowledge_level_metrics",
-        "discussion_quality":       "discussion_quality_metrics",
-        "investment_in_new_talent": "investment_in_new_talent_metrics",
-        "problem_solving_routines": "problem_solving_routines_metrics",
+    valid_groups = {
+        "collaboration",
+        "knowledge_level",
+        "discussion_quality",
+        "investment_in_new_talent",
+        "problem_solving_routines",
     }
     for group_name, cfg in pc_groups_cfg.items():
-        if group_name not in tab_labels:
+        if group_name not in valid_groups:
             continue
         group_meta = pc_loading_metadata[pc_loading_metadata["group"] == group_name].copy()
         if group_meta.empty:
@@ -313,7 +313,7 @@ def GeneratePCLoadingTablefills(pc_loading_metadata, pc_groups_cfg, autofill_out
         group_meta["_order"] = pd.Categorical(group_meta["var"], categories=var_order, ordered=True)
         group_meta = group_meta.sort_values("_order").drop(columns="_order")
         loadings = -group_meta["loading"] if cfg["sign_flip"] else group_meta["loading"]
-        tab_label = tab_labels[group_name]
+        tab_label = f"{group_name}_metrics"
         lines = [f"<tab:{tab_label}>"] + [f"{v:.3f}" for v in loadings]
         autofill_outdir.mkdir(parents=True, exist_ok=True)
         (autofill_outdir / f"pc_loadings_{group_name}.txt").write_text(

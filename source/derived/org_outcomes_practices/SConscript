@@ -42,11 +42,11 @@ env.Python(
 
 env.Python(
     target=[
-        f'#output/derived/hashes/repo_shared_knowledge_{s}_{rolling}.txt'
+        f'#output/derived/hashes/repo_knowledge_level_{s}_{rolling}.txt'
         for s in all_subsets
     ],
     source=[
-        '#source/derived/org_outcomes_practices/shared_knowledge.py',
+        '#source/derived/org_outcomes_practices/knowledge_level.py',
         '#source/derived/org_outcomes_practices/helpers.py',
         '#output/derived/hashes/repo_actions.txt',
         '#output/derived/hashes/important_members.txt',
@@ -114,7 +114,7 @@ for rolling_period in rolling_periods:
     rp = rolling_period.replace("rolling", "")
     panel_sources.extend([
         f'#output/derived/hashes/repo_collaboration_all_rolling{rp}.txt',
-        f'#output/derived/hashes/repo_shared_knowledge_all_rolling{rp}.txt',
+        f'#output/derived/hashes/repo_knowledge_level_all_rolling{rp}.txt',
         f'#output/derived/hashes/repo_discussion_quality_all_rolling{rp}.txt',
         f'#output/derived/hashes/repo_investment_in_new_talent_all_rolling{rp}.txt',
         f'#output/derived/hashes/repo_organizational_routines_rolling{rp}.txt',
@@ -126,7 +126,7 @@ for rolling_period in rolling_periods:
         ])
         panel_sources.extend([
             f'#output/derived/hashes/repo_collaboration_{importance_type}_rolling{rp}.txt',
-            f'#output/derived/hashes/repo_shared_knowledge_{importance_type}_rolling{rp}.txt',
+            f'#output/derived/hashes/repo_knowledge_level_{importance_type}_rolling{rp}.txt',
             f'#output/derived/hashes/repo_discussion_quality_{importance_type}_rolling{rp}.txt',
             f'#output/derived/hashes/repo_investment_in_new_talent_{importance_type}_rolling{rp}.txt',
         ])

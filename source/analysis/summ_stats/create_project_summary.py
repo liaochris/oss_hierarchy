@@ -256,7 +256,7 @@ def GenerateConfigAutofill():
     PrimaryControlGroup = paper_settings["primary_control_group"]
 
     CollabMeasureCount      = count_run_vars(feature_vars["collaboration"])
-    KnowledgeMeasureCount   = count_run_vars(feature_vars["shared_knowledge"])
+    KnowledgeMeasureCount   = count_run_vars(feature_vars["knowledge_level"])
     DiscussionMeasureCount  = count_run_vars(feature_vars["discussion_quality"])
     TalentMeasureCount      = count_run_vars(feature_vars["investment_in_new_talent"])
     RoutinesMeasureCount    = count_run_vars(feature_vars["organizational_routines"])

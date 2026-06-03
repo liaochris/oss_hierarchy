@@ -40,7 +40,7 @@ env.Depends(target=target, dependency=source)
 target = ['#source/figures/event_study_practice_categories_knowledge_quality.tex']
 source = [
     f'{EVENT_STUDY_DIR}/pc_score/norm/{group}_{outcome}_pc_score_split.png'
-    for group in ['shared_knowledge', 'discussion_quality']
+    for group in ['knowledge_level', 'discussion_quality']
     for outcome in OUTCOMES
 ]
 env.Depends(target=target, dependency=source)
