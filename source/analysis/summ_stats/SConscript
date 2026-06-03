@@ -43,3 +43,42 @@ summary_target = [
     '#output/autofill/config_autofill.tex',
 ]
 env.Python(summary_target, summary_source)
+
+IMPORTANCE_TYPES   = pipeline_cfg["importance_types"]["run"]
+ROLLING_PERIODS    = [f"rolling{p}" for p in pipeline_cfg["rolling_periods"]["run"]]
+QUALIFIED_SAMPLES  = pipeline_cfg["qualified_samples"]["run"]
+CONTROL_GROUPS     = pipeline_cfg["control_groups"]["run"]
+AGGREGATED_SAMPLES = {"exact_1_2": ["exact1", "exact2"]}
+
+SUMM_SHARED_LIBS = [
+    '#source/analysis/summ_stats/helpers.R',
+    '#source/lib/R/config_loaders.R',
+    '#source/lib/R/analysis_utils.R',
+    '#source/lib/R/constants.R',
+    '#source/lib/config/pipeline_inputs.json',
+    '#source/lib/config/feature_variables.json',
+    '#source/lib/config/outcome_variables.json',
+    '#source/lib/config/analysis_parameters.json',
+    '#source/lib/config/plotting.json',
+]
+
+combos = [(imp, roll, samp, ctrl)
+          for imp in IMPORTANCE_TYPES for roll in ROLLING_PERIODS
+          for samp in QUALIFIED_SAMPLES for ctrl in CONTROL_GROUPS]
+
+panel_inputs = list(dict.fromkeys(
+    f'#output/derived/analysis_panel/{imp}/{roll}/{sub}/{ctrl}/panel.parquet'
+    for imp, roll, samp, ctrl in combos
+    for sub in AGGREGATED_SAMPLES.get(samp, [samp])
+))
+
+def SummOutdir(imp, roll, samp, ctrl):
+    return f'#output/analysis/summ_stats/{imp}/{roll}/{samp}/{ctrl}/raw'
+
+outcome_targets = [f'{SummOutdir(*c)}/outcome_summary.txt' for c in combos]
+env.R(outcome_targets,
+      ['#source/analysis/summ_stats/outcome_diagnostics.R'] + SUMM_SHARED_LIBS + panel_inputs)
+
+timeline_targets = [f'{SummOutdir(*c)}/repo_count_timeline.png' for c in combos]
+env.R(timeline_targets,
+      ['#source/analysis/summ_stats/org_timeline.R'] + SUMM_SHARED_LIBS + panel_inputs)

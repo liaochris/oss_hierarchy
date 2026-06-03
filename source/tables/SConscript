@@ -12,7 +12,12 @@ PRIMARY_SPEC = "/".join([
 env.Tablefill(
     '#output/tables/outcome_summary_table.tex',
     ['#source/tables/outcome_summary_table.tex',
-     f'#output/analysis/analyze_forest/{PRIMARY_SPEC}/raw/outcome_summary.txt'])
+     f'#output/analysis/summ_stats/{PRIMARY_SPEC}/raw/outcome_summary.txt'])
+
+env.Tablefill(
+    '#output/tables/tree_depth.tex',
+    ['#source/tables/tree_depth.tex',
+     f'#output/analysis/analyze_forest/{PRIMARY_SPEC}/norm/tree_depth.txt'])
 
 env.Tablefill(
     '#output/tables/pc_score_combo_k2_top3.tex',

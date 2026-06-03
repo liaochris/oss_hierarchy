@@ -47,7 +47,7 @@ Main <- function() {
                              QUALIFIED_SAMPLE, CONTROL_GROUP, covar_type, norm_label)
 
       df_data           <- CreateDataPanel(panel, FOREST_TRAINING_OUTCOME, covars,
-                                           rolling_period, N_FOLDS, SEED, normalize = normalize)
+                                           rolling_period, normalize = normalize)
       base_feature_cols <- intersect(paste0(covars, "_mean"), colnames(df_data))
 
       feature_cols <- switch(covar_type,

@@ -2,27 +2,21 @@ library(tidyverse)
 library(arrow)
 library(fs)
 
-source("source/analysis/analyze_forest/helpers.R")
+source("source/analysis/summ_stats/helpers.R")
 
-INDIR_FOREST <- "output/analysis/event_study_forest"
-OUTDIR       <- "output/analysis/analyze_forest"
+OUTDIR <- "output/analysis/summ_stats"
 
 Main <- function() {
   for (importance_type in IMPORTANCE_TYPES) {
     for (qualified_sample in QUALIFIED_SAMPLES) {
       for (control_group in CONTROL_GROUPS) {
         for (rolling_panel in ROLLING_LABELS) {
-          norm_label <- "raw"
-          outdir_ds <- file.path(OUTDIR, importance_type, rolling_panel, qualified_sample, control_group, norm_label)
+          outdir_ds <- file.path(OUTDIR, importance_type, rolling_panel, qualified_sample, control_group, "raw")
           dir_create(outdir_ds, recurse = TRUE)
 
-          forest_results_data <- LoadForestResults(INDIR_FOREST, importance_type, rolling_panel, qualified_sample, control_group, norm_label)
-          if (is.null(forest_results_data)) next
+          analysis_panel <- LoadAnalysisPanel(importance_type, rolling_panel, qualified_sample, control_group)
+          if (nrow(analysis_panel) == 0) next
 
-          panel <- LoadAnalysisPanel(importance_type, rolling_panel, qualified_sample, control_group)
-          if (nrow(panel) == 0) next
-
-          analysis_panel <- panel %>% filter(repo_name %in% forest_results_data$df$repo_name)
           PlotRepoTimeline(analysis_panel, outdir_ds)
         }
       }
@@ -31,7 +25,6 @@ Main <- function() {
   invisible(NULL)
 }
 
-# I think you should have another bar nested within that's experienced treatent or something more appropriate given econometric terminolgoy - so basically cumulative of treated acros periods. 
 PlotRepoTimeline <- function(panel, outdir_ds) {
   quasi_dates    <- panel %>%
     group_by(repo_name) %>%
@@ -55,7 +48,7 @@ PlotRepoTimeline <- function(panel, outdir_ds) {
     summarise(count = n(), .groups = "drop") %>%
     mutate(type = factor(type, levels = c("Quasi-Treatment Date", "Treatment Date")))
 
-  ggplot(counts, aes(x = date, y = count, fill = type)) +
+  repo_count_timeline_plot <- ggplot(counts, aes(x = date, y = count, fill = type)) +
     geom_col(color = "black", linewidth = 0.3, position = "identity", alpha = 1) +
     scale_x_date(date_breaks = "1 year", date_labels = "%Y", expand = c(0, 0)) +
     labs(x = "Date", y = "# of Repositories", fill = "Appearance Type") +
@@ -64,7 +57,7 @@ PlotRepoTimeline <- function(panel, outdir_ds) {
           axis.text.x = element_text(angle = 45, hjust = 1),
           legend.position = "top")
 
-  ggsave(file.path(outdir_ds, "repo_count_timeline.png"), width = 10, height = 5)
+  ggsave(file.path(outdir_ds, "repo_count_timeline.png"), repo_count_timeline_plot, width = 10, height = 5)
 }
 
 Main()

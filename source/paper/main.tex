@@ -467,6 +467,7 @@ The choice of these practices is motivated by prior work in management and softw
 Each practice includes several measures.
 For each organization, I compute each measure over its five most recent pre-periods and standardize the resulting pooled values.
 I then aggregate the standardized measures within each practice using the first principal component to form a composite “practice score.”\footnote{When necessary, I flip the sign of the first principal component so that a higher score corresponds to greater adoption of the practice.}
+Each organization's practice score is computed out-of-sample, predicted from a first principal component fit on the other nine folds of the same ten-fold partition used by the forest estimator.
 Higher practice scores correspond to greater adoption of the practice within the organization.
 The following sections describe the measures within each practice and the construction of their composite scores.
 
@@ -762,8 +763,8 @@ Finally, Section~\ref{sec:coarsened_exploration} coarsens the  space of organiza
 Figure~\ref{fig:forest_characteristics} describes characteristics of the Generalized Random Forest Event Study that models $\delta_{e, k}(\cdot)$ from Equation~\ref{eq:event_study_ml}. 
 The described forest is trained on the full sample of organizations and the continuous organizational practice scores $X_i$. 
 
-Panel~\ref{fig:tree_depth} of Figure~\ref{fig:forest_characteristics} describes the distribution of tree depth among all \NumTrees{} trees in the trained forest. 
-Over half of the trees have depth three or greater, suggesting that complex interactions between organizational practices play an important role in predicting resilience, since the forest relies on multi-step splits to separate organizations.
+Panel~\ref{fig:tree_depth} of Figure~\ref{fig:forest_characteristics} describes the distribution of tree depth---the number of splitting layers---across the trees of the binarized practice-score forests.
+Most trees have depth three or greater, suggesting that complex interactions between organizational practices play an important role in predicting resilience, since the forest relies on multi-step splits to separate organizations.
 
 
 Panel~\ref{fig:var_imp} of Figure~\ref{fig:forest_characteristics} describes how often the forest uses each organizational practice score to partition organizations into subsets with different treatment effects. 

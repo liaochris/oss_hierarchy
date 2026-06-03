@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
+from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 
 from source.lib.python.config_loaders import FlattenConfigValues, LoadAnalysisParameters, LoadOutcomeVariables, LoadPaperSettings, LoadPipelineInputs
@@ -22,6 +23,8 @@ _analysis_params = LoadAnalysisParameters()
 MAX_BASELINE_NA_COUNT = _analysis_params["pc_inclusion_na_threshold"]
 MAX_EVENT_TIME = _analysis_params["max_event_time"]
 MIN_EVENT_TIME = -MAX_EVENT_TIME
+N_FOLDS = _analysis_params["n_folds"]
+SEED = _analysis_params["seed"]
 
 _pipeline_cfg = LoadPipelineInputs()
 IMPORTANCE_TYPES  = _pipeline_cfg["importance_types"]["run"]
@@ -54,7 +57,10 @@ def ProcessDataset(importance_type, rolling_period, active_outcomes, pc_groups_c
     for qualified_sample in QUALIFIED_SAMPLES:
         for control_group in CONTROL_GROUPS:
             prepared_panel = BuildPreparedSample(panel, active_outcomes, qualified_sample, control_group)
-            repo_pc_scores, pc_loading_metadata, pc_excluded_vars = ComputeRepoPCScores(prepared_panel, pc_groups_cfg, rolling_period)
+            repo_fold = AssignFolds(prepared_panel["repo_name"], N_FOLDS, SEED)
+            prepared_panel["fold"] = prepared_panel["repo_name"].map(repo_fold).astype("Int64")
+            repo_pc_scores, pc_loading_metadata, pc_excluded_vars = ComputeRepoPCScores(
+                prepared_panel, pc_groups_cfg, rolling_period, repo_fold)
             SaveSampleOutputs(
                 prepared_panel, repo_pc_scores, pc_loading_metadata, pc_excluded_vars,
                 OUTDIR / importance_type / rolling_period / qualified_sample / control_group,
@@ -129,7 +135,17 @@ def GetOutcomeValidRepos(panel, outcome):
     return df.loc[np.isfinite(normalized), "repo_name"].unique()
 
 
-def ComputeRepoPCScores(panel, pc_groups_cfg, rolling_period):
+def AssignFolds(repo_names, n_folds, seed):
+    repos = np.sort(pd.unique(repo_names))
+    kfold = KFold(n_splits=n_folds, shuffle=True, random_state=seed)
+    repo_fold = {}
+    for fold_label, (_, holdout_idx) in enumerate(kfold.split(repos), start=1):
+        for idx in holdout_idx:
+            repo_fold[repos[idx]] = fold_label
+    return repo_fold
+
+
+def ComputeRepoPCScores(panel, pc_groups_cfg, rolling_period, repo_fold):
     if panel.empty:
         return EmptyPCScoreOutputs()
 
@@ -170,6 +186,7 @@ def ComputeRepoPCScores(panel, pc_groups_cfg, rolling_period):
 
     repo_feature_means = repo_feature_means[sorted(valid_vars)]
     repo_pc_scores = repo_feature_means.reset_index()[["repo_name"]]
+    repo_folds = repo_pc_scores["repo_name"].map(repo_fold).to_numpy()
     metadata_rows = []
 
     for pc_group_name, cfg in pc_groups_cfg.items():
@@ -182,25 +199,16 @@ def ComputeRepoPCScores(panel, pc_groups_cfg, rolling_period):
         if complete_mask.sum() < 2:
             continue
 
-        scaler = StandardScaler()
-        x_scaled = scaler.fit_transform(x[complete_mask])
-        pca = PCA(n_components=1)
-        pc_score = pca.fit_transform(x_scaled).ravel()
+        full_sample_scaler, full_sample_pca = FitGroupPCA(x[complete_mask])
+        full_sample_loadings = full_sample_pca.components_[0]
 
-        if cfg["sign_flip"]:
-            pc_score = -pc_score
+        group_scores = CrossFitGroupScores(x, complete_mask, repo_folds, full_sample_loadings, cfg["sign_flip"])
 
-        group_scores = np.full(len(repo_feature_means), np.nan)
-        group_scores[complete_mask] = pc_score
-
-        loadings = pca.components_[0]
-        if cfg["sign_flip"]:
-            loadings = -loadings
-
-        for var_name, loading in zip(present, loadings):
+        reported_loadings = -full_sample_loadings if cfg["sign_flip"] else full_sample_loadings
+        for var_name, loading in zip(present, reported_loadings):
             metadata_rows.append({
                 "group": pc_group_name, "var": var_name, "loading": loading,
-                "variance_explained_pc_score": pca.explained_variance_ratio_[0] * 100,
+                "variance_explained_pc_score": full_sample_pca.explained_variance_ratio_[0] * 100,
             })
 
         repo_pc_scores[f"{pc_group_name}_pc_score"] = pd.Series(group_scores, index=repo_pc_scores.index)
@@ -211,6 +219,32 @@ def ComputeRepoPCScores(panel, pc_groups_cfg, rolling_period):
         else pd.DataFrame(columns=["group", "var", "loading", "variance_explained_pc_score"])
     )
     return repo_pc_scores, pc_loading_metadata, excluded_vars
+
+
+def FitGroupPCA(x_complete):
+    scaler = StandardScaler()
+    pca = PCA(n_components=1)
+    pca.fit(scaler.fit_transform(x_complete))
+    return scaler, pca
+
+
+def SignAdjustment(component, reference_loadings):
+    return 1.0 if np.dot(component, reference_loadings) >= 0 else -1.0
+
+
+def CrossFitGroupScores(x, complete_mask, repo_folds, full_sample_loadings, sign_flip):
+    group_scores = np.full(x.shape[0], np.nan)
+    orientation = -1.0 if sign_flip else 1.0
+    for fold_label in np.unique(repo_folds[~pd.isna(repo_folds)]):
+        train_mask = complete_mask & (repo_folds != fold_label)
+        holdout_mask = complete_mask & (repo_folds == fold_label)
+        if train_mask.sum() < 2 or holdout_mask.sum() == 0:
+            continue
+        scaler, pca = FitGroupPCA(x[train_mask])
+        sign_alignment = SignAdjustment(pca.components_[0], full_sample_loadings)
+        holdout_scores = pca.transform(scaler.transform(x[holdout_mask])).ravel()
+        group_scores[holdout_mask] = orientation * sign_alignment * holdout_scores
+    return group_scores
 
 
 def EmptyPCScoreOutputs(baseline=None):
