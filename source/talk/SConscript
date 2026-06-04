@@ -1,5 +1,23 @@
 Import('*')
 
+from source.lib.python.config_loaders import LoadPaperSettings
+
+CONFIG = LoadPaperSettings("../../source/lib/config/paper_settings.json")
+PRIMARY_SPEC = "/".join([
+    CONFIG["primary_importance_type"],
+    CONFIG["primary_rolling_label"],
+    CONFIG["primary_qualified_sample"],
+    CONFIG["primary_control_group"],
+])
+
+EVENT_STUDY_DIR    = f'#output/analysis/event_study/{PRIMARY_SPEC}'
+FOREST_DIR         = f'#output/analysis/event_study_forest/{PRIMARY_SPEC}'
+ANALYZE_FOREST_DIR = f'#output/analysis/analyze_forest/{PRIMARY_SPEC}/norm'
+
+OUTCOMES  = ['pull_request_opened', 'pull_request_merged', 'overall_new_release_count']
+PC_GROUPS = ['collaboration', 'knowledge_level', 'discussion_quality',
+             'investment_in_new_talent', 'problem_solving_routines']
+
 slide_graphics = ['#source/talk/graphics/boto_2020_1.png', '#source/talk/graphics/organizational_resilience_google.png']
 
 autofill_sources = [
@@ -11,15 +29,29 @@ autofill_sources = [
 ]
 
 table_sources = [
+    '#source/tables/table_helpers.tex',
     '#output/tables/collaboration.tex',
     '#output/tables/knowledge_level.tex',
     '#output/tables/discussion_quality.tex',
     '#output/tables/investment_in_new_talent.tex',
     '#output/tables/problem_solving_routines.tex',
+    '#output/tables/pc_score_combo_k2_top3.tex',
+    '#output/tables/pc_score_combo_k3_top3.tex',
+]
+
+figure_sources = [f'{EVENT_STUDY_DIR}/full_sample/norm/{o}.png' for o in OUTCOMES]
+figure_sources += [f'{EVENT_STUDY_DIR}/pc_score/norm/{g}_pull_request_merged_pc_score_split.png' for g in PC_GROUPS]
+figure_sources += [f'{FOREST_DIR}/pc_score_binary/split_full_avg/norm/{o}_observed.png' for o in OUTCOMES]
+figure_sources += [
+    f'{FOREST_DIR}/pc_score/split_full_avg/norm/pull_request_merged_observed.png',
+    f'{ANALYZE_FOREST_DIR}/pc_score_combo_high_low_grid.png',
+    f'{ANALYZE_FOREST_DIR}/fold_rank_stability_grid.png',
+    f'{ANALYZE_FOREST_DIR}/fold_correlation_att.png',
+    f'{ANALYZE_FOREST_DIR}/pc_score_correlation_heatmap.png',
 ]
 
 target = ['#output/talk/slides.pdf']
 source = ['#source/talk/slides.tex',
           '#source/paper/references.bib',
-          '#source/paper/aea.bst'] + slide_graphics + autofill_sources + table_sources
+          '#source/paper/aea.bst'] + slide_graphics + autofill_sources + table_sources + figure_sources
 env.Latex(target, source)

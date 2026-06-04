@@ -142,6 +142,7 @@
 \singlespacing
 
 \input{source/figures/figure_helpers.tex}
+\input{source/tables/table_helpers.tex}
 \input{output/autofill/event_study_autofill.tex}
 \input{output/autofill/forest_autofill.tex}
 \input{output/autofill/panel_autofill.tex}
@@ -152,7 +153,10 @@
 
 \begin{titlepage}
 \title{Organizational Resilience: Evidence from Open Source Software}
-\author{Christopher Liao\thanks{I am indebted to my advisors Jesse Shapiro and Ali Hortaçsu for their support and guidance. I also thank Matthew Lee Chen, Krishna Dasari, Jeff Gortmaker, Ruru Hoong, Scott Nelson, Anjali Pullabhotla, Jordan Rosenthal-Kay, Thomas Sargent, Emanuel Scherz,  Noah Sobel-Lewin, Ruby Zhang, and members of the Harvard Economics Predoc Workshop and JMSLab for helpful comments and discussions. I thank Colin Hudler for assistance with computing access. E-mail: chrisliao@uchicago.edu}}
+\author{Christopher Liao\thanks{I am indebted to my advisors Jesse Shapiro and Ali Hortaçsu for their support and guidance.
+I also thank Matthew Lee Chen, Krishna Dasari, Jeff Gortmaker, Ruru Hoong, Scott Nelson, Anjali Pullabhotla, Jordan Rosenthal-Kay, Thomas Sargent, Emanuel Scherz,  Noah Sobel-Lewin, Ruby Zhang, and members of the Harvard Economics Predoc Workshop and JMSLab for helpful comments and discussions.
+I thank Colin Hudler for assistance with computing access.
+E-mail: chrisliao@uchicago.edu}}
 \date{\today}
 \maketitle
 
@@ -209,7 +213,8 @@ For example, aggregate shocks change an organization’s broader operating envir
 Although departures are organization-specific, they are economically meaningful shocks because developer turnover is pervasive in OSS.
 
 To identify the causal effect of the departure, I argue that the timing of abrupt departures is quasi-random and unrelated to unobservable organizational trends that may also affect software development and release activity.
-The literature finds that abrupt departures tend to be driven by major life events, such as a job change or starting a family, as opposed to unobservable organizational trends such as dissatisfaction with organizational leadership (\citealt{miller_why_2019}).\footnote{Existing research from the OSS literature that studies departures broadly, without considering its abruptness or permanence, find that some departures are motivated by organizational practices, such as dissatisfaction with the organization's management or disengagement from the organization's social community (\citealt{hannon_retaining_2008}, \citealt{constantinou_empirical_2017}, \citealt{miller_why_2019}). This emphasizes the importance of selecting on abrupt departures.}
+The literature finds that abrupt departures tend to be driven by major life events, such as a job change or starting a family, as opposed to unobservable organizational trends such as dissatisfaction with organizational leadership (\citealt{miller_why_2019}).\footnote{Existing research from the OSS literature that studies departures broadly, without considering its abruptness or permanence, find that some departures are motivated by organizational practices, such as dissatisfaction with the organization's management or disengagement from the organization's social community (\citealt{hannon_retaining_2008}, \citealt{constantinou_empirical_2017}, \citealt{miller_why_2019}).
+This emphasizes the importance of selecting on abrupt departures.}
 
 %The hypothesized relationships between practices and resilience should also be generalizable and interpretable, so as to provide useful insights.
 
@@ -287,17 +292,21 @@ This paper also contributes to the longstanding debate over the existence of uni
 I show that high and low resilience organizations can be differentiated by their pre-departure organizational practices, lending support to the universal “best practices’’ perspective \citep{taylor1911principles}.\footnote{This contrasts with the “contingency view,” which says there is no single best way to organize a corporation \citep{woodward1965management}.}
 
 My third contribution is to the literature on OSS within economics that began with \cite{lerner_open_2001, lerner_simple_2002}.
-Recent empirical work has focused on the relationship between the public and private sector and OSS organizations.\footnote{\cite{nagle_open_2017} and \cite{conti_beefing_2025} study firm gains from OSS contributions. \cite{conti_incentivizing_2023} and \cite{gortmaker_open_2025} study the role of financial sponsorship and industrial policy in incentivizing OSS innovation. }
+Recent empirical work has focused on the relationship between the public and private sector and OSS organizations.\footnote{\cite{nagle_open_2017} and \cite{conti_beefing_2025} study firm gains from OSS contributions.
+\cite{conti_incentivizing_2023} and \cite{gortmaker_open_2025} study the role of financial sponsorship and industrial policy in incentivizing OSS innovation. }
 This paper focuses on just OSS organizations, leveraging the visibility of their internal dynamics to study how an important problem OSS organizations face can be mitigated: disruption caused by key member departures. 
 I build on prior empirical work that uses detailed activity-level data on OSS organizations to characterize organizational outcomes by also using these data to characterize organizational practices.
 
 A large body of conceptual and empirical research on the organizational practices\footnote{Also described as ``factors'' and ``processes'' in the literature.} that contribute to organizational resilience exists in the management literature, although most empirical work relies on case studies or surveys.\footnote{See review papers on organizational resilience by \citealt{annarelli_strategic_2016} and  \citealt{hillmann_organizational_2021}, and Table 2 of \citealt{annarelli_strategic_2016} for a breakdown of methods used in studies of organizational resilience.} 
 Three central challenges to empirical research on organizational resilience are in defining it, conceptualizing measurement, and testing how organizational practices affect resilience. 
-I define organizational resilience as the capacity of organizations to respond to disruptions or shocks.\footnote{This definition is one of several established definitions in the literature. Other work from the literature that has also used this definition include \cite{home_iii_coming_1997}, \cite{kantur_organizational_2012}, \cite{boin_resilient_2013}, and \cite{sahebjamnia_integrated_2015}. 
-Other definitions used by the literature include an organization's ability to respond to adversity, crisis, stress, turbulence, a competitive environment or unexpected events. See Table 2 of \cite{hillmann_organizational_2021} for papers associated with each definition.} 
+I define organizational resilience as the capacity of organizations to respond to disruptions or shocks.\footnote{This definition is one of several established definitions in the literature.
+Other work from the literature that has also used this definition include \cite{home_iii_coming_1997}, \cite{kantur_organizational_2012}, \cite{boin_resilient_2013}, and \cite{sahebjamnia_integrated_2015}.
+Other definitions used by the literature include an organization's ability to respond to adversity, crisis, stress, turbulence, a competitive environment or unexpected events.
+See Table 2 of \cite{hillmann_organizational_2021} for papers associated with each definition.}
 I measure organizational resilience by analyzing organizational outcomes observed following the disruptive event.
 The five categories of organizational practices in my analysis are \textit{collaboration}, \textit{knowledge level}, \textit{discussion quality}, \textit{investment in new talent} and \textit{problem-solving routines}.
-These categories map to common themes emphasized by the organizational resilience literature and have all been found to bolster resilience.\footnote{Three of the four concepts that \cite{duchek_organizational_2020} describes as ``general attributes that may facilitate an organization's resilience'' cover my categories. What  \cite{duchek_organizational_2020} terms \textit{redundancy} covers collaboration and knowledge level, \textit{positive relationships} covers discussion quality and investment in new talent and \textit{specific organizational strategies} covers organizational routines. 
+These categories map to common themes emphasized by the organizational resilience literature and have all been found to bolster resilience.\footnote{Three of the four concepts that \cite{duchek_organizational_2020} describes as ``general attributes that may facilitate an organization's resilience'' cover my categories.
+What  \cite{duchek_organizational_2020} terms \textit{redundancy} covers collaboration and knowledge level, \textit{positive relationships} covers discussion quality and investment in new talent and \textit{specific organizational strategies} covers organizational routines.
 The fourth type is adequate resources, which is less applicable to OSS organizations as most organizations are made up of volunteers who collaborate remotely.}
 
 Existing empirical research in management examines individual organizational practices in isolation or the combined effects of multiple practices without considering complementarities between practices. 
@@ -454,14 +463,16 @@ First, all organizations must have one or two key members at the quasi-treatment
 I estimate the event study separately for organizations with exactly one and exactly two key members, then combine the estimates using inverse-variance weighting---assigning each sub-sample's estimate a weight proportional to the inverse of its squared standard error---which yields the minimum-variance linear combination of two independent estimates.
 Second, each organization must have observed activity for at least \NumPostPeriod{} pre- and \NumPostPeriod{} post-periods.
 Third, each organization must have a non-degenerate pre-period baseline for every active outcome: organizations where any outcome has all-identical pre-period values (e.g., zero software releases in every pre-period) are excluded, as standardization requires positive variance.
-The final sample features \NumOrgs{} OSS organizations and includes major GitHub projects, such as \texttt{pytorch/pytorch}, the flagship deep learning framework; \texttt{googleapis/google-cloud-Python}, the Python Google Cloud software development kit (SDK); and \texttt{boto/boto3}, the Python Amazon Web Services SDK. Table~\ref{tab:outcome_summary} provides summary statistics for the outcomes and project distribution, and plots the distribution of observed, quasi-treatment and treatment dates. 
+The final sample features \NumOrgs{} OSS organizations and includes major GitHub projects, such as \texttt{pytorch/pytorch}, the flagship deep learning framework; \texttt{googleapis/google-cloud-Python}, the Python Google Cloud software development kit (SDK); and \texttt{boto/boto3}, the Python Amazon Web Services SDK.
+Table~\ref{tab:outcome_summary} provides summary statistics for the outcomes and project distribution, and plots the distribution of observed, quasi-treatment and treatment dates.
 
 \input{output/tables/outcome_summary_table}
 
 
 \section{Organizational Practices} \label{sec:org_practices}
 \longterm[inline]{Cluster organizational practices to see if groupings by cluster match mine + autofill}
-\longterm[inline]{Add citations? And use citations to inform mechanisms}
+\longterm[inline]{Add citations?
+And use citations to inform mechanisms}
 I investigate the relationship between five organizational practices---\textit{collaboration}, \textit{knowledge level}, \textit{discussion quality}, \textit{investment in new talent}, and \textit{problem-solving routines}---and organizational resilience.
 The choice of these practices is motivated by prior work in management and software engineering, as discussed in the \hyperref[sec:literature]{Related Literature} section.
 Each practice includes several measures.
@@ -586,7 +597,8 @@ Unobserved trends most threatening to identification would likely manifest as st
 \subsection{Simple Tests of Organizational Resilience} \label{sec:org_resilience_indiv_tests}
 Next, I test the hypothesis that organizations with higher organizational practice scores are more resilient.
 Each organization has a vector of five practice scores $X_i$, with $X_{ij}$ denoting the score for practice $j$. 
-For each practice $j$, I apply the \textit{Median Split}, separating organizations into high and low score groups, $C_{ij} \in \{\text{high}, \text{low}\}$, depending on whether $X_{ij}$ lies above or below the cross-organizational median.\footnote{Organizations without a valid practice score — due to insufficient data to compute the PC — are excluded from that practice's comparison. The share excluded is reported in each practice's measure table.}
+For each practice $j$, I apply the \textit{Median Split}, separating organizations into high and low score groups, $C_{ij} \in \{\text{high}, \text{low}\}$, depending on whether $X_{ij}$ lies above or below the cross-organizational median.\footnote{Organizations without a valid practice score — due to insufficient data to compute the PC — are excluded from that practice's comparison.
+The share excluded is reported in each practice's measure table.}
 
 \input{source/figures/event_study_collab}
 
@@ -823,7 +835,8 @@ Trees of depth four and higher are computationally infeasible to train without s
 
 \subsection{Exploring the Coarsened Space of Organizational Practices} \label{sec:coarsened_exploration}
 A key insight from Figure~\ref{fig:event_study_forest_coarse} is that coarsening continuous practice scores into binary high/low scores using a median split only slightly reduces the generalized random forest’s ability to separate high resilience and low resilience organizations.
-This motivates a complementary interpretability approach: instead of working with continuous scores, I classify organizations into one of 32 categories corresponding to all possible combinations of the five binary practice indicators. The median threshold for each score is computed separately within each sub-sample of organizations with exactly one and exactly two key members at the quasi-treatment date. 
+This motivates a complementary interpretability approach: instead of working with continuous scores, I classify organizations into one of 32 categories corresponding to all possible combinations of the five binary practice indicators.
+The median threshold for each score is computed separately within each sub-sample of organizations with exactly one and exactly two key members at the quasi-treatment date.
 Although the coarsening discards information, I believe the modest loss in predictive precision is outweighed by the interpretability gained from reducing the continuous practice space to a manageable set of 32 combinations.
 
 
@@ -872,14 +885,16 @@ Finally, since adopting organizational practices involves meaningful tradeoffs, 
 \iffalse
 \section{Next Steps}
 \subsection{Estimating reach}
-I'm hoping to quantify the impact of reduced software development activity in OSS organizations. For example, if I can quantify how issues/pull requests affect users or other major OSS, I can describe the benefits of resilience not in terms of these units. 
+I'm hoping to quantify the impact of reduced software development activity in OSS organizations.
+For example, if I can quantify how issues/pull requests affect users or other major OSS, I can describe the benefits of resilience not in terms of these units.
 
 I quantify how issues \& pull requests affect users by classifying the issues into categories. 
 The categories are:
 \begin{enumerate}
     \item Issue type: bug, enhancement, question.  
     \item Resolution found: yes, no. 
-    \item Resolution type: code, discussion. Code changes might be more burdensome to make, but the knowledge they draw upon already exists (within the codebase)
+    \item Resolution type: code, discussion.
+Code changes might be more burdensome to make, but the knowledge they draw upon already exists (within the codebase)
     \item Resolution details: was it resolved through a pull request, commit, or comment, and what were the details?
     \item Resolution inability: no responder, asker ghosted, responder ghosted, resolution impossible
     \item Backwards-incompatible change? yes - external, yes - internal, no
@@ -930,9 +945,18 @@ I quantify how issues \& pull requests affect downstream projects by checking wh
 
 
 \todo[inline]{I really don't like the wording here but fine to leave as is}
-The social network for each organization in a given time period is constructed from all discussion threads that occurred within that six month period. Each discussion thread corresponds to a distinct conversational space on GitHub. There are three types of discussion threads: an *issue thread* (an issue post and its comments), a *pull request thread* (a pull request post and subsequent pull request comments), or a *pull request review thread* (a pull request post and the review comments attached to specific code lines). Within each thread, comments are ordered chronologically, with the first comment representing the opening post that initiates the discussion. For every subsequent comment, I identify the most recent prior comment made by a different contributor and treat this as a directed interaction from the current commenter (sender) to that prior participant (receiver). If the comment occurs in a review thread and is the first review comment, it is treated as a reply to the pull request opener. This procedure ensures that interactions represent meaningful exchanges between distinct contributors rather than self-replies or system events. Actor identifiers are standardized by converting all numeric and string IDs to a canonical string format, and duplicate comment records are removed to avoid inflating edge counts.
+The social network for each organization in a given time period is constructed from all discussion threads that occurred within that six month period.
+Each discussion thread corresponds to a distinct conversational space on GitHub.
+There are three types of discussion threads: an *issue thread* (an issue post and its comments), a *pull request thread* (a pull request post and subsequent pull request comments), or a *pull request review thread* (a pull request post and the review comments attached to specific code lines).
+Within each thread, comments are ordered chronologically, with the first comment representing the opening post that initiates the discussion.
+For every subsequent comment, I identify the most recent prior comment made by a different contributor and treat this as a directed interaction from the current commenter (sender) to that prior participant (receiver).
+If the comment occurs in a review thread and is the first review comment, it is treated as a reply to the pull request opener.
+This procedure ensures that interactions represent meaningful exchanges between distinct contributors rather than self-replies or system events.
+Actor identifiers are standardized by converting all numeric and string IDs to a canonical string format, and duplicate comment records are removed to avoid inflating edge counts.
 
-These pairwise interactions are then aggregated into undirected, weighted graphs for each time period. Each node represents a unique contributor active during that window, and an undirected edge connects two contributors if at least one interaction occurred between them in either direction. The edge weight equals the total number of interactions recorded between the pair in that period, capturing the intensity of their conversational exchange. 
+These pairwise interactions are then aggregated into undirected, weighted graphs for each time period.
+Each node represents a unique contributor active during that window, and an undirected edge connects two contributors if at least one interaction occurred between them in either direction.
+The edge weight equals the total number of interactions recorded between the pair in that period, capturing the intensity of their conversational exchange.
 
 \section{List of todos (unordered)}
 My aim is to organize these into an ordered list of todos
@@ -943,7 +967,8 @@ My aim is to organize these into an ordered list of todos
     \item Use microdata on OSS organizations and members to directly show how the organizational practices in the lower-dimensional rule contribute to or detract from organizational resilience. 
     \item Incorporate a Case study on a few organizations and how they responded
     \item Figure out how much of the data is captured by the torrent and perform a validation exercise (\href{https://GitHub.com/igrigorik/gharchive.org/issues/290\#issuecomment-1923017346}{one of a few known reported data outages}).
-    \item I still wonder if visuals of GitHub would help illuminate things. MY data is a strength but I'm not showing any of it
+    \item I still wonder if visuals of GitHub would help illuminate things.
+MY data is a strength but I'm not showing any of it
     \item For each measurement and data construction piece, make sure bots are excluded in the code and make that clear in the text
     \item See if there's a way I can leverage the fact that I know whose departing and use that to motivate organizational practices
     \item Focus on investment in talent or communication with non-key members
@@ -951,14 +976,17 @@ My aim is to organize these into an ordered list of todos
     \item It would be nice if the organizational routines I'm considering focus more on disaster preparation as opposed to just ordinary problem solving routines. 
     \item Autofill key numbers
     \item What are ways I can test no anticipation???
-    \item Why do PRs decline more than releases? Explore characteristics of releases
+    \item Why do PRs decline more than releases?
+Explore characteristics of releases
     \item Separate event studies for each subgroup in the 2... 
     \item Can I show that I'm actually only getting "one" departure by showing it's unlikely organizations were affected by departures in their pre-period?
     \item Can I use more granular time periods
     \item Read this\href{https://pubs.aeaweb.org/doi/pdfplus/10.1257/jep.36.3.211}{paper} in order to understand how to motivate the paper using descriptive statistics
-    \item \longterm[inline]{Once I get the WRDS access, see if I can incorporate the picture of the ES graph of corporate departues for my chosen specification and subset to the main subset of organizations I'm using? Highlights how many of these are corporate related}
+    \item \longterm[inline]{Once I get the WRDS access, see if I can incorporate the picture of the ES graph of corporate departues for my chosen specification and subset to the main subset of organizations I'm using?
+Highlights how many of these are corporate related}
     \item \longterm[inline]{\textbf{Show this is true}: Abrupt departures aren't associated with changes in demand for the departed member's services - the number of issues opened, forks, stars and downloads are still increasing.  Moreover, the departure date is unrelated to the proximity to major software releases/updates}
-    \item  \longterm[inline]{Can I show that organizational practices that might lead to dissatisfaction/change aren't the driving reason for departure/aren't systematically changing in a way that would explain their departure? For example, I don't see declines or increases in member count prior to their departure (signalling broad organizational changes) or changes in the distribution of communication z score/important members (which also suggests changes in how people are communicating/working) or in the sentiment of their communications (are they getting burnt out?)}
+    \item  \longterm[inline]{Can I show that organizational practices that might lead to dissatisfaction/change aren't the driving reason for departure/aren't systematically changing in a way that would explain their departure?
+For example, I don't see declines or increases in member count prior to their departure (signalling broad organizational changes) or changes in the distribution of communication z score/important members (which also suggests changes in how people are communicating/working) or in the sentiment of their communications (are they getting burnt out?)}
     \item knowledge level table: Problem-level HHI should include opening issue/comment?
     \item knowledge level table: Average unique types should aggregate review comments and reviews — maybe all activities should.
     \item Maybe: irrelevant contributors/random departure dates?
@@ -967,7 +995,8 @@ My aim is to organize these into an ordered list of todos
 \section{How I map PyPi organizations to GitHub repositories}
 1. Use pypi page as of December 2025 to get github or homepage URL
 \section{How I match repo names to repo ids in cases where identity changes}
-1. For each github repo, use bigquery to identify all repo (name, id) pairs that have either the same name or id. Do this continuously, incorporating all added (name, id) pairs until 
+1. For each github repo, use bigquery to identify all repo (name, id) pairs that have either the same name or id.
+Do this continuously, incorporating all added (name, id) pairs until
 \fi
 
 \end{document}
