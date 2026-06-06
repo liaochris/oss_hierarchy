@@ -82,5 +82,3 @@ of each `SConscript` over repeated ad hoc arrays.
 - [`DATA_APPENDIX.MD`](DATA_APPENDIX.MD) - action-level data construction
   documentation.
 - [`HANDOFF.md`](HANDOFF.md) - current handoff notes and implementation context.
-- [`oop_event_study_forest.md`](oop_event_study_forest.md) - event-study forest
-  OOP/package refactor todo list.
