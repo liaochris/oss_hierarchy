@@ -130,7 +130,8 @@
 \title{Generalized Random Forest Event Studies}
 
 \author{
-  Chris Liao\thanks{I am grateful to Jesse Shapiro and Scott Nelson for helpful comments and support. Email: chrisliao@uchicago.edu} \\
+  Chris Liao\thanks{I am grateful to Jesse Shapiro and Scott Nelson for helpful comments and support.
+Email: chrisliao@uchicago.edu} \\
 }
 \date{\today}
 \maketitle
@@ -217,7 +218,8 @@ Y_{i,t} = \alpha_i + f_t(X_i)
 The estimated equation differs from \eqref{eq:SA-reg-vec} in two ways: 
 \begin{enumerate}
     \item I replace time fixed effects with flexible, time-varying functions of $f_t(x)$ that capture baseline heterogeneity in the outcome,
-    \item I define conditional cohort-event time coefficients $\delta_{g,k}(x)$ as functions of covariates. Furthermore, define the vector $\delta(X_i) = \big(\delta_{g,k}(X_i)\big)_{g \in G, \, k \neq -1}$ 
+    \item I define conditional cohort-event time coefficients $\delta_{g,k}(x)$ as functions of covariates.
+Furthermore, define the vector $\delta(X_i) = \big(\delta_{g,k}(X_i)\big)_{g \in G, \, k \neq -1}$
 \end{enumerate}
 
 I retain the linear fixed effects from \eqref{eq:SA-reg} because my covariates are time-invariant.
@@ -315,10 +317,20 @@ Hence, \cite{athey_generalized_2019} show that for any covariate values $x$, $\d
 \end{equation}
 
 \subsection{Estimation Framework}
-The finite-sample equivalent to \eqref{eq:ccatt_soltion} is
+Estimation proceeds in two stages.
+First, the baseline heterogeneity vector $f(x)$ is estimated by a generalized random forest fit on the never-treated units, regressing $Y_{i,t}^{FD}$ on the time-indicator vector $T_{i,t}$.
+Define the residualized outcome
+\[
+Y_{i,t}^{R} = Y_{i,t}^{FD} - \langle \hat f^{(-i)}(X_i), T_{i,t}\rangle = Y_{i,t}^{FD} - \big(\hat f_t^{(-i)}(X_i) - \hat f_{Q_i-1}^{(-i)}(X_i)\big),
+\]
+where $\hat f^{(-i)}$ is cross-fit.
+Plugging in $\hat f$ to residualize the outcome removes the baseline heterogeneity, so the second stage estimates $\delta(x)$ from the treatment columns alone.
+The finite-sample analog to \eqref{eq:ccatt_soltion} is
 \begin{align*} \label{eq:catt-x-est}
-(\hat{\delta}(x), \hat{f}(x)) = \left(\sum_{i,t} \alpha_i(x) \left( Z_{i, t} - e^{(-i)}(x) + T_{i,t} - t^{(-i)}(x)\right)^{\otimes 2}\right)^{-1} \cdot \\ \sum_{i,t} \alpha_i(x) \left( Z_{i, t} - e^{(-i)}(x) + T_{i,t} - t^{(-i)}(x)\right)\left(Y_{i,t} - m^{(-i)}(x)\right).
+\hat{\delta}(x) = \left(\sum_{i,t} \alpha_i(x) \left( Z_{i, t} - e^{(-i)}(x)\right)^{\otimes 2}\right)^{-1} \sum_{i,t} \alpha_i(x) \left( Z_{i, t} - e^{(-i)}(x)\right)\left(Y_{i,t}^{R} - m^{(-i)}(x)\right),
 \end{align*}
+with $m(x) = \E[Y_{i,t}^{R}\mid X_i = x]$.
+This is precisely the conditionally linear model forest \texttt{lm\_forest} fit with treatment columns $Z$ and residualized outcome $Y^{R}$, where $m(x)$ is estimated internally and $e(x)$ is supplied as the treatment propensity.
 Here, $\alpha_i(x)$ are generalized random forest kernel weights measuring the relevance of observation $i$ for estimating the $\delta(x)$ and are the observation-specific sample analog of the neighborhood $S$ \citep{athey_generalized_2019}.
 
 Since \cite{gavrilova_difference--difference_2025} estimate a separate forest for each cohort–event time estimate, each cohort-event time estimate will rely on upon cohort-event time kernel weights $\alpha_i^{g, k}(x)$.
@@ -328,7 +340,8 @@ Since my approach uses a single forest to estimate all parameters, the weighting
 Note that my approach does not restrict treatment effects to be the same across cohort-event times conditional on covariates - it only restricts the weights used in the weighted average of other observations to be the same. 
 
 Suppose that the data is divided into $k$ equally sized folds. 
-$e^{(-i)}(\cdot)$, $t^{(-i)}(\cdot)$, and $m^{(-i)}(\cdot)$ are the treatment, baseline heterogeneity and outcome function estimated via $k$-fold cross-fitting, using the $k-1$ folds that omit observation $i$. 
+$\hat f^{(-i)}(\cdot)$, $e^{(-i)}(\cdot)$, and $m^{(-i)}(\cdot)$ are the baseline heterogeneity, treatment, and residualized outcome functions estimated via $k$-fold cross-fitting, using the $k-1$ folds that omit observation $i$.
+The first-stage baseline heterogeneity forest, estimated via the centered regression of $Y_{i,t}^{FD}$ on $T_{i,t}$ using the time propensity $t^{(-i)}(\cdot)$, is likewise cross-fit.
 Cross-fitting enables valid inference on $\delta(X_i)$ and $f(X_i)$ even when the estimated outcome and propensity functions have small errors because the conditional means functions are not trained on unit $i$ \citep{chernozhukov_doubledebiased_2018}.
 
 Estimation of the propensity scores $e(x)$ and $t(x)$ requires modifying existing approaches from the literature because of the panel data setting. 
@@ -349,7 +362,8 @@ Appendix Section~\ref{sec:doubly_robust} shows how doubly robust scores for $\ha
 
 \clearpage
 \section{The linear time fixed effects model}\label{sec:time_fe}
-A special case of Section~\ref{sec:het_te} arises when $f_t(X_i)$ affects outcomes uniformly within each period $t$, implying a time fixed effect. The model from Section~\ref{eq:SA-reg-ml} then simplifies to
+A special case of Section~\ref{sec:het_te} arises when $f_t(X_i)$ affects outcomes uniformly within each period $t$, implying a time fixed effect.
+The model from Section~\ref{eq:SA-reg-ml} then simplifies to
 \begin{equation*} 
 Y_{i,t} = \alpha_i + \gamma_t
 + \langle \delta(X_i), Z_{i,t} \rangle + \varepsilon_{i,t}. \label{eq:SA-reg-ml-fe}
@@ -358,7 +372,8 @@ with first difference
 \begin{equation*}
 Y_{i,t}^{FD} = \gamma_t  - \gamma_{Q_i - 1} + \langle \delta(X_i), Z_{i,t} \rangle + \varepsilon_{i,t}^{FD}. \label{eq:SA-reg-ml-fd-fe}
 \end{equation*}
-Note that the average of the first-differenced outcome across all never-treated individuals at time $t$ belonging to the quasi-treatment cohort $Q_i = g$ is $\gamma_t - \gamma_{g - 1}$. Hence, I can define the demeaned outcome and residual as
+Note that the average of the first-differenced outcome across all never-treated individuals at time $t$ belonging to the quasi-treatment cohort $Q_i = g$ is $\gamma_t - \gamma_{g - 1}$.
+Hence, I can define the demeaned outcome and residual as
 \begin{align*}
     \widetilde{Y}_{i, t}^{FD} &= Y_{i,t}^{FD} -  \frac{1}{|j \in Q_i, G_j = \infty|} \sum_{j \in Q_i, G_j = \infty} Y_{j,t}^{FD} \\
     \widetilde{\varepsilon}_{i, t}^{FD}&=  \varepsilon_{i,t}^{FD} - \frac{1}{|j \in Q_i, G_j = \infty|} \sum_{j \in Q_i, G_j = \infty} \varepsilon_{j,t}^{FD}
@@ -370,30 +385,48 @@ and rewrite the regression as
 The framework in Section~\ref{sec:estimation_framework} can then be used to estimate $\delta(x)$, except that the baseline heterogeneity functions are omitted. 
 
 \section{Proof of conditional CATT identification} \label{sec:ccatt_identification}
-From \eqref{eq:SA-reg-ml-fd}, taking expectations conditional on cohort membership $G_i$ and covariates $X_i = x$  gives
+From \eqref{eq:SA-reg-ml-fd}, define the residualized outcome
+\[
+Y_{i,t}^{R} \equiv Y_{i,t}^{FD} - \big(f_t(X_i) - f_{Q_i-1}(X_i)\big)
+            = \langle \delta(X_i), Z_{i,t}\rangle + \varepsilon_{i,t}^{FD}.
+\]
+By \assref{ass:parallel_trends_cond}, the baseline heterogeneity function $f_t(\cdot)$ is
+common to all cohorts $g \in G \cup \{\infty\}$, so it is identified from the never-treated
+units and subtracted from every observation using that observation's own (quasi-)reference
+period $Q_i - 1$.
+The same assumption gives $\E[\varepsilon_{i,t}^{FD}\mid G_i=g, X_i=x]=0$
+for every $g \in G \cup\{\infty\}$ and every quasi-treatment date $Q_i$.
+Taking conditional
+expectations at $t = g+k$,
 \begin{align*}
-\E[Y_{i,g+k}^{FD} \mid  Q_i = g, G_i=g, X_i = x] &= f_{g+k}(x) - f_{g-1}(x) + \delta_{g, k}(x) \\
-\E[Y_{i,g+k}^{FD} \mid Q_i = g, G_i=\infty, X_i = x] &= f_{g+k}(x) - f_{g-1}(x).
+\E[Y_{i,g+k}^{R}\mid G_i=g, X_i=x]      &= \delta_{g,k}(x),\\
+\E[Y_{i,g+k}^{R}\mid G_i=\infty, X_i=x] &= 0,
 \end{align*}
-Then, 
+where the second line pools \emph{all} never-treated units, irrespective of their
+quasi-treatment date $Q_i$.
+Subtracting and using $Q_i = g$ for the treated cohort,
 \begin{align*}
-& \E[Y_{i,g+k}^{FD} \mid  Q_i = g, G_i=g, X_i = x]  - \E[Y_{i,g+k}^{FD} \mid Q_i = g, G_i=\infty, X_i = x] \\
-&= \delta_{g, k}(x) 
+\delta_{g,k}(x)
+  &= \E[Y_{i,g+k}^{R}\mid G_i=g, X_i=x] \\
+  &= \E[Y_{i,g+k}^{FD}\mid G_i=g, X_i=x] - \big(f_{g+k}(x) - f_{g-1}(x)\big) \\
+  &= \E[Y_{i,g+k} - Y_{i,g-1}\mid G_i=g, X_i=x] - \big(f_{g+k}(x) - f_{g-1}(x)\big).
 \end{align*}
-Finally, 
+Applying \assref{ass:parallel_trends_cond} to cohort $g$'s untreated potential outcome
+identifies the baseline as that cohort's counterfactual trend,
+$f_{g+k}(x) - f_{g-1}(x) = \E[Y_{i,g+k}^{\infty} - Y_{i,g-1}^{\infty}\mid G_i=g, X_i=x]$,
+so
 \begin{align*}
-   \delta_{g, k}(x) &= \E[Y_{i,g+k}^{FD} \mid  Q_i = g, G_i=g, X_i = x]  - \E[Y_{i,g+k}^{FD} \mid Q_i = g, G_i=\infty, X_i = x]\\
-   &= \E[Y_{i,g+k}^{FD} \mid  Q_i = g, G_i=g, X_i = x]  - \E[Y_{i,g+k}^{FD, \infty} \mid Q_i = g, G_i=\infty, X_i = x]\\
-   &\text{ by the definition of being untreated} \\
-   &= \E[Y_{i,g+k}^{FD} \mid  Q_i = g, G_i=g, X_i = x]  - \E[Y_{i,g+k}^{FD, \infty} \mid Q_i = g, G_i=g, X_i = x]\\
-   &\text{ by the parallel trends assumption in \assref{ass:parallel_trends_cond}} \\
-   &= \E[Y_{i,g+k}^{FD} \mid   G_i=g, X_i = x]  - \E[Y_{i,g+k}^{FD, \infty} \mid  G_i=g, X_i = x]\\
-   &= \E[Y_{i,g+k}^{FD} - Y_{i,g+k}^{FD, \infty} \mid  G_i=g, X_i = x]\\
-   &= \E[Y_{i,g+k} - Y_{i,g-1} - (Y_{i,g+k}^{\infty} - Y_{i,g-1}^{\infty}) \mid  G_i=g, X_i = x]\\
-   &= \E[Y_{i,g+k} - Y_{i,g-1}^\infty - (Y_{i,g+k}^{\infty} - Y_{i,g-1}^{\infty}) \mid  G_i=g, X_i = x]\\
-   &\text{ by the no anticipation assumption in \assref{ass:no_ant_cond}}\\
-   &= \E[Y_{i,g+k} - Y_{i,g+k}^{\infty} \mid  G_i=g, X_i = x]\\
-   &= CATT_{g, k}(x)
+\delta_{g,k}(x)
+  &= \E[Y_{i,g+k} - Y_{i,g-1}\mid G_i=g, X_i=x]
+     - \E[Y_{i,g+k}^{\infty} - Y_{i,g-1}^{\infty}\mid G_i=g, X_i=x] \\
+  &= \E\big[(Y_{i,g+k} - Y_{i,g+k}^{\infty}) - (Y_{i,g-1} - Y_{i,g-1}^{\infty})
+        \mid G_i=g, X_i=x\big].
+\end{align*}
+By the no-anticipation assumption \assref{ass:no_ant_cond}, the period $g-1$ treatment effect
+is zero, leaving
+\begin{align*}
+\delta_{g,k}(x)
+  &= \E[Y_{i,g+k} - Y_{i,g+k}^{\infty}\mid G_i=g, X_i=x] = CATT_{g,k}(x).
 \end{align*}
 
 \section{Propensity scores in panel data settings}\label{sec:treatment_propensity}

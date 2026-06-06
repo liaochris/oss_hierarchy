@@ -1,4 +1,3 @@
-import subprocess
 import os
 
 from .jmslab_builder import JMSLabBuilder

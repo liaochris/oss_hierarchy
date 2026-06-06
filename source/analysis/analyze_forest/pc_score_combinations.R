@@ -20,8 +20,8 @@ Main <- function() {
             forest_results_data <- LoadForestResults(INDIR_FOREST, importance_type, rolling_panel, qualified_sample, control_group, norm_label)
 
             pc_score_cols <- colnames(forest_results_data$df)[grepl("_pc_score$", colnames(forest_results_data$df))]
-            binarized <- BinarizePCScores(forest_results_data$df, pc_score_cols)
-            df_bins   <- binarized$df
+            binarized <- BinarizePCScores(forest_results_data$sub_dfs, pc_score_cols)
+            df_bins   <- binarized$df %>% drop_na(all_of(pc_score_cols))
 
             combo_summary <- df_bins %>%
               group_by(across(all_of(pc_score_cols))) %>%
@@ -139,6 +139,7 @@ CreatePCScoreComboTables <- function(df_bins, pc_split_cols, outdir_ds) {
       att_others <- if (nrow(others) > 0 && sum(others$count) > 0)
         sum(others$att_doubly_robust_mean * others$count) / sum(others$count) else NA_real_
       tibble(pc_score_subset = paste(vars, collapse = " x "),
+             pc_score_label = paste(PC_LABELS[vars], collapse = " $\\times$ "),
              att_high = all_high$att_doubly_robust_mean,
              att_others_wavg = att_others,
              difference = all_high$att_doubly_robust_mean - att_others,
@@ -155,6 +156,7 @@ CreatePCScoreComboTables <- function(df_bins, pc_split_cols, outdir_ds) {
       paste0("<tab:pc_score_combo_k", k, "_top3>"),
       apply(top3_pc_combos, 1, function(r) {
         paste(
+          trimws(r["pc_score_label"]),
           formatC(as.numeric(r["difference"]),      format = "f", digits = 2),
           formatC(as.numeric(r["att_high"]),        format = "f", digits = 2),
           formatC(as.numeric(r["att_others_wavg"]), format = "f", digits = 2),

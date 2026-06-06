@@ -3,11 +3,11 @@ Import('*')
 import json
 from source.lib.python.config_loaders import LoadOutcomeVariables, LoadPipelineInputs
 
-_cfg = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
-IMPORTANCE_TYPES  = _cfg["importance_types"]["run"]
-ROLLING_PERIODS   = [f"rolling{p}" for p in _cfg["rolling_periods"]["run"]]
-QUALIFIED_SAMPLES = _cfg["qualified_samples"]["run"]
-CONTROL_GROUPS    = _cfg["control_groups"]["run"]
+CONFIG = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
+IMPORTANCE_TYPES  = CONFIG["importance_types"]["run"]
+ROLLING_PERIODS   = [f"rolling{p}" for p in CONFIG["rolling_periods"]["run"]]
+QUALIFIED_SAMPLES = CONFIG["qualified_samples"]["run"]
+CONTROL_GROUPS    = CONFIG["control_groups"]["run"]
 
 _analysis_cfg = LoadPipelineInputs("../../../source/lib/config/analysis_parameters.json")
 NORM_LABELS = ["norm" if n else "raw" for n in _analysis_cfg["norm_options"]]

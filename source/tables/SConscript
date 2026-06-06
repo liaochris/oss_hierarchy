@@ -1,31 +1,44 @@
 Import('*')
+from source.lib.python.config_loaders import LoadPaperSettings
 
-_canonical = "important_degree_top3/rolling5/exact_1_2/nevertreated"
+CONFIG = LoadPaperSettings("../../source/lib/config/paper_settings.json")
+PRIMARY_SPEC = "/".join([
+    CONFIG["primary_importance_type"],
+    CONFIG["primary_rolling_label"],
+    CONFIG["primary_qualified_sample"],
+    CONFIG["primary_control_group"],
+])
 
 env.Tablefill(
     '#output/tables/outcome_summary_table.tex',
     ['#source/tables/outcome_summary_table.tex',
-     f'#output/analysis/analyze_forest/{_canonical}/raw/outcome_summary.txt'])
+     f'#output/analysis/summ_stats/{PRIMARY_SPEC}/raw/outcome_summary.txt'])
+
+env.Tablefill(
+    '#output/tables/tree_depth.tex',
+    ['#source/tables/tree_depth.tex',
+     f'#output/analysis/analyze_forest/{PRIMARY_SPEC}/norm/tree_depth.txt'])
 
 env.Tablefill(
     '#output/tables/pc_score_combo_k2_top3.tex',
     ['#source/tables/pc_score_combo_k2_top3.tex',
-     f'#output/analysis/analyze_forest/{_canonical}/norm/pc_score_combo_k2_top3.txt'])
+     f'#output/analysis/analyze_forest/{PRIMARY_SPEC}/norm/pc_score_combo_k2_top3.txt'])
 
 env.Tablefill(
     '#output/tables/pc_score_combo_k3_top3.tex',
     ['#source/tables/pc_score_combo_k3_top3.tex',
-     f'#output/analysis/analyze_forest/{_canonical}/norm/pc_score_combo_k3_top3.txt'])
+     f'#output/analysis/analyze_forest/{PRIMARY_SPEC}/norm/pc_score_combo_k3_top3.txt'])
 
-_pc_group_tex_names = {
-    "collaboration":            "collaboration",
-    "shared_knowledge":         "shared_knowledge",
-    "discussion_quality":       "discussion_quality",
-    "investment_in_new_talent": "investment_new_talent",
-    "problem_solving_routines": "problem_solving_routines",
-}
-for _group, _tex in _pc_group_tex_names.items():
-    env.Tablefill(
-        f'#output/tables/{_tex}.tex',
-        [f'#source/tables/{_tex}.tex',
+_pc_group_tex_names = [
+    "collaboration",
+    "knowledge_level",
+    "discussion_quality",
+    "investment_in_new_talent",
+    "problem_solving_routines",
+]
+for _group in _pc_group_tex_names:
+    _target = env.Tablefill(
+        f'#output/tables/{_group}.tex',
+        [f'#source/tables/{_group}.tex',
          f'#output/derived/analysis_panel/pc_loadings_{_group}.txt'])
+    env.Depends(_target, '#output/autofill/pc_autofill.tex')

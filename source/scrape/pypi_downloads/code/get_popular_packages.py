@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import os
 import pandas as pd
 from datetime import datetime
 from source.lib.JMSLab.SaveData import SaveData

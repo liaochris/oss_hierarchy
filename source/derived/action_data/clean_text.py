@@ -3,10 +3,13 @@ import re
 import pandas as pd
 from pandarallel import pandarallel
 from pathlib import Path
-from source.lib.python.filesystem_utils import CleanDirs, WriteDirectoryHash
+from source.lib.python.filesystem_utils import CleanDirs, WriteContentHash
 from source.lib.python.data_utils import ImputeTimePeriod
+from source.lib.python.config_loaders import LoadGlobalSettings
 from source.lib.JMSLab.SaveData import SaveData
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
+N_JOBS  = LoadGlobalSettings()["n_jobs"]
 
 INDIR   = Path("drive/output/derived/action_data/repo_actions")
 OUTDIR    = Path("drive/output/derived/action_data/cleaned_text")
@@ -59,6 +62,8 @@ RE_PATTERNS = [
 
 
 def Main():
+    pandarallel.initialize(nb_workers=N_JOBS, progress_bar=True, verbose=0)
+
     CleanOutputs()
     projects = sorted([f for f in os.listdir(INDIR) if f.endswith(".parquet") and not f.startswith("._")])
     for project_file in projects:
@@ -88,7 +93,7 @@ def Main():
 
         SaveData(df_text_cleaned, ['action_id'], OUTDIR / f"{project}.parquet", LOG_DIR / f"{project}.log")
 
-    WriteDirectoryHash(OUTDIR, HASH_FILE)
+    WriteContentHash(LOG_DIR, HASH_FILE)
 
 
 def CleanOutputs():
@@ -130,7 +135,6 @@ def CleanTextColumn(df, text_column, parallel_threshold=100_000):
         return text.strip()
 
     if len(df) >= parallel_threshold:
-        pandarallel.initialize(progress_bar=True, verbose=0)
         df["cleaned_text"] = df[text_column].parallel_map(clean_text)
     else:
         df["cleaned_text"] = df[text_column].map(clean_text)
@@ -161,7 +165,6 @@ def AddVaderSentiment(df_text, text_col='cleaned_text', parallel_threshold=10000
     df_text = df_text.copy()
 
     if len(df_text) > parallel_threshold:
-        pandarallel.initialize(progress_bar=True, verbose=0)
         results = df_text[text_col].parallel_apply(analyze_text)
     else:
         results = df_text[text_col].apply(analyze_text)

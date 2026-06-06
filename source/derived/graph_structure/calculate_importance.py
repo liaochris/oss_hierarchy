@@ -5,7 +5,7 @@ import numpy as np
 from joblib import Parallel, delayed
 from source.lib.JMSLab.SaveData import SaveData
 from source.lib.python.data_utils import JsonSerialize
-from source.lib.python.filesystem_utils import WriteDirectoryHash
+from source.lib.python.filesystem_utils import CleanDirs, WriteContentHash
 from source.lib.python.config_loaders import LoadGlobalSettings, LoadImportanceSpecifications
 
 _global_settings = LoadGlobalSettings()
@@ -19,6 +19,7 @@ LOGDIR        = Path("output/derived/graph_structure")
 
 
 def Main():
+    CleanOutputs()
     files = sorted(glob.glob(str(INDIR / "*.parquet")))
     configs = LoadImportanceSpecifications()
 
@@ -70,8 +71,12 @@ def Main():
             LOGDIR / "importance_summary.log"
         )
 
-    WriteDirectoryHash(OUTDIR, HASH_FILE, pattern="*.csv")
+    WriteContentHash(OUTDIR, HASH_FILE)
     print(f"Done. Saved {len(results_by_file)} repo parquets.")
+
+
+def CleanOutputs():
+    CleanDirs([OUTDIR], patterns=("*.csv", "*.log"))
 
 
 def MakeTasks(files, configs):

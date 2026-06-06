@@ -34,9 +34,9 @@ PrepareData.EventStudyForestPipeline <- function(pipeline, df_data, feature_cols
 }
 
 FitOutOfSample <- function(pipeline, ...) UseMethod("FitOutOfSample")
-FitOutOfSample.EventStudyForestPipeline <- function(pipeline, outdir_ds, use_existing = FALSE) {
+FitOutOfSample.EventStudyForestPipeline <- function(pipeline, outdir_ds) {
   stopifnot(pipeline$phase == "prepared")
-  pipeline$results <- FitHeldOutPredictions(pipeline$cfg, pipeline$data, outdir_ds, use_existing)
+  pipeline$results <- FitHeldOutPredictions(pipeline$cfg, pipeline$data, outdir_ds)
   pipeline$phase   <- "fitted"
   pipeline
 }
@@ -76,7 +76,7 @@ ResidualizeOutcome <- function(cfg, data, outdir_ds) {
   )
 }
 
-FitHeldOutPredictions <- function(cfg, data, outdir_ds, use_existing) {
+FitHeldOutPredictions <- function(cfg, data, outdir_ds) {
   df_data      <- ResidualizeOutcome(cfg, data, outdir_ds)
   feature_cols <- data$feature_cols
   n_obs        <- nrow(df_data)
@@ -87,7 +87,7 @@ FitHeldOutPredictions <- function(cfg, data, outdir_ds, use_existing) {
 
   for (fold_id in seq_len(cfg$n_folds)) {
     message("fold ", fold_id, " / ", cfg$n_folds)
-    c(tau_fold, doubly_robust_fold) %<-% FitOneFold(cfg, fold_id, df_data, feature_cols, outdir_ds, use_existing)
+    c(tau_fold, doubly_robust_fold) %<-% FitOneFold(cfg, fold_id, df_data, feature_cols, outdir_ds)
 
     if (is.null(tau_hat)) {
       tau_hat              <- matrix(NA_real_, nrow = n_obs, ncol = ncol(tau_fold),
@@ -106,7 +106,6 @@ FitHeldOutPredictions <- function(cfg, data, outdir_ds, use_existing) {
   FitForestModel(
     df_all, as.matrix(df_all %>% select(all_of(feature_cols))), df_all$resid_outcome,
     model_path   = file.path(outdir_ds, paste0("event_study_forest_", cfg$outcome, ".rds")),
-    use_existing = use_existing,
     seed         = cfg$seed
   )
 
@@ -114,7 +113,7 @@ FitHeldOutPredictions <- function(cfg, data, outdir_ds, use_existing) {
        feature_cols = feature_cols, max_time_val = max_time_val)
 }
 
-FitOneFold <- function(cfg, fold_id, df_data, feature_cols, outdir_ds, use_existing) {
+FitOneFold <- function(cfg, fold_id, df_data, feature_cols, outdir_ds) {
   df_train <- df_data %>% filter(fold != fold_id) %>%
     group_by(repo_id) %>% filter(!any(is.na(resid_outcome))) %>% ungroup()
   df_hold  <- df_data %>% filter(fold == fold_id)
@@ -125,8 +124,7 @@ FitOneFold <- function(cfg, fold_id, df_data, feature_cols, outdir_ds, use_exist
 
   model_path <- file.path(outdir_ds,
     paste0("event_study_forest_", cfg$outcome, "_fold", fold_id, ".rds"))
-  forest_obj <- FitForestModel(df_train, x_train, y_train, model_path,
-                               use_existing = use_existing, seed = cfg$seed)
+  forest_obj <- FitForestModel(df_train, x_train, y_train, model_path, seed = cfg$seed)
 
   list(
     predict(forest_obj$model, newdata = x_hold, drop = TRUE)$predictions,
@@ -157,16 +155,7 @@ PersistForestModel <- function(forest_obj, model_path) {
   saveRDS(forest_obj$outcome_model,   sub("\\.rds$", "_outcome.rds",   model_path))
 }
 
-FitForestModel <- function(df_train, x_train, y_train, model_path, use_existing, seed = SEED) {
-  treatment_file <- sub("\\.rds$", "_treatment.rds", model_path)
-  outcome_file   <- sub("\\.rds$", "_outcome.rds",   model_path)
-  if (file.exists(model_path) && file.exists(treatment_file) && file.exists(outcome_file) && isTRUE(use_existing)) {
-    return(list(
-      model           = readRDS(model_path),
-      treatment_model = readRDS(treatment_file),
-      outcome_model   = readRDS(outcome_file)
-    ))
-  }
+FitForestModel <- function(df_train, x_train, y_train, model_path, seed = SEED) {
   forest_obj <- TrainForestModel(df_train, x_train, y_train, seed)
   PersistForestModel(forest_obj, model_path)
   forest_obj

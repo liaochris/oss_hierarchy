@@ -57,16 +57,7 @@ AveragePreTreatmentCovariateAcrossPeriods <- function(df, covars, rolling_period
   }
 }
 
-AssignOutcomeFolds <- function(repo_names, outcome, n_folds = N_FOLDS, seed = SEED) {
-  repo_sorted   <- sort(unique(repo_names))
-  outcome_bytes <- as.integer(charToRaw(as.character(outcome)))
-  offset        <- (sum(outcome_bytes) + as.integer(seed)) %% as.integer(n_folds)
-  tibble(repo_name = repo_sorted, rank = seq_along(repo_sorted)) %>%
-    mutate(fold = ((rank - 1) + offset) %% n_folds + 1) %>%
-    select(repo_name, fold)
-}
-
-CreateDataPanel <- function(panel, outcome, covars, rolling_period, n_folds, seed, normalize = TRUE) {
+CreateDataPanel <- function(panel, outcome, covars, rolling_period, normalize = TRUE) {
   if (normalize) {
     df_in       <- NormalizeOutcome(panel, outcome)
     outcome_col <- paste0(outcome, "_norm")
@@ -75,7 +66,7 @@ CreateDataPanel <- function(panel, outcome, covars, rolling_period, n_folds, see
     outcome_col <- outcome
   }
   df_fd   <- FirstDifferenceOutcome(df_in, outcome_col)
-  df_data <- AveragePreTreatmentCovariateAcrossPeriods(df_fd, covars, rolling_period) %>%
+  AveragePreTreatmentCovariateAcrossPeriods(df_fd, covars, rolling_period) %>%
     filter(quasi_event_time != -1) %>%
     mutate(
       treatment_arm = factor(
@@ -84,7 +75,6 @@ CreateDataPanel <- function(panel, outcome, covars, rolling_period, n_folds, see
       ),
       treatment_arm = relevel(treatment_arm, ref = "never-treated")
     )
-  df_data %>% left_join(AssignOutcomeFolds(df_data$repo_name, outcome, n_folds, seed), by = "repo_name")
 }
 
 FilterPredictions <- function(tau_hat, df_data) {

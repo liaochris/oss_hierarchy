@@ -5,7 +5,7 @@ from pathlib import Path
 import glob
 from num2words import num2words
 
-from source.lib.python.config_loaders import LoadPipelineInputs
+from source.lib.python.config_loaders import LoadPaperSettings, LoadPipelineInputs
 from source.lib.python.repo_utils import MakeRepoNameSafe
 from source.lib.JMSLab.SaveData import SaveData
 from source.lib.JMSLab.autofill import GenerateAutofillMacros
@@ -29,7 +29,8 @@ OUTDIR             = Path("output/analysis/summ_stats")
 
 def Main():
     pipeline_cfg = LoadPipelineInputs("source/lib/config/pipeline_inputs.json")
-    analysis_spec = BuildAnalysisSpec(pipeline_cfg)
+    paper_settings = LoadPaperSettings(PAPER_SETTINGS_PATH)
+    analysis_spec = BuildAnalysisSpec(pipeline_cfg, paper_settings)
 
     INDIR_ORG_PANEL = Path("drive/output/derived/org_outcomes_practices/org_panel") / analysis_spec["importance_type"] / analysis_spec["rolling_label"] / "panel.parquet"
 
@@ -122,10 +123,10 @@ def BuildSummary(df_popular, df_linked, df_repo_history,
     ]]
 
 
-def BuildAnalysisSpec(pipeline_cfg):
-    importance_type = pipeline_cfg["importance_types"]["run"][0]
-    rolling_label = f"rolling{pipeline_cfg['rolling_periods']['run'][0]}"
-    control_group = pipeline_cfg["control_groups"]["run"][0]
+def BuildAnalysisSpec(pipeline_cfg, paper_settings):
+    importance_type = paper_settings["primary_importance_type"]
+    rolling_label = paper_settings["primary_rolling_label"]
+    control_group = paper_settings["primary_control_group"]
     exact_samples = sorted(
         [sample for sample in pipeline_cfg["qualified_samples"]["run"] if "_" not in sample],
         key=lambda sample: int(sample.removeprefix("exact"))
@@ -235,6 +236,7 @@ def GenerateConfigAutofill():
 
     NumPostPeriod = analysis_params["max_event_time"]
     NumTrees      = analysis_params["trees_in_forest_event_study"]
+    NumFolds      = analysis_params["n_folds"]
 
     primary_spec   = importance_specs[paper_settings["primary_importance_type"]]
     TopK           = primary_spec["top_k"]
@@ -248,9 +250,13 @@ def GenerateConfigAutofill():
     TopKWord           = num2words(TopK)
     MinConsecutiveWord = num2words(MinConsecutive)
     TimePeriodWord     = num2words(TimePeriod)
+    PrimaryImportanceType = paper_settings["primary_importance_type"]
+    PrimaryQualifiedSample = paper_settings["primary_qualified_sample"]
+    PrimaryRollingLabel = paper_settings["primary_rolling_label"]
+    PrimaryControlGroup = paper_settings["primary_control_group"]
 
     CollabMeasureCount      = count_run_vars(feature_vars["collaboration"])
-    KnowledgeMeasureCount   = count_run_vars(feature_vars["shared_knowledge"])
+    KnowledgeMeasureCount   = count_run_vars(feature_vars["knowledge_level"])
     DiscussionMeasureCount  = count_run_vars(feature_vars["discussion_quality"])
     TalentMeasureCount      = count_run_vars(feature_vars["investment_in_new_talent"])
     RoutinesMeasureCount    = count_run_vars(feature_vars["organizational_routines"])
@@ -258,13 +264,15 @@ def GenerateConfigAutofill():
     GenerateAutofillMacros(
         [
             ["PipMinMonthlyDownloads"],
-            ["NumPostPeriod", "NumTrees", "TopK", "MinConsecutive", "TimePeriod",
+            ["NumPostPeriod", "NumTrees", "NumFolds", "TopK", "MinConsecutive", "TimePeriod",
              "NumMonthsObserved", "MinConsecutiveMonths",
              "CollabMeasureCount", "KnowledgeMeasureCount", "DiscussionMeasureCount",
              "TalentMeasureCount", "RoutinesMeasureCount"],
             ["NumPostPeriodWord", "TopKWord", "MinConsecutiveWord", "TimePeriodWord"],
+            ["PrimaryImportanceType", "PrimaryQualifiedSample", "PrimaryRollingLabel",
+             "PrimaryControlGroup"],
         ],
-        ["{:,}", "{}", "{}"],
+        ["{:,}", "{}", "{}", "{}"],
         str(AUTOFILL_OUTDIR / "config_autofill.tex"),
     )
 

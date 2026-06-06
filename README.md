@@ -28,7 +28,7 @@ live under `source/`, generated artifacts live under `output/` or
   normal source control.
 - `output/`
   Smaller generated outputs, logs, and review artifacts.
-
+  
 ## Workflow Essentials
 
 Before running scripts or SCons, activate the project environment:

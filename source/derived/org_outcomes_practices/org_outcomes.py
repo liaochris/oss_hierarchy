@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import duckdb
 from joblib import Parallel, delayed
-from source.lib.python.filesystem_utils import CleanDirs, WriteDirectoryHash
+from source.lib.python.filesystem_utils import CleanDirs, WriteContentHash
 from source.lib.python.data_utils import ImputeTimePeriod
 from source.lib.python.config_loaders import LoadGlobalSettings
 from source.lib.python.repo_utils import MakeRepoNameOriginal
@@ -40,7 +40,7 @@ def Main():
         for repo_file in repo_files
     )
 
-    WriteDirectoryHash(OUTDIR, HASH_FILE)
+    WriteContentHash(LOG_OUTDIR, HASH_FILE)
 
 
 def CleanOutputs():

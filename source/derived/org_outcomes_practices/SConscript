@@ -2,12 +2,12 @@ Import('*')
 
 from source.lib.python.config_loaders import LoadGlobalSettings, LoadPipelineInputs
 
-_g      = LoadGlobalSettings("../../../source/lib/config/global_settings.json")
-_cfg    = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
-rolling = f"rolling{_g['rolling_periods']}"
+GLOBALS      = LoadGlobalSettings("../../../source/lib/config/global_settings.json")
+CONFIG    = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
+rolling = f"rolling{GLOBALS['rolling_periods']}"
 
-importance_types = _cfg["importance_types"]["run"] + _cfg["importance_types"]["extended"]
-rolling_periods  = [f"rolling{p}" for p in _cfg["rolling_periods"]["run"] + _cfg["rolling_periods"]["extended"]]
+importance_types = CONFIG["importance_types"]["run"] + CONFIG["importance_types"]["extended"]
+rolling_periods  = [f"rolling{p}" for p in CONFIG["rolling_periods"]["run"] + CONFIG["rolling_periods"]["extended"]]
 all_subsets      = ["all"] + importance_types
 bot_list         = '#output/derived/create_bot_list/bot_list.csv'
 
@@ -42,11 +42,11 @@ env.Python(
 
 env.Python(
     target=[
-        f'#output/derived/hashes/repo_shared_knowledge_{s}_{rolling}.txt'
+        f'#output/derived/hashes/repo_knowledge_level_{s}_{rolling}.txt'
         for s in all_subsets
     ],
     source=[
-        '#source/derived/org_outcomes_practices/shared_knowledge.py',
+        '#source/derived/org_outcomes_practices/knowledge_level.py',
         '#source/derived/org_outcomes_practices/helpers.py',
         '#output/derived/hashes/repo_actions.txt',
         '#output/derived/hashes/important_members.txt',
@@ -114,7 +114,7 @@ for rolling_period in rolling_periods:
     rp = rolling_period.replace("rolling", "")
     panel_sources.extend([
         f'#output/derived/hashes/repo_collaboration_all_rolling{rp}.txt',
-        f'#output/derived/hashes/repo_shared_knowledge_all_rolling{rp}.txt',
+        f'#output/derived/hashes/repo_knowledge_level_all_rolling{rp}.txt',
         f'#output/derived/hashes/repo_discussion_quality_all_rolling{rp}.txt',
         f'#output/derived/hashes/repo_investment_in_new_talent_all_rolling{rp}.txt',
         f'#output/derived/hashes/repo_organizational_routines_rolling{rp}.txt',
@@ -126,7 +126,7 @@ for rolling_period in rolling_periods:
         ])
         panel_sources.extend([
             f'#output/derived/hashes/repo_collaboration_{importance_type}_rolling{rp}.txt',
-            f'#output/derived/hashes/repo_shared_knowledge_{importance_type}_rolling{rp}.txt',
+            f'#output/derived/hashes/repo_knowledge_level_{importance_type}_rolling{rp}.txt',
             f'#output/derived/hashes/repo_discussion_quality_{importance_type}_rolling{rp}.txt',
             f'#output/derived/hashes/repo_investment_in_new_talent_{importance_type}_rolling{rp}.txt',
         ])

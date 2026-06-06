@@ -1,3 +1,95 @@
 Import('*')
+from source.lib.python.config_loaders import LoadPaperSettings
 
-#env.Depends(target = target, dependency = source)
+CONFIG = LoadPaperSettings("../../source/lib/config/paper_settings.json")
+PRIMARY_SPEC = "/".join([
+    CONFIG["primary_importance_type"],
+    CONFIG["primary_rolling_label"],
+    CONFIG["primary_qualified_sample"],
+    CONFIG["primary_control_group"],
+])
+
+EVENT_STUDY_DIR = f'#output/analysis/event_study/{PRIMARY_SPEC}'
+FOREST_DIR = f'#output/analysis/event_study_forest/{PRIMARY_SPEC}'
+ANALYZE_FOREST_DIR = f'#output/analysis/analyze_forest/{PRIMARY_SPEC}/norm'
+
+OUTCOMES = ['pull_request_opened', 'pull_request_merged', 'overall_new_release_count']
+
+target = ['#source/figures/social_network.tex']
+source = [
+    '#source/figures/dev_pipeline.tikz',
+    '#source/raw/gephi/boto_2020_1.png',
+]
+env.Depends(target=target, dependency=source)
+
+target = ['#source/figures/event_study.tex']
+source = [
+    f'{EVENT_STUDY_DIR}/full_sample/norm/{outcome}.png'
+    for outcome in OUTCOMES
+]
+env.Depends(target=target, dependency=source)
+
+target = ['#source/figures/event_study_collab.tex']
+source = [
+    f'{EVENT_STUDY_DIR}/pc_score/norm/collaboration_{outcome}_pc_score_split.png'
+    for outcome in OUTCOMES
+]
+
+env.Depends(target=target, dependency=source)
+
+target = ['#source/figures/event_study_practice_categories_knowledge_quality.tex']
+source = [
+    f'{EVENT_STUDY_DIR}/pc_score/norm/{group}_{outcome}_pc_score_split.png'
+    for group in ['knowledge_level', 'discussion_quality']
+    for outcome in OUTCOMES
+]
+env.Depends(target=target, dependency=source)
+
+target = ['#source/figures/event_study_practice_categories_investment_routines.tex']
+source = [
+    f'{EVENT_STUDY_DIR}/pc_score/norm/{group}_{outcome}_pc_score_split.png'
+    for group in ['investment_in_new_talent', 'problem_solving_routines']
+    for outcome in OUTCOMES
+]
+env.Depends(target=target, dependency=source)
+
+target = ['#source/figures/event_study_other_practices.tex']
+source = [
+    '#source/figures/event_study_practice_categories_knowledge_quality.tex',
+    '#source/figures/event_study_practice_categories_investment_routines.tex',
+]
+env.Depends(target=target, dependency=source)
+
+target = ['#source/figures/event_study_forest_coarse.tex']
+source = [
+    f'{FOREST_DIR}/pc_score_binary/split_full_avg/norm/{outcome}_observed.png'
+    for outcome in OUTCOMES
+]
+env.Depends(target=target, dependency=source)
+
+target = ['#source/figures/event_study_forest_continuous.tex']
+source = [
+    f'{FOREST_DIR}/pc_score/split_full_avg/norm/{outcome}_observed.png'
+    for outcome in OUTCOMES
+]
+env.Depends(target=target, dependency=source)
+
+target = ['#source/figures/event_study_dynamics.tex']
+source = [
+    f'{FOREST_DIR}/pc_score/split_period5/norm/{outcome}_observed.png'
+    for outcome in OUTCOMES
+]
+env.Depends(target=target, dependency=source)
+
+target = ['#source/figures/forest_characteristics.tex']
+source = [
+    f'{ANALYZE_FOREST_DIR}/variable_importance.tex',
+    f'{ANALYZE_FOREST_DIR}/pc_score_correlation_heatmap.png',
+]
+env.Depends(target=target, dependency=source)
+
+target = ['#source/figures/pc_score_combo.tex']
+source = [
+    f'{ANALYZE_FOREST_DIR}/pc_score_combo_high_low_grid.png',
+]
+env.Depends(target=target, dependency=source)

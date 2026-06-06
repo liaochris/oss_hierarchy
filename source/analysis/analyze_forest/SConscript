@@ -2,25 +2,23 @@ Import('*')
 
 from source.lib.python.config_loaders import LoadPipelineInputs
 
-_cfg = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
-IMPORTANCE_TYPES  = _cfg["importance_types"]["run"]
-ROLLING_PERIODS   = [f"rolling{p}" for p in _cfg["rolling_periods"]["run"]]
-QUALIFIED_SAMPLES = _cfg["qualified_samples"]["run"]
-CONTROL_GROUPS    = _cfg["control_groups"]["run"]
-FOREST_OUTCOME    = _cfg["forest_training_outcome"]
+CONFIG = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
+IMPORTANCE_TYPES  = CONFIG["importance_types"]["run"]
+ROLLING_PERIODS   = [f"rolling{p}" for p in CONFIG["rolling_periods"]["run"]]
+QUALIFIED_SAMPLES = CONFIG["qualified_samples"]["run"]
+CONTROL_GROUPS    = CONFIG["control_groups"]["run"]
+FOREST_OUTCOME    = CONFIG["forest_training_outcome"]
 
 _analysis_cfg = LoadPipelineInputs("../../../source/lib/config/analysis_parameters.json")
 NORM_OPTIONS = _analysis_cfg["norm_options"]
 NORM_LABELS  = {True: "norm", False: "raw"}
 N_FOLDS      = _analysis_cfg["n_folds"]
 
-INDIR_PREP   = "#output/derived/analysis_panel"
 INDIR_FOREST = "#output/analysis/event_study_forest"
 OUTDIR       = "#output/analysis/analyze_forest"
 COVAR_TYPE   = "pc_score"
 
 AGGREGATED_SAMPLES     = {"exact_1_2": ["exact1", "exact2"]}
-NON_AGGREGATED_SAMPLES = [s for s in QUALIFIED_SAMPLES if s not in AGGREGATED_SAMPLES]
 
 SHARED_LIBS = [
     "#source/analysis/analyze_forest/helpers.R",
@@ -37,9 +35,6 @@ SHARED_LIBS = [
 
 def ForestParquet(imp, roll, samp, ctrl, norm):
     return f"{INDIR_FOREST}/{imp}/{roll}/{samp}/{ctrl}/{COVAR_TYPE}/{NORM_LABELS[norm]}/{FOREST_OUTCOME}_repo_att_event_study_forest.parquet"
-
-def PanelParquet(imp, roll, samp, ctrl):
-    return f"{INDIR_PREP}/{imp}/{roll}/{samp}/{ctrl}/panel_with_pc_scores.parquet"
 
 def BaseOutdir(imp, roll, samp, ctrl, norm):
     return f"{OUTDIR}/{imp}/{roll}/{samp}/{ctrl}/{NORM_LABELS[norm]}"
@@ -62,11 +57,6 @@ all_forest_inputs = list(dict.fromkeys(
     for sub in AGGREGATED_SAMPLES.get(samp, [samp])
 ))
 
-all_panel_inputs = list(dict.fromkeys(
-    PanelParquet(imp, roll, samp, ctrl)
-    for imp, roll, samp, ctrl, norm in AllCombos(NON_AGGREGATED_SAMPLES, [False])
-))
-
 heatmap_targets = [f"{BaseOutdir(*c)}/pc_score_correlation_heatmap.png" for c in AllCombos()]
 heatmap_sources = ["#source/analysis/analyze_forest/pc_correlation_heatmap.R"] + SHARED_LIBS + all_forest_inputs
 env.R(heatmap_targets, heatmap_sources)
@@ -87,7 +77,7 @@ fold_targets = [
     f"{BaseOutdir(*c)}/{fname}"
     for c in AllCombos(list(AGGREGATED_SAMPLES))
     for fname in ["fold_rank_stability_grid.png", "fold_correlation_att.png",
-                  "fold_correlation_rank.png", "variable_importance.tex"]
+                  "fold_correlation_rank.png", "variable_importance.tex", "tree_depth.txt"]
 ]
 all_fold_rds_inputs = list(dict.fromkeys(
     f"#drive/output/analysis/event_study_forest/{imp}/{roll}/{sub}/{ctrl}/pc_score/{NORM_LABELS[norm]}/event_study_forest_{FOREST_OUTCOME}_fold{f}.rds"
@@ -95,13 +85,10 @@ all_fold_rds_inputs = list(dict.fromkeys(
     for sub in AGGREGATED_SAMPLES.get(samp, [samp])
     for f in range(1, N_FOLDS + 1)
 ))
-fold_sources = ["#source/analysis/analyze_forest/fold_comparisons.R"] + SHARED_LIBS + all_forest_inputs + all_fold_rds_inputs
+all_binary_full_rds_inputs = list(dict.fromkeys(
+    f"#drive/output/analysis/event_study_forest/{imp}/{roll}/{sub}/{ctrl}/pc_score_binary/{NORM_LABELS[norm]}/event_study_forest_{FOREST_OUTCOME}.rds"
+    for imp, roll, samp, ctrl, norm in AllCombos(list(AGGREGATED_SAMPLES))
+    for sub in AGGREGATED_SAMPLES.get(samp, [samp])
+))
+fold_sources = ["#source/analysis/analyze_forest/fold_comparisons.R"] + SHARED_LIBS + all_forest_inputs + all_fold_rds_inputs + all_binary_full_rds_inputs
 env.R(fold_targets, fold_sources)
-
-outcome_targets = [f"{BaseOutdir(*c)}/outcome_summary.txt" for c in AllCombos(norms=[False])]
-outcome_sources = ["#source/analysis/analyze_forest/outcome_diagnostics.R"] + SHARED_LIBS + all_forest_inputs + all_panel_inputs
-env.R(outcome_targets, outcome_sources)
-
-timeline_targets = [f"{BaseOutdir(*c)}/repo_count_timeline.png" for c in AllCombos(norms=[False])]
-timeline_sources = ["#source/analysis/analyze_forest/org_timeline.R"] + SHARED_LIBS + all_forest_inputs + all_panel_inputs
-env.R(timeline_targets, timeline_sources)

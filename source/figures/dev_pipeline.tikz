@@ -1,0 +1,72 @@
+% issues_prs_panel.tikz
+\def\colx{0cm}      % left edge of column 1
+\def\colsep{2.8cm}    % horizontal gap between columns (reduce for shorter arrows)
+\def\rowsep{7mm}   % vertical gap between rows (increase if still overlapping)
+\def\titleoffset{4mm}   % <--- adjust this number to control the gap
+
+\begin{tikzpicture}[
+  % --- node styles: small inner sep so boxes are barely bigger than their text ---
+  issue/.style={draw=black, rounded corners, thick, inner sep=2pt, font=\small},
+  pr/.style={draw=black, rounded corners, thick, inner sep=2pt, font=\small\bfseries, fill=gray!10},
+  reviewApproved/.style={draw=black, rounded corners, thick, inner sep=2pt, font=\footnotesize\bfseries, fill=green!12},
+  reviewNot/.style={draw=black, rounded corners, thick, inner sep=2pt, font=\footnotesize\bfseries, fill=red!8},
+  % make release a visible circle; minimum width forces round shape, align=center allows linebreaks
+  release/.style={draw=black, rounded corners,  thick, minimum width=14mm, inner sep=3pt, align=center, font=\small\bfseries, fill=black!6},
+  % --- arrow style: slightly larger stealth tip so it's clearly visible ---
+  arrow/.style={-{Stealth[length=5pt,width=5pt]}, line width=0.9pt, shorten >=1pt, shorten <=1pt},
+  columnTitle/.style={anchor=north, font=\large}
+]
+
+% Column titles
+\node[columnTitle] (Cissues)  at (\colx,0+\titleoffset) {Issues};
+\node[columnTitle] (Cprs)     at (\colx+\colsep,0+\titleoffset) {PRs};
+\node[columnTitle] (Creview)  at (\colx+2*\colsep,0+\titleoffset) {Review Decision};
+\node[columnTitle] (Crelease) at (\colx+3*\colsep,0+\titleoffset) {Release};
+
+% ---------- rows (6 issues; 4 PRs) ----------
+% Use exact multiples of \rowsep to avoid accidental overlap
+\node[issue] (Issue1) at (\colx,-1*\rowsep) {Issue 1};
+\node[issue] (Issue2) at (\colx,-2*\rowsep) {Issue 2};
+\node[issue] (Issue3) at (\colx,-3*\rowsep) {Issue 3};
+\node[issue] (Issue4) at (\colx,-4*\rowsep) {Issue 4};
+\node[issue] (Issue5) at (\colx,-5*\rowsep) {Issue 5}; % disconnected
+\node[issue] (Issue6) at (\colx,-6*\rowsep) {Issue 6}; % disconnected
+
+% PR column (one PR per linked issue)
+\node[pr] (PRA) at (\colx+\colsep,-1*\rowsep) {PR A};
+\node[pr] (PRB) at (\colx+\colsep,-2*\rowsep) {PR B};
+\node[pr] (PRC) at (\colx+\colsep,-3*\rowsep) {PR C};
+\node[pr] (PRD) at (\colx+\colsep,-4*\rowsep) {PR D}; % not approved
+
+% Review Decision column (three Approved, one Not approved)
+\node[reviewApproved] (RevA) at (\colx+2*\colsep,-1*\rowsep) {Approved};
+\node[reviewApproved] (RevB) at (\colx+2*\colsep,-2*\rowsep) {Approved};
+\node[reviewApproved] (RevC) at (\colx+2*\colsep,-3*\rowsep) {Approved};
+\node[reviewNot]      (RevD) at (\colx+2*\colsep,-4*\rowsep) {Not approved};
+
+% Release (place slightly between rows 2 and 3 vertically)
+% --- Use \\ to force a line break and ensure the text wraps to two lines inside the circle ---
+\node[release] (Rel) at (\colx+3*\colsep,-2.25*\rowsep) {Software\\Release};
+
+% ---------- connections (compact arrows) ----------
+% Issue -> PR (one-to-one)
+\draw[arrow] (Issue1) -- (PRA);
+\draw[arrow] (Issue2) -- (PRB);
+\draw[arrow] (Issue3) -- (PRC);
+\draw[arrow] (Issue4) -- (PRD);
+
+% PR -> Review Decision
+% using straight short lines because columns are close (colsep small)
+\draw[arrow] (PRA) -- (RevA);
+\draw[arrow] (PRB) -- (RevB);
+\draw[arrow] (PRC) -- (RevC);
+\draw[arrow] (PRD) -- (RevD);
+
+% Approved -> Release (only for approved review decisions)
+% small bends so arrows are visually separate and short
+\draw[arrow] (RevA) to[bend right=8] (Rel);
+\draw[arrow] (RevB) -- (Rel);
+\draw[arrow] (RevC) to[bend left=8] (Rel);
+% RevD (Not approved) has no arrow to release
+
+\end{tikzpicture}

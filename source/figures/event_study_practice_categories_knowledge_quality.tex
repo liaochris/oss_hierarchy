@@ -1,0 +1,54 @@
+\begin{figure}[ht]
+  \caption{Organizational Resilience by Knowledge Level and Discussion Quality Scores}
+  \label{fig:event_study_practice_categories_knowledge_quality}
+  \centering
+
+  \begin{minipage}[b]{0.325\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{\EventStudyDir/pc_score/norm/knowledge_level_pull_request_opened_pc_score_split.png}
+    \subcaption{Pull requests opened}\label{fig:knowledge_level_prs_opened}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.325\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{\EventStudyDir/pc_score/norm/knowledge_level_pull_request_merged_pc_score_split.png}
+    \subcaption{Pull requests merged}\label{fig:knowledge_level_prs_merged}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.325\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{\EventStudyDir/pc_score/norm/knowledge_level_overall_new_release_count_pc_score_split.png}
+    \subcaption{New software updates}\label{fig:knowledge_level_releases}
+  \end{minipage}
+
+  \vspace{-1.2em}
+
+  \begin{minipage}[b]{0.325\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{\EventStudyDir/pc_score/norm/discussion_quality_pull_request_opened_pc_score_split.png}
+    \subcaption{Pull requests opened}\label{fig:discussion_quality_prs_opened}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.325\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{\EventStudyDir/pc_score/norm/discussion_quality_pull_request_merged_pc_score_split.png}
+    \subcaption{Pull requests merged}\label{fig:discussion_quality_prs_merged}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.325\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{\EventStudyDir/pc_score/norm/discussion_quality_overall_new_release_count_pc_score_split.png}
+    \subcaption{New software updates}\label{fig:discussion_quality_releases}
+  \end{minipage}
+
+  \begin{minipage}{1\textwidth}
+    \vspace{0.6em}
+    \textbf{Figure notes:}
+    Panels~\subref{fig:knowledge_level_prs_opened}--\subref{fig:knowledge_level_releases} present separate event study estimates of the impact of key member departures on each outcome for organizations with high and low knowledge level scores.
+    Panels~\subref{fig:discussion_quality_prs_opened}--\subref{fig:discussion_quality_releases} repeat this analysis for discussion quality scores.
+    Organizations are classified as high (low) if their practice score is above (below) the cross-organization median.
+    \EventStudySharedNotes
+    The two reported pre-trend p-values are Wald tests of the null that all pre-period coefficients equal zero for the high- and low-score subsets.
+    The final p-value is from a Wald test of the null that post-period event-study coefficients do not differ between the two subsets.
+  \end{minipage}
+\end{figure}

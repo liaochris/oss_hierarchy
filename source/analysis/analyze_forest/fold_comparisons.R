@@ -7,6 +7,7 @@ source("source/analysis/analyze_forest/helpers.R")
 INDIR_FOREST    <- "output/analysis/event_study_forest"
 INDIR_FOREST_DS <- "drive/output/analysis/event_study_forest"
 OUTDIR          <- "output/analysis/analyze_forest"
+TREE_DEPTH_MAX  <- 6
 
 Main <- function() {
   for (importance_type in IMPORTANCE_TYPES) {
@@ -22,11 +23,9 @@ Main <- function() {
             if (is.null(forest_results_data)) next
 
             pc_score_cols <- colnames(forest_results_data$df)[grepl("_pc_score$", colnames(forest_results_data$df))]
-            binarized              <- BinarizePCScores(forest_results_data$df, pc_score_cols)
-            df_binarized_pc_scores <- binarized$df
-            sub_bins               <- lapply(forest_results_data$sub_dfs, function(sub_df)
-              sub_df %>% mutate(across(all_of(pc_score_cols),
-                                       ~ ifelse(.x > binarized$medians[cur_column()], "high", "low"))))
+            binarized              <- BinarizePCScores(forest_results_data$sub_dfs, pc_score_cols)
+            df_binarized_pc_scores <- binarized$df %>% drop_na(all_of(pc_score_cols))
+            sub_bins               <- binarized$sub_dfs
 
             pc_combo_att_summary <- df_binarized_pc_scores %>%
               group_by(across(all_of(pc_score_cols))) %>%
@@ -46,6 +45,10 @@ Main <- function() {
             agg_fold_paths <- unlist(lapply(names(forest_results_data$sub_dfs), function(s)
               FoldRdsPaths(importance_type, rolling_panel, s, control_group, norm_label)))
             ExportVariableImportanceTex(agg_fold_paths, outdir_ds)
+
+            binary_forest_paths <- vapply(names(forest_results_data$sub_dfs), function(s)
+              FullSampleBinaryRdsPath(importance_type, rolling_panel, s, control_group, norm_label), character(1))
+            ExportTreeDepthTablefill(binary_forest_paths, outdir_ds)
           }
         }
       }
@@ -72,6 +75,7 @@ BuildFoldSummaries <- function(sub_dfs, sub_bins, pc_score_cols,
     if (length(fold_rows) == 0) return(NULL)
 
     bind_rows(fold_rows) %>%
+      drop_na(all_of(pc_score_cols)) %>%
       group_by(across(all_of(pc_score_cols))) %>%
       summarize(att_doubly_robust_mean = mean(fold_att, na.rm = TRUE), count = n(), .groups = "drop") %>%
       arrange(-att_doubly_robust_mean) %>%
@@ -84,6 +88,33 @@ FoldRdsPaths <- function(importance_type, rolling_panel, sample, control_group,
   file.path(INDIR_FOREST_DS, importance_type, rolling_panel, sample, control_group, covar_type_dir,
             norm_label, paste0("event_study_forest_", FOREST_TRAINING_OUTCOME,
                    "_fold", seq_len(N_FOLDS), ".rds"))
+}
+
+FullSampleBinaryRdsPath <- function(importance_type, rolling_panel, sample, control_group, norm_label) {
+  file.path(INDIR_FOREST_DS, importance_type, rolling_panel, sample, control_group, "pc_score_binary",
+            norm_label, paste0("event_study_forest_", FOREST_TRAINING_OUTCOME, ".rds"))
+}
+
+TreeDepth <- function(nodes, idx = 1) {
+  node <- nodes[[idx]]
+  if (isTRUE(node$is_leaf)) return(0L)
+  1L + max(TreeDepth(nodes, node$left_child), TreeDepth(nodes, node$right_child))
+}
+
+ExportTreeDepthTablefill <- function(binary_forest_paths, outdir_ds) {
+  existing <- binary_forest_paths[file.exists(binary_forest_paths)]
+  if (length(existing) == 0) return(invisible(NULL))
+
+  depths <- unlist(lapply(existing, function(path) {
+    forest <- readRDS(path)
+    vapply(seq_len(forest[["_num_trees"]]), function(i) TreeDepth(get_tree(forest, i)$nodes), integer(1))
+  }))
+
+  depth_levels <- 1:TREE_DEPTH_MAX
+  proportion   <- tabulate(depths, nbins = TREE_DEPTH_MAX)[depth_levels] / length(depths)
+  writeLines(c("<tab:tree_depth>", sprintf("%.2f", proportion)),
+             file.path(outdir_ds, "tree_depth.txt"))
+  invisible(proportion)
 }
 
 PlotCrossForestGrid <- function(combo_summary, fold_summaries, pc_split_cols, outdir_ds) {
@@ -182,7 +213,7 @@ ExportVariableImportanceTex <- function(fold_rds_paths, outdir_ds) {
            label = ifelse(variable %in% names(PC_LABELS),
                           paste0(PC_LABELS[variable], " (PC Score)"), variable))
 
-  out_tbl    <- varimp_df %>% transmute(Rank = rank, Variable = label, `Mean Split Share` = sprintf("%.4f", importance))
+  out_tbl    <- varimp_df %>% transmute(Rank = rank, Variable = label, `Mean Split Share` = sprintf("%.2f", importance))
   latex_body <- as.character(knitr::kable(out_tbl, format = "latex", booktabs = TRUE, linesep = ""))
   writeLines(latex_body, file.path(outdir_ds, "variable_importance.tex"))
   invisible(varimp_df)

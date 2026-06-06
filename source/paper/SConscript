@@ -1,6 +1,5 @@
 Import('*')
-import os
-
+from source.lib.python.config_loaders import LoadPaperSettings
 
 autofill_sources = [
     '#output/autofill/event_study_autofill.tex',
@@ -12,19 +11,87 @@ autofill_sources = [
 
 table_sources = [
     '#output/tables/outcome_summary_table.tex',
+    '#output/tables/tree_depth.tex',
     '#output/tables/collaboration.tex',
-    '#output/tables/shared_knowledge.tex',
+    '#output/tables/knowledge_level.tex',
     '#output/tables/discussion_quality.tex',
-    '#output/tables/investment_new_talent.tex',
+    '#output/tables/investment_in_new_talent.tex',
     '#output/tables/problem_solving_routines.tex',
 ]
 
+CONFIG = LoadPaperSettings("../../source/lib/config/paper_settings.json")
+PRIMARY_SPEC = "/".join([
+    CONFIG["primary_importance_type"],
+    CONFIG["primary_rolling_label"],
+    CONFIG["primary_qualified_sample"],
+    CONFIG["primary_control_group"],
+])
+
+EVENT_STUDY_DIR = f'#output/analysis/event_study/{PRIMARY_SPEC}'
+FOREST_DIR = f'#output/analysis/event_study_forest/{PRIMARY_SPEC}'
+ANALYZE_FOREST_DIR = f'#output/analysis/analyze_forest/{PRIMARY_SPEC}/norm'
+
+OUTCOMES = [
+    'pull_request_opened',
+    'pull_request_merged',
+    'overall_new_release_count',
+]
+
+figure_sources = [
+    '#source/figures/figure_helpers.tex',
+    '#source/tables/table_helpers.tex',
+    '#source/figures/social_network.tex',
+    '#source/figures/event_study.tex',
+    '#source/figures/event_study_collab.tex',
+    '#source/figures/forest_split_algorithm.tex',
+    '#source/figures/event_study_forest_coarse.tex',
+    '#source/figures/event_study_forest_continuous.tex',
+    '#source/figures/event_study_dynamics.tex',
+    '#source/figures/forest_characteristics.tex',
+    '#source/figures/pc_score_combo.tex',
+    '#source/figures/event_study_other_practices.tex',
+    '#source/figures/event_study_practice_categories_knowledge_quality.tex',
+    '#source/figures/event_study_practice_categories_investment_routines.tex',
+]
+
+figure_asset_sources = [
+    '#source/figures/dev_pipeline.tikz',
+    '#source/raw/gephi/boto_2020_1.png',
+    f'{ANALYZE_FOREST_DIR}/variable_importance.tex',
+    f'{ANALYZE_FOREST_DIR}/pc_score_correlation_heatmap.png',
+    f'{ANALYZE_FOREST_DIR}/pc_score_combo_high_low_grid.png',
+]
+
+figure_asset_sources += [
+    f'{EVENT_STUDY_DIR}/full_sample/norm/{outcome}.png'
+    for outcome in OUTCOMES
+]
+
+for groups in [
+    ['collaboration'],
+    ['knowledge_level', 'discussion_quality'],
+    ['investment_in_new_talent', 'problem_solving_routines'],
+]:
+    figure_asset_sources += [
+        f'{EVENT_STUDY_DIR}/pc_score/norm/{group}_{outcome}_pc_score_split.png'
+        for group in groups
+        for outcome in OUTCOMES
+    ]
+
+for split_dir in [
+    'pc_score_binary/split_full_avg',
+    'pc_score/split_full_avg',
+    'pc_score/split_period5',
+]:
+    figure_asset_sources += [
+        f'{FOREST_DIR}/{split_dir}/norm/{outcome}_observed.png'
+        for outcome in OUTCOMES
+    ]
+
 target = ['#output/paper/main.pdf']
-source = ['#source/paper/main.tex', '#source/paper/references.bib',
-          '#source/figures/figure_helpers.tex'] + autofill_sources + table_sources
-env.Latex(target, source)
-
-
-target = ['#output/paper/model.pdf']
-source = ['#source/paper/model.tex']
+source = [
+    '#source/paper/main.tex',
+    '#source/paper/references.bib',
+    '#source/paper/aea.bst',
+] + figure_sources + figure_asset_sources + autofill_sources + table_sources
 env.Latex(target, source)

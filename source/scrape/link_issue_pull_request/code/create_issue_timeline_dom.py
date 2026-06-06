@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
-from pathlib import Path
 import re
-import json
 from bs4 import BeautifulSoup
 import pandas as pd
-from markdownify import markdownify as md
 from source.scrape.link_issue_pull_request.code.create_issue_timeline_json import HtmlToMarkdown
 INCLUDE_MENTIONED_BY = False
 

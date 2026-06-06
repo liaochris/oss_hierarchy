@@ -1,0 +1,13 @@
+% \tablenote{<text>}: standardized table-notes block.
+% Notes are shown by default; define \hidetablenotes (e.g. in a slide deck) to suppress them everywhere.
+\newcommand{\tablenote}[1]{%
+  \ifdefined\hidetablenotes\else
+    \vspace{-0.5em}%
+    \begin{minipage}{\textwidth}%
+      \footnotesize
+      \setlength{\parskip}{0pt}%
+      \setlength{\baselineskip}{0.9\baselineskip}%
+      \textit{Notes:} #1%
+    \end{minipage}%
+  \fi
+}
