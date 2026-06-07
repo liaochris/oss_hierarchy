@@ -3,8 +3,11 @@
     "run": ["opened_cohort"],
     "extended": ["observed", "same_period"]
   },
+  "distribution_types": {
+    "run": ["poisson", "negative_binomial"]
+  },
   "member_probability_estimation": {
-    "run": ["pooled"],
+    "run": ["pooled", "per_period"],
     "extended": ["penalized"]
   },
   "error_metrics": {

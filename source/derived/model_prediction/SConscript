@@ -1,0 +1,39 @@
+Import('*')
+
+from itertools import product
+from source.lib.python.config_loaders import LoadPipelineInputs
+
+CONFIG = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
+
+importance_types  = CONFIG["importance_types"]["run"]
+rolling_period    = f"rolling{CONFIG['rolling_periods']['run'][0]}"
+qualified_samples = CONFIG["qualified_samples"]["run"]
+control_groups    = CONFIG["control_groups"]["run"]
+
+combos = list(product(importance_types, qualified_samples, control_groups))
+
+script_deps = [
+    '#source/derived/model_prediction/build_event_time_member_panel.py',
+    '#source/derived/org_outcomes_practices/helpers.py',
+    '#source/lib/python/config_loaders.py',
+    '#source/lib/python/data_utils.py',
+    '#source/lib/python/repo_utils.py',
+    '#source/lib/python/filesystem_utils.py',
+    '#source/lib/JMSLab/SaveData.py',
+    '#source/lib/config/global_settings.json',
+    '#source/lib/config/pipeline_inputs.json',
+    '#source/lib/config/analysis_parameters.json',
+    '#output/derived/hashes/repo_actions.txt',
+    '#output/derived/create_bot_list/bot_list.csv',
+]
+
+panel_sources = [
+    f'#output/derived/analysis_panel/{imp}/{rolling_period}/{qs}/{cg}/panel.parquet'
+    for imp, qs, cg in combos
+]
+
+target = [
+    '#output/derived/hashes/event_time_member_panel.txt',
+]
+
+env.Python(target, script_deps + panel_sources)

@@ -1,0 +1,138 @@
+Import('*')
+
+from itertools import product
+from source.lib.python.config_loaders import LoadPipelineInputs, LoadGlobals
+
+CONFIG                  = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
+MODEL_PREDICTION_CONFIG = LoadGlobals("../../../source/lib/config/model_prediction.json")
+
+importance_types      = CONFIG["importance_types"]["run"]
+rolling_label         = f"rolling{CONFIG['rolling_periods']['run'][0]}"
+qualified_samples     = CONFIG["qualified_samples"]["run"]
+control_groups        = CONFIG["control_groups"]["run"]
+variants              = MODEL_PREDICTION_CONFIG["variants"]["run"]
+distribution_types    = MODEL_PREDICTION_CONFIG["distribution_types"]["run"]
+estimation_approaches = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"]
+
+combos = list(product(importance_types, qualified_samples, control_groups))
+
+shared_deps = [
+    '#source/lib/python/config_loaders.py',
+    '#source/lib/python/repo_utils.py',
+    '#source/lib/JMSLab/SaveData.py',
+    '#source/lib/config/pipeline_inputs.json',
+]
+panel_sources = [
+    f'#output/derived/analysis_panel/{imp}/{rolling_label}/{qs}/{cg}/panel.parquet'
+    for imp, qs, cg in combos
+]
+member_panel_hash = ['#output/derived/hashes/event_time_member_panel.txt']
+
+# ---- Fit targets ----
+fit_targets = []
+for variant, distribution_type, estimation_approach, (imp, qs, cg) in product(
+    variants, distribution_types, estimation_approaches, combos
+):
+    base = f'#output/analysis/model_prediction/{variant}/fitted/{distribution_type}/{estimation_approach}/{imp}/{qs}/{cg}'
+    fit_targets += [
+        f'{base}/distribution_params.parquet',
+        f'{base}/distribution_params.log',
+        f'{base}/member_probabilities.parquet',
+        f'{base}/member_probabilities.log',
+        f'{base}/review_fit_check.parquet',
+        f'{base}/review_fit_check.log',
+    ]
+
+env.Python(
+    fit_targets,
+    ['#source/analysis/model_prediction/fit_model.py',
+     '#source/analysis/model_prediction/model_fitting_utils.py',
+     '#source/lib/config/model_prediction.json']
+    + shared_deps + panel_sources + member_panel_hash,
+)
+
+# ---- Predict targets ----
+predict_file_stems = [
+    'insample_evaluation', 'leaveoneout_evaluation', 'post_evaluation',
+    'insample_period_z', 'leaveoneout_period_z', 'post_period_z',
+]
+
+predict_targets = []
+for variant, distribution_type, estimation_approach, (imp, qs, cg) in product(
+    variants, distribution_types, estimation_approaches, combos
+):
+    base = (
+        f'#output/analysis/model_prediction/{variant}/{distribution_type}'
+        f'/predictions/{estimation_approach}/{imp}/{qs}/{cg}'
+    )
+    for stem in predict_file_stems:
+        predict_targets += [f'{base}/{stem}.parquet', f'{base}/{stem}.log']
+
+env.Python(
+    predict_targets,
+    ['#source/analysis/model_prediction/predict_model.py',
+     '#source/analysis/model_prediction/model_fitting_utils.py',
+     '#source/lib/config/model_prediction.json',
+     '#source/lib/config/global_settings.json',
+     '#source/lib/config/analysis_parameters.json']
+    + shared_deps + fit_targets + panel_sources + member_panel_hash,
+)
+
+# ---- Evaluate targets ----
+outcomes = ["open", "review", "direct_merge", "reviewed_merge", "total_merge"]
+stages   = ["open", "review", "direct_merge", "reviewed_merge"]
+
+q_panel_names = [
+    "pre_period_fit_insample.png",
+    "pre_period_fit_leaveoneout.png",
+    "pre_period_decomp_insample.png",
+    "pre_period_decomp_leaveoneout.png",
+    "post_period_fit_control.png",
+    "post_period_fit_treated.png",
+    "post_period_decomp_control.png",
+    "post_period_decomp_treated.png",
+]
+z_panel_names = [
+    "pre_period_fit_insample.png",
+    "pre_period_fit_leaveoneout.png",
+    "post_period_fit_control.png",
+    "post_period_fit_treated.png",
+] + [
+    f"pre_period_decomp_insample_{g}.png"  for g in ["treated", "control"]
+] + [
+    f"pre_period_decomp_leaveoneout_{g}.png" for g in ["treated", "control"]
+] + [
+    f"post_period_decomp_{g}.png" for g in ["treated", "control"]
+]
+
+indiv_q_names = (
+    [f"pre_period_insample_Q_{o}.png"    for o in outcomes] +
+    [f"pre_period_leaveoneout_Q_{o}.png" for o in outcomes] +
+    [f"post_period_Q_{o}.png"            for o in outcomes] +
+    [f"pre_period_insample_delta_Q_{s}.png" for s in stages]
+)
+
+evaluate_targets = []
+for variant, distribution_type, estimation_approach, (imp, qs, cg) in product(
+    variants, distribution_types, estimation_approaches, combos
+):
+    base = (
+        f'#output/analysis/model_prediction/{variant}/{distribution_type}'
+        f'/evaluation/{estimation_approach}/{imp}/{qs}/{cg}'
+    )
+    for name in q_panel_names:
+        evaluate_targets.append(f'{base}/panels/q/{name}')
+    for name in z_panel_names:
+        evaluate_targets.append(f'{base}/panels/z/{name}')
+    for group in ["treated", "control"]:
+        for name in indiv_q_names:
+            evaluate_targets.append(f'{base}/individual/{group}/{name}')
+
+env.Python(
+    evaluate_targets,
+    ['#source/analysis/model_prediction/evaluate_predictions.py',
+     '#source/lib/python/config_loaders.py',
+     '#source/lib/config/pipeline_inputs.json',
+     '#source/lib/config/model_prediction.json']
+    + predict_targets,
+)
