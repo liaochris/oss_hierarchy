@@ -257,7 +257,7 @@ Five organizational practice categories are measured using the action-level data
 
 **Primary vs. extension variables**: Each practice script distinguishes *primary* practices — the core measures used in the main analysis — from *extension* practices that may be used eventually.
 
-**Activity types**: Nine activity types appear throughout the pipeline — *issue opened*, *issue comment*, *issue closed*; *pull request opened*, *pull request comment*, *pull request review comment*, *pull request review*, *pull request merged*, *pull request closed*. Where PR review sub-type detail is not needed, a `type_broad` field collapses all review sub-types (approved, changes requested, etc.) into a single `pull request review` category, and a derived `discussion comment` grouping combines all comment types. This collapsing is used in collaboration, shared knowledge, and discussion quality; investment in new talent and organizational routines filter on the raw `type` field directly.
+**Activity types**: Nine activity types appear throughout the pipeline — *issue opened*, *issue comment*, *issue closed*; *pull request opened*, *pull request comment*, *pull request review comment*, *pull request review*, *pull request merged*, *pull request closed*. Where PR review sub-type detail is not needed, a `type_broad` field collapses all review sub-types (approved, changes requested, etc.) into a single `pull request review` category, and a derived `discussion comment` grouping combines all comment types. This collapsing is used in collaboration, knowledge level, and discussion quality; investment in new talent and organizational routines filter on the raw `type` field directly.
 
 ---
 
@@ -293,7 +293,7 @@ I measure how broadly project members share responsibility for work — whether 
 
 ---
 
-### Step 4.3: Shared Knowledge (`source/derived/org_outcomes_practices/shared_knowledge.py`)
+### Step 4.3: Knowledge Level (`source/derived/org_outcomes_practices/knowledge_level.py`)
 
 I measure how broadly team members engage across different types of development work — whether activity is spread across issue-tracking and code contributions, or concentrated in a single domain.
 
@@ -303,7 +303,7 @@ I measure how broadly team members engage across different types of development 
 
 **Activity type diversity** (`avg_unique_types`): For each non-bot member, I count the number of distinct activity types (from the nine listed in Step 4) engaged in during the rolling window. `avg_unique_types` is the mean across members.
 
-**Output**: `drive/output/derived/org_outcomes_practices/repo_shared_knowledge/{member_subset}/rolling5/{repo}.parquet`
+**Output**: `drive/output/derived/org_outcomes_practices/repo_knowledge_level/{member_subset}/rolling5/{repo}.parquet`
 
 ---
 
@@ -403,7 +403,7 @@ This step creates the panel of organizations used in estimation. Composite covar
 
 **Complete-panel filter** (`CreateCompletePanel`): Drops repositories that (a) have a non-computable or zero-variance baseline for any active outcome — meaning all pre-period values are missing, or all pre-period values are identical (e.g. zero releases in every pre-period), either of which prevents normalization — or (b) lack observations spanning the full required event-time window relative to quasi-treatment. A repository is dropped if *any* active outcome fails these checks.
 
-**PC score construction** (`ComputeRepoPCScores`): For each of five covariate groups defined in `source/lib/pc_groups.json` — *collaboration*, *shared_knowledge*, *discussion_quality*, *investment_in_new_talent*, *problem_solving_routines* — I compute one principal component score per repository. The PCA uses per-repository means of each group variable over the immediate pre-treatment period (quasi_event_time == −1 for the primary rolling5 specification). Variables missing for 200 or more repositories in the estimation sample are excluded. Variables are standardized before PCA; the first PC direction may sometimes be sign-flipped for groups to ensure that a higher raw score indicates increased practice adoption. A binary variant (above vs. below the cross-repository median) is also produced.
+**PC score construction** (`ComputeRepoPCScores`): For each of five covariate groups defined in `source/lib/pc_groups.json` — *collaboration*, *knowledge_level*, *discussion_quality*, *investment_in_new_talent*, *problem_solving_routines* — I compute one principal component score per repository. The PCA uses per-repository means of each group variable over the immediate pre-treatment period (quasi_event_time == −1 for the primary rolling5 specification). Variables missing for 200 or more repositories in the estimation sample are excluded. Variables are standardized before PCA; the first PC direction may sometimes be sign-flipped for groups to ensure that a higher raw score indicates increased practice adoption. A binary variant (above vs. below the cross-repository median) is also produced.
 
 
 **Output**:
