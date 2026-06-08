@@ -284,8 +284,8 @@ The model assumes time-invariant $F_i$ and $p_j^s$ (Assumptions~\ref{asm:time-in
 $\bar{Q}_i^{post}(x) \approx 0$ validates this stationarity out of sample, while $\bar{Q}_i^{post}(x) \gg 0$ indicates the model has large misspecification error post-period.
 Algorithm~\ref{alg:stageoutcomes} can additionally be applied to $Q_{i,t'}^{post}(N^m)$ to decompose post-period total-merge misspecification error by stage.
 
-\todo[inline]{Insert a 5x1 figure showing the distribution of $ \frac{1}{T} \sum_{t=1}^T Q_{i, t}(x)$ for $x$ in $\{N^o, N^r, N^{m|o}, N^{m|r}, N^m\}$,  using control organizations $i$. For each figure, also report in a box in the upper right a mean/median as well, and the 95\% interval of the errors}
-\todo[inline]{Insert a 4x1 figure showing the distribution of $\Delta Q_{\mathrm{open}}, \Delta Q_{\mathrm{review}}, \Delta Q_{\mathrm{direct merge}}$, and $\Delta Q_{\mathrm{reviewed merge}}$, each as a percent of $Q_{i, t}(N^m)$,  using control organizations $i$. For each figure, also report in a box in the upper right a mean/median as well, and the 95\% interval of the percents}
+\todo[inline]{Insert the combined post-period fit figure (\texttt{panels/q/post\_period\_fit.png}): a 2x5 grid of the distribution of $\bar{Q}_i^{post}(x)$ for $x$ in $\{N^o, N^r, N^{m|o}, N^{m|r}, N^m\}$ (columns), with the top row for treated organizations and the bottom row for control organizations. Each subplot reports a box with the mean/median, the 95\% interval, and the truncation count. (This figure covers both the control subsection below and the treated subsection that follows.)}
+\todo[inline]{Insert the combined post-period decomposition figure (\texttt{panels/q/post\_period\_decomp.png}): a 2x4 grid of the distribution of $\Delta Q_{\mathrm{open}}, \Delta Q_{\mathrm{review}}, \Delta Q_{\mathrm{direct merge}}, \Delta Q_{\mathrm{reviewed merge}}$ (columns), each as a percent of $Q_{i, t}(N^m)$, with the top row for treated organizations and the bottom row for control organizations. Each subplot reports a box with the mean/median and the 95\% interval. (This figure covers both the control subsection and the treated subsection.)}
 
 \subsubsection{Treated organizations}
 
@@ -307,8 +307,7 @@ Here, we assume that the model's leave-one-out pre-period misspecification error
 $\tilde{Q}_{i,t'}^{treated} \approx 0$ indicates post-period misspecification error is no worse than pre-period misspecification error, whereas $\tilde{Q}_{i,t'}^{treated} \gg 0$ indicates the departure generates prediction error beyond what the model already had in the pre-period, suggesting that the model misspecifies the departure effect.
 Algorithm~\ref{alg:stageoutcomes} can additionally be applied to $Q_{i,t'}^{post}(N^m)$ and $\tilde{Q}_{i,t'}^{treated}(N^m)$ to decompose post-departure total-merge misspecification error by stage.
 
-\todo[inline]{Insert a 5x1 figure showing the distribution of $ \frac{1}{T} \sum_{t=1}^T Q_{i, t}(x)$ for $x$ in $\{N^o, N^r, N^{m|o}, N^{m|r}, N^m\}$,  using treated organizations $i$. For each figure, also report in a box in the upper right a mean/median as well, and the 95\% interval of the errors}
-\todo[inline]{Insert a 4x1 figure showing the distribution of $\Delta Q_{\mathrm{open}}, \Delta Q_{\mathrm{review}}, \Delta Q_{\mathrm{direct merge}}$, and $\Delta Q_{\mathrm{reviewed merge}}$, each as a percent of $Q_{i, t}(N^m)$,  using treated organizations $i$. For each figure, also report in a box in the upper right a mean/median as well, and the 95\% interval of the percents}
+\todo[inline]{Post-period fit and decomposition for treated organizations are shown together with control in the combined two-row figures referenced in the control subsection above (\texttt{post\_period\_fit.png} and \texttt{post\_period\_decomp.png}, top row = treated, bottom row = control); no separate treated-only figures.}
 
 \subsection{Visualizing departure effects}
 

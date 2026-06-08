@@ -144,41 +144,26 @@ def RunCombination(variant, distribution_type, estimation_approach,
         ks_dist="chi2m1",
     )
 
-    MakePanelSingleCol(
-        panels_squared / "post_period_fit_control.png",
-        rows=OUTCOMES, df=control_data[2],
+    MakePanel(
+        panels_squared / "post_period_fit.png",
+        rows=OUTCOMES,
+        cols={"treated": treated_data[2], "control": control_data[2]},
         col_getter=lambda df, o: df[f"squared_std_residual_{o}"],
         row_labels=OUTCOME_LABELS,
-        suptitle="Post-Period Fit Squared Std Residual — Control",
-        clip=SQUARED_RESIDUAL_CLIP,
-        ks_dist="chi2m1",
-    )
-    MakePanelSingleCol(
-        panels_squared / "post_period_fit_treated.png",
-        rows=OUTCOMES, df=treated_data[2],
-        col_getter=lambda df, o: df[f"squared_std_residual_{o}"],
-        row_labels=OUTCOME_LABELS,
-        suptitle="Post-Period Fit Squared Std Residual — Treated",
+        col_labels={"treated": "Treated", "control": "Control"},
+        suptitle="Post-Period Fit Squared Std Residual",
         clip=SQUARED_RESIDUAL_CLIP,
         ks_dist="chi2m1",
     )
 
-    MakePanelSingleCol(
-        panels_squared / "post_period_decomp_control.png",
-        rows=STAGES, df=control_data[2],
+    MakePanel(
+        panels_squared / "post_period_decomp.png",
+        rows=STAGES,
+        cols={"treated": treated_data[2], "control": control_data[2]},
         col_getter=lambda df, s: PostDecompPct(df, s),
         row_labels=STAGE_LABELS,
-        suptitle="Post-Period Decomp — % of total-merge residual — Control",
-        xlabel="% of total-merge residual",
-        clip=SQUARED_RESIDUAL_CLIP,
-        ks_dist="chi2m1",
-    )
-    MakePanelSingleCol(
-        panels_squared / "post_period_decomp_treated.png",
-        rows=STAGES, df=treated_data[2],
-        col_getter=lambda df, s: PostDecompPct(df, s),
-        row_labels=STAGE_LABELS,
-        suptitle="Post-Period Decomp — % of total-merge residual — Treated",
+        col_labels={"treated": "Treated", "control": "Control"},
+        suptitle="Post-Period Decomp — % of total-merge residual",
         xlabel="% of total-merge residual",
         clip=SQUARED_RESIDUAL_CLIP,
         ks_dist="chi2m1",
@@ -209,56 +194,43 @@ def RunCombination(variant, distribution_type, estimation_approach,
         ks_dist="norm",
     )
 
-    for group_name, group_squared, group_signed, group_loo_squared, group_loo_signed in [
-        ("treated", treated_data[0], treated_data[3], treated_data[1], treated_data[4]),
-        ("control", control_data[0], control_data[3], control_data[1], control_data[4]),
-    ]:
-        MakeDecompSignedPanel(
-            panels_signed / f"pre_period_decomp_insample_{group_name}.png",
-            df_squared=group_squared, df_signed=group_signed,
-            squared_prefix="mean_squared_std_residual_insample", signed_prefix="mean_signed_std_residual",
-            suptitle=f"Pre-Period Decomp (InSample) Signed — {group_name.title()}",
-        )
-        MakeDecompSignedPanel(
-            panels_signed / f"pre_period_decomp_leaveoneout_{group_name}.png",
-            df_squared=group_loo_squared, df_signed=group_loo_signed,
-            squared_prefix="mean_squared_std_residual_leaveoneout", signed_prefix="signed_std_residual",
-            suptitle=f"Pre-Period Decomp (LeaveOneOut) Signed — {group_name.title()}",
-        )
-
-    MakePanelSingleCol(
-        panels_signed / "post_period_fit_control.png",
-        rows=OUTCOMES, df=control_data[5],
-        col_getter=lambda df, o: df[f"signed_std_residual_{o}"],
-        row_labels=OUTCOME_LABELS,
-        suptitle="Post-Period Fit Signed Std Residual — Control",
-        xlabel=r"$Z = (x - \mu) / \sigma$",
-        clip=SIGNED_RESIDUAL_CLIP,
-        ks_dist="norm",
+    MakeDecompSignedPanel(
+        panels_signed / "pre_period_decomp_insample.png",
+        group_data={"Treated": (treated_data[0], treated_data[3]),
+                    "Control": (control_data[0], control_data[3])},
+        squared_prefix="mean_squared_std_residual_insample", signed_prefix="mean_signed_std_residual",
+        suptitle="Pre-Period Decomp (InSample) Signed",
     )
-    MakePanelSingleCol(
-        panels_signed / "post_period_fit_treated.png",
-        rows=OUTCOMES, df=treated_data[5],
+    MakeDecompSignedPanel(
+        panels_signed / "pre_period_decomp_leaveoneout.png",
+        group_data={"Treated": (treated_data[1], treated_data[4]),
+                    "Control": (control_data[1], control_data[4])},
+        squared_prefix="mean_squared_std_residual_leaveoneout", signed_prefix="signed_std_residual",
+        suptitle="Pre-Period Decomp (LeaveOneOut) Signed",
+    )
+
+    MakePanel(
+        panels_signed / "post_period_fit.png",
+        rows=OUTCOMES,
+        cols={"treated": treated_data[5], "control": control_data[5]},
         col_getter=lambda df, o: df[f"signed_std_residual_{o}"],
         row_labels=OUTCOME_LABELS,
-        suptitle="Post-Period Fit Signed Std Residual — Treated",
+        col_labels={"treated": "Treated", "control": "Control"},
+        suptitle="Post-Period Fit Signed Std Residual",
         xlabel=r"$Z = (x - \mu) / \sigma$",
         clip=SIGNED_RESIDUAL_CLIP,
         ks_dist="norm",
     )
 
-    for group_name, group_post_squared, group_post_signed in [
-        ("control", control_data[2], control_data[5]),
-        ("treated", treated_data[2], treated_data[5]),
-    ]:
-        MakeDecompSignedPanel(
-            panels_signed / f"post_period_decomp_{group_name}.png",
-            df_squared=group_post_squared, df_signed=group_post_signed,
-            squared_prefix="", signed_prefix="signed_std_residual",
-            total_col="squared_std_residual_total_merge",
-            stage_fmt="delta_squared_std_residual_{s}",
-            suptitle=f"Post-Period Decomp Signed — {group_name.title()}",
-        )
+    MakeDecompSignedPanel(
+        panels_signed / "post_period_decomp.png",
+        group_data={"Treated": (treated_data[2], treated_data[5]),
+                    "Control": (control_data[2], control_data[5])},
+        squared_prefix="", signed_prefix="signed_std_residual",
+        total_col="squared_std_residual_total_merge",
+        stage_fmt="delta_squared_std_residual_{s}",
+        suptitle="Post-Period Decomp Signed",
+    )
 
     for group_name, group_insample, group_loo, group_post in [
         ("treated", treated_data[0], treated_data[1], treated_data[2]),
@@ -460,23 +432,25 @@ def MakePanelSingleCol(outpath, rows, df, col_getter, row_labels,
     RenderPanelGrid(outpath, cell_grid, clip, ks_dist, suptitle=suptitle, xlabel=xlabel)
 
 
-def MakeDecompSignedPanel(outpath, df_squared, df_signed, squared_prefix, signed_prefix,
+def MakeDecompSignedPanel(outpath, group_data, squared_prefix, signed_prefix,
                           total_col=None, stage_fmt=None, suptitle=""):
     total_col = total_col or f"{squared_prefix}_total_merge"
     stage_fmt = stage_fmt or f"{squared_prefix}_delta_{{s}}"
     signed_total_col = f"{signed_prefix}_total_merge"
-    signed_cols = [c for c in df_signed.columns if c.startswith(signed_prefix)]
-    merged = df_squared.merge(df_signed[["repo_name"] + signed_cols].drop_duplicates("repo_name"),
-                              on="repo_name", how="inner")
-    has_totals = total_col in merged.columns and signed_total_col in merged.columns
 
-    def StageSeries(stage):
+    def StageSeries(df_squared, df_signed, stage):
+        signed_cols = [c for c in df_signed.columns if c.startswith(signed_prefix)]
+        merged = df_squared.merge(df_signed[["repo_name"] + signed_cols].drop_duplicates("repo_name"),
+                                  on="repo_name", how="inner")
         stage_col = stage_fmt.format(s=stage)
-        if not has_totals or stage_col not in merged.columns:
+        if total_col not in merged.columns or signed_total_col not in merged.columns or stage_col not in merged.columns:
             return None
         return (merged[stage_col] / merged[total_col].replace(0, np.nan) * merged[signed_total_col]).dropna()
 
-    cell_grid = [[(STAGE_LABELS[stage], StageSeries(stage)) for stage in STAGES]]
+    cell_grid = [
+        [(f"{STAGE_LABELS[stage]}\n{label}", StageSeries(df_squared, df_signed, stage)) for stage in STAGES]
+        for label, (df_squared, df_signed) in group_data.items()
+    ]
     RenderPanelGrid(outpath, cell_grid, SIGNED_RESIDUAL_CLIP, "norm",
                     suptitle=suptitle, xlabel=r"$(\Delta Q / Q^m) \times Z^m$", suptitle_fontsize=11)
 
