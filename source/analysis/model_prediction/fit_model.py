@@ -40,7 +40,7 @@ def Main():
 def RunCombination(variant, distribution_type, estimation_approach,
                    importance_type, qualified_sample, control_group):
     outdir = (
-        OUTDIR / variant / "fitted" / distribution_type / estimation_approach
+        OUTDIR / variant / distribution_type / "parameters" / estimation_approach
         / importance_type / qualified_sample / control_group
     )
     outdir.mkdir(parents=True, exist_ok=True)

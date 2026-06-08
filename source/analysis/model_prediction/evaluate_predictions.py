@@ -58,7 +58,7 @@ def Main():
 def RunCombination(variant, distribution_type, estimation_approach,
                    importance_type, qualified_sample, control_group):
     pred_dir = (
-        INDIR / variant / distribution_type / "predictions" / estimation_approach
+        INDIR / variant / distribution_type / "residuals" / estimation_approach
         / importance_type / qualified_sample / control_group
     )
     base_out = (

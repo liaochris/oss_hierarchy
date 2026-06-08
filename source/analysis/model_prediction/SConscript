@@ -34,7 +34,7 @@ fit_targets = []
 for variant, distribution_type, estimation_approach, (imp, qs, cg) in product(
     variants, distribution_types, estimation_approaches, combos
 ):
-    base = f'#output/analysis/model_prediction/{variant}/fitted/{distribution_type}/{estimation_approach}/{imp}/{qs}/{cg}'
+    base = f'#output/analysis/model_prediction/{variant}/{distribution_type}/parameters/{estimation_approach}/{imp}/{qs}/{cg}'
     fit_targets += [
         f'{base}/distribution_params.parquet',
         f'{base}/distribution_params.log',
@@ -64,7 +64,7 @@ for variant, distribution_type, estimation_approach, (imp, qs, cg) in product(
 ):
     base = (
         f'#output/analysis/model_prediction/{variant}/{distribution_type}'
-        f'/predictions/{estimation_approach}/{imp}/{qs}/{cg}'
+        f'/residuals/{estimation_approach}/{imp}/{qs}/{cg}'
     )
     for stem in predict_file_stems:
         predict_targets += [f'{base}/{stem}.parquet', f'{base}/{stem}.log']
