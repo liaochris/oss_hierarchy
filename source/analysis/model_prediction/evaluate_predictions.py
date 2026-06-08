@@ -16,6 +16,7 @@ OUTDIR = Path("output/analysis/model_prediction")
 VARIANTS              = MODEL_PREDICTION_CONFIG["variants"]["run"]
 DISTRIBUTION_TYPES    = MODEL_PREDICTION_CONFIG["distribution_types"]["run"]
 ESTIMATION_APPROACHES = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"]
+EVALUATION_FIGURES    = MODEL_PREDICTION_CONFIG["evaluation_figures"]["run"]
 
 OUTCOMES = ["open", "review", "direct_merge", "reviewed_merge", "total_merge"]
 STAGES   = ["open", "review", "direct_merge", "reviewed_merge"]
@@ -232,6 +233,11 @@ def RunCombination(variant, distribution_type, estimation_approach,
         suptitle="Post-Period Decomp Signed",
     )
 
+    if "individual" in EVALUATION_FIGURES:
+        PlotIndividual(base_out, treated_data, control_data)
+
+
+def PlotIndividual(base_out, treated_data, control_data):
     for group_name, group_insample, group_loo, group_post in [
         ("treated", treated_data[0], treated_data[1], treated_data[2]),
         ("control", control_data[0], control_data[1], control_data[2]),
