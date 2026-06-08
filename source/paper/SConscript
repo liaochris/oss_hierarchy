@@ -95,3 +95,8 @@ source = [
     '#source/paper/aea.bst',
 ] + figure_sources + figure_asset_sources + autofill_sources + table_sources
 env.Latex(target, source)
+
+
+target = ['#output/paper/model.pdf']
+source = ['#source/paper/model.tex']
+env.Latex(target, source)
