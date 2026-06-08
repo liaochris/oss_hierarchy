@@ -92,33 +92,23 @@ def RunCombination(variant, distribution_type, estimation_approach,
         for _, row in df_all_repos.iterrows()
     )
 
-    insample_rows, leaveoneout_rows, post_rows = [], [], []
-    insample_signed_rows, leaveoneout_signed_rows, post_signed_rows = [], [], []
+    period_rows      = {"insample_period": [], "leaveoneout_period": [], "post_period": []}
+    reference_frames = {"insample_reference": [], "leaveoneout_reference": [], "post_reference": []}
 
     for result in results:
         if result is None:
             continue
-        (insample_row, leaveoneout_row, repo_post_rows,
-         insample_signed_row, leaveoneout_signed_rows_repo, post_signed_rows_repo) = result
-        insample_rows.append(insample_row)
-        leaveoneout_rows.append(leaveoneout_row)
-        post_rows.extend(repo_post_rows)
-        insample_signed_rows.append(insample_signed_row)
-        leaveoneout_signed_rows.extend(leaveoneout_signed_rows_repo)
-        post_signed_rows.extend(post_signed_rows_repo)
+        for key in period_rows:
+            period_rows[key].extend(result[key])
+        for key in reference_frames:
+            reference_frames[key].append(result[key])
 
-    SaveData(pd.DataFrame(insample_rows), ["repo_name"],
-             outdir / "insample_evaluation.parquet", outdir / "insample_evaluation.log")
-    SaveData(pd.DataFrame(leaveoneout_rows), ["repo_name"],
-             outdir / "leaveoneout_evaluation.parquet", outdir / "leaveoneout_evaluation.log")
-    SaveData(pd.DataFrame(post_rows), ["repo_name", "quasi_event_time"],
-             outdir / "post_evaluation.parquet", outdir / "post_evaluation.log")
-    SaveData(pd.DataFrame(insample_signed_rows), ["repo_name"],
-             outdir / "insample_period_z.parquet", outdir / "insample_period_z.log")
-    SaveData(pd.DataFrame(leaveoneout_signed_rows), ["repo_name", "quasi_event_time"],
-             outdir / "leaveoneout_period_z.parquet", outdir / "leaveoneout_period_z.log")
-    SaveData(pd.DataFrame(post_signed_rows), ["repo_name", "quasi_event_time"],
-             outdir / "post_period_z.parquet", outdir / "post_period_z.log")
+    for key, rows in period_rows.items():
+        SaveData(pd.DataFrame(rows), ["repo_name", "quasi_event_time"],
+                 outdir / f"{key}.parquet", outdir / f"{key}.log")
+    for key, frames in reference_frames.items():
+        SaveData(pd.concat(frames, ignore_index=True), ["repo_name", "draw"],
+                 outdir / f"{key}.parquet", outdir / f"{key}.log")
 
 
 def ProcessRepo(repo_name, is_treated, dropout_set,
@@ -180,12 +170,10 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
         insample_squared_per_period.append(squared_row)
         insample_signed_list.append({"quasi_event_time": int(repo_row["quasi_event_time"]), **signed_row})
 
-    insample_row        = MeanSquaredResidualRow(insample_squared_per_period, repo_name, is_treated, "insample")
-    insample_signed_row = MeanSignedResidualRow(insample_signed_list, repo_name, is_treated)
-
     # --- LeaveOneOut evaluation ---
     leaveoneout_squared_per_period = []
     leaveoneout_signed_rows_repo   = []
+    leaveoneout_std_by_period      = []
     if len(pre_times) >= 2:
         for held_out_time in pre_times:
             train_times = [t for t in pre_times if t != held_out_time]
@@ -213,6 +201,10 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
                 dist_loo["distribution_type"], dist_params_loo,
                 prob_open_loo, prob_review_loo, prob_merge_direct_loo, prob_merge_after_review_loo, N_MODEL_DRAWS, rng
             )
+            leaveoneout_std_by_period.append({
+                outcome: StandardizeDraws(draws) for outcome, draws in zip(
+                    OUTCOMES, [opened_loo, reviewed_loo, direct_merge_loo, reviewed_merge_loo, total_merge_loo])
+            })
             held_row = df_repo_pre[df_repo_pre["quasi_event_time"] == held_out_time].iloc[0]
             observed = ExtractObserved(held_row)
             squared_row = AllSquaredResiduals(observed, opened_loo, reviewed_loo,
@@ -225,8 +217,6 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
                 "repo_name": repo_name, "quasi_event_time": int(held_out_time),
                 "is_treated": is_treated, **signed_row
             })
-
-    leaveoneout_row = MeanSquaredResidualRow(leaveoneout_squared_per_period, repo_name, is_treated, "leaveoneout")
 
     # --- Post-period draws and evaluation ---
     df_remaining = df_member_probs[~df_member_probs["actor_id"].isin(dropout_set)]
@@ -266,10 +256,28 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
         post_rows.append({"repo_name": repo_name, "quasi_event_time": t, "is_treated": is_treated, **squared_row})
         post_signed_rows_repo.append({"repo_name": repo_name, "quasi_event_time": t, "is_treated": is_treated, **signed_row})
 
-    return (
-        insample_row, leaveoneout_row, post_rows,
-        insample_signed_row, leaveoneout_signed_rows_repo, post_signed_rows_repo
-    )
+    # --- Per-period fit data and simulated-null reference (standardized model draws) ---
+    insample_draws = dict(zip(OUTCOMES, [opened_insample, reviewed_insample, direct_merge_insample,
+                                         reviewed_merge_insample, total_merge_insample]))
+    post_draws     = dict(zip(OUTCOMES, [opened_post, reviewed_post, direct_merge_post,
+                                         reviewed_merge_post, total_merge_post]))
+
+    insample_period_rows    = PeriodResidualRows(repo_name, is_treated, insample_signed_list, insample_squared_per_period)
+    leaveoneout_period_rows = PeriodResidualRows(repo_name, is_treated, leaveoneout_signed_rows_repo, leaveoneout_squared_per_period)
+    post_period_rows        = PeriodResidualRows(repo_name, is_treated, post_signed_rows_repo, post_rows)
+
+    insample_reference    = ReferenceFrame(repo_name, is_treated, [{o: StandardizeDraws(insample_draws[o]) for o in OUTCOMES}])
+    post_reference        = ReferenceFrame(repo_name, is_treated, [{o: StandardizeDraws(post_draws[o]) for o in OUTCOMES}])
+    leaveoneout_reference = ReferenceFrame(repo_name, is_treated, leaveoneout_std_by_period)
+
+    return {
+        "insample_period":      insample_period_rows,
+        "leaveoneout_period":   leaveoneout_period_rows,
+        "post_period":          post_period_rows,
+        "insample_reference":   insample_reference,
+        "leaveoneout_reference": leaveoneout_reference,
+        "post_reference":       post_reference,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -440,45 +448,53 @@ def AllSignedResiduals(observed, opened_draw, reviewed_draw, direct_merge_draw, 
     }
 
 
-def MeanSquaredResidualRow(rows, repo_name, is_treated, prefix):
-    columns = ["open", "review", "direct_merge", "reviewed_merge", "total_merge",
-               "delta_open", "delta_review", "delta_direct_merge", "delta_reviewed_merge"]
-    if not rows:
-        row = {f"mean_squared_std_residual_{prefix}_{col}": np.nan for col in columns}
-    else:
-        def mean(key):
-            vals = [r[key] for r in rows if not np.isnan(r[key])]
-            return float(np.mean(vals)) if vals else np.nan
+# ---------------------------------------------------------------------------
+# Simulated-null reference (draws from the fitted model, standardized as the
+# real residuals are, so a cross-org KS test compares against the model's own
+# finite-sample null rather than an analytic N(0,1)/chi^2 reference)
+# ---------------------------------------------------------------------------
 
-        row = {
-            f"mean_squared_std_residual_{prefix}_open":           mean("squared_std_residual_open"),
-            f"mean_squared_std_residual_{prefix}_review":         mean("squared_std_residual_review"),
-            f"mean_squared_std_residual_{prefix}_direct_merge":   mean("squared_std_residual_direct_merge"),
-            f"mean_squared_std_residual_{prefix}_reviewed_merge": mean("squared_std_residual_reviewed_merge"),
-            f"mean_squared_std_residual_{prefix}_total_merge":    mean("squared_std_residual_total_merge"),
-            f"mean_squared_std_residual_{prefix}_delta_open":           mean("delta_squared_std_residual_open"),
-            f"mean_squared_std_residual_{prefix}_delta_review":         mean("delta_squared_std_residual_review"),
-            f"mean_squared_std_residual_{prefix}_delta_direct_merge":   mean("delta_squared_std_residual_direct_merge"),
-            f"mean_squared_std_residual_{prefix}_delta_reviewed_merge": mean("delta_squared_std_residual_reviewed_merge"),
-        }
-    return {"repo_name": repo_name, "is_treated": is_treated, **row}
+def StandardizeDraws(draws):
+    std = float(np.std(draws))
+    if std == 0.0 or np.isnan(std):
+        return None
+    return (np.asarray(draws, dtype=float) - float(np.mean(draws))) / std
 
 
-def MeanSignedResidualRow(rows, repo_name, is_treated):
-    if not rows:
-        row = {f"mean_signed_std_residual_{col}": np.nan for col in OUTCOMES}
-    else:
-        def mean(key):
-            vals = [r[key] for r in rows if not np.isnan(r.get(key, np.nan))]
-            return float(np.mean(vals)) if vals else np.nan
-        row = {
-            "mean_signed_std_residual_open":           mean("signed_std_residual_open"),
-            "mean_signed_std_residual_review":         mean("signed_std_residual_review"),
-            "mean_signed_std_residual_direct_merge":   mean("signed_std_residual_direct_merge"),
-            "mean_signed_std_residual_reviewed_merge": mean("signed_std_residual_reviewed_merge"),
-            "mean_signed_std_residual_total_merge":    mean("signed_std_residual_total_merge"),
-        }
-    return {"repo_name": repo_name, "is_treated": is_treated, **row}
+def ReferenceFrame(repo_name, is_treated, standardized_per_model):
+    """One row per model draw: the null signed residual (a standardized draw) per outcome.
+
+    standardized_per_model is a list of {outcome -> standardized draws}, one entry per model
+    (a single fit for in-sample/post; one per leave-one-out refit for LOO), stacked together."""
+    blocks = []
+    for standardized in standardized_per_model:
+        length = max((len(v) for v in standardized.values() if v is not None), default=0)
+        if length == 0:
+            continue
+        blocks.append(pd.DataFrame({
+            f"signed_std_residual_{outcome}": (np.full(length, np.nan) if draws is None else draws)
+            for outcome, draws in standardized.items()
+        }))
+    frame = pd.concat(blocks, ignore_index=True) if blocks else pd.DataFrame(
+        {f"signed_std_residual_{outcome}": [] for outcome in OUTCOMES})
+    frame.insert(0, "repo_name", repo_name)
+    frame.insert(1, "is_treated", is_treated)
+    frame.insert(2, "draw", range(len(frame)))
+    return frame
+
+
+def PeriodResidualRows(repo_name, is_treated, signed_rows, squared_rows):
+    """One row per period with the signed residuals, squared residuals, and stage deltas for each outcome."""
+    rows = []
+    for signed_row, squared_row in zip(signed_rows, squared_rows):
+        rows.append({
+            "repo_name": repo_name, "is_treated": is_treated,
+            "quasi_event_time": signed_row["quasi_event_time"],
+            **{k: v for k, v in signed_row.items() if k.startswith("signed_std_residual_")},
+            **{k: v for k, v in squared_row.items()
+               if k.startswith("squared_std_residual_") or k.startswith("delta_squared_std_residual_")},
+        })
+    return rows
 
 
 if __name__ == "__main__":
