@@ -31,10 +31,10 @@ OUTCOME_LABELS = {
     "total_merge":    r"$N^m$",
 }
 STAGE_LABELS = {
-    "open":           r"$\Delta Q_\mathrm{open}$",
-    "review":         r"$\Delta Q_\mathrm{review}$",
-    "direct_merge":   r"$\Delta Q_\mathrm{direct\ merge}$",
-    "reviewed_merge": r"$\Delta Q_\mathrm{reviewed\ merge}$",
+    "open":           "Open",
+    "review":         "Review",
+    "direct_merge":   "Direct merge",
+    "reviewed_merge": "Reviewed merge",
 }
 GROUP_LABELS = {"treated": "Treated", "control": "Control"}
 SIGNED_AXIS_LABEL = r"Signed std residual $(x - \mu) / \sigma$"
@@ -89,7 +89,10 @@ def RunCombination(variant, distribution_type, estimation_approach,
     ]
     for name, df_residuals, df_reference, title in fit_panels:
         SignedFitPanel(panels_signed / f"{name}.png", df_residuals, df_reference, title)
-        SquaredFitPanel(panels_squared / f"{name}.png", df_residuals, df_reference, title)
+        if name == "post_period_fit":
+            PostSquaredFitPanel(panels_squared / f"{name}.png", df_residuals, df_reference, df_leaveoneout, title)
+        else:
+            SquaredFitPanel(panels_squared / f"{name}.png", df_residuals, df_reference, title)
 
     decomp_panels = [
         ("pre_period_decomp_insample",    df_insample,    "Pre-Period Decomp (InSample)"),
@@ -132,6 +135,49 @@ def SquaredFitPanel(outpath, residuals, reference, title):
         clip=SQUARED_RESIDUAL_CLIP,
         ref_cols={group: refs[group] for group in GROUP_LABELS},
         ref_getter=lambda df, o: df[f"signed_std_residual_{o}"] ** 2 - 1.0,
+    )
+
+
+def PostSquaredFitPanel(outpath, df_post, df_post_reference, df_leaveoneout, title):
+    """Post-period squared-residual fit, with an added treated row net of each org's LOO baseline."""
+    post = SplitGroups(df_post)
+    refs = SplitGroups(df_post_reference)
+    loo_treated = SplitGroups(df_leaveoneout)["treated"]
+    baseline = (loo_treated.groupby("repo_name")[[f"squared_std_residual_{o}" for o in OUTCOMES]]
+                .mean().add_prefix("baseline_").reset_index())
+
+    def subtract_baseline(df, column):
+        merged = df.merge(baseline, on="repo_name", how="left")
+        for o in OUTCOMES:
+            merged[column(o)] = merged[column(o)] - merged[f"baseline_squared_std_residual_{o}"]
+        return merged
+
+    def with_reference_squared(reference):
+        reference = reference.copy()
+        for o in OUTCOMES:
+            reference[f"reference_squared_{o}"] = reference[f"signed_std_residual_{o}"] ** 2 - 1.0
+        return reference
+
+    cols = {
+        "treated":          post["treated"],
+        "control":          post["control"],
+        "treated_adjusted": subtract_baseline(post["treated"], lambda o: f"squared_std_residual_{o}"),
+    }
+    ref_cols = {
+        "treated":          with_reference_squared(refs["treated"]),
+        "control":          with_reference_squared(refs["control"]),
+        "treated_adjusted": subtract_baseline(with_reference_squared(refs["treated"]),
+                                              lambda o: f"reference_squared_{o}"),
+    }
+    col_labels = {"treated": "Treated", "control": "Control",
+                  "treated_adjusted": r"Treated $-$ LOO baseline"}
+    MakePanel(
+        outpath, rows=OUTCOMES, cols=cols,
+        col_getter=lambda df, o: df[f"squared_std_residual_{o}"],
+        row_labels=OUTCOME_LABELS, col_labels=col_labels,
+        suptitle=f"{title} Squared Std Residual",
+        clip=SQUARED_RESIDUAL_CLIP,
+        ref_cols=ref_cols, ref_getter=lambda df, o: df[f"reference_squared_{o}"],
     )
 
 
