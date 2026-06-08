@@ -70,7 +70,6 @@ def RunCombination(variant, distribution_type, estimation_approach,
     df_loo_signed      = pd.read_parquet(pred_dir / "leaveoneout_period_z.parquet")
     df_post_signed     = pd.read_parquet(pred_dir / "post_period_z.parquet")
 
-    # Average post-period values per org
     df_post_avg        = df_post.groupby(["repo_name", "is_treated"]).mean(numeric_only=True).reset_index()
     df_post_signed_avg = df_post_signed.groupby(["repo_name", "is_treated"]).mean(numeric_only=True).reset_index()
 
@@ -97,8 +96,6 @@ def RunCombination(variant, distribution_type, estimation_approach,
     treated_data = groups["treated"]
     control_data = groups["control"]
 
-    # ---- Squared-residual panels (per-org distributions) ----
-
     MakePanel(
         panels_squared / "pre_period_fit_insample.png",
         rows=OUTCOMES,
@@ -122,7 +119,6 @@ def RunCombination(variant, distribution_type, estimation_approach,
         ks_dist="chi2m1",
     )
 
-    # pre_period_decomp: 4 stages × 2 groups, as % of total-merge residual
     MakePanel(
         panels_squared / "pre_period_decomp_insample.png",
         rows=STAGES,
@@ -148,7 +144,6 @@ def RunCombination(variant, distribution_type, estimation_approach,
         ks_dist="chi2m1",
     )
 
-    # post_period_fit: 5 outcomes × 1 group
     MakePanelSingleCol(
         panels_squared / "post_period_fit_control.png",
         rows=OUTCOMES, df=control_data[2],
@@ -168,7 +163,6 @@ def RunCombination(variant, distribution_type, estimation_approach,
         ks_dist="chi2m1",
     )
 
-    # post_period_decomp: 4 stages × 1 group
     MakePanelSingleCol(
         panels_squared / "post_period_decomp_control.png",
         rows=STAGES, df=control_data[2],
@@ -190,9 +184,6 @@ def RunCombination(variant, distribution_type, estimation_approach,
         ks_dist="chi2m1",
     )
 
-    # ---- Signed-residual panels (period-level distributions) ----
-
-    # pre_period_fit: insample uses per-org mean, leaveoneout uses per-(org,period) signed residual
     MakePanel(
         panels_signed / "pre_period_fit_insample.png",
         rows=OUTCOMES,
@@ -218,7 +209,6 @@ def RunCombination(variant, distribution_type, estimation_approach,
         ks_dist="norm",
     )
 
-    # pre_period_decomp signed: (delta_stage / total) * total_signed — per group in separate figures
     for group_name, group_squared, group_signed, group_loo_squared, group_loo_signed in [
         ("treated", treated_data[0], treated_data[3], treated_data[1], treated_data[4]),
         ("control", control_data[0], control_data[3], control_data[1], control_data[4]),
@@ -236,7 +226,6 @@ def RunCombination(variant, distribution_type, estimation_approach,
             suptitle=f"Pre-Period Decomp (LeaveOneOut) Signed — {group_name.title()}",
         )
 
-    # post_period_fit signed
     MakePanelSingleCol(
         panels_signed / "post_period_fit_control.png",
         rows=OUTCOMES, df=control_data[5],
@@ -258,7 +247,6 @@ def RunCombination(variant, distribution_type, estimation_approach,
         ks_dist="norm",
     )
 
-    # post_period_decomp signed
     for group_name, group_post_squared, group_post_signed in [
         ("control", control_data[2], control_data[5]),
         ("treated", treated_data[2], treated_data[5]),
@@ -272,7 +260,6 @@ def RunCombination(variant, distribution_type, estimation_approach,
             suptitle=f"Post-Period Decomp Signed — {group_name.title()}",
         )
 
-    # ---- Individual squared-residual plots ----
     for group_name, group_insample, group_loo, group_post in [
         ("treated", treated_data[0], treated_data[1], treated_data[2]),
         ("control", control_data[0], control_data[1], control_data[2]),
@@ -311,9 +298,11 @@ def RunCombination(variant, distribution_type, estimation_approach,
             )
 
 
-# ---------------------------------------------------------------------------
-# Panel helpers
-# ---------------------------------------------------------------------------
+def FormatStat(value, decimals=2):
+    if value < 0:
+        return rf"$\mathbf{{-}}${abs(value):.{decimals}f}"
+    return f"{value:.{decimals}f}"
+
 
 def DecompPct(df, stage, prefix):
     total = df[f"{prefix}_total_merge"].replace(0, np.nan)
@@ -327,7 +316,6 @@ def PostDecompPct(df, stage):
 
 def MakeDecompSignedPanel(outpath, df_squared, df_signed, squared_prefix, signed_prefix,
                           total_col=None, stage_fmt=None, suptitle=""):
-    """Signed decomp panel: (delta_stage / total) * total_signed for each stage, single-column."""
     if total_col is None:
         total_col = f"{squared_prefix}_total_merge"
     if stage_fmt is None:
@@ -347,10 +335,10 @@ def MakeDecompSignedPanel(outpath, df_squared, df_signed, squared_prefix, signed
         if stage_col not in merged.columns or total_col not in merged.columns or signed_total_col not in merged.columns:
             ax.set_title(STAGE_LABELS[stage], fontsize=9)
             continue
-        stage_share = merged[stage_col]
-        total       = merged[total_col].replace(0, np.nan)
+        stage_share  = merged[stage_col]
+        total        = merged[total_col].replace(0, np.nan)
         signed_total = merged[signed_total_col]
-        series  = (stage_share / total * signed_total).dropna()
+        series       = (stage_share / total * signed_total).dropna()
         PlotPanelSubplot(ax, series, STAGE_LABELS[stage],
                          xlabel=r"$(\Delta Q / Q^m) \times Z^m$", clip=SIGNED_RESIDUAL_CLIP, ks_dist="norm")
 
@@ -362,9 +350,8 @@ def MakeDecompSignedPanel(outpath, df_squared, df_signed, squared_prefix, signed
 
 def MakePanel(outpath, rows, cols, col_getter, row_labels, col_labels,
               suptitle="", xlabel="Squared std residual", clip=None, ks_dist=None):
-    """Horizontal layout: rows=groups, cols=items (outcomes or stages)."""
-    n_rows = len(cols)   # one row per group
-    n_cols = len(rows)   # one col per item
+    n_rows = len(cols)
+    n_cols = len(rows)
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(4 * n_cols, 3.5 * n_rows), squeeze=False)
     for i, (col_key, df_col) in enumerate(cols.items()):
         for j, row_key in enumerate(rows):
@@ -380,7 +367,6 @@ def MakePanel(outpath, rows, cols, col_getter, row_labels, col_labels,
 
 def MakePanelSingleCol(outpath, rows, df, col_getter, row_labels,
                        suptitle="", xlabel="Squared std residual", clip=None, ks_dist=None):
-    """Horizontal layout: 1 row, cols=items (outcomes or stages)."""
     n_cols = len(rows)
     fig, axes = plt.subplots(1, n_cols, figsize=(4 * n_cols, 3.5), squeeze=False)
     for j, row_key in enumerate(rows):
@@ -394,18 +380,16 @@ def MakePanelSingleCol(outpath, rows, df, col_getter, row_labels,
 
 
 def PlotPanelSubplot(ax, vals, title="", xlabel="", clip=None, ks_dist=None):
-    """ks_dist: None = no test, 'norm' = N(0,1), 'chi2m1' = chi2(1)-1."""
     if len(vals) == 0:
         ax.set_title(title, fontsize=9)
         return
 
-    # Stats on full (unclipped) data
-    p025 = float(vals.quantile(0.025))
-    p975 = float(vals.quantile(0.975))
+    p025       = float(vals.quantile(0.025))
+    p975       = float(vals.quantile(0.975))
     median_val = float(vals.median())
     mean_val   = float(vals.mean())
-    p25  = float(vals.quantile(0.25))
-    p75  = float(vals.quantile(0.75))
+    p25        = float(vals.quantile(0.25))
+    p75        = float(vals.quantile(0.75))
 
     if clip is not None:
         n_lo = int((vals < -clip).sum())
@@ -437,9 +421,9 @@ def PlotPanelSubplot(ax, vals, title="", xlabel="", clip=None, ks_dist=None):
 
     stats_text = (
         f"n={len(vals)}\n"
-        f"Mean={mean_val:.2f}\n"
-        f"Med={median_val:.2f}\n"
-        f"95%=[{p025:.2f},{p975:.2f}]"
+        f"Mean={FormatStat(mean_val)}\n"
+        f"Med={FormatStat(median_val)}\n"
+        f"95%=[{FormatStat(p025)},{FormatStat(p975)}]"
         + trunc_note + ks_note
     )
     ax.text(0.97, 0.97, stats_text, transform=ax.transAxes,
@@ -468,11 +452,10 @@ def KSNote(vals, ks_dist):
 
 
 def PlotErrorDistribution(series, xlabel, outpath, clip=None, ks_dist=None):
-    n_total  = len(series)
-    vals     = series.dropna()
-    na_pct   = 100.0 * (n_total - len(vals)) / n_total
+    n_total = len(series)
+    vals    = series.dropna()
+    na_pct  = 100.0 * (n_total - len(vals)) / n_total
 
-    # Stats computed on full data before any clipping
     median_val = vals.median()
     mean_val   = vals.mean()
     p25        = vals.quantile(0.25)
@@ -500,13 +483,13 @@ def PlotErrorDistribution(series, xlabel, outpath, clip=None, ks_dist=None):
             ax.bar( clip, n_hi, width=(clip * 2 / 25), color="#E74C3C", alpha=0.9, zorder=3,
                    label=f"Truncated at +{clip}: n={n_hi}")
 
-    ax.axvspan(p25, p75, alpha=0.12, color="#888888", label=f"IQR  [{p25:.1f}, {p75:.1f}]")
+    ax.axvspan(p25, p75, alpha=0.12, color="#888888", label=f"IQR  [{FormatStat(p25, 1)}, {FormatStat(p75, 1)}]")
     if clip is None or -clip <= median_val <= clip:
         ax.axvline(median_val, color="#C0392B", linewidth=1.8, linestyle="-",  zorder=5,
-                   label=f"Median = {median_val:.1f}")
+                   label=f"Median = {FormatStat(median_val, 1)}")
     if clip is None or -clip <= mean_val <= clip:
         ax.axvline(mean_val,   color="#27AE60", linewidth=1.8, linestyle="--", zorder=5,
-                   label=f"Mean = {mean_val:.1f}")
+                   label=f"Mean = {FormatStat(mean_val, 1)}")
     if na_pct > 0:
         ax.plot([], [], " ", label=f"NA: {na_pct:.1f}%")
     if clip is not None:
