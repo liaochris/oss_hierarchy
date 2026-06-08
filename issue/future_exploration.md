@@ -61,3 +61,32 @@ That conditioning effectively selects the *intense* stretch of an org's life, so
 For the **event study** this is likely fine: if the selection-induced inflation hits treated and control orgs the same way, it differences out, and the departure effect is identified off the treated-minus-control gap (which is exactly the extra steepness treated orgs show on top of the control decline).
 But for the **predictive model** it is a genuine misspecification: the latent-count distribution is fit to the (inflated, peak-period) pre-period mean and held time-invariant, so it over-predicts the mean-reverting post-period, especially for the typical org.
 This motivates a non-stationarity correction in the model (e.g. a post-period attenuation/mean-reversion of the latent rate), separate from the over-dispersion handling — see `model_improvement_proposal.md`.
+
+## 5. Model-selection tables (3c, sketch)
+
+A single fit statistic ranks modeling configurations: the **simulated-null two-sample KS statistic** $D$ on the **signed** standardized residual (the distance between the empirical per-$(i,t)$ residuals and the model's own standardized-draw reference). Lower $D$ = better-calibrated predictive distribution. One set of tables per sample (separate tables for `exact1`, `exact2`, `exact_1_2`).
+
+**Main table** — headline outcome **PRs merged ($N^m$)**. Rows are configurations (currently the member-probability estimator; later rows add the Step-4 model refinements). Columns are the evaluations.
+
+Sample: `exact_1_2` (identical-structure tables for `exact1`, `exact2`):
+
+| Configuration | LOO (pre) | Control (post) | Treated (post) | Treated − LOO |
+|---|---|---|---|---|
+| pooled | $D$ ($p$) | $D$ ($p$) | $D$ ($p$) | $D$ ($p$) |
+| per-period | $D$ ($p$) | $D$ ($p$) | $D$ ($p$) | $D$ ($p$) |
+| *(future model variant)* | … | … | … | … |
+
+**Appendix table** — the other outcomes ($N^o$ opened, $N^r$ reviewed, $N^{m|o}$ direct-merged, $N^{m|r}$ reviewed-merged), same columns, one block per sample:
+
+| Configuration | Outcome | LOO (pre) | Control (post) | Treated (post) | Treated − LOO |
+|---|---|---|---|---|---|
+| pooled | opened $N^o$ | … | … | … | … |
+| pooled | reviewed $N^r$ | … | … | … | … |
+| pooled | direct merge $N^{m|o}$ | … | … | … | … |
+| pooled | reviewed merge $N^{m|r}$ | … | … | … | … |
+| per-period | (4 rows) | … | … | … | … |
+
+Notes:
+- **LOO (pre)** = pre-period generalization; **Control (post)** = pure out-of-sample model error; **Treated (post)** = model + departure error (reported, but *not* selected on, since it mixes the departure effect); **Treated − LOO** = the differenced residual $\tilde Q^{treated}$ (caveat: the LOO baseline appears to under-state post-period error, so this over-states the departure component — section 4 / the `model.tex` note).
+- Select the configuration by the **LOO** and **Control (post)** columns on the main ($N^m$) table.
+- Computed from the existing `*_period.parquet` + `*_reference.parquet` outputs (no re-simulation) by a small `model_selection.py`; saved as a parquet plus a rendered markdown table.
