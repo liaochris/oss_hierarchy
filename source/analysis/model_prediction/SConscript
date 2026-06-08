@@ -83,7 +83,7 @@ env.Python(
 outcomes = ["open", "review", "direct_merge", "reviewed_merge", "total_merge"]
 stages   = ["open", "review", "direct_merge", "reviewed_merge"]
 
-panel_names = [
+squared_panel_names = [
     "pre_period_fit_insample.png",
     "pre_period_fit_leaveoneout.png",
     "pre_period_decomp_insample.png",
@@ -91,12 +91,16 @@ panel_names = [
     "post_period_fit.png",
     "post_period_decomp.png",
 ]
+signed_panel_names = [
+    "pre_period_fit_insample.png",
+    "pre_period_fit_leaveoneout.png",
+    "post_period_fit.png",
+]
 
-indiv_q_names = (
-    [f"pre_period_insample_Q_{o}.png"    for o in outcomes] +
-    [f"pre_period_leaveoneout_Q_{o}.png" for o in outcomes] +
-    [f"post_period_Q_{o}.png"            for o in outcomes] +
-    [f"pre_period_insample_delta_Q_{s}.png" for s in stages]
+indiv_squared_names = (
+    [f"insample_squared_{o}.png"    for o in outcomes] +
+    [f"leaveoneout_squared_{o}.png" for o in outcomes] +
+    [f"post_period_squared_{o}.png" for o in outcomes]
 )
 
 evaluate_targets = []
@@ -107,12 +111,13 @@ for variant, distribution_type, estimation_approach, (imp, qs, cg) in product(
         f'#output/analysis/model_prediction/{variant}/{distribution_type}'
         f'/evaluation/{estimation_approach}/{imp}/{qs}/{cg}'
     )
-    for name in panel_names:
-        evaluate_targets.append(f'{base}/panels/q/{name}')
-        evaluate_targets.append(f'{base}/panels/z/{name}')
+    for name in squared_panel_names:
+        evaluate_targets.append(f'{base}/panels/squared/{name}')
+    for name in signed_panel_names:
+        evaluate_targets.append(f'{base}/panels/signed/{name}')
     if "individual" in evaluation_figures:
         for group in ["treated", "control"]:
-            for name in indiv_q_names:
+            for name in indiv_squared_names:
                 evaluate_targets.append(f'{base}/individual/{group}/{name}')
 
 env.Python(

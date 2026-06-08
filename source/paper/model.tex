@@ -192,6 +192,19 @@ More precisely, if $G$ is the true distribution governing the data, $\mathbb{E}_
 Each $Q_{i,t}(x)$ captures \emph{prediction error} --- the period-$t$ realization.
 To diagnose the possibility offer \emph{misspecification error}, the systematic discrepancy between the model's implied distribution and the true DGP, we observe the distribution of prediction errors across organizations.
 
+\subsubsection{Evaluating model prediction fit}
+\label{sec:simulated-null}
+
+To assess fit, I compare the cross-organizational distribution of the observed residuals to the distribution the model itself implies, rather than to a nominal $N(0,1)$ (for $Z_{i,t}$) or $\chi^2_1-1$ (for $Q_{i,t}$).
+The latter are poor references here because the outcomes are non-negative counts: the observed value is bounded below at zero, so even under correct specification the standardized residual $Z_{i,t}$ is bounded below at $-\mu_i(x)/\sigma_i(x)$ and right-skewed rather than normal --- especially for the many low-rate organizations, where this lower bound binds tightly.
+The simulated null reproduces this zero-truncation and skew; $N(0,1)$ and $\chi^2_1-1$ do not.
+Instead I construct a \emph{simulated null} by drawing pseudo-observations from the same fitted model that generated the panel's predictions and standardizing them exactly as the observed residuals are.
+For organization $i$, the $K$ draws $\{x_i^{(k)}\}$ that define $\mu_i(x)$ and $\sigma_i(x)$ are themselves samples from that model, so
+$$Z_i^{(k)}(x) = \frac{x_i^{(k)} - \mu_i(x)}{\sigma_i(x)}, \qquad Q_i^{(k)}(x) = \bigl(Z_i^{(k)}(x)\bigr)^2 - 1$$
+are draws of the residual under correct specification.
+Pooling $\{Z_i^{(k)}(x)\}$ (respectively $\{Q_i^{(k)}(x)\}$) across all organizations in a panel gives the reference distribution, and I report the two-sample Kolmogorov--Smirnov statistic between the observed per-$(i,t)$ residuals and this reference (overlaying the reference density on each panel).
+The reference model matches the panel: the pre-period fit for in-sample and control post-period evaluation, each leave-one-out refit for the leave-one-out evaluation, and the counterfactual fit with $j^*$ removed for treated post-period evaluation.
+
 \subsubsection{Evaluating model fit}
 
 The \emph{in-sample (IS)} approach fits the model on all $T$ pre-periods, and evaluates model fit $Q$ by comparing draws from Algorithm~\ref{alg:drawcounts} to each of the $T$ pre-period observations.
@@ -290,8 +303,8 @@ The model assumes time-invariant $F_i$ and $p_j^s$ (Assumptions~\ref{asm:time-in
 $\bar{Q}_i^{post}(x) \approx 0$ validates this stationarity out of sample, while $\bar{Q}_i^{post}(x) \gg 0$ indicates the model has large misspecification error post-period.
 Algorithm~\ref{alg:stageoutcomes} can additionally be applied to $Q_{i,t'}^{post}(N^m)$ to decompose post-period total-merge misspecification error by stage.
 
-\todo[inline]{Insert the combined post-period fit figure (\texttt{panels/q/post\_period\_fit.png}): a 2x5 grid of the distribution of $\bar{Q}_i^{post}(x)$ for $x$ in $\{N^o, N^r, N^{m|o}, N^{m|r}, N^m\}$ (columns), with the top row for treated organizations and the bottom row for control organizations. Each subplot reports a box with the mean/median, the 95\% interval, and the truncation count. (This figure covers both the control subsection below and the treated subsection that follows.)}
-\todo[inline]{Insert the combined post-period decomposition figure (\texttt{panels/q/post\_period\_decomp.png}): a 2x4 grid of the distribution of $\Delta Q_{\mathrm{open}}, \Delta Q_{\mathrm{review}}, \Delta Q_{\mathrm{direct merge}}, \Delta Q_{\mathrm{reviewed merge}}$ (columns), each as a percent of $Q_{i, t}(N^m)$, with the top row for treated organizations and the bottom row for control organizations. Each subplot reports a box with the mean/median and the 95\% interval. (This figure covers both the control subsection and the treated subsection.)}
+\todo[inline]{Insert the combined post-period fit figure (\texttt{panels/squared/post\_period\_fit.png}): a 2x5 grid of the distribution of $\bar{Q}_i^{post}(x)$ for $x$ in $\{N^o, N^r, N^{m|o}, N^{m|r}, N^m\}$ (columns), with the top row for treated organizations and the bottom row for control organizations. Each subplot reports a box with the mean/median, the 95\% interval, and the truncation count. (This figure covers both the control subsection below and the treated subsection that follows.)}
+\todo[inline]{Insert the combined post-period decomposition figure (\texttt{panels/squared/post\_period\_decomp.png}): a 2x4 grid of the distribution of $\Delta Q_{\mathrm{open}}, \Delta Q_{\mathrm{review}}, \Delta Q_{\mathrm{direct merge}}, \Delta Q_{\mathrm{reviewed merge}}$ (columns), each as a percent of $Q_{i, t}(N^m)$, with the top row for treated organizations and the bottom row for control organizations. Each subplot reports a box with the mean/median and the 95\% interval. (This figure covers both the control subsection and the treated subsection.)}
 
 \subsubsection{Treated organizations}
 

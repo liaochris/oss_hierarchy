@@ -37,9 +37,11 @@ STAGE_LABELS = {
     "reviewed_merge": r"$\Delta Q_\mathrm{reviewed\ merge}$",
 }
 GROUP_LABELS = {"treated": "Treated", "control": "Control"}
-Z_AXIS_LABEL = r"$Z = (x - \mu) / \sigma$"
+SIGNED_AXIS_LABEL = r"Signed std residual $(x - \mu) / \sigma$"
 SQUARED_RESIDUAL_CLIP = 15
 SIGNED_RESIDUAL_CLIP  = 10
+DECOMP_PERCENT_CLIP   = 1200
+DECOMP_PERCENT_QUANTILE = 0.90
 
 
 def Main():
@@ -75,8 +77,8 @@ def RunCombination(variant, distribution_type, estimation_approach,
     df_leaveoneout_reference = pd.read_parquet(pred_dir / "leaveoneout_reference.parquet")
     df_post_reference        = pd.read_parquet(pred_dir / "post_reference.parquet")
 
-    panels_squared = base_out / "panels" / "q"
-    panels_signed  = base_out / "panels" / "z"
+    panels_squared = base_out / "panels" / "squared"
+    panels_signed  = base_out / "panels" / "signed"
     panels_squared.mkdir(parents=True, exist_ok=True)
     panels_signed.mkdir(parents=True, exist_ok=True)
 
@@ -96,7 +98,6 @@ def RunCombination(variant, distribution_type, estimation_approach,
     ]
     for name, df_residuals, title in decomp_panels:
         SquaredDecompPanel(panels_squared / f"{name}.png", df_residuals, title)
-        SignedDecompPanel(panels_signed / f"{name}.png", df_residuals, title)
 
     if "individual" in EVALUATION_FIGURES:
         PlotIndividual(base_out, {"InSample": df_insample, "LeaveOneOut": df_leaveoneout, "Post-Period": df_post})
@@ -113,7 +114,7 @@ def SignedFitPanel(outpath, residuals, reference, title):
         cols={group: groups[group] for group in GROUP_LABELS},
         col_getter=lambda df, o: df[f"signed_std_residual_{o}"],
         row_labels=OUTCOME_LABELS, col_labels=GROUP_LABELS,
-        suptitle=f"{title} Signed Std Residual", xlabel=Z_AXIS_LABEL,
+        suptitle=f"{title} Signed Std Residual", xlabel=SIGNED_AXIS_LABEL,
         clip=SIGNED_RESIDUAL_CLIP,
         ref_cols={group: refs[group] for group in GROUP_LABELS},
         ref_getter=lambda df, o: df[f"signed_std_residual_{o}"],
@@ -142,16 +143,8 @@ def SquaredDecompPanel(outpath, residuals, title):
         col_getter=lambda df, s: DecompPct(df, s),
         row_labels=STAGE_LABELS, col_labels=GROUP_LABELS,
         suptitle=f"{title} — % of total-merge residual",
-        xlabel="% of total-merge residual", clip=SQUARED_RESIDUAL_CLIP,
-    )
-
-
-def SignedDecompPanel(outpath, residuals, title):
-    groups = SplitGroups(residuals)
-    MakeDecompSignedPanel(
-        outpath,
-        {"Treated": groups["treated"], "Control": groups["control"]},
-        suptitle=f"{title} Signed",
+        xlabel="% of total-merge residual", clip=DECOMP_PERCENT_CLIP,
+        bound_quantile=DECOMP_PERCENT_QUANTILE,
     )
 
 
@@ -165,7 +158,7 @@ def PlotIndividual(base_out, residuals_by_eval):
                 PlotErrorDistribution(
                     group_df[f"squared_std_residual_{outcome}"],
                     f"{eval_name} {OUTCOME_LABELS[outcome]} — {group_name}",
-                    indiv_dir / f"{slug}_Q_{outcome}.png",
+                    indiv_dir / f"{slug}_squared_{outcome}.png",
                     clip=SQUARED_RESIDUAL_CLIP,
                 )
 
@@ -302,9 +295,9 @@ def PlotErrorDistribution(series, xlabel, outpath, clip=None):
 
 
 def RenderPanelGrid(outpath, cell_grid, hard_cap,
-                    suptitle="", xlabel="Squared std residual", suptitle_fontsize=12):
+                    suptitle="", xlabel="Squared std residual", suptitle_fontsize=12, bound_quantile=0.99):
     all_series  = [series for row in cell_grid for (_, series, _) in row if series is not None]
-    shared_clip = SharedDisplayBound(all_series, hard_cap) if hard_cap is not None else None
+    shared_clip = SharedDisplayBound(all_series, hard_cap, bound_quantile) if hard_cap is not None else None
     n_rows = len(cell_grid)
     n_cols = max(len(row) for row in cell_grid)
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(4 * n_cols, 3.5 * n_rows), squeeze=False)
@@ -324,7 +317,7 @@ def RenderPanelGrid(outpath, cell_grid, hard_cap,
 
 def MakePanel(outpath, rows, cols, col_getter, row_labels, col_labels,
               suptitle="", xlabel="Squared std residual", clip=None,
-              ref_cols=None, ref_getter=None):
+              ref_cols=None, ref_getter=None, bound_quantile=0.99):
     def reference_for(col_key, row_key):
         if ref_cols is None or ref_cols.get(col_key) is None:
             return None
@@ -337,20 +330,7 @@ def MakePanel(outpath, rows, cols, col_getter, row_labels, col_labels,
          for row_key in rows]
         for col_key, df_col in cols.items()
     ]
-    RenderPanelGrid(outpath, cell_grid, clip, suptitle=suptitle, xlabel=xlabel)
-
-
-def MakeDecompSignedPanel(outpath, group_data, suptitle=""):
-    def StageSeries(df, stage):
-        total = df["squared_std_residual_total_merge"].replace(0, np.nan)
-        return (df[f"delta_squared_std_residual_{stage}"] / total * df["signed_std_residual_total_merge"]).dropna()
-
-    cell_grid = [
-        [(f"{STAGE_LABELS[stage]}\n{label}", StageSeries(df, stage), None) for stage in STAGES]
-        for label, df in group_data.items()
-    ]
-    RenderPanelGrid(outpath, cell_grid, SIGNED_RESIDUAL_CLIP,
-                    suptitle=suptitle, xlabel=r"$(\Delta Q / Q^m) \times Z^m$", suptitle_fontsize=11)
+    RenderPanelGrid(outpath, cell_grid, clip, suptitle=suptitle, xlabel=xlabel, bound_quantile=bound_quantile)
 
 
 if __name__ == "__main__":
