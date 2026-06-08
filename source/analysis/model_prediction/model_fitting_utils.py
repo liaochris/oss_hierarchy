@@ -1,54 +1,32 @@
-import warnings
-
 import numpy as np
-from statsmodels.discrete.discrete_model import NegativeBinomial
 
 
 # ---------------------------------------------------------------------------
 # Distribution fitting
 # ---------------------------------------------------------------------------
 
-def FitDistributionForced(repo_name, counts_per_period, distribution_type):
-    """Fit a specific latent-count distribution (no auto-selection)."""
+def FitLatentDistribution(repo_name, counts_per_period, distribution_type):
+    """Per-org method-of-moments fit: Negative Binomial if over-dispersed, else Poisson."""
+    if distribution_type != "adaptive":
+        raise ValueError(f"Unknown distribution_type: {distribution_type}")
+
     counts_per_period = np.asarray(counts_per_period, dtype=float)
-    if distribution_type == "poisson":
-        poisson_rate = max(float(np.mean(counts_per_period)), 1e-6)
-        return {
-            "repo_name": repo_name, "distribution_type": "poisson",
-            "expected_latent_count": poisson_rate, "poisson_rate": poisson_rate,
-            "negative_binomial_size": np.nan, "negative_binomial_prob": np.nan,
-        }
-    if distribution_type == "negative_binomial":
-        negative_binomial_size, negative_binomial_prob = FitNegativeBinomialParams(counts_per_period)
+    mean_count = max(float(np.mean(counts_per_period)), 1e-6)
+    variance   = float(np.var(counts_per_period, ddof=1)) if len(counts_per_period) > 1 else 0.0
+    counts_are_overdispersed = variance > mean_count
+
+    if counts_are_overdispersed:
         return {
             "repo_name": repo_name, "distribution_type": "negative_binomial",
-            "expected_latent_count": negative_binomial_size * (1.0 - negative_binomial_prob) / negative_binomial_prob,
-            "poisson_rate": np.nan,
-            "negative_binomial_size": negative_binomial_size,
-            "negative_binomial_prob": negative_binomial_prob,
+            "expected_latent_count": mean_count, "poisson_rate": np.nan,
+            "negative_binomial_size": mean_count ** 2 / (variance - mean_count),
+            "negative_binomial_prob": mean_count / variance,
         }
-    raise ValueError(f"Unknown distribution_type: {distribution_type}")
-
-
-def FitNegativeBinomialParams(counts_per_period):
-    counts_per_period = np.asarray(counts_per_period, dtype=float)
-    design_matrix = np.ones((len(counts_per_period), 1))
-    mean_count    = max(float(np.mean(counts_per_period)), 1e-6)
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        result = NegativeBinomial(counts_per_period, design_matrix).fit(
-            start_params=[np.log(mean_count), 0.0], disp=False, method="bfgs"
-        )
-
-    fitted_mean = float(np.exp(result.params[0]))
-    # NB2 parameterization: variance = mean + dispersion*mean^2, so size = 1/dispersion
-    dispersion             = float(np.exp(result.params[1]))
-    negative_binomial_size = float(max(1.0 / dispersion, 1e-6))
-    negative_binomial_prob = float(np.clip(
-        negative_binomial_size / (negative_binomial_size + fitted_mean), 0.01, 0.99
-    ))
-    return negative_binomial_size, negative_binomial_prob
+    return {
+        "repo_name": repo_name, "distribution_type": "poisson",
+        "expected_latent_count": mean_count, "poisson_rate": mean_count,
+        "negative_binomial_size": np.nan, "negative_binomial_prob": np.nan,
+    }
 
 
 # ---------------------------------------------------------------------------

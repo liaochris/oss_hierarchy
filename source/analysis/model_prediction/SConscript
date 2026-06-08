@@ -13,6 +13,7 @@ control_groups        = CONFIG["control_groups"]["run"]
 variants              = MODEL_PREDICTION_CONFIG["variants"]["run"]
 distribution_types    = MODEL_PREDICTION_CONFIG["distribution_types"]["run"]
 estimation_approaches = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"]
+evaluation_figures    = MODEL_PREDICTION_CONFIG["evaluation_figures"]["run"]
 
 combos = list(product(importance_types, qualified_samples, control_groups))
 
@@ -82,27 +83,13 @@ env.Python(
 outcomes = ["open", "review", "direct_merge", "reviewed_merge", "total_merge"]
 stages   = ["open", "review", "direct_merge", "reviewed_merge"]
 
-q_panel_names = [
+panel_names = [
     "pre_period_fit_insample.png",
     "pre_period_fit_leaveoneout.png",
     "pre_period_decomp_insample.png",
     "pre_period_decomp_leaveoneout.png",
-    "post_period_fit_control.png",
-    "post_period_fit_treated.png",
-    "post_period_decomp_control.png",
-    "post_period_decomp_treated.png",
-]
-z_panel_names = [
-    "pre_period_fit_insample.png",
-    "pre_period_fit_leaveoneout.png",
-    "post_period_fit_control.png",
-    "post_period_fit_treated.png",
-] + [
-    f"pre_period_decomp_insample_{g}.png"  for g in ["treated", "control"]
-] + [
-    f"pre_period_decomp_leaveoneout_{g}.png" for g in ["treated", "control"]
-] + [
-    f"post_period_decomp_{g}.png" for g in ["treated", "control"]
+    "post_period_fit.png",
+    "post_period_decomp.png",
 ]
 
 indiv_q_names = (
@@ -120,13 +107,13 @@ for variant, distribution_type, estimation_approach, (imp, qs, cg) in product(
         f'#output/analysis/model_prediction/{variant}/{distribution_type}'
         f'/evaluation/{estimation_approach}/{imp}/{qs}/{cg}'
     )
-    for name in q_panel_names:
+    for name in panel_names:
         evaluate_targets.append(f'{base}/panels/q/{name}')
-    for name in z_panel_names:
         evaluate_targets.append(f'{base}/panels/z/{name}')
-    for group in ["treated", "control"]:
-        for name in indiv_q_names:
-            evaluate_targets.append(f'{base}/individual/{group}/{name}')
+    if "individual" in evaluation_figures:
+        for group in ["treated", "control"]:
+            for name in indiv_q_names:
+                evaluate_targets.append(f'{base}/individual/{group}/{name}')
 
 env.Python(
     evaluate_targets,

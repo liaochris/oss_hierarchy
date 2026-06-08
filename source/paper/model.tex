@@ -130,8 +130,14 @@ The membership set $\mathcal{J}_{pre}$ is fixed across pre-periods, and the only
 Hence, $\mathcal{J}_{post} \setminus \mathcal{J}_{pre} = j^*$.
 \end{assumption}
 
-I fit $F_i$ as either Poisson or Negative Binomial across all organizations, using organization-specific parameters estimated by maximum likelihood.
-\todo[inline]{1. Explore alternative distributions (e.g., zero-inflated, hurdle, or mixture models) if Poisson/NB fit is poor 2. Pick one}
+I fit the latent opened-count distribution $F_i$ adaptively for each organization by the method of moments from the pre-period opened counts $\{N_{i,t}^o\}_{t}$ (mean $m_i$, variance $v_i$): a Negative Binomial when the counts are over-dispersed ($v_i > m_i$), and a Poisson otherwise.
+For the Negative Binomial, parameterized by a size $r_i>0$ and probability $p_i\in(0,1)$ with mean $r_i(1-p_i)/p_i$ and variance $\mathrm{mean}/p_i$, matching the first two moments gives
+$$\hat{p}_i = \frac{m_i}{v_i}, \qquad \hat{r}_i = \frac{m_i^2}{v_i-m_i}, \qquad \text{valid when } v_i > m_i.$$
+Because the Negative Binomial arises as a Poisson--Gamma mixture, its variance $m_i + m_i^2/r_i$ always exceeds the mean: by the law of total variance, mixing the Poisson rate over a Gamma can only add variance, so $\mathrm{Var}(N) = m_i + \mathrm{Var}(\lambda) \ge m_i$.
+The Negative Binomial can thus capture over-dispersion but not under-dispersion.
+When the data are not over-dispersed ($v_i \le m_i$), the moment estimators are infeasible ($\hat{p}_i \ge 1$, $\hat{r}_i \le 0$), so $F_i$ is instead the Poisson with rate $\hat{\lambda}_i = m_i$ --- equivalently the Negative Binomial's own Poisson limit ($r_i \to \infty$, $p_i \to 1$).
+The Negative Binomial therefore nests the Poisson, and this adaptive choice never fits the latent opened-count distribution worse than a Poisson would.
+\todo[inline]{Explore alternative distributions (e.g., zero-inflated, hurdle, or mixture models) if the adaptive fit remains poor.}
 
 I estimate $p_j^s$ under either a pooled or per-period approach, applied uniformly across all organizations:
 \begin{enumerate}
@@ -140,7 +146,7 @@ I estimate $p_j^s$ under either a pooled or per-period approach, applied uniform
     $\{\hat{p}_{j,t}^s\}_{t=1}^T$ as repeated observations of a single underlying member-level probability parameter $\hat{p}_j^s$.
     The MLE for this common parameter is therefore the sample mean across pre-periods: $\hat{p}_j^s = \frac{1}{T}\sum_{t=1}^T \hat{p}_{j,t}^s$.
 \end{enumerate}
-Model selection across the Poisson/NB $\times$ pooled/per-period combinations will be addressed separately.
+Model selection across the pooled/per-period member-probability estimators will be addressed separately.
 
 \todo[inline]{1. Penalized estimation of p? 2. Model entry/exit of members? 3. Pick one combination out of the 4}
 

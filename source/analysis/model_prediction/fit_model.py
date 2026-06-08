@@ -7,7 +7,7 @@ from source.lib.python.config_loaders import LoadPipelineInputs, LoadModelPredic
 from source.lib.python.repo_utils import MakeRepoNameSafe
 from source.lib.JMSLab.SaveData import SaveData
 from source.analysis.model_prediction.model_fitting_utils import (
-    FitDistributionForced, FitMemberProbabilities
+    FitLatentDistribution, FitMemberProbabilities
 )
 
 CONFIG                  = LoadPipelineInputs()
@@ -73,7 +73,7 @@ def RunCombination(variant, distribution_type, estimation_approach,
         )
         counts_per_period = df_repo_counts["repo_pull_request_opened"].values.astype(float)
 
-        dist_result  = FitDistributionForced(repo_name, counts_per_period, distribution_type)
+        dist_result  = FitLatentDistribution(repo_name, counts_per_period, distribution_type)
         member_probs = FitMemberProbabilities(repo_name, df_pre, df_repo_counts, estimation_approach)
 
         dist_rows.append(dist_result)

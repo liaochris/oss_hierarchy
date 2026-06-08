@@ -14,7 +14,7 @@ from source.lib.python.config_loaders import (
 from source.lib.python.repo_utils import MakeRepoNameSafe
 from source.lib.JMSLab.SaveData import SaveData
 from source.analysis.model_prediction.model_fitting_utils import (
-    FitDistributionForced, FitMemberProbabilities
+    FitLatentDistribution, FitMemberProbabilities
 )
 
 GLOBAL_SETTINGS         = LoadGlobalSettings()
@@ -142,6 +142,7 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
         return None
 
     dist_row = df_dist_repo.iloc[0]
+    repo_distribution = dist_row["distribution_type"]
     dist_params = {
         "poisson_rate":           dist_row["poisson_rate"],
         "negative_binomial_size": dist_row["negative_binomial_size"],
@@ -156,7 +157,7 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
     # --- InSample draws (reused for control post-period) ---
     (opened_insample, reviewed_insample, direct_merge_insample,
      reviewed_merge_insample, total_merge_insample) = DrawCounts(
-        distribution_type, dist_params,
+        repo_distribution, dist_params,
         prob_open, prob_review, prob_merge_direct, prob_merge_after_review, N_MODEL_DRAWS, rng
     )
 
@@ -196,7 +197,7 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
                 ].first().reset_index()
             )
             counts_train = df_repo_train["repo_pull_request_opened"].values.astype(float)
-            dist_loo  = FitDistributionForced(repo_name, counts_train, distribution_type)
+            dist_loo  = FitLatentDistribution(repo_name, counts_train, distribution_type)
             probs_loo = FitMemberProbabilities(repo_name, df_train, df_repo_train, estimation_approach)
             df_probs_loo = pd.DataFrame(probs_loo)
             (prob_open_loo, prob_review_loo,
@@ -209,7 +210,7 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
 
             (opened_loo, reviewed_loo, direct_merge_loo,
              reviewed_merge_loo, total_merge_loo) = DrawCounts(
-                distribution_type, dist_params_loo,
+                dist_loo["distribution_type"], dist_params_loo,
                 prob_open_loo, prob_review_loo, prob_merge_direct_loo, prob_merge_after_review_loo, N_MODEL_DRAWS, rng
             )
             held_row = df_repo_pre[df_repo_pre["quasi_event_time"] == held_out_time].iloc[0]
@@ -234,7 +235,7 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
          prob_merge_direct_cf, prob_merge_after_review_cf) = ComputeStageProbabilities(df_remaining)
         (opened_post, reviewed_post, direct_merge_post,
          reviewed_merge_post, total_merge_post) = DrawCounts(
-            distribution_type, dist_params,
+            repo_distribution, dist_params,
             prob_open_cf, prob_review_cf, prob_merge_direct_cf, prob_merge_after_review_cf, N_MODEL_DRAWS, rng
         )
     else:
