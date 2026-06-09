@@ -15,18 +15,16 @@ from joblib import Parallel, delayed
 
 from source.derived.org_outcomes_practices.helpers import LoadBotList
 from source.lib.JMSLab.SaveData import SaveData
-from source.lib.python.config_loaders import LoadGlobalSettings, LoadPipelineInputs, LoadAnalysisParameters
+from source.lib.python.config_loaders import LoadGlobalSettings, LoadPipelineInputs
 from source.lib.python.data_utils import ImputeTimePeriod
 from source.lib.python.filesystem_utils import WriteContentHash
 from source.lib.python.repo_utils import MakeRepoNameSafe
 
 GLOBAL_SETTINGS = LoadGlobalSettings()
 CONFIG          = LoadPipelineInputs()
-PARAMETERS      = LoadAnalysisParameters()
 
 TIME_PERIOD    = GLOBAL_SETTINGS["time_period_months"]
 N_JOBS         = GLOBAL_SETTINGS["n_jobs"]
-MAX_EVENT_TIME = PARAMETERS["max_event_time"]
 ROLLING_PERIOD = f"rolling{CONFIG['rolling_periods']['run'][0]}"
 VARIANTS       = ["observed", "same_period", "opened_cohort"]
 
@@ -36,8 +34,6 @@ INDIR_PANEL   = Path("output/derived/analysis_panel")
 OUTDIR        = Path("drive/output/derived/model_prediction/event_time_member_panel")
 LOG_OUTDIR    = Path("output/derived/model_prediction/event_time_member_panel")
 HASH_FILE     = Path("output/derived/hashes/event_time_member_panel.txt")
-
-EVENT_TIMES = list(range(-MAX_EVENT_TIME, MAX_EVENT_TIME + 1))
 
 
 def Main():
@@ -83,6 +79,8 @@ def ProcessRepo(repo_name, df_time_map, df_bot_list, combo):
     if not actions_file.exists():
         return
 
+    repo_event_times = sorted(df_time_map.loc[df_time_map["repo_name"] == repo_name, "quasi_event_time"].unique())
+
     df_actions = CleanAndFilterData(actions_file, df_time_map, df_bot_list, repo_name)
     df_opens, df_reviews, df_merges_direct, df_merges_after_review = SeparateActionTypes(df_actions)
 
@@ -93,10 +91,10 @@ def ProcessRepo(repo_name, df_time_map, df_bot_list, combo):
     }
 
     for variant, (df_opens_v, df_reviews_v, df_merges_direct_v, df_merges_after_review_v) in variant_inputs.items():
-        df_member_counts = CreateMemberStageCounts(df_opens_v, df_reviews_v, df_merges_direct_v, df_merges_after_review_v)
+        df_member_counts = CreateMemberStageCounts(df_opens_v, df_reviews_v, df_merges_direct_v, df_merges_after_review_v, repo_event_times)
         if df_member_counts is None:
             continue
-        df_repo_counts = CreateRepoStageCounts(df_opens_v, df_reviews_v, df_merges_direct_v, df_merges_after_review_v)
+        df_repo_counts = CreateRepoStageCounts(df_opens_v, df_reviews_v, df_merges_direct_v, df_merges_after_review_v, repo_event_times)
         if variant in {"same_period", "opened_cohort"}:
             AssertMergesLeOpened(df_repo_counts, repo_name, variant)
         df_grid = df_member_counts.merge(df_repo_counts, on="quasi_event_time", how="left")
@@ -122,8 +120,7 @@ def CleanAndFilterData(actions_file, df_time_map, df_bot_list, repo_name):
 
     df_repo_map = df_time_map[df_time_map["repo_name"] == repo_name][["time_period", "quasi_event_time"]]
     df_with_event_time = df_actions.merge(df_repo_map, on="time_period", how="inner")
-    df_within_window   = df_with_event_time[df_with_event_time["quasi_event_time"].between(-MAX_EVENT_TIME, MAX_EVENT_TIME)]
-    df_without_bots    = df_within_window[~df_within_window["actor_id"].isin(df_bot_list)]
+    df_without_bots    = df_with_event_time[~df_with_event_time["actor_id"].isin(df_bot_list)]
 
     return df_without_bots
 
@@ -179,13 +176,13 @@ def AssertMergesLeOpened(df_repo_counts, repo_name, variant):
         )
 
 
-def CreateMemberStageCounts(df_opens, df_reviews, df_merges_direct, df_merges_after_review):
+def CreateMemberStageCounts(df_opens, df_reviews, df_merges_direct, df_merges_after_review, event_times):
     member_universe = pd.concat([df_opens, df_reviews, df_merges_direct, df_merges_after_review])["actor_id"].unique()
     if len(member_universe) == 0:
         return None
 
     df_grid = pd.DataFrame(
-        list(product(EVENT_TIMES, member_universe)),
+        list(product(event_times, member_universe)),
         columns=["quasi_event_time", "actor_id"],
     )
 
@@ -206,8 +203,8 @@ def CreateMemberStageCounts(df_opens, df_reviews, df_merges_direct, df_merges_af
     return df_grid
 
 
-def CreateRepoStageCounts(df_opens, df_reviews, df_merges_direct, df_merges_after_review):
-    df_repo_time_grid = pd.DataFrame({"quasi_event_time": EVENT_TIMES})
+def CreateRepoStageCounts(df_opens, df_reviews, df_merges_direct, df_merges_after_review, event_times):
+    df_repo_time_grid = pd.DataFrame({"quasi_event_time": event_times})
     for df_stage, col in [
         (df_opens,               "repo_pull_request_opened"),
         (df_reviews,             "repo_pull_request_reviewed"),
