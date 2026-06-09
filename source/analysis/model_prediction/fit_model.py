@@ -3,13 +3,16 @@ import pandas as pd
 from pathlib import Path
 from itertools import product
 
-from source.lib.python.config_loaders import LoadPipelineInputs, LoadModelPredictionConfig
+from joblib import Parallel, delayed
+
+from source.lib.python.config_loaders import LoadGlobalSettings, LoadPipelineInputs, LoadModelPredictionConfig
 from source.lib.python.repo_utils import MakeRepoNameSafe
 from source.lib.JMSLab.SaveData import SaveData
 from source.lib.model.staged_count_model import (
     FitLatentDistribution, FitMemberProbabilities
 )
 
+GLOBAL_SETTINGS         = LoadGlobalSettings()
 CONFIG                  = LoadPipelineInputs()
 MODEL_PREDICTION_CONFIG = LoadModelPredictionConfig()
 
@@ -20,6 +23,7 @@ ROLLING_LABEL         = f"rolling{CONFIG['rolling_periods']['run'][0]}"
 VARIANTS              = MODEL_PREDICTION_CONFIG["variants"]["run"]
 DISTRIBUTION_TYPES    = MODEL_PREDICTION_CONFIG["distribution_types"]["run"]
 ESTIMATION_APPROACHES = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"]
+N_JOBS                = GLOBAL_SETTINGS["n_jobs"]
 
 
 def Main():
@@ -52,33 +56,15 @@ def RunCombination(variant, distribution_type, estimation_approach,
     df_panel = pd.read_parquet(panel_path)
     df_all_repos = df_panel[df_panel["quasi_event_time"] == 0][["repo_name"]]
 
-    dist_rows, prob_rows, review_rows = [], [], []
+    results = Parallel(n_jobs=N_JOBS)(
+        delayed(FitRepo)(row["repo_name"], variant, importance_type, qualified_sample,
+                         control_group, distribution_type, estimation_approach)
+        for _, row in df_all_repos.iterrows()
+    )
 
-    for _, row in df_all_repos.iterrows():
-        repo_name = row["repo_name"]
-        member_path = (
-            INDIR_MEMBER_PANEL / variant / importance_type / qualified_sample
-            / control_group / f"{MakeRepoNameSafe(repo_name)}.parquet"
-        )
-        if not member_path.exists():
-            continue
-
-        df_member = pd.read_parquet(member_path)
-        df_pre    = df_member[df_member["quasi_event_time"] < 0].copy()
-        df_repo_counts = (
-            df_pre.groupby("quasi_event_time")[
-                ["repo_pull_request_opened", "repo_pull_request_reviewed",
-                 "repo_pull_request_merged_direct", "repo_pull_request_merged_after_review"]
-            ].first().reset_index()
-        )
-        counts_per_period = df_repo_counts["repo_pull_request_opened"].values.astype(float)
-
-        dist_result  = FitLatentDistribution(repo_name, counts_per_period, distribution_type)
-        member_probs = FitMemberProbabilities(repo_name, df_pre, df_repo_counts, estimation_approach)
-
-        dist_rows.append(dist_result)
-        prob_rows.extend(member_probs)
-        review_rows.append(ComputeReviewFitCheck(repo_name, df_repo_counts, member_probs))
+    dist_rows   = [r["dist"]   for r in results if r is not None]
+    prob_rows   = [p for r in results if r is not None for p in r["probs"]]
+    review_rows = [r["review"] for r in results if r is not None]
 
     SaveData(
         pd.DataFrame(dist_rows), ["repo_name"],
@@ -92,6 +78,34 @@ def RunCombination(variant, distribution_type, estimation_approach,
         pd.DataFrame(review_rows), ["repo_name"],
         outdir / "review_fit_check.parquet", outdir / "review_fit_check.log",
     )
+
+
+def FitRepo(repo_name, variant, importance_type, qualified_sample, control_group,
+            distribution_type, estimation_approach):
+    member_path = (
+        INDIR_MEMBER_PANEL / variant / importance_type / qualified_sample
+        / control_group / f"{MakeRepoNameSafe(repo_name)}.parquet"
+    )
+    if not member_path.exists():
+        return None
+
+    df_member = pd.read_parquet(member_path)
+    df_pre    = df_member[df_member["quasi_event_time"] < 0].copy()
+    df_repo_counts = (
+        df_pre.groupby("quasi_event_time")[
+            ["repo_pull_request_opened", "repo_pull_request_reviewed",
+             "repo_pull_request_merged_direct", "repo_pull_request_merged_after_review"]
+        ].first().reset_index()
+    )
+    counts_per_period = df_repo_counts["repo_pull_request_opened"].values.astype(float)
+
+    dist_result  = FitLatentDistribution(repo_name, counts_per_period, distribution_type)
+    member_probs = FitMemberProbabilities(repo_name, df_pre, df_repo_counts, estimation_approach)
+    return {
+        "dist":   dist_result,
+        "probs":  member_probs,
+        "review": ComputeReviewFitCheck(repo_name, df_repo_counts, member_probs),
+    }
 
 
 def ComputeReviewFitCheck(repo_name, df_repo_counts, member_probs):

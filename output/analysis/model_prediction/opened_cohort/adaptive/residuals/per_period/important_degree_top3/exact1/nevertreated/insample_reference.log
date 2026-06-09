@@ -1,16 +1,17 @@
 File: output/analysis/model_prediction/opened_cohort/adaptive/residuals/per_period/important_degree_top3/exact1/nevertreated/insample_reference.parquet
 
-MD5 hash: a73d3ddbd8e72aa3945425c03ce86356
+MD5 hash: d05d895cfd3175eba9fb146545bcb0f6
 
-Keys: repo_name draw 
+Keys: repo_name quasi_event_time draw 
 
-                                       type   count unique   mean         std       min       25%       50%       75%        max
-repo_name                            object  571000    571                                                                      
-draw                                  int64  571000         499.5  288.675243       0.0    249.75     499.5    749.25      999.0
-is_treated                             bool  571000      2                                                                      
-signed_std_residual_open            float64  571000          -0.0    1.000001 -3.217245  -0.70628 -0.215311  0.519835  12.290481
-signed_std_residual_review          float64  565000           0.0    1.000001 -3.268377 -0.707233 -0.220658  0.525348  11.240223
-signed_std_residual_direct_merge    float64  498000          -0.0    1.000001 -2.915427 -0.652078  -0.33945  0.432979   13.32208
-signed_std_residual_reviewed_merge  float64  557000           0.0    1.000001  -3.01666 -0.686326 -0.271085  0.505297  11.721782
-signed_std_residual_total_merge     float64  568000          -0.0    1.000001 -3.258888 -0.699787 -0.244402  0.520289  12.388877
+                                       type    count unique      mean         std       min       25%       50%       75%        max
+repo_name                            object  2466000    571                                                                         
+quasi_event_time                      int64  2466000        -5.267032    3.193139     -15.0      -7.0      -5.0      -3.0       -1.0
+draw                                  int64  2466000            249.5  144.337308       0.0    124.75     249.5    374.25      499.0
+is_treated                             bool  2466000      2                                                                         
+signed_std_residual_open            float64  2466000              0.0         1.0 -3.064082 -0.704203 -0.242973   0.49144   13.30182
+signed_std_residual_review          float64  2450500             -0.0         1.0 -2.982754  -0.70447 -0.250562  0.498461   13.30182
+signed_std_residual_direct_merge    float64  2303500             -0.0         1.0 -2.606564 -0.621503 -0.347698  0.389401  15.779734
+signed_std_residual_reviewed_merge  float64  2442500             -0.0         1.0  -3.00702 -0.689754 -0.290968  0.476228  12.905268
+signed_std_residual_total_merge     float64  2463000              0.0         1.0 -3.100497 -0.706276 -0.258516  0.478201  12.905268
 

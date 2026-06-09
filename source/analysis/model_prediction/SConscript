@@ -68,6 +68,11 @@ for variant, distribution_type, estimation_approach, (imp, qs, cg) in product(
     )
     for stem in predict_file_stems:
         predict_targets += [f'{base}/{stem}.parquet', f'{base}/{stem}.log']
+    draws_base = (
+        f'#output/analysis/model_prediction/{variant}/{distribution_type}'
+        f'/draws/{estimation_approach}/{imp}/{qs}/{cg}'
+    )
+    predict_targets += [f'{draws_base}/raw_draws.parquet', f'{draws_base}/raw_draws.log']
 
 env.Python(
     predict_targets,

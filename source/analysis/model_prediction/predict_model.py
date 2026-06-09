@@ -30,7 +30,6 @@ ROLLING_LABEL         = f"rolling{CONFIG['rolling_periods']['run'][0]}"
 VARIANTS              = MODEL_PREDICTION_CONFIG["variants"]["run"]
 DISTRIBUTION_TYPES    = MODEL_PREDICTION_CONFIG["distribution_types"]["run"]
 ESTIMATION_APPROACHES = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"]
-POST_TIMES            = list(range(1, PARAMETERS["max_event_time"] + 1))
 
 N_MODEL_DRAWS = PARAMETERS["n_model_draws"]
 N_JOBS        = GLOBAL_SETTINGS["n_jobs"]
@@ -56,11 +55,16 @@ def Main():
 
 def RunCombination(variant, distribution_type, estimation_approach,
                    importance_type, qualified_sample, control_group):
-    outdir = (
+    residuals_outdir = (
         OUTDIR / variant / distribution_type / "residuals" / estimation_approach
         / importance_type / qualified_sample / control_group
     )
-    outdir.mkdir(parents=True, exist_ok=True)
+    draws_outdir = (
+        OUTDIR / variant / distribution_type / "draws" / estimation_approach
+        / importance_type / qualified_sample / control_group
+    )
+    residuals_outdir.mkdir(parents=True, exist_ok=True)
+    draws_outdir.mkdir(parents=True, exist_ok=True)
 
     fitted_dir = (
         INDIR_FITTED / variant / distribution_type / "parameters" / estimation_approach
@@ -93,6 +97,7 @@ def RunCombination(variant, distribution_type, estimation_approach,
 
     period_rows      = {"insample_period": [], "leaveoneout_period": [], "post_period": []}
     reference_frames = {"insample_reference": [], "leaveoneout_reference": [], "post_reference": []}
+    raw_draw_frames  = []
 
     for result in results:
         if result is None:
@@ -101,13 +106,18 @@ def RunCombination(variant, distribution_type, estimation_approach,
             period_rows[key].extend(result[key])
         for key in reference_frames:
             reference_frames[key].append(result[key])
+        raw_draw_frames.append(result["raw_draws"])
 
     for key, rows in period_rows.items():
         SaveData(pd.DataFrame(rows), ["repo_name", "quasi_event_time"],
-                 outdir / f"{key}.parquet", outdir / f"{key}.log")
+                 residuals_outdir / f"{key}.parquet", residuals_outdir / f"{key}.log")
     for key, frames in reference_frames.items():
-        SaveData(pd.concat(frames, ignore_index=True), ["repo_name", "draw"],
-                 outdir / f"{key}.parquet", outdir / f"{key}.log")
+        SaveData(pd.concat(frames, ignore_index=True), ["repo_name", "quasi_event_time", "draw"],
+                 residuals_outdir / f"{key}.parquet", residuals_outdir / f"{key}.log")
+
+    SaveData(pd.concat(raw_draw_frames, ignore_index=True),
+             ["repo_name", "quasi_event_time", "draw_id"],
+             draws_outdir / "raw_draws.parquet", draws_outdir / "raw_draws.log")
 
 
 def ProcessRepo(repo_name, is_treated, dropout_set,
@@ -125,10 +135,19 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
         return None
 
     df_member = pd.read_parquet(member_path)
-    df_pre    = df_member[df_member["quasi_event_time"] < 0].copy()
-    pre_times = sorted(df_pre["quasi_event_time"].unique())
-    if len(pre_times) == 0:
+    df_repo_counts = (
+        df_member.groupby("quasi_event_time")[
+            ["repo_pull_request_opened", "repo_pull_request_reviewed",
+             "repo_pull_request_merged_direct", "repo_pull_request_merged_after_review"]
+        ].first().reset_index()
+    )
+    all_periods  = sorted(int(k) for k in df_repo_counts["quasi_event_time"])
+    pre_periods  = [k for k in all_periods if k < 0]
+    if len(pre_periods) == 0:
         return None
+    full_set_periods = [k for k in all_periods if k <= 0]   # member still present (incl. k=0)
+    post_periods     = [k for k in all_periods if k >= 1]
+    observed_by_period = {int(row["quasi_event_time"]): ExtractObserved(row) for _, row in df_repo_counts.iterrows()}
 
     dist_row = df_dist_repo.iloc[0]
     repo_distribution = dist_row["distribution_type"]
@@ -138,145 +157,114 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
         "negative_binomial_prob": dist_row["negative_binomial_prob"],
     }
 
-    # Stage-completion probabilities from full member set
-    prob_open, prob_review, prob_merge_direct, prob_merge_after_review = ComputeStageProbabilities(df_member_probs)
+    full_stage_probs = ComputeStageProbabilities(df_member_probs)
+    if is_treated:
+        post_stage_probs = ComputeStageProbabilities(df_member_probs[~df_member_probs["actor_id"].isin(dropout_set)])
+    else:
+        post_stage_probs = full_stage_probs
 
     rng = np.random.default_rng(int(hashlib.md5(repo_name.encode()).hexdigest()[:8], 16))
 
-    # --- InSample draws (reused for control post-period) ---
-    (opened_insample, reviewed_insample, direct_merge_insample,
-     reviewed_merge_insample, total_merge_insample) = DrawCounts(
-        repo_distribution, dist_params,
-        prob_open, prob_review, prob_merge_direct, prob_merge_after_review, N_MODEL_DRAWS, rng
-    )
+    # Two batched draws per repo: full-set block (k<=0) and post block (k>=1), reshaped to per-period blocks.
+    period_draws = {
+        **DrawPeriodBlock(repo_distribution, dist_params, full_stage_probs, full_set_periods, N_MODEL_DRAWS, rng),
+        **DrawPeriodBlock(repo_distribution, dist_params, post_stage_probs, post_periods, N_MODEL_DRAWS, rng),
+    }
+    period_stage_probs = {k: full_stage_probs for k in full_set_periods}
+    period_stage_probs.update({k: post_stage_probs for k in post_periods})
 
-    # --- InSample evaluation ---
-    df_repo_pre = (
-        df_pre.groupby("quasi_event_time")[
-            ["repo_pull_request_opened", "repo_pull_request_reviewed",
-             "repo_pull_request_merged_direct", "repo_pull_request_merged_after_review"]
-        ].first().reset_index()
-    )
-    insample_squared_per_period = []
-    insample_signed_list        = []
-    for _, repo_row in df_repo_pre.iterrows():
-        observed = ExtractObserved(repo_row)
-        squared_row = AllSquaredResiduals(observed, opened_insample, reviewed_insample,
-                                          direct_merge_insample, reviewed_merge_insample, total_merge_insample,
-                                          prob_review, prob_merge_direct, prob_merge_after_review, rng)
-        signed_row  = AllSignedResiduals(observed, opened_insample, reviewed_insample,
-                                         direct_merge_insample, reviewed_merge_insample, total_merge_insample)
-        insample_squared_per_period.append(squared_row)
-        insample_signed_list.append({"quasi_event_time": int(repo_row["quasi_event_time"]), **signed_row})
+    raw_draws = BuildRawDrawRows(repo_name, is_treated, all_periods, period_draws)
 
-    # --- LeaveOneOut evaluation ---
-    leaveoneout_squared_per_period = []
-    leaveoneout_signed_rows_repo   = []
-    leaveoneout_std_by_period      = []
-    if len(pre_times) >= 2:
-        for held_out_time in pre_times:
-            train_times = [t for t in pre_times if t != held_out_time]
-            df_train = df_pre[df_pre["quasi_event_time"].isin(train_times)]
-            df_repo_train = (
-                df_train.groupby("quasi_event_time")[
-                    ["repo_pull_request_opened", "repo_pull_request_reviewed",
-                     "repo_pull_request_merged_direct", "repo_pull_request_merged_after_review"]
-                ].first().reset_index()
-            )
-            counts_train = df_repo_train["repo_pull_request_opened"].values.astype(float)
-            dist_loo  = FitLatentDistribution(repo_name, counts_train, distribution_type)
-            probs_loo = FitMemberProbabilities(repo_name, df_train, df_repo_train, estimation_approach)
-            df_probs_loo = pd.DataFrame(probs_loo)
-            (prob_open_loo, prob_review_loo,
-             prob_merge_direct_loo, prob_merge_after_review_loo) = ComputeStageProbabilities(df_probs_loo)
-            dist_params_loo = {
-                "poisson_rate":           dist_loo["poisson_rate"],
-                "negative_binomial_size": dist_loo["negative_binomial_size"],
-                "negative_binomial_prob": dist_loo["negative_binomial_prob"],
-            }
+    insample_period_rows, insample_ref_blocks = ScorePeriods(repo_name, is_treated, pre_periods, observed_by_period, period_draws, period_stage_probs, rng)
+    post_period_rows,     post_ref_blocks     = ScorePeriods(repo_name, is_treated, post_periods, observed_by_period, period_draws, period_stage_probs, rng)
 
-            (opened_loo, reviewed_loo, direct_merge_loo,
-             reviewed_merge_loo, total_merge_loo) = DrawCounts(
-                dist_loo["distribution_type"], dist_params_loo,
-                prob_open_loo, prob_review_loo, prob_merge_direct_loo, prob_merge_after_review_loo, N_MODEL_DRAWS, rng
-            )
-            leaveoneout_std_by_period.append({
-                outcome: StandardizeDraws(draws) for outcome, draws in zip(
-                    OUTCOMES, [opened_loo, reviewed_loo, direct_merge_loo, reviewed_merge_loo, total_merge_loo])
-            })
-            held_row = df_repo_pre[df_repo_pre["quasi_event_time"] == held_out_time].iloc[0]
-            observed = ExtractObserved(held_row)
-            squared_row = AllSquaredResiduals(observed, opened_loo, reviewed_loo,
-                                              direct_merge_loo, reviewed_merge_loo, total_merge_loo,
-                                              prob_review_loo, prob_merge_direct_loo, prob_merge_after_review_loo, rng)
-            signed_row = AllSignedResiduals(observed, opened_loo, reviewed_loo,
-                                            direct_merge_loo, reviewed_merge_loo, total_merge_loo)
-            leaveoneout_squared_per_period.append(squared_row)
-            leaveoneout_signed_rows_repo.append({
-                "repo_name": repo_name, "quasi_event_time": int(held_out_time),
-                "is_treated": is_treated, **signed_row
-            })
-
-    # --- Post-period draws and evaluation ---
-    df_remaining = df_member_probs[~df_member_probs["actor_id"].isin(dropout_set)]
-    if is_treated:
-        (prob_open_cf, prob_review_cf,
-         prob_merge_direct_cf, prob_merge_after_review_cf) = ComputeStageProbabilities(df_remaining)
-        (opened_post, reviewed_post, direct_merge_post,
-         reviewed_merge_post, total_merge_post) = DrawCounts(
-            repo_distribution, dist_params,
-            prob_open_cf, prob_review_cf, prob_merge_direct_cf, prob_merge_after_review_cf, N_MODEL_DRAWS, rng
-        )
-    else:
-        # Reuse InSample draws for control (same parameters)
-        opened_post, reviewed_post, direct_merge_post, reviewed_merge_post, total_merge_post = (
-            opened_insample, reviewed_insample, direct_merge_insample, reviewed_merge_insample, total_merge_insample
-        )
-        prob_review_cf, prob_merge_direct_cf, prob_merge_after_review_cf = (
-            prob_review, prob_merge_direct, prob_merge_after_review
-        )
-
-    post_rows = []
-    post_signed_rows_repo = []
-    for t in POST_TIMES:
-        df_post = df_member[df_member["quasi_event_time"] == t]
-        if df_post.empty:
-            continue
-        obs_row = df_post.groupby("quasi_event_time")[
-            ["repo_pull_request_opened", "repo_pull_request_reviewed",
-             "repo_pull_request_merged_direct", "repo_pull_request_merged_after_review"]
-        ].first().iloc[0]
-        observed = ExtractObserved(obs_row)
-        squared_row = AllSquaredResiduals(observed, opened_post, reviewed_post,
-                                          direct_merge_post, reviewed_merge_post, total_merge_post,
-                                          prob_review_cf, prob_merge_direct_cf, prob_merge_after_review_cf, rng)
-        signed_row = AllSignedResiduals(observed, opened_post, reviewed_post,
-                                        direct_merge_post, reviewed_merge_post, total_merge_post)
-        post_rows.append({"repo_name": repo_name, "quasi_event_time": t, "is_treated": is_treated, **squared_row})
-        post_signed_rows_repo.append({"repo_name": repo_name, "quasi_event_time": t, "is_treated": is_treated, **signed_row})
-
-    # --- Per-period fit data and simulated-null reference (standardized model draws) ---
-    insample_draws = dict(zip(OUTCOMES, [opened_insample, reviewed_insample, direct_merge_insample,
-                                         reviewed_merge_insample, total_merge_insample]))
-    post_draws     = dict(zip(OUTCOMES, [opened_post, reviewed_post, direct_merge_post,
-                                         reviewed_merge_post, total_merge_post]))
-
-    insample_period_rows    = PeriodResidualRows(repo_name, is_treated, insample_signed_list, insample_squared_per_period)
-    leaveoneout_period_rows = PeriodResidualRows(repo_name, is_treated, leaveoneout_signed_rows_repo, leaveoneout_squared_per_period)
-    post_period_rows        = PeriodResidualRows(repo_name, is_treated, post_signed_rows_repo, post_rows)
-
-    insample_reference    = ReferenceFrame(repo_name, is_treated, [{o: StandardizeDraws(insample_draws[o]) for o in OUTCOMES}])
-    post_reference        = ReferenceFrame(repo_name, is_treated, [{o: StandardizeDraws(post_draws[o]) for o in OUTCOMES}])
-    leaveoneout_reference = ReferenceFrame(repo_name, is_treated, leaveoneout_std_by_period)
+    leaveoneout_period_rows, leaveoneout_ref_blocks = LeaveOneOutResiduals(
+        repo_name, is_treated, pre_periods, df_member, observed_by_period,
+        distribution_type, estimation_approach, rng)
 
     return {
-        "insample_period":      insample_period_rows,
-        "leaveoneout_period":   leaveoneout_period_rows,
-        "post_period":          post_period_rows,
-        "insample_reference":   insample_reference,
-        "leaveoneout_reference": leaveoneout_reference,
-        "post_reference":       post_reference,
+        "raw_draws":             raw_draws,
+        "insample_period":       insample_period_rows,
+        "leaveoneout_period":    leaveoneout_period_rows,
+        "post_period":           post_period_rows,
+        "insample_reference":    ReferenceFrame(repo_name, is_treated, insample_ref_blocks),
+        "leaveoneout_reference": ReferenceFrame(repo_name, is_treated, leaveoneout_ref_blocks),
+        "post_reference":        ReferenceFrame(repo_name, is_treated, post_ref_blocks),
     }
+
+
+def DrawPeriodBlock(repo_distribution, dist_params, stage_probs, periods, n_draws, rng):
+    if not periods:
+        return {}
+    total = len(periods) * n_draws
+    outcome_arrays = DrawCounts(repo_distribution, dist_params, *stage_probs, total, rng)
+    reshaped = [array.reshape(len(periods), n_draws) for array in outcome_arrays]
+    return {period: tuple(array[i] for array in reshaped) for i, period in enumerate(periods)}
+
+
+def BuildRawDrawRows(repo_name, is_treated, periods, period_draws):
+    frames = []
+    for period in periods:
+        opened, reviewed, direct_merge, reviewed_merge, total_merge = period_draws[period]
+        frames.append(pd.DataFrame({
+            "repo_name":                        repo_name,
+            "is_treated":                       is_treated,
+            "quasi_event_time":                 period,
+            "draw_id":                          np.arange(len(opened)),
+            "pull_request_opened":              opened,
+            "pull_request_reviewed":            reviewed,
+            "pull_request_merged_direct":       direct_merge,
+            "pull_request_merged_after_review": reviewed_merge,
+            "pull_request_merged":              total_merge,
+        }))
+    return pd.concat(frames, ignore_index=True)
+
+
+def ScorePeriods(repo_name, is_treated, periods, observed_by_period, period_draws, period_stage_probs, rng):
+    period_rows = []
+    reference_blocks = []
+    for period in periods:
+        observed = observed_by_period[period]
+        draws    = period_draws[period]
+        _, prob_review, prob_merge_direct, prob_merge_after_review = period_stage_probs[period]
+        squared_row = AllSquaredResiduals(observed, *draws, prob_review, prob_merge_direct, prob_merge_after_review, rng)
+        signed_row  = AllSignedResiduals(observed, *draws)
+        period_rows.append(PeriodRow(repo_name, is_treated, period, signed_row, squared_row))
+        reference_blocks.append((period, {outcome: StandardizeDraws(draw) for outcome, draw in zip(OUTCOMES, draws)}))
+    return period_rows, reference_blocks
+
+
+def LeaveOneOutResiduals(repo_name, is_treated, pre_periods, df_member, observed_by_period,
+                         distribution_type, estimation_approach, rng):
+    period_rows = []
+    reference_blocks = []
+    if len(pre_periods) < 2:
+        return period_rows, reference_blocks
+
+    df_pre = df_member[df_member["quasi_event_time"].isin(pre_periods)]
+    for held_out_time in pre_periods:
+        df_train = df_pre[df_pre["quasi_event_time"] != held_out_time]
+        df_repo_train = (
+            df_train.groupby("quasi_event_time")[
+                ["repo_pull_request_opened", "repo_pull_request_reviewed",
+                 "repo_pull_request_merged_direct", "repo_pull_request_merged_after_review"]
+            ].first().reset_index()
+        )
+        counts_train = df_repo_train["repo_pull_request_opened"].values.astype(float)
+        dist_loo  = FitLatentDistribution(repo_name, counts_train, distribution_type)
+        probs_loo = ComputeStageProbabilities(pd.DataFrame(FitMemberProbabilities(repo_name, df_train, df_repo_train, estimation_approach)))
+        dist_params_loo = {
+            "poisson_rate":           dist_loo["poisson_rate"],
+            "negative_binomial_size": dist_loo["negative_binomial_size"],
+            "negative_binomial_prob": dist_loo["negative_binomial_prob"],
+        }
+        draws = DrawCounts(dist_loo["distribution_type"], dist_params_loo, *probs_loo, N_MODEL_DRAWS, rng)
+        observed = observed_by_period[held_out_time]
+        squared_row = AllSquaredResiduals(observed, *draws, probs_loo[1], probs_loo[2], probs_loo[3], rng)
+        signed_row  = AllSignedResiduals(observed, *draws)
+        period_rows.append(PeriodRow(repo_name, is_treated, held_out_time, signed_row, squared_row))
+        reference_blocks.append((held_out_time, {outcome: StandardizeDraws(draw) for outcome, draw in zip(OUTCOMES, draws)}))
+    return period_rows, reference_blocks
 
 
 # ---------------------------------------------------------------------------
@@ -410,40 +398,34 @@ def StandardizeDraws(draws):
     return (np.asarray(draws, dtype=float) - float(np.mean(draws))) / std
 
 
-def ReferenceFrame(repo_name, is_treated, standardized_per_model):
-    """One row per model draw: the null signed residual (a standardized draw) per outcome.
-
-    standardized_per_model is a list of {outcome -> standardized draws}, one entry per model
-    (a single fit for in-sample/post; one per leave-one-out refit for LOO), stacked together."""
-    blocks = []
-    for standardized in standardized_per_model:
+def ReferenceFrame(repo_name, is_treated, blocks):
+    # blocks: list of (quasi_event_time, {outcome -> standardized draws or None}); one block per period.
+    frames = []
+    for quasi_event_time, standardized in blocks:
         length = max((len(v) for v in standardized.values() if v is not None), default=0)
         if length == 0:
             continue
-        blocks.append(pd.DataFrame({
+        block = pd.DataFrame({
             f"signed_std_residual_{outcome}": (np.full(length, np.nan) if draws is None else draws)
             for outcome, draws in standardized.items()
-        }))
-    frame = pd.concat(blocks, ignore_index=True) if blocks else pd.DataFrame(
-        {f"signed_std_residual_{outcome}": [] for outcome in OUTCOMES})
+        })
+        block.insert(0, "quasi_event_time", int(quasi_event_time))
+        block.insert(1, "draw", np.arange(length))
+        frames.append(block)
+    frame = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(
+        {"quasi_event_time": [], "draw": [], **{f"signed_std_residual_{outcome}": [] for outcome in OUTCOMES}})
     frame.insert(0, "repo_name", repo_name)
     frame.insert(1, "is_treated", is_treated)
-    frame.insert(2, "draw", range(len(frame)))
     return frame
 
 
-def PeriodResidualRows(repo_name, is_treated, signed_rows, squared_rows):
-    """One row per period with the signed residuals, squared residuals, and stage deltas for each outcome."""
-    rows = []
-    for signed_row, squared_row in zip(signed_rows, squared_rows):
-        rows.append({
-            "repo_name": repo_name, "is_treated": is_treated,
-            "quasi_event_time": signed_row["quasi_event_time"],
-            **{k: v for k, v in signed_row.items() if k.startswith("signed_std_residual_")},
-            **{k: v for k, v in squared_row.items()
-               if k.startswith("squared_std_residual_") or k.startswith("delta_squared_std_residual_")},
-        })
-    return rows
+def PeriodRow(repo_name, is_treated, quasi_event_time, signed_row, squared_row):
+    return {
+        "repo_name": repo_name, "is_treated": is_treated, "quasi_event_time": int(quasi_event_time),
+        **{k: v for k, v in signed_row.items() if k.startswith("signed_std_residual_")},
+        **{k: v for k, v in squared_row.items()
+           if k.startswith("squared_std_residual_") or k.startswith("delta_squared_std_residual_")},
+    }
 
 
 if __name__ == "__main__":

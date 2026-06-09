@@ -1,16 +1,17 @@
 File: output/analysis/model_prediction/opened_cohort/adaptive/residuals/pooled/important_degree_top3/exact_1_2/nevertreated/leaveoneout_reference.parquet
 
-MD5 hash: 24e6630df28b7b2f87a814a1a3b1b936
+MD5 hash: 8e0a2404fe96d4393079faf8eb6ede77
 
-Keys: repo_name draw 
+Keys: repo_name quasi_event_time draw 
 
-                                       type    count unique         mean          std       min       25%       50%       75%        max
-repo_name                            object  5775000   1158                                                                             
-draw                                  int64  5775000         2494.305195  1441.565752       0.0    1246.0    2493.0    3740.0     4999.0
-is_treated                             bool  5775000      2                                                                             
-signed_std_residual_open            float64  5775000                 0.0          1.0 -3.912724  -0.70996 -0.206267  0.530223  13.627997
-signed_std_residual_review          float64  5698000                -0.0          1.0 -3.732694 -0.706951 -0.217013  0.525651  14.522408
-signed_std_residual_direct_merge    float64  5017000                -0.0          1.0 -3.612772 -0.661721 -0.335641  0.492055  15.009876
-signed_std_residual_reviewed_merge  float64  5604000                -0.0          1.0 -3.519567 -0.702735 -0.243412   0.52814  14.602886
-signed_std_residual_total_merge     float64  5733000                 0.0          1.0 -3.884534 -0.702802 -0.223217  0.529487  13.600917
+                                       type    count unique      mean         std       min       25%       50%       75%        max
+repo_name                            object  5025000   1158                                                                         
+quasi_event_time                      int64  5025000        -5.292637    3.207739     -15.0      -7.0      -5.0      -3.0       -1.0
+draw                                  int64  5025000            249.5  144.337293       0.0    124.75     249.5    374.25      499.0
+is_treated                             bool  5025000      2                                                                         
+signed_std_residual_open            float64  5025000             -0.0         1.0 -3.288713 -0.697087 -0.246496  0.488484  15.754308
+signed_std_residual_review          float64  4994500             -0.0         1.0 -3.221337 -0.694261 -0.258102   0.48724  15.604841
+signed_std_residual_direct_merge    float64  4702000              0.0         1.0 -3.382823 -0.638877 -0.334299  0.428851  14.991099
+signed_std_residual_reviewed_merge  float64  4961500              0.0         1.0 -3.354567 -0.686725 -0.284807  0.483389  15.604841
+signed_std_residual_total_merge     float64  5012000              0.0         1.0 -3.275814 -0.694811  -0.26209  0.480435  15.754308
 

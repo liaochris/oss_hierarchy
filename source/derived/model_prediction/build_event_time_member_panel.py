@@ -130,7 +130,12 @@ def SeparateActionTypes(df_actions):
     is_review = df_actions["type"].str.startswith("pull request review") | (df_actions["type"] == "pull request comment")
     is_merge  = df_actions["type"] == "pull request merged"
 
-    df_opens   = df_actions[is_open  ][["quasi_event_time", "actor_id", "thread_number"]]
+    # HOTFIX: some threads carry "pull request opened" events from multiple distinct actors, which
+    # double-counts member opens against the repo's distinct-thread count and pushes sum(prob_open) > 1.
+    # Keep only the first opener per thread (earliest created_at). The real fix belongs upstream so every
+    # consumer of the action data is deduped consistently -- see HANDOFF.md.
+    df_opens   = (df_actions[is_open].sort_values("created_at")
+                  .drop_duplicates("thread_number")[["quasi_event_time", "actor_id", "thread_number"]])
     df_reviews = df_actions[is_review][["quasi_event_time", "actor_id", "thread_number"]]
     df_merges  = df_actions[is_merge ][["quasi_event_time", "actor_id", "thread_number"]]
 
