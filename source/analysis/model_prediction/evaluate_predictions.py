@@ -2,6 +2,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
+from matplotlib.lines import Line2D
+from matplotlib.offsetbox import TextArea, DrawingArea, HPacker, VPacker, AnnotationBbox
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -46,6 +48,11 @@ SQUARED_RESIDUAL_CLIP = 15
 SIGNED_RESIDUAL_CLIP  = 10
 DECOMP_PERCENT_CLIP   = 1200
 DECOMP_PERCENT_QUANTILE = 0.90
+
+MEDIAN_COLOR    = "#C0392B"
+MEAN_COLOR      = "#27AE60"
+REFERENCE_COLOR = "#1A1A1A"
+KS_LINE_COLOR   = "#8E44AD"
 
 
 def Main():
@@ -202,6 +209,9 @@ def DrawOverlay(ax, first, second, clip):
     if clip is not None:
         ax.set_xlim(-clip, clip)
     ks = ks_2samp(first.values, second.values)
+    ks_x = KSMaxDistanceLocation(first.values, second.values)
+    if ks_x is not None and (clip is None or -clip <= ks_x <= clip):
+        ax.axvline(ks_x, color=KS_LINE_COLOR, linestyle=":", linewidth=1.2, zorder=6)
     ax.text(0.97, 0.97, f"n={len(first)} / {len(second)}\nKS D={ks.statistic:.3f}\np={ks.pvalue:.3f}",
             transform=ax.transAxes, fontsize=7, va="top", ha="right",
             bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.7))
@@ -238,9 +248,15 @@ def ComparisonFigure(outpath, df_leaveoneout, df_post):
             if j == 0:
                 ax.set_ylabel(row_title, fontsize=9)
 
+    comparison_handles = [
+        Line2D([0], [0], color="#1F3A5F",     linestyle="-",  linewidth=1.4, label="First-group median"),
+        Line2D([0], [0], color="#A0522D",     linestyle="--", linewidth=1.4, label="Second-group median"),
+        Line2D([0], [0], color=KS_LINE_COLOR, linestyle=":",  linewidth=1.4, label="Max KS distance"),
+    ]
+    fig.legend(handles=comparison_handles, loc="lower center", ncol=3, fontsize=9, frameon=False)
     fig.suptitle("Residual-distribution comparisons (per-org mean signed residual, density-normalized; "
                  "first group = blue/solid median, second = orange/dashed median)", fontsize=11)
-    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    fig.tight_layout(rect=(0, 0.03, 1, 0.96))
     fig.savefig(outpath, dpi=150)
     plt.close(fig)
 
@@ -294,15 +310,37 @@ def DecompPct(df, stage):
     return df[f"delta_squared_std_residual_{stage}"] / total * 100
 
 
-def KSNote(vals, reference):
+def KSSummary(vals, reference):
     if reference is None:
-        return ""
+        return None
     reference = np.asarray(reference, dtype=float)
     reference = reference[~np.isnan(reference)]
     if len(vals) < 3 or len(reference) < 3:
-        return ""
-    ks = ks_2samp(vals.values, reference)
-    return f"\nKS D={ks.statistic:.3f} p={ks.pvalue:.3f}"
+        return None
+    statistic = float(ks_2samp(vals.values, reference).statistic)
+    location  = KSMaxDistanceLocation(vals.values, reference)
+    return statistic, location
+
+
+def KSMaxDistanceLocation(sample_a, sample_b):
+    sample_a = np.sort(np.asarray(sample_a, dtype=float))
+    sample_b = np.sort(np.asarray(sample_b, dtype=float))
+    sample_a = sample_a[~np.isnan(sample_a)]
+    sample_b = sample_b[~np.isnan(sample_b)]
+    if len(sample_a) < 3 or len(sample_b) < 3:
+        return None
+    grid = np.concatenate([sample_a, sample_b])
+    cdf_a = np.searchsorted(sample_a, grid, side="right") / len(sample_a)
+    cdf_b = np.searchsorted(sample_b, grid, side="right") / len(sample_b)
+    return float(grid[np.argmax(np.abs(cdf_a - cdf_b))])
+
+
+def DistributionLegendHandles(include_reference):
+    # Median/Mean/Max-KS are keyed by swatches inside each subplot's stats box; the bottom legend
+    # only needs the black KDE reference curve, which has no box entry.
+    if not include_reference:
+        return []
+    return [Line2D([0], [0], color=REFERENCE_COLOR, linestyle="-", linewidth=1.3, label="Model null (KDE)")]
 
 
 def DrawDistribution(ax, vals, clip, edge_lw=0.4):
@@ -329,24 +367,45 @@ def DrawDistribution(ax, vals, clip, edge_lw=0.4):
     median_val, mean_val = float(vals.median()), float(vals.mean())
     ax.axvspan(p25, p75, alpha=0.12, color="#888888", label=f"IQR  [{FormatStat(p25, 1)}, {FormatStat(p75, 1)}]")
     if clip is None or -clip <= median_val <= clip:
-        ax.axvline(median_val, color="#C0392B", linewidth=1.6, linestyle="-", zorder=5,
+        ax.axvline(median_val, color=MEDIAN_COLOR, linewidth=1.6, linestyle="-", zorder=5,
                    label=f"Median = {FormatStat(median_val, 1)}")
     if clip is None or -clip <= mean_val <= clip:
-        ax.axvline(mean_val, color="#27AE60", linewidth=1.6, linestyle="--", zorder=5,
+        ax.axvline(mean_val, color=MEAN_COLOR, linewidth=1.6, linestyle="--", zorder=5,
                    label=f"Mean = {FormatStat(mean_val, 1)}")
     return n_lo + n_hi
 
 
-def StatsText(vals, clip, n_trunc, reference=None):
-    lines = [
-        f"n={len(vals)}",
-        f"Mean={FormatStat(float(vals.mean()))}",
-        f"Med={FormatStat(float(vals.median()))}",
-        f"95%=[{FormatStat(float(vals.quantile(0.025)))},{FormatStat(float(vals.quantile(0.975)))}]",
+def StatsSegments(vals, clip, n_trunc, reference=None):
+    # each segment is (text, line) where line is (color, linestyle) for a swatch, or None for plain text
+    segments = [
+        (f"n={len(vals)}", None),
+        (f"Mean={FormatStat(float(vals.mean()))}", (MEAN_COLOR, "--")),
+        (f"Med={FormatStat(float(vals.median()))}", (MEDIAN_COLOR, "-")),
+        (f"95%=[{FormatStat(float(vals.quantile(0.025)))},{FormatStat(float(vals.quantile(0.975)))}]", None),
     ]
     if clip is not None:
-        lines.append(f"|x|>{clip}: {n_trunc}")
-    return "\n".join(lines) + KSNote(vals, reference)
+        segments.append((f"|x|>{clip}: {n_trunc}", None))
+    ks = KSSummary(vals, reference)
+    if ks is not None:
+        statistic, location = ks
+        segments.append((f"KS D={statistic:.3f} @ x={location:.2f}", (KS_LINE_COLOR, ":")))
+    return segments
+
+
+def DrawStatsBox(ax, segments):
+    rows = []
+    for text, line in segments:
+        swatch = DrawingArea(20, 8, 0, 0)
+        if line is not None:
+            color, linestyle = line
+            swatch.add_artist(Line2D([1, 19], [4, 4], color=color, linestyle=linestyle, linewidth=1.6))
+        rows.append(HPacker(children=[swatch, TextArea(text, textprops=dict(color="black", size=7))],
+                            align="center", pad=0, sep=3))
+    packed = VPacker(children=rows, align="left", pad=0, sep=1)
+    box = AnnotationBbox(packed, (0.985, 0.985), xycoords="axes fraction", box_alignment=(1, 1),
+                         frameon=True, pad=0.3,
+                         bboxprops=dict(facecolor="white", alpha=0.7, edgecolor="0.7", linewidth=0.5))
+    ax.add_artist(box)
 
 
 def OverlayReferenceKde(ax, reference, n_in_range, clip):
@@ -359,7 +418,7 @@ def OverlayReferenceKde(ax, reference, n_in_range, clip):
     kde = KDEUnivariate(reference)
     kde.fit(kernel="gau", bw="scott", fft=True, gridsize=512)
     hist_width = clip * 2 / 25 if clip is not None else (reference.max() - reference.min()) / 25
-    ax.plot(kde.support, kde.density * n_in_range * hist_width, color="#1A1A1A", linewidth=1.3, zorder=6)
+    ax.plot(kde.support, kde.density * n_in_range * hist_width, color=REFERENCE_COLOR, linewidth=1.3, zorder=6)
 
 
 def PlotPanelSubplot(ax, vals, title="", xlabel="", clip=None, reference=None):
@@ -369,9 +428,10 @@ def PlotPanelSubplot(ax, vals, title="", xlabel="", clip=None, reference=None):
     n_trunc = DrawDistribution(ax, vals, clip)
     if reference is not None:
         OverlayReferenceKde(ax, reference, len(vals) - n_trunc, clip)
-    ax.text(0.97, 0.97, StatsText(vals, clip, n_trunc, reference), transform=ax.transAxes,
-            fontsize=7, va="top", ha="right",
-            bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.7))
+        ks_x = KSMaxDistanceLocation(vals.values, reference)
+        if ks_x is not None and (clip is None or -clip <= ks_x <= clip):
+            ax.axvline(ks_x, color=KS_LINE_COLOR, linestyle=":", linewidth=1.4, zorder=7)
+    DrawStatsBox(ax, StatsSegments(vals, clip, n_trunc, reference))
     ax.set_title(title, fontsize=9)
     if xlabel:
         ax.set_xlabel(xlabel, fontsize=8)
@@ -419,8 +479,14 @@ def RenderPanelGrid(outpath, cell_grid, hard_cap,
                 ax.set_title(title, fontsize=9)
                 continue
             PlotPanelSubplot(ax, series, title, xlabel=xlabel, clip=shared_clip, reference=reference)
+    include_reference = any(cell[2] is not None for row in cell_grid for cell in row)
+    handles = DistributionLegendHandles(include_reference)
+    bottom_margin = 0.0
+    if handles:
+        fig.legend(handles=handles, loc="lower center", ncol=len(handles), fontsize=9, frameon=False)
+        bottom_margin = 0.03
     fig.suptitle(suptitle, fontsize=suptitle_fontsize)
-    fig.tight_layout(rect=(0, 0, 1, 0.97))
+    fig.tight_layout(rect=(0, bottom_margin, 1, 0.97))
     fig.savefig(outpath, dpi=150)
     plt.close(fig)
 
