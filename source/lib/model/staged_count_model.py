@@ -1,5 +1,7 @@
 import numpy as np
 
+PROB_SUM_TOLERANCE = 1e-6
+
 
 # ---------------------------------------------------------------------------
 # Distribution fitting
@@ -114,3 +116,54 @@ def FitMemberProbabilitiesPerPeriod(repo_name, df_pre_period, df_repo_counts):
             "prob_merge_after_review": float(np.mean(ratios["prob_merge_after_review"])) if ratios["prob_merge_after_review"] else 0.0,
         })
     return rows
+
+
+# ---------------------------------------------------------------------------
+# Stage probabilities and simulation draws (shared by the residual prediction
+# pipeline and the event-study simulation)
+# ---------------------------------------------------------------------------
+
+def ComputeStageProbabilities(df_member_probs):
+    prob_open = float(df_member_probs["prob_open"].sum())
+    assert -PROB_SUM_TOLERANCE <= prob_open <= 1.0 + PROB_SUM_TOLERANCE, f"prob_open sum out of [0, 1]: {prob_open}"
+    prob_review             = 1.0 - float(np.prod(1.0 - df_member_probs["prob_review"].values))
+    prob_merge_direct       = float(df_member_probs["prob_merge_direct"].sum())
+    prob_merge_after_review = float(df_member_probs["prob_merge_after_review"].sum())
+    return prob_open, prob_review, prob_merge_direct, prob_merge_after_review
+
+
+def DrawCounts(distribution_type, dist_params,
+               prob_open, prob_review, prob_merge_direct, prob_merge_after_review, n_draws, rng):
+    """Draw n_draws outcome vectors from the model DGP via sequential multinomial decomposition."""
+    # Latent problem count
+    if distribution_type == "poisson":
+        latent_problem_count_draw = rng.poisson(dist_params["poisson_rate"], n_draws)
+    elif distribution_type == "negative_binomial":
+        latent_problem_count_draw = rng.negative_binomial(
+            dist_params["negative_binomial_size"], dist_params["negative_binomial_prob"], n_draws
+        )
+    else:
+        raise ValueError(f"Unknown distribution_type for DrawCounts: {distribution_type}")
+
+    # Stage 1: opened
+    prob_open = np.clip(prob_open, 0.0, 1.0)
+    pull_request_opened_draw = rng.binomial(latent_problem_count_draw, prob_open)
+
+    # Stage 2: review vs direct-merge vs exit (sequential multinomial decomposition)
+    prob_review = np.clip(prob_review, 0.0, 1.0)
+    pull_request_reviewed_draw = rng.binomial(pull_request_opened_draw, prob_review)
+    remaining = pull_request_opened_draw - pull_request_reviewed_draw
+    if prob_review < 1.0:
+        conditional_direct_merge_prob = np.clip(prob_merge_direct / (1.0 - prob_review), 0.0, 1.0)
+    else:
+        conditional_direct_merge_prob = 0.0
+    pull_request_merged_directly_draw = rng.binomial(remaining, conditional_direct_merge_prob)
+
+    # Stage 3: merge after review
+    prob_merge_after_review = np.clip(prob_merge_after_review, 0.0, 1.0)
+    pull_request_merged_reviewed_draw = rng.binomial(pull_request_reviewed_draw, prob_merge_after_review)
+
+    pull_request_merged_total_draw = pull_request_merged_directly_draw + pull_request_merged_reviewed_draw
+    return (pull_request_opened_draw, pull_request_reviewed_draw,
+            pull_request_merged_directly_draw, pull_request_merged_reviewed_draw,
+            pull_request_merged_total_draw)

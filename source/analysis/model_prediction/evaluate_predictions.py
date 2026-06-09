@@ -2,16 +2,17 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
-import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from itertools import product
+from joblib import Parallel, delayed
 from scipy.stats import ks_2samp
 from statsmodels.nonparametric.kde import KDEUnivariate
 
-from source.lib.python.config_loaders import LoadPipelineInputs, LoadModelPredictionConfig
+from source.lib.python.config_loaders import LoadGlobalSettings, LoadPipelineInputs, LoadModelPredictionConfig
 
+GLOBAL_SETTINGS         = LoadGlobalSettings()
 MODEL_PREDICTION_CONFIG = LoadModelPredictionConfig()
 CONFIG                  = LoadPipelineInputs()
 
@@ -21,6 +22,7 @@ VARIANTS              = MODEL_PREDICTION_CONFIG["variants"]["run"]
 DISTRIBUTION_TYPES    = MODEL_PREDICTION_CONFIG["distribution_types"]["run"]
 ESTIMATION_APPROACHES = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"]
 EVALUATION_FIGURES    = MODEL_PREDICTION_CONFIG["evaluation_figures"]["run"]
+N_JOBS                = GLOBAL_SETTINGS["n_jobs"]
 
 OUTCOMES = ["open", "review", "direct_merge", "reviewed_merge", "total_merge"]
 STAGES   = ["open", "review", "direct_merge", "reviewed_merge"]
@@ -51,14 +53,16 @@ def Main():
     qualified_samples = CONFIG["qualified_samples"]["run"]
     control_groups    = CONFIG["control_groups"]["run"]
 
-    for variant, distribution_type, estimation_approach, importance_type, qualified_sample, control_group in product(
-        VARIANTS, DISTRIBUTION_TYPES, ESTIMATION_APPROACHES,
-        importance_types, qualified_samples, control_groups
-    ):
-        RunCombination(
+    Parallel(n_jobs=N_JOBS)(
+        delayed(RunCombination)(
             variant, distribution_type, estimation_approach,
             importance_type, qualified_sample, control_group
         )
+        for variant, distribution_type, estimation_approach, importance_type, qualified_sample, control_group in product(
+            VARIANTS, DISTRIBUTION_TYPES, ESTIMATION_APPROACHES,
+            importance_types, qualified_samples, control_groups
+        )
+    )
 
 
 def RunCombination(variant, distribution_type, estimation_approach,
@@ -234,12 +238,10 @@ def ComparisonFigure(outpath, df_leaveoneout, df_post):
             if j == 0:
                 ax.set_ylabel(row_title, fontsize=9)
 
-    legend = [mpatches.Patch(color="#3A5F8A", alpha=0.5, label="first group (solid median)"),
-              mpatches.Patch(color="#E67E22", alpha=0.5, label="second group (dashed median)")]
-    fig.legend(handles=legend, loc="upper right", frameon=False, fontsize=9)
-    fig.suptitle("Residual-distribution comparisons (per-org mean signed residual, density-normalized)", fontsize=12, y=1.01)
-    fig.tight_layout()
-    fig.savefig(outpath, dpi=150, bbox_inches="tight")
+    fig.suptitle("Residual-distribution comparisons (per-org mean signed residual, density-normalized; "
+                 "first group = blue/solid median, second = orange/dashed median)", fontsize=11)
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    fig.savefig(outpath, dpi=150)
     plt.close(fig)
 
 
@@ -398,7 +400,7 @@ def PlotErrorDistribution(series, xlabel, outpath, clip=None):
     ax.spines[["top", "right"]].set_visible(False)
     ax.tick_params(labelsize=9)
     fig.tight_layout()
-    fig.savefig(outpath, dpi=150, bbox_inches="tight")
+    fig.savefig(outpath, dpi=150)
     plt.close(fig)
 
 

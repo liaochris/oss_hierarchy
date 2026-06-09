@@ -47,7 +47,7 @@ for variant, distribution_type, estimation_approach, (imp, qs, cg) in product(
 env.Python(
     fit_targets,
     ['#source/analysis/model_prediction/fit_model.py',
-     '#source/analysis/model_prediction/model_fitting_utils.py',
+     '#source/lib/model/staged_count_model.py',
      '#source/lib/config/model_prediction.json']
     + shared_deps + panel_sources + member_panel_hash,
 )
@@ -72,7 +72,7 @@ for variant, distribution_type, estimation_approach, (imp, qs, cg) in product(
 env.Python(
     predict_targets,
     ['#source/analysis/model_prediction/predict_model.py',
-     '#source/analysis/model_prediction/model_fitting_utils.py',
+     '#source/lib/model/staged_count_model.py',
      '#source/lib/config/model_prediction.json',
      '#source/lib/config/global_settings.json',
      '#source/lib/config/analysis_parameters.json']

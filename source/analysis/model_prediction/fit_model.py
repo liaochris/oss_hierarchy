@@ -6,7 +6,7 @@ from itertools import product
 from source.lib.python.config_loaders import LoadPipelineInputs, LoadModelPredictionConfig
 from source.lib.python.repo_utils import MakeRepoNameSafe
 from source.lib.JMSLab.SaveData import SaveData
-from source.analysis.model_prediction.model_fitting_utils import (
+from source.lib.model.staged_count_model import (
     FitLatentDistribution, FitMemberProbabilities
 )
 
