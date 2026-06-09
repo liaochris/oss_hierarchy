@@ -7,7 +7,8 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from itertools import product
-from scipy.stats import ks_2samp, gaussian_kde
+from scipy.stats import ks_2samp
+from statsmodels.nonparametric.kde import KDEUnivariate
 
 from source.lib.python.config_loaders import LoadPipelineInputs, LoadModelPredictionConfig
 
@@ -43,8 +44,6 @@ SQUARED_RESIDUAL_CLIP = 15
 SIGNED_RESIDUAL_CLIP  = 10
 DECOMP_PERCENT_CLIP   = 1200
 DECOMP_PERCENT_QUANTILE = 0.90
-REFERENCE_SAMPLE_SIZE = 20000
-REFERENCE_RNG         = np.random.default_rng(0)
 
 
 def Main():
@@ -355,10 +354,10 @@ def OverlayReferenceKde(ax, reference, n_in_range, clip):
         reference = reference[(reference >= -clip) & (reference <= clip)]
     if len(reference) < 5 or np.std(reference) == 0 or n_in_range <= 0:
         return
-    grid = np.linspace(reference.min(), reference.max(), 200)
-    bin_width = clip * 2 / 25 if clip is not None else (grid[-1] - grid[0]) / 25
-    ax.plot(grid, gaussian_kde(reference)(grid) * n_in_range * bin_width,
-            color="#1A1A1A", linewidth=1.3, zorder=6)
+    kde = KDEUnivariate(reference)
+    kde.fit(kernel="gau", bw="scott", fft=True, gridsize=512)
+    hist_width = clip * 2 / 25 if clip is not None else (reference.max() - reference.min()) / 25
+    ax.plot(kde.support, kde.density * n_in_range * hist_width, color="#1A1A1A", linewidth=1.3, zorder=6)
 
 
 def PlotPanelSubplot(ax, vals, title="", xlabel="", clip=None, reference=None):
@@ -418,9 +417,9 @@ def RenderPanelGrid(outpath, cell_grid, hard_cap,
                 ax.set_title(title, fontsize=9)
                 continue
             PlotPanelSubplot(ax, series, title, xlabel=xlabel, clip=shared_clip, reference=reference)
-    fig.suptitle(suptitle, fontsize=suptitle_fontsize, y=1.01)
-    fig.tight_layout()
-    fig.savefig(outpath, dpi=150, bbox_inches="tight")
+    fig.suptitle(suptitle, fontsize=suptitle_fontsize)
+    fig.tight_layout(rect=(0, 0, 1, 0.97))
+    fig.savefig(outpath, dpi=150)
     plt.close(fig)
 
 
