@@ -2,6 +2,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
+import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -24,11 +25,11 @@ OUTCOMES = ["open", "review", "direct_merge", "reviewed_merge", "total_merge"]
 STAGES   = ["open", "review", "direct_merge", "reviewed_merge"]
 
 OUTCOME_LABELS = {
-    "open":           r"$N^o$",
-    "review":         r"$N^r$",
-    "direct_merge":   r"$N^{m|o}$",
-    "reviewed_merge": r"$N^{m|r}$",
-    "total_merge":    r"$N^m$",
+    "open":           "Opened",
+    "review":         "Reviewed",
+    "direct_merge":   "Direct merged",
+    "reviewed_merge": "Reviewed merged",
+    "total_merge":    "Total merged",
 }
 STAGE_LABELS = {
     "open":           "Open",
@@ -42,6 +43,8 @@ SQUARED_RESIDUAL_CLIP = 15
 SIGNED_RESIDUAL_CLIP  = 10
 DECOMP_PERCENT_CLIP   = 1200
 DECOMP_PERCENT_QUANTILE = 0.90
+REFERENCE_SAMPLE_SIZE = 20000
+REFERENCE_RNG         = np.random.default_rng(0)
 
 
 def Main():
@@ -101,6 +104,8 @@ def RunCombination(variant, distribution_type, estimation_approach,
     ]
     for name, df_residuals, title in decomp_panels:
         SquaredDecompPanel(panels_squared / f"{name}.png", df_residuals, title)
+
+    ComparisonFigure(base_out / "panels" / "comparisons.png", df_leaveoneout, df_post)
 
     if "individual" in EVALUATION_FIGURES:
         PlotIndividual(base_out, {"InSample": df_insample, "LeaveOneOut": df_leaveoneout, "Post-Period": df_post})
@@ -179,6 +184,64 @@ def PostSquaredFitPanel(outpath, df_post, df_post_reference, df_leaveoneout, tit
         clip=SQUARED_RESIDUAL_CLIP,
         ref_cols=ref_cols, ref_getter=lambda df, o: df[f"reference_squared_{o}"],
     )
+
+
+def DrawOverlay(ax, first, second, clip):
+    first, second = first.dropna(), second.dropna()
+    if len(first) == 0 or len(second) == 0:
+        return
+    hist_range = (-clip, clip) if clip is not None else None
+    for series, fill, median_color, dash in [(first, "#3A5F8A", "#1F3A5F", "-"),
+                                             (second, "#E67E22", "#A0522D", "--")]:
+        ax.hist(series.clip(-clip, clip) if clip is not None else series, bins=25, range=hist_range,
+                density=True, alpha=0.5, color=fill, edgecolor="white", linewidth=0.3)
+        ax.axvline(float(series.median()), color=median_color, linewidth=1.2, linestyle=dash, zorder=5)
+    if clip is not None:
+        ax.set_xlim(-clip, clip)
+    ks = ks_2samp(first.values, second.values)
+    ax.text(0.97, 0.97, f"n={len(first)} / {len(second)}\nKS D={ks.statistic:.3f}\np={ks.pvalue:.3f}",
+            transform=ax.transAxes, fontsize=7, va="top", ha="right",
+            bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.7))
+    ax.yaxis.set_major_locator(mticker.MaxNLocator(3))
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.tick_params(labelsize=7)
+
+
+def PerOrgMeanResiduals(df):
+    return df.groupby("repo_name")[[f"signed_std_residual_{o}" for o in OUTCOMES]].mean()
+
+
+def ComparisonFigure(outpath, df_leaveoneout, df_post):
+    loo, post = SplitGroups(df_leaveoneout), SplitGroups(df_post)
+    comparisons = [
+        ("Treated pre-LOO vs control post", PerOrgMeanResiduals(loo["treated"]),  PerOrgMeanResiduals(post["control"])),
+        ("Pre-LOO: treated vs control",     PerOrgMeanResiduals(loo["treated"]),  PerOrgMeanResiduals(loo["control"])),
+        ("Post: treated vs control",        PerOrgMeanResiduals(post["treated"]), PerOrgMeanResiduals(post["control"])),
+    ]
+    all_series = [df[f"signed_std_residual_{o}"].dropna()
+                  for _, first, second in comparisons for df in (first, second) for o in OUTCOMES]
+    clip = SharedDisplayBound(all_series, SIGNED_RESIDUAL_CLIP)
+
+    fig, axes = plt.subplots(len(comparisons), len(OUTCOMES),
+                             figsize=(4 * len(OUTCOMES), 3.3 * len(comparisons)), squeeze=False)
+    for i, (row_title, first, second) in enumerate(comparisons):
+        for j, outcome in enumerate(OUTCOMES):
+            ax = axes[i][j]
+            DrawOverlay(ax, first[f"signed_std_residual_{outcome}"], second[f"signed_std_residual_{outcome}"], clip)
+            if i == 0:
+                ax.set_title(OUTCOME_LABELS[outcome], fontsize=10)
+            if i == len(comparisons) - 1:
+                ax.set_xlabel(SIGNED_AXIS_LABEL, fontsize=8)
+            if j == 0:
+                ax.set_ylabel(row_title, fontsize=9)
+
+    legend = [mpatches.Patch(color="#3A5F8A", alpha=0.5, label="first group (solid median)"),
+              mpatches.Patch(color="#E67E22", alpha=0.5, label="second group (dashed median)")]
+    fig.legend(handles=legend, loc="upper right", frameon=False, fontsize=9)
+    fig.suptitle("Residual-distribution comparisons (per-org mean signed residual, density-normalized)", fontsize=12, y=1.01)
+    fig.tight_layout()
+    fig.savefig(outpath, dpi=150, bbox_inches="tight")
+    plt.close(fig)
 
 
 def SquaredDecompPanel(outpath, residuals, title):

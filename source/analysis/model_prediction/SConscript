@@ -115,6 +115,8 @@ for variant, distribution_type, estimation_approach, (imp, qs, cg) in product(
         evaluate_targets.append(f'{base}/panels/squared/{name}')
     for name in signed_panel_names:
         evaluate_targets.append(f'{base}/panels/signed/{name}')
+    evaluate_targets.append(f'{base}/panels/comparisons.png')
+    evaluate_targets.append(f'{base}/panels/comparisons.png')
     if "individual" in evaluation_figures:
         for group in ["treated", "control"]:
             for name in indiv_squared_names:
