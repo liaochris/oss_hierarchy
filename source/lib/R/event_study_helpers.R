@@ -212,7 +212,7 @@ PlotEventStudyBatch <- function(plot_specs) {
 
 PlotEventStudyComparison <- function(es_list, legend_title = NULL, legend_labels = NULL,
                                      title = "", add_comparison = TRUE, add_pretrends = TRUE,
-                                     ylim = NULL) {
+                                     ylim = NULL, pt_pch = NULL, ci_bounds = NULL) {
   old_par <- par(no.readonly = TRUE)
   on.exit(par(old_par), add = TRUE)
 
@@ -223,24 +223,46 @@ PlotEventStudyComparison <- function(es_list, legend_title = NULL, legend_labels
     return(invisible(NULL))
   }
 
+  # Series given explicit ci_bounds are drawn as points (sd -> 0) and their exact
+  # [ci_low, ci_high] interval is overlaid below; series without bounds use estimate +/- 1.96*sd.
+  # The original sd is retained on coef_mats so pretrend/Wald tests still use it.
+  plot_mats <- coef_mats
+  if (!is.null(ci_bounds)) {
+    for (i in seq_along(plot_mats)) {
+      if (!is.null(ci_bounds[[i]])) plot_mats[[i]][, "sd"] <- 0
+    }
+  }
+
   keep_pattern <- paste0("^-[1-", abs(MIN_EVENT_TIME), "]|[0-", MAX_EVENT_TIME, "]")
   event_order  <- as.character(c(MIN_EVENT_TIME:-1, 0:MAX_EVENT_TIME))
 
   par(bg = "white", oma = c(0,0,0,0), mar = c(3.2,4,1.2,1.2), xaxs = "r", yaxs = "r",
       mgp = c(3,1.5,0), cex.axis = 1.5, cex.lab = 1.5, las = 1)
 
-  plot_args <- list(object = coef_mats, multi = TRUE, xlab = "Event time (k)", ylab = "",
+  plot_args <- list(object = plot_mats, multi = TRUE, xlab = "Event time (k)", ylab = "",
     main = title, keep = keep_pattern, drop = "[[:digit:]]{2}", order = event_order,
     xaxt = "n", yaxt = "n", grid = FALSE)
   if (!is.null(ylim)) plot_args$ylim <- ylim
-  do.call(fixest::coefplot, plot_args)
+  if (!is.null(pt_pch)) plot_args$pt.pch <- pt_pch
+  plot_prms <- do.call(fixest::coefplot, plot_args)$prms
+
+  if (!is.null(ci_bounds)) {
+    for (i in seq_along(ci_bounds)) {
+      bounds <- ci_bounds[[i]]
+      if (is.null(bounds)) next
+      series_pts <- plot_prms[plot_prms$id == i, , drop = FALSE]
+      labels     <- as.character(series_pts$estimate_names)
+      segments(series_pts$x, bounds[labels, "ci_low"], series_pts$x, bounds[labels, "ci_high"],
+               col = i, lwd = 1.5)
+    }
+  }
 
   if (!is.null(legend_labels)) {
     par(xpd = NA)
     legend("top", legend = legend_labels, title = legend_title, horiz = TRUE,
            ncol = ceiling(length(legend_labels) / 2) + 1, bty = "o", box.lwd = 0.8,
            box.col = "grey40", bg = "white", xjust = 0.5, col = seq_along(coef_mats),
-           pch = 20, lwd = 1, lty = seq_along(coef_mats), cex = 1.0)
+           pch = if (is.null(pt_pch)) 20 else pt_pch, lwd = 1, lty = seq_along(coef_mats), cex = 1.0)
     par(xpd = FALSE)
   }
 
@@ -265,12 +287,14 @@ PlotEventStudyComparison <- function(es_list, legend_title = NULL, legend_labels
 
   if (add_pretrends) {
     pretrend_p    <- vapply(coef_mats, TestPretrends, numeric(1))
-    pretrend_strings <- ifelse(pretrend_p < 0.001, "p-value < 0.001", sprintf("p-value: %.3f", pretrend_p))
-    pretrend_label  <- if (length(coef_mats) == 1) {
+    keep_pretrend <- !is.na(pretrend_p)
+    pretrend_strings <- ifelse(pretrend_p[keep_pretrend] < 0.001, "p-value < 0.001",
+                               sprintf("p-value: %.3f", pretrend_p[keep_pretrend]))
+    pretrend_label  <- if (sum(keep_pretrend) == 1 && is.null(legend_labels)) {
       paste0("Pretrend ", pretrend_strings)
     } else {
-      paste(paste0("Pretrend (", legend_labels, ") ", pretrend_strings), collapse = "\n")
+      paste(paste0("Pretrend (", legend_labels[keep_pretrend], ") ", pretrend_strings), collapse = "\n")
     }
-    mtext(pretrend_label, side = 1, line = -3.2, at = x_left, adj = 0, cex = 1.4)
+    if (sum(keep_pretrend) > 0) mtext(pretrend_label, side = 1, line = -3.2, at = x_left, adj = 0, cex = 1.4)
   }
 }
