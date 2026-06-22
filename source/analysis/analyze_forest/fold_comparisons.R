@@ -33,18 +33,17 @@ Main <- function() {
               arrange(-att_doubly_robust_mean) %>%
               mutate(rank = row_number())
 
-            fold_summaries <- BuildFoldSummaries(
+            fold_forest_outputs <- CollectFoldForestOutputs(
               forest_results_data$sub_dfs, sub_bins, pc_score_cols,
               importance_type, rolling_panel, control_group, norm_label
             )
+            fold_summaries <- fold_forest_outputs$fold_summaries
             if (length(fold_summaries) == 0) next
 
             PlotCrossForestGrid(pc_combo_att_summary, fold_summaries, pc_score_cols, outdir_ds)
             ComputeFoldCorrelations(pc_combo_att_summary, fold_summaries, pc_score_cols, outdir_ds)
 
-            agg_fold_paths <- unlist(lapply(names(forest_results_data$sub_dfs), function(s)
-              FoldRdsPaths(importance_type, rolling_panel, s, control_group, norm_label)))
-            ExportVariableImportanceTex(agg_fold_paths, outdir_ds)
+            ExportVariableImportanceTex(fold_forest_outputs$variable_importance_rows, outdir_ds)
 
             binary_forest_paths <- vapply(names(forest_results_data$sub_dfs), function(s)
               FullSampleBinaryRdsPath(importance_type, rolling_panel, s, control_group, norm_label), character(1))
@@ -57,23 +56,31 @@ Main <- function() {
   invisible(NULL)
 }
 
-BuildFoldSummaries <- function(sub_dfs, sub_bins, pc_score_cols,
-                               importance_type, rolling_panel, control_group, norm_label) {
-  lapply(seq_len(N_FOLDS), function(fold_i) {
-    fold_rows <- Map(function(s, sub_cont, sub_bin) {
-      path   <- FoldRdsPaths(importance_type, rolling_panel, s, control_group, norm_label)[fold_i]
-      forest <- tryCatch(readRDS(path), error = function(e) NULL)
-      if (is.null(forest)) return(NULL)
+CollectFoldForestOutputs <- function(sub_dfs, sub_bins, pc_score_cols,
+                                     importance_type, rolling_panel, control_group, norm_label) {
+  fold_rows_by_fold        <- vector("list", N_FOLDS)
+  variable_importance_rows <- list()
 
-      x_all      <- as.matrix(sub_cont %>% select(all_of(colnames(forest$X.orig))))
+  for (sample_name in names(sub_dfs)) {
+    fold_paths <- FoldRdsPaths(importance_type, rolling_panel, sample_name, control_group, norm_label)
+    for (fold_i in seq_len(N_FOLDS)) {
+      forest <- tryCatch(readRDS(fold_paths[fold_i]), error = function(e) NULL)
+      if (is.null(forest)) next
+
+      x_all      <- as.matrix(sub_dfs[[sample_name]] %>% select(all_of(colnames(forest$X.orig))))
       tau_hat    <- predict(forest, newdata = x_all, drop = TRUE)$predictions
       tau_scalar <- if (is.matrix(tau_hat)) rowMeans(tau_hat, na.rm = TRUE) else as.numeric(tau_hat)
-      sub_bin %>% mutate(fold_att = tau_scalar)
-    }, names(sub_dfs), sub_dfs, sub_bins)
+      fold_rows_by_fold[[fold_i]] <- c(fold_rows_by_fold[[fold_i]],
+                                       list(sub_bins[[sample_name]] %>% mutate(fold_att = tau_scalar)))
 
-    fold_rows <- Filter(Negate(is.null), fold_rows)
+      variable_importance_rows <- c(variable_importance_rows,
+        list(tibble(variable   = colnames(forest$X.orig),
+                    importance = as.numeric(variable_importance(forest)))))
+    }
+  }
+
+  fold_summaries <- lapply(fold_rows_by_fold, function(fold_rows) {
     if (length(fold_rows) == 0) return(NULL)
-
     bind_rows(fold_rows) %>%
       drop_na(all_of(pc_score_cols)) %>%
       group_by(across(all_of(pc_score_cols))) %>%
@@ -81,6 +88,8 @@ BuildFoldSummaries <- function(sub_dfs, sub_bins, pc_score_cols,
       arrange(-att_doubly_robust_mean) %>%
       mutate(rank = row_number())
   }) %>% Filter(Negate(is.null), .)
+
+  list(fold_summaries = fold_summaries, variable_importance_rows = variable_importance_rows)
 }
 
 FoldRdsPaths <- function(importance_type, rolling_panel, sample, control_group,
@@ -197,15 +206,10 @@ ComputeFoldCorrelations <- function(combo_summary, fold_summaries, pc_split_cols
   ggsave(file.path(outdir_ds, "fold_correlation_rank.png"), PlotCorrHeatmap(corr_rank, "Fold Correlation (Rank)"), width = 8, height = 7, dpi = 300)
 }
 
-ExportVariableImportanceTex <- function(fold_rds_paths, outdir_ds) {
-  existing <- fold_rds_paths[file.exists(fold_rds_paths)]
-  if (length(existing) == 0) return(invisible(NULL))
+ExportVariableImportanceTex <- function(variable_importance_rows, outdir_ds) {
+  if (length(variable_importance_rows) == 0) return(invisible(NULL))
 
-  varimp_df <- bind_rows(lapply(existing, function(path) {
-    forest <- readRDS(path)
-    vi     <- variable_importance(forest)
-    tibble(variable = colnames(forest$X.orig), importance = as.numeric(vi))
-  })) %>%
+  varimp_df <- bind_rows(variable_importance_rows) %>%
     group_by(variable) %>%
     summarize(importance = mean(importance, na.rm = TRUE), .groups = "drop") %>%
     arrange(-importance) %>%
