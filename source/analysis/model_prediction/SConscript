@@ -15,79 +15,72 @@ distribution_types    = MODEL_PREDICTION_CONFIG["distribution_types"]["run"]
 estimation_approaches = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"]
 evaluation_figures    = MODEL_PREDICTION_CONFIG["evaluation_figures"]["run"]
 
-combos = list(product(importance_types, qualified_samples, control_groups))
+sample_combinations = list(product(importance_types, qualified_samples, control_groups))
+model_combinations  = list(product(variants, distribution_types, estimation_approaches, sample_combinations))
 
-shared_deps = [
+shared_dependencies = [
     '#source/lib/python/config_loaders.py',
     '#source/lib/python/repo_utils.py',
     '#source/lib/JMSLab/SaveData.py',
     '#source/lib/config/pipeline_inputs.json',
 ]
-panel_sources = [
-    f'#output/derived/analysis_panel/{imp}/{rolling_label}/{qs}/{cg}/panel.parquet'
-    for imp, qs, cg in combos
+analysis_panel_sources = [
+    f'#output/derived/analysis_panel/{importance_type}/{rolling_label}/{qualified_sample}/{control_group}/panel.parquet'
+    for importance_type, qualified_sample, control_group in sample_combinations
 ]
-member_panel_hash = ['#output/derived/hashes/event_time_member_panel.txt']
+member_panel_hash      = ['#output/derived/hashes/event_time_member_panel.txt']
+mean_reversion_source  = ['#output/derived/model_prediction/mean_reversion/mean_reversion_ratios.parquet']
 
-# ---- Fit targets ----
-fit_targets = []
-for variant, distribution_type, estimation_approach, (imp, qs, cg) in product(
-    variants, distribution_types, estimation_approaches, combos
-):
-    base = f'#output/analysis/model_prediction/{variant}/{distribution_type}/parameters/{estimation_approach}/{imp}/{qs}/{cg}'
-    fit_targets += [
-        f'{base}/distribution_params.parquet',
-        f'{base}/distribution_params.log',
-        f'{base}/member_probabilities.parquet',
-        f'{base}/member_probabilities.log',
-        f'{base}/review_fit_check.parquet',
-        f'{base}/review_fit_check.log',
+
+def OutputBase(stage, variant, distribution_type, estimation_approach,
+               importance_type, qualified_sample, control_group):
+    return (f'#output/analysis/model_prediction/{variant}/{distribution_type}'
+            f'/{stage}/{estimation_approach}/{importance_type}/{qualified_sample}/{control_group}')
+
+
+target = []
+for variant, distribution_type, estimation_approach, (importance_type, qualified_sample, control_group) in model_combinations:
+    parameter_base = OutputBase('parameters', variant, distribution_type, estimation_approach,
+                                importance_type, qualified_sample, control_group)
+    target += [
+        f'{parameter_base}/distribution_params.parquet',
+        f'{parameter_base}/distribution_params.log',
+        f'{parameter_base}/member_probabilities.parquet',
+        f'{parameter_base}/member_probabilities.log',
+        f'{parameter_base}/review_fit_check.parquet',
+        f'{parameter_base}/review_fit_check.log',
     ]
+source = (['#source/analysis/model_prediction/fit_model.py',
+           '#source/lib/model/staged_count_model.py',
+           '#source/lib/config/model_prediction.json']
+          + shared_dependencies + analysis_panel_sources + member_panel_hash)
+env.Python(target, source)
+fit_outputs = target
 
-env.Python(
-    fit_targets,
-    ['#source/analysis/model_prediction/fit_model.py',
-     '#source/lib/model/staged_count_model.py',
-     '#source/lib/config/model_prediction.json']
-    + shared_deps + panel_sources + member_panel_hash,
-)
-
-# ---- Predict targets ----
-predict_file_stems = [
+residual_file_stems = [
     'insample_period', 'leaveoneout_period', 'post_period',
     'insample_reference', 'leaveoneout_reference', 'post_reference',
 ]
-mean_reversion_ratios = ['#output/derived/model_prediction/mean_reversion/mean_reversion_ratios.parquet']
+target = []
+for variant, distribution_type, estimation_approach, (importance_type, qualified_sample, control_group) in model_combinations:
+    residual_base = OutputBase('residuals', variant, distribution_type, estimation_approach,
+                               importance_type, qualified_sample, control_group)
+    for residual_stem in residual_file_stems:
+        target += [f'{residual_base}/{residual_stem}.parquet', f'{residual_base}/{residual_stem}.log']
+    draws_base = OutputBase('draws', variant, distribution_type, estimation_approach,
+                            importance_type, qualified_sample, control_group)
+    target += [f'{draws_base}/raw_draws.parquet', f'{draws_base}/raw_draws.log']
+source = (['#source/analysis/model_prediction/predict_model.py',
+           '#source/lib/model/staged_count_model.py',
+           '#source/lib/config/model_prediction.json',
+           '#source/lib/config/global_settings.json',
+           '#source/lib/config/analysis_parameters.json']
+          + shared_dependencies + fit_outputs + analysis_panel_sources
+          + member_panel_hash + mean_reversion_source)
+env.Python(target, source)
+predict_outputs = target
 
-predict_targets = []
-for variant, distribution_type, estimation_approach, (imp, qs, cg) in product(
-    variants, distribution_types, estimation_approaches, combos
-):
-    base = (
-        f'#output/analysis/model_prediction/{variant}/{distribution_type}'
-        f'/residuals/{estimation_approach}/{imp}/{qs}/{cg}'
-    )
-    for stem in predict_file_stems:
-        predict_targets += [f'{base}/{stem}.parquet', f'{base}/{stem}.log']
-    draws_base = (
-        f'#output/analysis/model_prediction/{variant}/{distribution_type}'
-        f'/draws/{estimation_approach}/{imp}/{qs}/{cg}'
-    )
-    predict_targets += [f'{draws_base}/raw_draws.parquet', f'{draws_base}/raw_draws.log']
-
-env.Python(
-    predict_targets,
-    ['#source/analysis/model_prediction/predict_model.py',
-     '#source/lib/model/staged_count_model.py',
-     '#source/lib/config/model_prediction.json',
-     '#source/lib/config/global_settings.json',
-     '#source/lib/config/analysis_parameters.json']
-    + shared_deps + fit_targets + panel_sources + member_panel_hash + mean_reversion_ratios,
-)
-
-# ---- Evaluate targets ----
 outcomes = ["open", "review", "direct_merge", "reviewed_merge", "total_merge"]
-stages   = ["open", "review", "direct_merge", "reviewed_merge"]
 
 squared_panel_names = [
     "pre_period_fit_insample.png",
@@ -102,36 +95,28 @@ signed_panel_names = [
     "pre_period_fit_leaveoneout.png",
     "post_period_fit.png",
 ]
-
-indiv_squared_names = (
-    [f"insample_squared_{o}.png"    for o in outcomes] +
-    [f"leaveoneout_squared_{o}.png" for o in outcomes] +
-    [f"post_period_squared_{o}.png" for o in outcomes]
+individual_squared_names = (
+    [f"insample_squared_{outcome}.png"    for outcome in outcomes] +
+    [f"leaveoneout_squared_{outcome}.png" for outcome in outcomes] +
+    [f"post_period_squared_{outcome}.png" for outcome in outcomes]
 )
 
-evaluate_targets = []
-for variant, distribution_type, estimation_approach, (imp, qs, cg) in product(
-    variants, distribution_types, estimation_approaches, combos
-):
-    base = (
-        f'#output/analysis/model_prediction/{variant}/{distribution_type}'
-        f'/evaluation/{estimation_approach}/{imp}/{qs}/{cg}'
-    )
-    for name in squared_panel_names:
-        evaluate_targets.append(f'{base}/panels/squared/{name}')
-    for name in signed_panel_names:
-        evaluate_targets.append(f'{base}/panels/signed/{name}')
-    evaluate_targets.append(f'{base}/panels/comparisons.png')
+target = []
+for variant, distribution_type, estimation_approach, (importance_type, qualified_sample, control_group) in model_combinations:
+    evaluation_base = OutputBase('evaluation', variant, distribution_type, estimation_approach,
+                                 importance_type, qualified_sample, control_group)
+    for panel_name in squared_panel_names:
+        target.append(f'{evaluation_base}/panels/squared/{panel_name}')
+    for panel_name in signed_panel_names:
+        target.append(f'{evaluation_base}/panels/signed/{panel_name}')
+    target.append(f'{evaluation_base}/panels/comparisons.png')
     if "individual" in evaluation_figures:
-        for group in ["treated", "control"]:
-            for name in indiv_squared_names:
-                evaluate_targets.append(f'{base}/individual/{group}/{name}')
-
-env.Python(
-    evaluate_targets,
-    ['#source/analysis/model_prediction/evaluate_predictions.py',
-     '#source/lib/python/config_loaders.py',
-     '#source/lib/config/pipeline_inputs.json',
-     '#source/lib/config/model_prediction.json']
-    + predict_targets,
-)
+        for treatment_group in ["treated", "control"]:
+            for panel_name in individual_squared_names:
+                target.append(f'{evaluation_base}/individual/{treatment_group}/{panel_name}')
+source = (['#source/analysis/model_prediction/evaluate_predictions.py',
+           '#source/lib/python/config_loaders.py',
+           '#source/lib/config/pipeline_inputs.json',
+           '#source/lib/config/model_prediction.json']
+          + predict_outputs)
+env.Python(target, source)
