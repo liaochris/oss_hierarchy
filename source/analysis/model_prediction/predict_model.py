@@ -139,7 +139,7 @@ def LoadMeanReversionRatio(variant, importance_type, qualified_sample, control_g
 def ProcessRepo(repo_name, is_treated, dropout_set,
                 df_dist_repo, df_member_probs,
                 variant, importance_type, qualified_sample, control_group,
-                distribution_type, estimation_approach, mean_reversion_geom_mean):
+                distribution_type, estimation_approach, mean_reversion_ratio):
     if df_dist_repo.empty:
         return None
 
@@ -161,8 +161,8 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
     pre_periods  = [k for k in all_periods if k < 0]
     if len(pre_periods) == 0:
         return None
-    full_set_periods = [k for k in all_periods if k <= 0]   # member still present (incl. k=0)
-    post_periods     = [k for k in all_periods if k >= 1]
+    treatment_periods = [k for k in all_periods if k == 0]   # member still present at event time 0
+    post_periods      = [k for k in all_periods if k >= 1]
     observed_by_period = {int(row["quasi_event_time"]): ExtractObserved(row) for _, row in df_repo_counts.iterrows()}
 
     dist_row = df_dist_repo.iloc[0]
@@ -181,11 +181,12 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
 
     rng = np.random.default_rng(int(hashlib.md5(repo_name.encode()).hexdigest()[:8], 16))
 
-    # Post block scales the latent rate by the control-derived mean-reversion ratio; pre/at-treatment unchanged.
-    full_block = DrawPeriodBlock(repo_distribution, dist_params, full_stage_probs, full_set_periods, N_MODEL_DRAWS, rng)
-    post_block = DrawPeriodBlock(repo_distribution, dist_params, post_stage_probs, post_periods, N_MODEL_DRAWS, rng, mean_reversion_geom_mean)
-    period_draws = {**full_block, **post_block}
-    period_stage_probs = {k: full_stage_probs for k in full_set_periods}
+    # The mean-reversion ratio scales the latent rate from event time 0 onward; pre-periods unchanged.
+    pre_block       = DrawPeriodBlock(repo_distribution, dist_params, full_stage_probs, pre_periods, N_MODEL_DRAWS, rng)
+    treatment_block = DrawPeriodBlock(repo_distribution, dist_params, full_stage_probs, treatment_periods, N_MODEL_DRAWS, rng, mean_reversion_ratio)
+    post_block      = DrawPeriodBlock(repo_distribution, dist_params, post_stage_probs, post_periods, N_MODEL_DRAWS, rng, mean_reversion_ratio)
+    period_draws = {**pre_block, **treatment_block, **post_block}
+    period_stage_probs = {k: full_stage_probs for k in pre_periods + treatment_periods}
     period_stage_probs.update({k: post_stage_probs for k in post_periods})
 
     raw_draws = BuildRawDrawRows(repo_name, is_treated, all_periods, period_draws)
