@@ -35,6 +35,8 @@ ESTIMATION_APPROACHES = MODEL_PREDICTION_CONFIG["member_probability_estimation"]
 N_MODEL_DRAWS = PARAMETERS["n_model_draws"]
 N_JOBS        = GLOBAL_SETTINGS["n_jobs"]
 
+MEAN_REVERSION_STATISTIC = MODEL_PREDICTION_CONFIG["mean_reversion_statistic"]
+
 OUTCOMES = ["open", "review", "direct_merge", "reviewed_merge", "total_merge"]
 STAGES   = ["open", "review", "direct_merge", "reviewed_merge"]
 
@@ -131,13 +133,13 @@ def LoadMeanReversionRatio(variant, importance_type, qualified_sample, control_g
         & (df_ratios["qualified_sample"] == qualified_sample)
         & (df_ratios["control_group"] == control_group)
     ]
-    return float(matched["latent_ratio"].iloc[0])
+    return float(matched[MEAN_REVERSION_STATISTIC].iloc[0])
 
 
 def ProcessRepo(repo_name, is_treated, dropout_set,
                 df_dist_repo, df_member_probs,
                 variant, importance_type, qualified_sample, control_group,
-                distribution_type, estimation_approach, mean_reversion_ratio):
+                distribution_type, estimation_approach, mean_reversion_geom_mean):
     if df_dist_repo.empty:
         return None
 
@@ -181,7 +183,7 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
 
     # Post block scales the latent rate by the control-derived mean-reversion ratio; pre/at-treatment unchanged.
     full_block = DrawPeriodBlock(repo_distribution, dist_params, full_stage_probs, full_set_periods, N_MODEL_DRAWS, rng)
-    post_block = DrawPeriodBlock(repo_distribution, dist_params, post_stage_probs, post_periods, N_MODEL_DRAWS, rng, mean_reversion_ratio)
+    post_block = DrawPeriodBlock(repo_distribution, dist_params, post_stage_probs, post_periods, N_MODEL_DRAWS, rng, mean_reversion_geom_mean)
     period_draws = {**full_block, **post_block}
     period_stage_probs = {k: full_stage_probs for k in full_set_periods}
     period_stage_probs.update({k: post_stage_probs for k in post_periods})

@@ -72,8 +72,8 @@ def ComputeCombination(variant, importance_type, qualified_sample, control_group
         "importance_type":     importance_type,
         "qualified_sample":    qualified_sample,
         "control_group":       control_group,
-        "latent_ratio":        RoundToTwoSignificant(float(np.exp(np.log(declines).mean()))),
-        "latent_ratio_median": RoundToTwoSignificant(float(np.median(declines))),
+        "latent_ratio_geom_mean": RoundToTwoSignificant(float(np.exp(np.log(declines).mean()))),
+        "latent_ratio_median":    RoundToTwoSignificant(float(np.median(declines))),
     }
 
 
