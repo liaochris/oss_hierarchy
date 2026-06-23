@@ -57,6 +57,7 @@ predict_file_stems = [
     'insample_period', 'leaveoneout_period', 'post_period',
     'insample_reference', 'leaveoneout_reference', 'post_reference',
 ]
+mean_reversion_ratios = ['#output/derived/model_prediction/mean_reversion/mean_reversion_ratio_distribution.parquet']
 
 predict_targets = []
 for variant, distribution_type, estimation_approach, (imp, qs, cg) in product(
@@ -81,7 +82,7 @@ env.Python(
      '#source/lib/config/model_prediction.json',
      '#source/lib/config/global_settings.json',
      '#source/lib/config/analysis_parameters.json']
-    + shared_deps + fit_targets + panel_sources + member_panel_hash,
+    + shared_deps + fit_targets + panel_sources + member_panel_hash + mean_reversion_ratios,
 )
 
 # ---- Evaluate targets ----
@@ -120,7 +121,6 @@ for variant, distribution_type, estimation_approach, (imp, qs, cg) in product(
         evaluate_targets.append(f'{base}/panels/squared/{name}')
     for name in signed_panel_names:
         evaluate_targets.append(f'{base}/panels/signed/{name}')
-    evaluate_targets.append(f'{base}/panels/comparisons.png')
     evaluate_targets.append(f'{base}/panels/comparisons.png')
     if "individual" in evaluation_figures:
         for group in ["treated", "control"]:

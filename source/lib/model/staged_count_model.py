@@ -1,6 +1,7 @@
 import numpy as np
 
 PROB_SUM_TOLERANCE = 1e-6
+NEGATIVE_BINOMIAL_SIZE_FLOOR = 1e-9
 
 
 # ---------------------------------------------------------------------------
@@ -133,15 +134,16 @@ def ComputeStageProbabilities(df_member_probs):
 
 
 def DrawCounts(distribution_type, dist_params,
-               prob_open, prob_review, prob_merge_direct, prob_merge_after_review, n_draws, rng):
-    """Draw n_draws outcome vectors from the model DGP via sequential multinomial decomposition."""
-    # Latent problem count
+               prob_open, prob_review, prob_merge_direct, prob_merge_after_review, n_draws, rng,
+               latent_rate_multiplier):
     if distribution_type == "poisson":
-        latent_problem_count_draw = rng.poisson(dist_params["poisson_rate"], n_draws)
+        latent_problem_count_draw = rng.poisson(dist_params["poisson_rate"] * latent_rate_multiplier, n_draws)
     elif distribution_type == "negative_binomial":
+        # negative_binomial requires size > 0, so a sampled reversion ratio of 0 floors to a tiny size (draws ~0)
+        negative_binomial_size = np.maximum(
+            dist_params["negative_binomial_size"] * latent_rate_multiplier, NEGATIVE_BINOMIAL_SIZE_FLOOR)
         latent_problem_count_draw = rng.negative_binomial(
-            dist_params["negative_binomial_size"], dist_params["negative_binomial_prob"], n_draws
-        )
+            negative_binomial_size, dist_params["negative_binomial_prob"], n_draws)
     else:
         raise ValueError(f"Unknown distribution_type for DrawCounts: {distribution_type}")
 

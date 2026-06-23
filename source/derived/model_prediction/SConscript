@@ -36,3 +36,21 @@ target = [
 ]
 
 env.Python(target, script_deps + panel_sources)
+
+# ---- Mean-reversion ratios (estimated from control orgs, consumed by predict_model.py) ----
+mean_reversion_deps = [
+    '#source/derived/model_prediction/compute_mean_reversion.py',
+    '#source/lib/python/config_loaders.py',
+    '#source/lib/python/repo_utils.py',
+    '#source/lib/JMSLab/SaveData.py',
+    '#source/lib/config/global_settings.json',
+    '#source/lib/config/pipeline_inputs.json',
+    '#source/lib/config/model_prediction.json',
+    '#output/derived/hashes/event_time_member_panel.txt',
+]
+
+env.Python(
+    ['#output/derived/model_prediction/mean_reversion/mean_reversion_ratio_distribution.parquet',
+     '#output/derived/model_prediction/mean_reversion/mean_reversion_ratio_distribution.log'],
+    mean_reversion_deps + panel_sources,
+)
