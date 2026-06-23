@@ -74,7 +74,7 @@ def RunCombination(variant, distribution_type, estimation_approach,
     df_dist  = pd.read_parquet(fitted_dir / "distribution_params.parquet")
     df_probs = pd.read_parquet(fitted_dir / "member_probabilities.parquet")
 
-    ratio_distribution = LoadControlRatioDistribution(variant, importance_type, qualified_sample, control_group)
+    mean_reversion_ratio = LoadMeanReversionRatio(variant, importance_type, qualified_sample, control_group)
 
     panel_path = (
         INDIR_ANALYSIS_PANEL / importance_type / ROLLING_LABEL
@@ -93,7 +93,7 @@ def RunCombination(variant, distribution_type, estimation_approach,
             df_dist[df_dist["repo_name"] == row["repo_name"]],
             df_probs[df_probs["repo_name"] == row["repo_name"]],
             variant, importance_type, qualified_sample, control_group,
-            distribution_type, estimation_approach, ratio_distribution,
+            distribution_type, estimation_approach, mean_reversion_ratio,
         )
         for _, row in df_all_repos.iterrows()
     )
@@ -123,21 +123,21 @@ def RunCombination(variant, distribution_type, estimation_approach,
              draws_outdir / "raw_draws.parquet", draws_outdir / "raw_draws.log")
 
 
-def LoadControlRatioDistribution(variant, importance_type, qualified_sample, control_group):
-    df_ratios = pd.read_parquet(INDIR_MEAN_REVERSION / "mean_reversion_ratio_distribution.parquet")
+def LoadMeanReversionRatio(variant, importance_type, qualified_sample, control_group):
+    df_ratios = pd.read_parquet(INDIR_MEAN_REVERSION / "mean_reversion_ratios.parquet")
     matched = df_ratios[
         (df_ratios["variant"] == variant)
         & (df_ratios["importance_type"] == importance_type)
         & (df_ratios["qualified_sample"] == qualified_sample)
         & (df_ratios["control_group"] == control_group)
     ]
-    return matched[["repo_name", "latent_ratio"]].dropna()
+    return float(matched["latent_ratio"].iloc[0])
 
 
 def ProcessRepo(repo_name, is_treated, dropout_set,
                 df_dist_repo, df_member_probs,
                 variant, importance_type, qualified_sample, control_group,
-                distribution_type, estimation_approach, ratio_distribution):
+                distribution_type, estimation_approach, mean_reversion_ratio):
     if df_dist_repo.empty:
         return None
 
@@ -179,13 +179,9 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
 
     rng = np.random.default_rng(int(hashlib.md5(repo_name.encode()).hexdigest()[:8], 16))
 
-    # Pre/at-treatment draws are not reverted; the post block scales each draw's latent rate by a ratio
-    # sampled from the control distribution, leaving out this org's own ratio (a no-op for treated orgs).
-    leave_one_out_pool = ratio_distribution.loc[ratio_distribution["repo_name"] != repo_name, "latent_ratio"].to_numpy()
-    pre_period_multiplier = np.ones(N_MODEL_DRAWS)
-    full_block = DrawPeriodBlock(repo_distribution, dist_params, full_stage_probs, full_set_periods, N_MODEL_DRAWS, rng, pre_period_multiplier)
-    ratio_draws = rng.choice(leave_one_out_pool, size=N_MODEL_DRAWS)
-    post_block = DrawPeriodBlock(repo_distribution, dist_params, post_stage_probs, post_periods, N_MODEL_DRAWS, rng, ratio_draws)
+    # Post block scales the latent rate by the control-derived mean-reversion ratio; pre/at-treatment unchanged.
+    full_block = DrawPeriodBlock(repo_distribution, dist_params, full_stage_probs, full_set_periods, N_MODEL_DRAWS, rng)
+    post_block = DrawPeriodBlock(repo_distribution, dist_params, post_stage_probs, post_periods, N_MODEL_DRAWS, rng, mean_reversion_ratio)
     period_draws = {**full_block, **post_block}
     period_stage_probs = {k: full_stage_probs for k in full_set_periods}
     period_stage_probs.update({k: post_stage_probs for k in post_periods})
@@ -210,11 +206,10 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
     }
 
 
-def DrawPeriodBlock(repo_distribution, dist_params, stage_probs, periods, n_draws, rng, ratio_draws):
+def DrawPeriodBlock(repo_distribution, dist_params, stage_probs, periods, n_draws, rng, latent_rate_multiplier=1.0):
     if not periods:
         return {}
     total = len(periods) * n_draws
-    latent_rate_multiplier = np.tile(ratio_draws, len(periods))
     outcome_arrays = DrawCounts(repo_distribution, dist_params, *stage_probs, total, rng, latent_rate_multiplier)
     reshaped = [array.reshape(len(periods), n_draws) for array in outcome_arrays]
     return {period: tuple(array[i] for array in reshaped) for i, period in enumerate(periods)}

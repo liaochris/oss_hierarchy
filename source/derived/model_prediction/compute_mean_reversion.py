@@ -1,9 +1,12 @@
-# Control-org opened-count post/pre ratios; predict_model.py samples this per-org distribution
-# for the mean-reversion adjustment.
+# Control-org opened-count post/pre mean-reversion ratio per cell: the geometric mean (applied by
+# predict_model.py to the post-period latent rate) and the median (reference). Both drop silent
+# post-period orgs (ratio 0); the geometric mean is the robust multiplicative average of the decline.
 
+import math
 from itertools import product
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 
@@ -30,18 +33,20 @@ def Main():
     qualified_samples = CONFIG["qualified_samples"]["run"]
     control_groups    = CONFIG["control_groups"]["run"]
 
-    rows = []
-    for variant, importance_type, qualified_sample, control_group in product(
-        VARIANTS, importance_types, qualified_samples, control_groups
-    ):
-        rows.extend(ComputeCombination(variant, importance_type, qualified_sample, control_group))
+    rows = [
+        ComputeCombination(variant, importance_type, qualified_sample, control_group)
+        for variant, importance_type, qualified_sample, control_group in product(
+            VARIANTS, importance_types, qualified_samples, control_groups
+        )
+    ]
+    rows = [row for row in rows if row is not None]
 
     OUTDIR.mkdir(parents=True, exist_ok=True)
     SaveData(
         pd.DataFrame(rows),
-        ["variant", "importance_type", "qualified_sample", "control_group", "repo_name"],
-        OUTDIR / "mean_reversion_ratio_distribution.parquet",
-        OUTDIR / "mean_reversion_ratio_distribution.log",
+        ["variant", "importance_type", "qualified_sample", "control_group"],
+        OUTDIR / "mean_reversion_ratios.parquet",
+        OUTDIR / "mean_reversion_ratios.log",
     )
 
 
@@ -51,7 +56,7 @@ def ComputeCombination(variant, importance_type, qualified_sample, control_group
         / qualified_sample / control_group / "panel.parquet"
     )
     if not panel_path.exists():
-        return []
+        return None
 
     df_panel = pd.read_parquet(panel_path, columns=["repo_name", "quasi_event_time", "num_dropouts"])
     at_event = df_panel[df_panel["quasi_event_time"] == 0]
@@ -61,11 +66,15 @@ def ComputeCombination(variant, importance_type, qualified_sample, control_group
         delayed(ControlOrgRatio)(repo_name, variant, importance_type, qualified_sample, control_group)
         for repo_name in control_repos
     )
-    return [
-        {"variant": variant, "importance_type": importance_type, "qualified_sample": qualified_sample,
-         "control_group": control_group, "repo_name": repo_name, "latent_ratio": ratio}
-        for repo_name, ratio in org_ratios if ratio is not None
-    ]
+    declines = np.array([ratio for ratio in org_ratios if ratio is not None and ratio > 0])
+    return {
+        "variant":             variant,
+        "importance_type":     importance_type,
+        "qualified_sample":    qualified_sample,
+        "control_group":       control_group,
+        "latent_ratio":        RoundToTwoSignificant(float(np.exp(np.log(declines).mean()))),
+        "latent_ratio_median": RoundToTwoSignificant(float(np.median(declines))),
+    }
 
 
 def ControlOrgRatio(repo_name, variant, importance_type, qualified_sample, control_group):
@@ -74,15 +83,19 @@ def ControlOrgRatio(repo_name, variant, importance_type, qualified_sample, contr
         / control_group / f"{MakeRepoNameSafe(repo_name)}.parquet"
     )
     if not member_path.exists():
-        return repo_name, None
+        return None
 
     df_member = pd.read_parquet(member_path, columns=["quasi_event_time", "repo_pull_request_opened"])
     opened = df_member.groupby("quasi_event_time")["repo_pull_request_opened"].first()
     pre  = opened[opened.index < 0]
     post = opened[opened.index >= 1]
     if pre.empty or post.empty:
-        return repo_name, None
-    return repo_name, float(post.mean()) / float(pre.mean())
+        return None
+    return float(post.mean()) / float(pre.mean())
+
+
+def RoundToTwoSignificant(value):
+    return round(value, 1 - int(math.floor(math.log10(abs(value)))))
 
 
 if __name__ == "__main__":
