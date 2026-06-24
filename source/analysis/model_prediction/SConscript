@@ -80,7 +80,7 @@ source = (['#source/analysis/model_prediction/predict_model.py',
 env.Python(target, source)
 predict_outputs = target
 
-outcomes = ["open", "review", "direct_merge", "reviewed_merge", "total_merge"]
+outcomes = ["opened", "reviewed", "merged_direct", "merged_after_review", "merged_total"]
 
 squared_panel_names = [
     "pre_period_fit_insample.png",

@@ -26,28 +26,29 @@ SUB_SAMPLES     <- AGGREGATED_SAMPLES[["exact_1_2"]]
 GLOBAL_SETTINGS <- LoadProjectConfig("source/lib/config/global_settings.json")
 N_CORES         <- GLOBAL_SETTINGS$n_jobs
 
-ES_OUTCOMES <- c("pull_request_merged", "pull_request_opened")
+ES_OUTCOMES <- c("pull_request_merged_total", "pull_request_opened")
 KSTAR       <- 0
 
 
 Main <- function() {
   samples_data <- setNames(lapply(SUB_SAMPLES, LoadSampleData), SUB_SAMPLES)
-  n_treated    <- vapply(samples_data, function(s) s$n_treated, integer(1))
+  n_treated    <- vapply(samples_data, function(sample_data) sample_data$n_treated, integer(1))
   weights      <- n_treated / sum(n_treated)
 
   band_rows <- list()
   for (normalize in NORM_OPTIONS) {
     for (outcome in ES_OUTCOMES) {
-      actual_sub       <- lapply(samples_data, function(s) FitEventStudy(s$actual, outcome, CONTROL_GROUP, "sa", normalize = normalize, make_plot = FALSE)$results)
-      actual_by_sample <- ResultsBySample(actual_sub, n_treated)
+      actual_by_subsample <- lapply(samples_data, function(sample_data) FitEventStudy(sample_data$actual, outcome, CONTROL_GROUP, "sa", normalize = normalize, make_plot = FALSE)$results)
+      actual_by_sample    <- ResultsBySample(actual_by_subsample, n_treated)
 
-      draw_est_by_sub    <- setNames(lapply(SUB_SAMPLES, function(sub) DrawPointEstimates(samples_data[[sub]], outcome, normalize)), SUB_SAMPLES)
-      draw_est_by_sample <- c(draw_est_by_sub, list(exact_1_2 = AggregateDrawEstimates(draw_est_by_sub, weights)))
+      draw_estimates_by_subsample <- setNames(lapply(SUB_SAMPLES, function(sub_sample) DrawPointEstimates(samples_data[[sub_sample]], outcome, normalize)), SUB_SAMPLES)
+      draw_estimates_by_sample    <- c(draw_estimates_by_subsample,
+                                       list(exact_1_2 = AggregateDrawEstimates(draw_estimates_by_subsample, weights)))
 
-      for (sample_name in names(draw_est_by_sample)) {
-        band <- SummariseBand(draw_est_by_sample[[sample_name]], actual_by_sample[[sample_name]], KSTAR)
-        PlotBand(band, actual_by_sample[[sample_name]], sample_name, outcome, normalize)
-        band_rows[[length(band_rows) + 1]] <- band %>% mutate(sample = sample_name, outcome = outcome, normalize = normalize)
+      for (sample_name in names(draw_estimates_by_sample)) {
+        event_study_band <- SummariseBand(draw_estimates_by_sample[[sample_name]], actual_by_sample[[sample_name]], KSTAR)
+        PlotBand(event_study_band, actual_by_sample[[sample_name]], sample_name, outcome, normalize)
+        band_rows[[length(band_rows) + 1]] <- event_study_band %>% mutate(sample = sample_name, outcome = outcome, normalize = normalize)
       }
     }
   }
@@ -93,42 +94,45 @@ LoadObservedOpenedCohort <- function(sub_sample) {
     collect() %>%
     transmute(repo_name, quasi_event_time,
               pull_request_opened = repo_pull_request_opened,
-              pull_request_merged = repo_pull_request_merged_direct + repo_pull_request_merged_after_review)
+              pull_request_merged_total = repo_pull_request_merged_direct + repo_pull_request_merged_after_review)
 }
 
 
 DrawPointEstimates <- function(sample_data, outcome, normalize) {
-  estimates <- mclapply(sample_data$draw_list, function(draw) {
-    panel_k <- sample_data$skeleton %>%
+  draw_estimates <- mclapply(sample_data$draw_list, function(draw) {
+    draw_panel <- sample_data$skeleton %>%
       inner_join(draw %>% select(repo_name, quasi_event_time, all_of(outcome)), by = c("repo_name", "quasi_event_time"))
-    EventStudyPointEstimates(panel_k, outcome, normalize) %>% mutate(draw_id = draw$draw_id[1])
+    EventStudyPointEstimates(draw_panel, outcome, normalize) %>% mutate(draw_id = draw$draw_id[1])
   }, mc.cores = N_CORES)
-  bind_rows(estimates)
+  bind_rows(draw_estimates)
 }
 
 
-EventStudyPointEstimates <- function(df, outcome, normalize) {
+EventStudyPointEstimates <- function(panel_data, outcome, normalize) {
   if (normalize) {
-    df   <- NormalizeOutcome(df, outcome)
-    yvar <- paste0(outcome, "_norm")
+    panel_data       <- NormalizeOutcome(panel_data, outcome)
+    outcome_variable <- paste0(outcome, "_norm")
   } else {
-    yvar <- outcome
+    outcome_variable <- outcome
   }
-  est   <- feols(as.formula(sprintf("%s ~ sunab(treatment_group, time_index, ref.p=-1) | repo_name + time_index", yvar)), df)
-  coefs <- coef(est)
-  coefs <- coefs[grepl("^time_index::", names(coefs))]
+  model_fit               <- feols(as.formula(sprintf("%s ~ sunab(treatment_group, time_index, ref.p=-1) | repo_name + time_index", outcome_variable)), panel_data)
+  event_time_coefficients <- coef(model_fit)
+  event_time_coefficients <- event_time_coefficients[grepl("^time_index::", names(event_time_coefficients))]
   bind_rows(
-    tibble(event_time = as.numeric(sub("^time_index::", "", names(coefs))), estimate = unname(coefs)),
+    tibble(event_time = as.numeric(sub("^time_index::", "", names(event_time_coefficients))), estimate = unname(event_time_coefficients)),
     tibble(event_time = -1, estimate = 0)
   )
 }
 
 
-AggregateDrawEstimates <- function(draw_est_by_sub, weights) {
-  first  <- draw_est_by_sub[[SUB_SAMPLES[1]]] %>% rename(estimate_1 = estimate)
-  second <- draw_est_by_sub[[SUB_SAMPLES[2]]] %>% rename(estimate_2 = estimate)
-  inner_join(first, second, by = c("draw_id", "event_time")) %>%
-    mutate(estimate = weights[SUB_SAMPLES[1]] * estimate_1 + weights[SUB_SAMPLES[2]] * estimate_2) %>%
+AggregateDrawEstimates <- function(draw_estimates_by_subsample, weights) {
+  subsample_1 <- SUB_SAMPLES[1]
+  subsample_2 <- SUB_SAMPLES[2]
+  subsample_1_estimates <- draw_estimates_by_subsample[[subsample_1]] %>% rename(subsample_1_estimate = estimate)
+  subsample_2_estimates <- draw_estimates_by_subsample[[subsample_2]] %>% rename(subsample_2_estimate = estimate)
+  inner_join(subsample_1_estimates, subsample_2_estimates, by = c("draw_id", "event_time")) %>%
+    mutate(estimate = weights[subsample_1] * subsample_1_estimate +
+                      weights[subsample_2] * subsample_2_estimate) %>%
     select(draw_id, event_time, estimate)
 }
 
@@ -141,47 +145,47 @@ ResultsBySample <- function(sub_results, n_treated) {
 
 
 SummariseBand <- function(draw_est_long, actual_results, kstar) {
-  actual_tbl <- tibble(event_time = as.numeric(rownames(actual_results)), actual = actual_results[, "estimate"])
-  kstar_tbl  <- draw_est_long %>% filter(draw_id == kstar) %>% transmute(event_time, draw_kstar = estimate)
+  actual_results_tbl <- tibble(event_time = as.numeric(rownames(actual_results)), actual = actual_results[, "estimate"])
+  kstar_draw_tbl     <- draw_est_long %>% filter(draw_id == kstar) %>% transmute(event_time, draw_kstar = estimate)
   draw_est_long %>%
     group_by(event_time) %>%
     summarise(p2.5 = quantile(estimate, 0.025), p50 = median(estimate), p97.5 = quantile(estimate, 0.975), .groups = "drop") %>%
-    left_join(kstar_tbl,  by = "event_time") %>%
-    left_join(actual_tbl, by = "event_time") %>%
+    left_join(kstar_draw_tbl,     by = "event_time") %>%
+    left_join(actual_results_tbl, by = "event_time") %>%
     filter(event_time >= MIN_EVENT_TIME, event_time <= MAX_EVENT_TIME) %>%
     arrange(event_time)
 }
 
 
 CoefMatrix <- function(event_time, estimate, ci_low, ci_high) {
-  sd_approx <- (ci_high - ci_low) / (2 * 1.96)
-  matrix(c(estimate, sd_approx, ci_low, ci_high), ncol = 4,
+  sd_from_ci_width <- (ci_high - ci_low) / (2 * 1.96)
+  matrix(c(estimate, sd_from_ci_width, ci_low, ci_high), ncol = 4,
          dimnames = list(as.character(event_time), c("estimate", "sd", "ci_low", "ci_high")))
 }
 
 
-PlotBand <- function(band, actual_results, sample_name, outcome, normalize) {
-  norm_label <- ifelse(normalize, "norm", "raw")
-  out_path   <- file.path(OUTDIR, VARIANT, DISTRIBUTION, ESTIMATION, IMPORTANCE_TYPE,
-                          sample_name, CONTROL_GROUP, "bands", norm_label, paste0(outcome, ".png"))
+PlotBand <- function(event_study_band, actual_results, sample_name, outcome, normalize) {
+  normalization_label <- ifelse(normalize, "norm", "raw")
+  out_path            <- file.path(OUTDIR, VARIANT, DISTRIBUTION, ESTIMATION, IMPORTANCE_TYPE,
+                                   sample_name, CONTROL_GROUP, "bands", normalization_label, paste0(outcome, ".png"))
   dir_create(dirname(out_path), recurse = TRUE)
 
-  event_labels <- as.character(band$event_time)
-  actual_mat   <- actual_results[rownames(actual_results) %in% event_labels, , drop = FALSE]
-  model_mat    <- CoefMatrix(band$event_time, band$p50,        band$p2.5,      band$p97.5)
-  kstar_mat    <- CoefMatrix(band$event_time, band$draw_kstar, band$draw_kstar, band$draw_kstar)
-  model_bounds <- cbind(ci_low = band$p2.5, ci_high = band$p97.5)
+  event_labels        <- as.character(event_study_band$event_time)
+  actual_matrix       <- actual_results[rownames(actual_results) %in% event_labels, , drop = FALSE]
+  model_median_matrix <- CoefMatrix(event_study_band$event_time, event_study_band$p50,        event_study_band$p2.5,      event_study_band$p97.5)
+  kstar_matrix        <- CoefMatrix(event_study_band$event_time, event_study_band$draw_kstar, event_study_band$draw_kstar, event_study_band$draw_kstar)
+  model_bounds        <- cbind(ci_low = event_study_band$p2.5, ci_high = event_study_band$p97.5)
   rownames(model_bounds) <- event_labels
 
   png(out_path, width = 1000, height = 700, res = 110)
   PlotEventStudyComparison(
-    es_list       = list(list(results = actual_mat), list(results = model_mat), list(results = kstar_mat)),
+    es_list       = list(list(results = actual_matrix), list(results = model_median_matrix), list(results = kstar_matrix)),
     legend_labels = c("Actual", "Model", "Model draw 0"),
     legend_title  = NULL,
     add_comparison = FALSE, add_pretrends = TRUE,
     pt_pch        = c(20, 20, 4),
     ci_bounds     = list(NULL, model_bounds, NULL),
-    ylim          = ComputeSharedYLim(list(actual_mat, model_mat, kstar_mat))
+    ylim          = ComputeSharedYLim(list(actual_matrix, model_median_matrix, kstar_matrix))
   )
   dev.off()
 }

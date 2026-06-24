@@ -3,10 +3,10 @@ import numpy as np
 PROB_SUM_TOLERANCE = 1e-6
 NEGATIVE_BINOMIAL_SIZE_FLOOR = 1e-9
 
+# SCRIPT SINGLE-USE EXCEPTION: cohesive staged-count-model library — ComputeStageProbabilities and
+# DrawCounts are called only from predict_model.py, but belong beside the fit functions
+# (FitLatentDistribution, FitMemberProbabilities) that both fit_model.py and predict_model.py use.
 
-# ---------------------------------------------------------------------------
-# Distribution fitting
-# ---------------------------------------------------------------------------
 
 def FitLatentDistribution(repo_name, counts_per_period, distribution_type):
     """Per-org method-of-moments fit: Negative Binomial if over-dispersed, else Poisson."""
@@ -32,10 +32,6 @@ def FitLatentDistribution(repo_name, counts_per_period, distribution_type):
     }
 
 
-# ---------------------------------------------------------------------------
-# Member stage-completion probability fitting
-# ---------------------------------------------------------------------------
-
 def FitMemberProbabilities(repo_name, df_pre_period, df_repo_counts, estimation_approach="pooled"):
     if estimation_approach == "pooled":
         return FitMemberProbabilitiesPooled(repo_name, df_pre_period, df_repo_counts)
@@ -55,17 +51,17 @@ def FitMemberProbabilitiesPooled(repo_name, df_pre_period, df_repo_counts):
         sum_merges_after_review=("member_pull_request_merged_after_review", "sum"),
     ).reset_index()
 
-    rows = []
-    for _, row in df_member_agg.iterrows():
-        rows.append({
+    member_prob_rows = []
+    for _, member_agg_row in df_member_agg.iterrows():
+        member_prob_rows.append({
             "repo_name":               repo_name,
-            "actor_id":                row["actor_id"],
-            "prob_open":               row["sum_opens"]               / total_opened   if total_opened   > 0 else 0.0,
-            "prob_review":             row["sum_reviews"]             / total_opened   if total_opened   > 0 else 0.0,
-            "prob_merge_direct":       row["sum_merges_direct"]       / total_opened   if total_opened   > 0 else 0.0,
-            "prob_merge_after_review": row["sum_merges_after_review"] / total_reviewed if total_reviewed > 0 else 0.0,
+            "actor_id":                member_agg_row["actor_id"],
+            "prob_open":               member_agg_row["sum_opens"]               / total_opened   if total_opened   > 0 else 0.0,
+            "prob_review":             member_agg_row["sum_reviews"]             / total_opened   if total_opened   > 0 else 0.0,
+            "prob_merge_direct":       member_agg_row["sum_merges_direct"]       / total_opened   if total_opened   > 0 else 0.0,
+            "prob_merge_after_review": member_agg_row["sum_merges_after_review"] / total_reviewed if total_reviewed > 0 else 0.0,
         })
-    return rows
+    return member_prob_rows
 
 
 def FitMemberProbabilitiesPerPeriod(repo_name, df_pre_period, df_repo_counts):
@@ -118,11 +114,6 @@ def FitMemberProbabilitiesPerPeriod(repo_name, df_pre_period, df_repo_counts):
         })
     return rows
 
-
-# ---------------------------------------------------------------------------
-# Stage probabilities and simulation draws (shared by the residual prediction
-# pipeline and the event-study simulation)
-# ---------------------------------------------------------------------------
 
 def ComputeStageProbabilities(df_member_probs):
     prob_open = float(df_member_probs["prob_open"].sum())

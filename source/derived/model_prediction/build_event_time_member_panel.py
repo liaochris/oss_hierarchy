@@ -90,15 +90,15 @@ def ProcessRepo(repo_name, df_time_map, df_bot_list, combo):
         "opened_cohort": AttributeReviewsMergesToOpeningPeriod(df_opens, df_reviews, df_merges_direct, df_merges_after_review),
     }
 
-    for variant, (df_opens_v, df_reviews_v, df_merges_direct_v, df_merges_after_review_v) in variant_inputs.items():
-        df_member_counts = CreateMemberStageCounts(df_opens_v, df_reviews_v, df_merges_direct_v, df_merges_after_review_v, repo_event_times)
+    for variant, (variant_opens, variant_reviews, variant_merges_direct, variant_merges_after_review) in variant_inputs.items():
+        df_member_counts = CreateMemberStageCounts(variant_opens, variant_reviews, variant_merges_direct, variant_merges_after_review, repo_event_times)
         if df_member_counts is None:
             continue
-        df_repo_counts = CreateRepoStageCounts(df_opens_v, df_reviews_v, df_merges_direct_v, df_merges_after_review_v, repo_event_times)
+        df_repo_counts = CreateRepoStageCounts(variant_opens, variant_reviews, variant_merges_direct, variant_merges_after_review, repo_event_times)
         if variant in {"same_period", "opened_cohort"}:
             AssertMergesLeOpened(df_repo_counts, repo_name, variant)
-        df_grid = df_member_counts.merge(df_repo_counts, on="quasi_event_time", how="left")
-        df_grid.insert(0, "repo_name", repo_name)
+        df_member_panel = df_member_counts.merge(df_repo_counts, on="quasi_event_time", how="left")
+        df_member_panel.insert(0, "repo_name", repo_name)
 
         outdir     = OUTDIR     / variant / combo["importance_type"] / combo["qualified_sample"] / combo["control_group"]
         log_outdir = LOG_OUTDIR / variant / combo["importance_type"] / combo["qualified_sample"] / combo["control_group"]
@@ -106,7 +106,7 @@ def ProcessRepo(repo_name, df_time_map, df_bot_list, combo):
         log_outdir.mkdir(parents=True, exist_ok=True)
 
         SaveData(
-            df_grid,
+            df_member_panel,
             ["repo_name", "quasi_event_time", "actor_id"],
             outdir / f"{safe_name}.parquet",
             log_outdir / f"{safe_name}.log",
@@ -118,11 +118,11 @@ def CleanAndFilterData(actions_file, df_time_map, df_bot_list, repo_name):
     df_actions["actor_id"] = pd.to_numeric(df_actions["actor_id"])
     df_actions = ImputeTimePeriod(df_actions, TIME_PERIOD)
 
-    df_repo_map = df_time_map[df_time_map["repo_name"] == repo_name][["time_period", "quasi_event_time"]]
-    df_with_event_time = df_actions.merge(df_repo_map, on="time_period", how="inner")
-    df_without_bots    = df_with_event_time[~df_with_event_time["actor_id"].isin(df_bot_list)]
+    df_repo_time_map = df_time_map[df_time_map["repo_name"] == repo_name][["time_period", "quasi_event_time"]]
+    df_actions_with_event_time = df_actions.merge(df_repo_time_map, on="time_period", how="inner")
+    df_actions_without_bots    = df_actions_with_event_time[~df_actions_with_event_time["actor_id"].isin(df_bot_list)]
 
-    return df_without_bots
+    return df_actions_without_bots
 
 
 def SeparateActionTypes(df_actions):
@@ -162,21 +162,21 @@ def AttributeReviewsMergesToOpeningPeriod(df_opens, df_reviews, df_merges_direct
         .rename(columns={"quasi_event_time": "opening_quasi_event_time"})
     )
 
-    def _remap(df):
+    def remap_to_opening_period(df_action_type):
         return (
-            df.merge(df_opening_period, on="thread_number", how="inner")
+            df_action_type.merge(df_opening_period, on="thread_number", how="inner")
             .drop(columns="quasi_event_time")
             .rename(columns={"opening_quasi_event_time": "quasi_event_time"})
         )
 
-    return df_opens, _remap(df_reviews), _remap(df_merges_direct), _remap(df_merges_after_review)
+    return df_opens, remap_to_opening_period(df_reviews), remap_to_opening_period(df_merges_direct), remap_to_opening_period(df_merges_after_review)
 
 
 def AssertMergesLeOpened(df_repo_counts, repo_name, variant):
-    for col in ["repo_pull_request_merged_direct", "repo_pull_request_merged_after_review"]:
-        violations = df_repo_counts[df_repo_counts[col] > df_repo_counts["repo_pull_request_opened"]]
+    for merge_column in ["repo_pull_request_merged_direct", "repo_pull_request_merged_after_review"]:
+        violations = df_repo_counts[df_repo_counts[merge_column] > df_repo_counts["repo_pull_request_opened"]]
         assert violations.empty, (
-            f"[{variant}] {repo_name}: {col} > repo_pull_request_opened "
+            f"[{variant}] {repo_name}: {merge_column} > repo_pull_request_opened "
             f"in periods {violations['quasi_event_time'].tolist()}"
         )
 
@@ -186,44 +186,44 @@ def CreateMemberStageCounts(df_opens, df_reviews, df_merges_direct, df_merges_af
     if len(member_universe) == 0:
         return None
 
-    df_grid = pd.DataFrame(
+    df_member_time_grid = pd.DataFrame(
         list(product(event_times, member_universe)),
         columns=["quasi_event_time", "actor_id"],
     )
 
-    for df_stage, col in [
+    for df_action_type, count_column in [
         (df_opens,               "member_pull_request_opened"),
         (df_reviews,             "member_pull_request_reviewed"),
         (df_merges_direct,       "member_pull_request_merged_direct"),
         (df_merges_after_review, "member_pull_request_merged_after_review"),
     ]:
-        df_counts = df_stage.groupby(["quasi_event_time", "actor_id"])["thread_number"].nunique().reset_index(name=col)
-        df_grid = df_grid.merge(df_counts, on=["quasi_event_time", "actor_id"], how="left")
+        stage_counts = df_action_type.groupby(["quasi_event_time", "actor_id"])["thread_number"].nunique().reset_index(name=count_column)
+        df_member_time_grid = df_member_time_grid.merge(stage_counts, on=["quasi_event_time", "actor_id"], how="left")
 
-    member_cols = [
+    member_count_columns = [
         "member_pull_request_opened", "member_pull_request_reviewed",
         "member_pull_request_merged_direct", "member_pull_request_merged_after_review",
     ]
-    df_grid[member_cols] = df_grid[member_cols].fillna(0).astype(int)
-    return df_grid
+    df_member_time_grid[member_count_columns] = df_member_time_grid[member_count_columns].fillna(0).astype(int)
+    return df_member_time_grid
 
 
 def CreateRepoStageCounts(df_opens, df_reviews, df_merges_direct, df_merges_after_review, event_times):
     df_repo_time_grid = pd.DataFrame({"quasi_event_time": event_times})
-    for df_stage, col in [
+    for df_action_type, count_column in [
         (df_opens,               "repo_pull_request_opened"),
         (df_reviews,             "repo_pull_request_reviewed"),
         (df_merges_direct,       "repo_pull_request_merged_direct"),
         (df_merges_after_review, "repo_pull_request_merged_after_review"),
     ]:
-        df_counts = df_stage.groupby("quasi_event_time")["thread_number"].nunique().reset_index(name=col)
-        df_repo_time_grid = df_repo_time_grid.merge(df_counts, on="quasi_event_time", how="left")
+        stage_counts = df_action_type.groupby("quasi_event_time")["thread_number"].nunique().reset_index(name=count_column)
+        df_repo_time_grid = df_repo_time_grid.merge(stage_counts, on="quasi_event_time", how="left")
 
-    repo_cols = [
+    repo_count_columns = [
         "repo_pull_request_opened", "repo_pull_request_reviewed",
         "repo_pull_request_merged_direct", "repo_pull_request_merged_after_review",
     ]
-    df_repo_time_grid[repo_cols] = df_repo_time_grid[repo_cols].fillna(0).astype(int)
+    df_repo_time_grid[repo_count_columns] = df_repo_time_grid[repo_count_columns].fillna(0).astype(int)
     return df_repo_time_grid
 
 

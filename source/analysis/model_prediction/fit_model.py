@@ -56,26 +56,28 @@ def RunCombination(variant, distribution_type, estimation_approach,
     df_panel = pd.read_parquet(panel_path)
     df_all_repos = df_panel[df_panel["quasi_event_time"] == 0][["repo_name"]]
 
-    results = Parallel(n_jobs=N_JOBS)(
+    repo_fit_results = Parallel(n_jobs=N_JOBS)(
         delayed(FitRepo)(row["repo_name"], variant, importance_type, qualified_sample,
                          control_group, distribution_type, estimation_approach)
         for _, row in df_all_repos.iterrows()
     )
 
-    dist_rows   = [r["dist"]   for r in results if r is not None]
-    prob_rows   = [p for r in results if r is not None for p in r["probs"]]
-    review_rows = [r["review"] for r in results if r is not None]
+    distribution_param_rows = [repo_result["dist"] for repo_result in repo_fit_results if repo_result is not None]
+    member_prob_rows        = [member_prob_row
+                               for repo_result in repo_fit_results if repo_result is not None
+                               for member_prob_row in repo_result["probs"]]
+    review_fit_rows         = [repo_result["review"] for repo_result in repo_fit_results if repo_result is not None]
 
     SaveData(
-        pd.DataFrame(dist_rows), ["repo_name"],
+        pd.DataFrame(distribution_param_rows), ["repo_name"],
         outdir / "distribution_params.parquet", outdir / "distribution_params.log",
     )
     SaveData(
-        pd.DataFrame(prob_rows), ["repo_name", "actor_id"],
+        pd.DataFrame(member_prob_rows), ["repo_name", "actor_id"],
         outdir / "member_probabilities.parquet", outdir / "member_probabilities.log",
     )
     SaveData(
-        pd.DataFrame(review_rows), ["repo_name"],
+        pd.DataFrame(review_fit_rows), ["repo_name"],
         outdir / "review_fit_check.parquet", outdir / "review_fit_check.log",
     )
 
@@ -121,7 +123,7 @@ def ComputeReviewFitCheck(repo_name, df_repo_counts, member_probs):
         "repo_name":                   repo_name,
         "prob_review_implied":         prob_review_implied,
         "prob_review_obs_mean":        float(np.mean(observed_review_rates)) if observed_review_rates else np.nan,
-        "mean_squared_deviation_review": float(np.mean([(rate - prob_review_implied) ** 2 for rate in observed_review_rates])) if observed_review_rates else np.nan,
+        "mean_squared_deviation_review": float(np.mean([(observed_review_rate - prob_review_implied) ** 2 for observed_review_rate in observed_review_rates])) if observed_review_rates else np.nan,
     }
 
 
