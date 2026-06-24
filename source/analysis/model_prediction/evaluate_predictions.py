@@ -18,8 +18,9 @@ GLOBAL_SETTINGS         = LoadGlobalSettings()
 MODEL_PREDICTION_CONFIG = LoadModelPredictionConfig()
 CONFIG                  = LoadPipelineInputs()
 
-INDIR  = Path("output/analysis/model_prediction")
-OUTDIR = Path("output/analysis/model_prediction")
+INDIR           = Path("output/analysis/model_prediction")
+DATASTORE_INDIR = Path("drive/output/analysis/model_prediction")
+OUTDIR          = Path("output/analysis/model_prediction")
 VARIANTS              = MODEL_PREDICTION_CONFIG["variants"]["run"]
 DISTRIBUTION_TYPES    = MODEL_PREDICTION_CONFIG["distribution_types"]["run"]
 ESTIMATION_APPROACHES = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"]
@@ -78,6 +79,10 @@ def RunCombination(variant, distribution_type, estimation_approach,
         INDIR / variant / distribution_type / "residuals" / estimation_approach
         / importance_type / qualified_sample / control_group
     )
+    reference_dir = (
+        DATASTORE_INDIR / variant / distribution_type / "residuals" / estimation_approach
+        / importance_type / qualified_sample / control_group
+    )
     base_out = (
         OUTDIR / variant / distribution_type / "evaluation" / estimation_approach
         / importance_type / qualified_sample / control_group
@@ -86,9 +91,9 @@ def RunCombination(variant, distribution_type, estimation_approach,
     df_insample    = pd.read_parquet(pred_dir / "insample_period.parquet")
     df_leaveoneout = pd.read_parquet(pred_dir / "leaveoneout_period.parquet")
     df_post        = pd.read_parquet(pred_dir / "post_period.parquet")
-    df_insample_reference    = pd.read_parquet(pred_dir / "insample_reference.parquet")
-    df_leaveoneout_reference = pd.read_parquet(pred_dir / "leaveoneout_reference.parquet")
-    df_post_reference        = pd.read_parquet(pred_dir / "post_reference.parquet")
+    df_insample_reference    = pd.read_parquet(reference_dir / "insample_reference.parquet")
+    df_leaveoneout_reference = pd.read_parquet(reference_dir / "leaveoneout_reference.parquet")
+    df_post_reference        = pd.read_parquet(reference_dir / "post_reference.parquet")
 
     panels_squared = base_out / "panels" / "squared"
     panels_signed  = base_out / "panels" / "signed"

@@ -33,8 +33,8 @@ mean_reversion_source  = ['#output/derived/model_prediction/mean_reversion/mean_
 
 
 def OutputBase(stage, variant, distribution_type, estimation_approach,
-               importance_type, qualified_sample, control_group):
-    return (f'#output/analysis/model_prediction/{variant}/{distribution_type}'
+               importance_type, qualified_sample, control_group, root='#output'):
+    return (f'{root}/analysis/model_prediction/{variant}/{distribution_type}'
             f'/{stage}/{estimation_approach}/{importance_type}/{qualified_sample}/{control_group}')
 
 
@@ -57,19 +57,23 @@ source = (['#source/analysis/model_prediction/fit_model.py',
 env.Python(target, source)
 fit_outputs = target
 
-residual_file_stems = [
-    'insample_period', 'leaveoneout_period', 'post_period',
-    'insample_reference', 'leaveoneout_reference', 'post_reference',
-]
+period_residual_stems = ['insample_period', 'leaveoneout_period', 'post_period']
+reference_stems       = ['insample_reference', 'leaveoneout_reference', 'post_reference']
 target = []
 for variant, distribution_type, estimation_approach, (importance_type, qualified_sample, control_group) in model_combinations:
-    residual_base = OutputBase('residuals', variant, distribution_type, estimation_approach,
-                               importance_type, qualified_sample, control_group)
-    for residual_stem in residual_file_stems:
-        target += [f'{residual_base}/{residual_stem}.parquet', f'{residual_base}/{residual_stem}.log']
-    draws_base = OutputBase('draws', variant, distribution_type, estimation_approach,
-                            importance_type, qualified_sample, control_group)
-    target += [f'{draws_base}/raw_draws.parquet', f'{draws_base}/raw_draws.log']
+    residual_output_base    = OutputBase('residuals', variant, distribution_type, estimation_approach,
+                                         importance_type, qualified_sample, control_group)
+    residual_datastore_base = OutputBase('residuals', variant, distribution_type, estimation_approach,
+                                         importance_type, qualified_sample, control_group, root='#drive/output')
+    draws_output_base    = OutputBase('draws', variant, distribution_type, estimation_approach,
+                                      importance_type, qualified_sample, control_group)
+    draws_datastore_base = OutputBase('draws', variant, distribution_type, estimation_approach,
+                                      importance_type, qualified_sample, control_group, root='#drive/output')
+    for stem in period_residual_stems:
+        target += [f'{residual_output_base}/{stem}.parquet', f'{residual_output_base}/{stem}.log']
+    for stem in reference_stems:
+        target += [f'{residual_datastore_base}/{stem}.parquet', f'{residual_output_base}/{stem}.log']
+    target += [f'{draws_datastore_base}/raw_draws.parquet', f'{draws_output_base}/raw_draws.log']
 source = (['#source/analysis/model_prediction/predict_model.py',
            '#source/lib/model/staged_count_model.py',
            '#source/lib/config/model_prediction.json',

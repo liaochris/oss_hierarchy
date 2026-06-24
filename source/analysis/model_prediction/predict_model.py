@@ -27,6 +27,7 @@ INDIR_ANALYSIS_PANEL = Path("output/derived/analysis_panel")
 INDIR_MEAN_REVERSION = Path("output/derived/model_prediction/mean_reversion")
 INDIR_FITTED         = Path("output/analysis/model_prediction")
 OUTDIR               = Path("output/analysis/model_prediction")
+DATASTORE_OUTDIR     = Path("drive/output/analysis/model_prediction")
 ROLLING_LABEL         = f"rolling{CONFIG['rolling_periods']['run'][0]}"
 VARIANTS              = MODEL_PREDICTION_CONFIG["variants"]["run"]
 DISTRIBUTION_TYPES    = MODEL_PREDICTION_CONFIG["distribution_types"]["run"]
@@ -58,16 +59,16 @@ def Main():
 
 def RunCombination(variant, distribution_type, estimation_approach,
                    importance_type, qualified_sample, control_group):
-    residuals_outdir = (
-        OUTDIR / variant / distribution_type / "residuals" / estimation_approach
-        / importance_type / qualified_sample / control_group
-    )
-    draws_outdir = (
-        OUTDIR / variant / distribution_type / "draws" / estimation_approach
-        / importance_type / qualified_sample / control_group
-    )
-    residuals_outdir.mkdir(parents=True, exist_ok=True)
-    draws_outdir.mkdir(parents=True, exist_ok=True)
+    def stage_dir(root, stage):
+        return (root / variant / distribution_type / stage / estimation_approach
+                / importance_type / qualified_sample / control_group)
+
+    residuals_outdir      = stage_dir(OUTDIR, "residuals")
+    reference_data_outdir = stage_dir(DATASTORE_OUTDIR, "residuals")
+    draws_log_outdir      = stage_dir(OUTDIR, "draws")
+    draws_data_outdir     = stage_dir(DATASTORE_OUTDIR, "draws")
+    for directory in (residuals_outdir, reference_data_outdir, draws_log_outdir, draws_data_outdir):
+        directory.mkdir(parents=True, exist_ok=True)
 
     fitted_dir = (
         INDIR_FITTED / variant / distribution_type / "parameters" / estimation_approach
@@ -118,11 +119,11 @@ def RunCombination(variant, distribution_type, estimation_approach,
                  residuals_outdir / f"{residual_kind}.parquet", residuals_outdir / f"{residual_kind}.log")
     for residual_kind, reference_block_frames in reference_frames.items():
         SaveData(pd.concat(reference_block_frames, ignore_index=True), ["repo_name", "quasi_event_time", "draw"],
-                 residuals_outdir / f"{residual_kind}.parquet", residuals_outdir / f"{residual_kind}.log")
+                 reference_data_outdir / f"{residual_kind}.parquet", residuals_outdir / f"{residual_kind}.log")
 
     SaveData(pd.concat(raw_draw_frames, ignore_index=True),
              ["repo_name", "quasi_event_time", "draw_id"],
-             draws_outdir / "raw_draws.parquet", draws_outdir / "raw_draws.log")
+             draws_data_outdir / "raw_draws.parquet", draws_log_outdir / "raw_draws.log")
 
 
 def LoadMeanReversionRatio(variant, importance_type, qualified_sample, control_group):
