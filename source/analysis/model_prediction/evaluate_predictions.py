@@ -27,7 +27,7 @@ ESTIMATION_APPROACHES = MODEL_PREDICTION_CONFIG["member_probability_estimation"]
 EVALUATION_FIGURES    = MODEL_PREDICTION_CONFIG["evaluation_figures"]["run"]
 N_JOBS                = GLOBAL_SETTINGS["n_jobs"]
 
-OUTCOMES = ["opened", "reviewed", "merged_direct", "merged_after_review", "merged_total"]
+OUTCOMES = ["opened", "reviewed", "merged_direct", "merged_after_review", "merged"]
 STAGES   = ["opened", "reviewed", "merged_direct", "merged_after_review"]
 
 OUTCOME_LABELS = {
@@ -35,7 +35,7 @@ OUTCOME_LABELS = {
     "reviewed":            "Reviewed",
     "merged_direct":       "Direct merged",
     "merged_after_review": "Reviewed merged",
-    "merged_total":        "Total merged",
+    "merged":        "Total merged",
 }
 STAGE_LABELS = {
     "opened":              "Open",
@@ -216,7 +216,7 @@ def DrawOverlay(ax, series_1, series_2, clip):
     if clip is not None:
         ax.set_xlim(-clip, clip)
     ks_result = ks_2samp(series_1.values, series_2.values)
-    ks_x = KSMaxDistanceLocation(series_1.values, series_2.values)
+    _, ks_x = KSStatisticAndLocation(series_1.values, series_2.values)
     if ks_x is not None and (clip is None or -clip <= ks_x <= clip):
         ax.axvline(ks_x, color=KS_LINE_COLOR, linestyle=":", linewidth=1.2, zorder=6)
     ax.text(0.97, 0.97, f"n={len(series_1)} / {len(series_2)}\nKS D={ks_result.statistic:.3f}\np={ks_result.pvalue:.3f}",
@@ -314,33 +314,23 @@ def SharedDisplayBound(series_list, hard_cap, quantile=0.99):
 
 
 def DecompPct(df_residuals, stage):
-    total_merge_residual = df_residuals["squared_std_residual_merged_total"].replace(0, np.nan)
+    total_merge_residual = df_residuals["squared_std_residual_merged"].replace(0, np.nan)
     return df_residuals[f"delta_squared_std_residual_{stage}"] / total_merge_residual * 100
 
 
-def KSSummary(panel_values, reference):
-    if reference is None:
-        return None
-    reference = np.asarray(reference, dtype=float)
-    reference = reference[~np.isnan(reference)]
-    if len(panel_values) < 3 or len(reference) < 3:
-        return None
-    statistic = float(ks_2samp(panel_values.values, reference).statistic)
-    location  = KSMaxDistanceLocation(panel_values.values, reference)
-    return statistic, location
-
-
-def KSMaxDistanceLocation(sample_1, sample_2):
+def KSStatisticAndLocation(sample_1, sample_2):
     sample_1 = np.sort(np.asarray(sample_1, dtype=float))
     sample_2 = np.sort(np.asarray(sample_2, dtype=float))
     sample_1 = sample_1[~np.isnan(sample_1)]
     sample_2 = sample_2[~np.isnan(sample_2)]
     if len(sample_1) < 3 or len(sample_2) < 3:
-        return None
+        return None, None
     evaluation_points = np.concatenate([sample_1, sample_2])
     cdf_1 = np.searchsorted(sample_1, evaluation_points, side="right") / len(sample_1)
     cdf_2 = np.searchsorted(sample_2, evaluation_points, side="right") / len(sample_2)
-    return float(evaluation_points[np.argmax(np.abs(cdf_1 - cdf_2))])
+    cdf_gap = np.abs(cdf_1 - cdf_2)
+    max_gap_index = int(np.argmax(cdf_gap))
+    return float(cdf_gap[max_gap_index]), float(evaluation_points[max_gap_index])
 
 
 def DistributionLegendHandles(include_reference):
@@ -383,7 +373,7 @@ def DrawDistribution(ax, panel_values, clip, edge_lw=0.4):
     return n_lo + n_hi
 
 
-def StatsSegments(panel_values, clip, n_trunc, reference=None):
+def StatsSegments(panel_values, clip, n_trunc, ks_statistic=None, ks_location=None):
     # each segment is (text, line) where line is (color, linestyle) for a swatch, or None for plain text
     segments = [
         (f"n={len(panel_values)}", None),
@@ -393,10 +383,8 @@ def StatsSegments(panel_values, clip, n_trunc, reference=None):
     ]
     if clip is not None:
         segments.append((f"|x|>{clip}: {n_trunc}", None))
-    ks_summary = KSSummary(panel_values, reference)
-    if ks_summary is not None:
-        statistic, location = ks_summary
-        segments.append((f"KS D={statistic:.3f} @ x={location:.2f}", (KS_LINE_COLOR, ":")))
+    if ks_statistic is not None:
+        segments.append((f"KS D={ks_statistic:.3f} @ x={ks_location:.2f}", (KS_LINE_COLOR, ":")))
     return segments
 
 
@@ -434,12 +422,13 @@ def PlotPanelSubplot(ax, panel_values, title="", xlabel="", clip=None, reference
         ax.set_title(title, fontsize=9)
         return
     n_trunc = DrawDistribution(ax, panel_values, clip)
+    ks_statistic, ks_location = (None, None)
     if reference is not None:
         OverlayReferenceKde(ax, reference, len(panel_values) - n_trunc, clip)
-        ks_x = KSMaxDistanceLocation(panel_values.values, reference)
-        if ks_x is not None and (clip is None or -clip <= ks_x <= clip):
-            ax.axvline(ks_x, color=KS_LINE_COLOR, linestyle=":", linewidth=1.4, zorder=7)
-    DrawStatsBox(ax, StatsSegments(panel_values, clip, n_trunc, reference))
+        ks_statistic, ks_location = KSStatisticAndLocation(panel_values.values, reference)
+        if ks_location is not None and (clip is None or -clip <= ks_location <= clip):
+            ax.axvline(ks_location, color=KS_LINE_COLOR, linestyle=":", linewidth=1.4, zorder=7)
+    DrawStatsBox(ax, StatsSegments(panel_values, clip, n_trunc, ks_statistic, ks_location))
     ax.set_title(title, fontsize=9)
     if xlabel:
         ax.set_xlabel(xlabel, fontsize=8)

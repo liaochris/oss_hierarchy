@@ -14,7 +14,8 @@ from source.lib.python.config_loaders import (
 from source.lib.python.repo_utils import MakeRepoNameSafe
 from source.lib.JMSLab.SaveData import SaveData
 from source.lib.model.staged_count_model import (
-    FitLatentDistribution, FitMemberProbabilities, ComputeStageProbabilities, DrawCounts
+    FitLatentDistribution, FitMemberProbabilities, ComputeStageProbabilities, DrawCounts,
+    MemberProbabilityRows, MEMBER_COUNT_COLUMNS
 )
 
 GLOBAL_SETTINGS         = LoadGlobalSettings()
@@ -38,7 +39,7 @@ N_JOBS        = GLOBAL_SETTINGS["n_jobs"]
 
 MEAN_REVERSION_STATISTIC = MODEL_PREDICTION_CONFIG["mean_reversion_statistic"]
 
-OUTCOMES = ["opened", "reviewed", "merged_direct", "merged_after_review", "merged_total"]
+OUTCOMES = ["opened", "reviewed", "merged_direct", "merged_after_review", "merged"]
 STAGES   = ["opened", "reviewed", "merged_direct", "merged_after_review"]
 
 
@@ -114,16 +115,24 @@ def RunCombination(variant, distribution_type, estimation_approach,
             reference_frames[residual_kind].append(repo_result[residual_kind])
         raw_draw_frames.append(repo_result["raw_draws"])
 
-    for residual_kind, residual_rows in period_rows.items():
+    def write_period(residual_kind, residual_rows):
         SaveData(pd.DataFrame(residual_rows), ["repo_name", "quasi_event_time"],
                  residuals_outdir / f"{residual_kind}.parquet", residuals_outdir / f"{residual_kind}.log")
-    for residual_kind, reference_block_frames in reference_frames.items():
+
+    def write_reference(residual_kind, reference_block_frames):
         SaveData(pd.concat(reference_block_frames, ignore_index=True), ["repo_name", "quasi_event_time", "draw"],
                  reference_data_outdir / f"{residual_kind}.parquet", residuals_outdir / f"{residual_kind}.log")
 
-    SaveData(pd.concat(raw_draw_frames, ignore_index=True),
-             ["repo_name", "quasi_event_time", "draw_id"],
-             draws_data_outdir / "raw_draws.parquet", draws_log_outdir / "raw_draws.log")
+    def write_draws(raw_draw_frames):
+        SaveData(pd.concat(raw_draw_frames, ignore_index=True), ["repo_name", "quasi_event_time", "draw_id"],
+                 draws_data_outdir / "raw_draws.parquet", draws_log_outdir / "raw_draws.log")
+
+    write_jobs = (
+        [delayed(write_period)(kind, rows) for kind, rows in period_rows.items()]
+        + [delayed(write_reference)(kind, frames) for kind, frames in reference_frames.items()]
+        + [delayed(write_draws)(raw_draw_frames)]
+    )
+    Parallel(n_jobs=N_JOBS, prefer="threads")(write_jobs)
 
 
 def LoadMeanReversionRatio(variant, importance_type, qualified_sample, control_group):
@@ -225,7 +234,7 @@ def DrawPeriodBlock(repo_distribution, dist_params, stage_probs, periods, n_draw
 def BuildRawDrawRows(repo_name, is_treated, periods, period_draws):
     period_frames = []
     for period in periods:
-        opened, reviewed, merged_direct, merged_after_review, merged_total = period_draws[period]
+        opened, reviewed, merged_direct, merged_after_review, merged = period_draws[period]
         period_frames.append(pd.DataFrame({
             "repo_name":                        repo_name,
             "is_treated":                       is_treated,
@@ -235,7 +244,7 @@ def BuildRawDrawRows(repo_name, is_treated, periods, period_draws):
             "pull_request_reviewed":            reviewed,
             "pull_request_merged_direct":       merged_direct,
             "pull_request_merged_after_review": merged_after_review,
-            "pull_request_merged_total":        merged_total,
+            "pull_request_merged":              merged,
         }))
     return pd.concat(period_frames, ignore_index=True)
 
@@ -262,17 +271,28 @@ def LeaveOneOutResiduals(repo_name, is_treated, pre_periods, df_member, observed
         return period_rows, reference_blocks
 
     df_pre = df_member[df_member["quasi_event_time"].isin(pre_periods)]
+    repo_counts_by_period = df_pre.groupby("quasi_event_time")[
+        ["repo_pull_request_opened", "repo_pull_request_reviewed",
+         "repo_pull_request_merged_direct", "repo_pull_request_merged_after_review"]
+    ].first()
+    total_opened_full   = float(repo_counts_by_period["repo_pull_request_opened"].sum())
+    total_reviewed_full = float(repo_counts_by_period["repo_pull_request_reviewed"].sum())
+    full_member_sums = df_pre.groupby("actor_id")[MEMBER_COUNT_COLUMNS].sum() if estimation_approach == "pooled" else None
+
     for held_out_time in pre_periods:
-        df_train = df_pre[df_pre["quasi_event_time"] != held_out_time]
-        df_repo_train = (
-            df_train.groupby("quasi_event_time")[
-                ["repo_pull_request_opened", "repo_pull_request_reviewed",
-                 "repo_pull_request_merged_direct", "repo_pull_request_merged_after_review"]
-            ].first().reset_index()
-        )
-        counts_train = df_repo_train["repo_pull_request_opened"].values.astype(float)
+        counts_train = repo_counts_by_period["repo_pull_request_opened"].drop(held_out_time).values.astype(float)
         dist_loo  = FitLatentDistribution(repo_name, counts_train, distribution_type)
-        probs_loo = ComputeStageProbabilities(pd.DataFrame(FitMemberProbabilities(repo_name, df_train, df_repo_train, estimation_approach)))
+        if estimation_approach == "pooled":
+            held_member_sums   = df_pre.loc[df_pre["quasi_event_time"] == held_out_time].set_index("actor_id")[MEMBER_COUNT_COLUMNS]
+            member_sums_loo    = full_member_sums.subtract(held_member_sums, fill_value=0)
+            total_opened_loo   = total_opened_full   - float(repo_counts_by_period.loc[held_out_time, "repo_pull_request_opened"])
+            total_reviewed_loo = total_reviewed_full - float(repo_counts_by_period.loc[held_out_time, "repo_pull_request_reviewed"])
+            member_probs_loo   = MemberProbabilityRows(repo_name, member_sums_loo, total_opened_loo, total_reviewed_loo)
+        else:
+            df_train      = df_pre[df_pre["quasi_event_time"] != held_out_time]
+            df_repo_train = repo_counts_by_period.drop(held_out_time).reset_index()
+            member_probs_loo = FitMemberProbabilities(repo_name, df_train, df_repo_train, estimation_approach)
+        probs_loo = ComputeStageProbabilities(pd.DataFrame(member_probs_loo))
         dist_params_loo = {
             "poisson_rate":           dist_loo["poisson_rate"],
             "negative_binomial_size": dist_loo["negative_binomial_size"],
@@ -293,7 +313,7 @@ def ExtractObserved(row):
         "pull_request_reviewed_observed":        float(row["repo_pull_request_reviewed"]),
         "pull_request_merged_direct_observed":        float(row["repo_pull_request_merged_direct"]),
         "pull_request_merged_after_review_observed":  float(row["repo_pull_request_merged_after_review"]),
-        "pull_request_merged_total_observed":         float(row["repo_pull_request_merged_direct"] + row["repo_pull_request_merged_after_review"]),
+        "pull_request_merged_observed":         float(row["repo_pull_request_merged_direct"] + row["repo_pull_request_merged_after_review"]),
     }
 
 
@@ -313,14 +333,14 @@ def ComputeSignedStdResidual(observed, draws):
     return (observed - draw_mean) / draw_std
 
 
-def StageDecomposition(observed_opened, observed_reviewed, observed_merged_directly, observed_merged_total,
+def StageDecomposition(observed_opened, observed_reviewed, observed_merged_directly, observed_merged,
                        direct_merge_draw, reviewed_merge_draw,
                        prob_review, prob_merge_direct, prob_merge_after_review, n_draws, rng):
     """Delta decomposition of the squared standardized residual of total merges across stages."""
     total_merge_draw = direct_merge_draw + reviewed_merge_draw
 
     # Step 1: full model squared residual
-    squared_residual_total = ComputeSquaredStdResidual(observed_merged_total, total_merge_draw)
+    squared_residual_total = ComputeSquaredStdResidual(observed_merged, total_merge_draw)
 
     # Step 2: condition on observed opens
     prob_review             = np.clip(prob_review, 0.0, 1.0)
@@ -333,19 +353,19 @@ def StageDecomposition(observed_opened, observed_reviewed, observed_merged_direc
     conditional_direct_merge_draw = rng.binomial(remaining, conditional_direct_merge_prob, n_draws)
     conditional_reviewed_merge_draw = rng.binomial(conditional_reviewed_draw, prob_merge_after_review, n_draws)
     conditional_total_merge_draw  = conditional_direct_merge_draw + conditional_reviewed_merge_draw
-    squared_residual_fix_opened   = ComputeSquaredStdResidual(observed_merged_total, conditional_total_merge_draw)
+    squared_residual_fix_opened   = ComputeSquaredStdResidual(observed_merged, conditional_total_merge_draw)
 
     # Step 3: condition on observed opens and reviews
     n_reviewed = int(observed_reviewed)
     check_direct_merge_draw       = rng.binomial(int(n_opened - n_reviewed), conditional_direct_merge_prob, n_draws)
     check_reviewed_merge_draw     = rng.binomial(n_reviewed, prob_merge_after_review, n_draws)
     check_total_merge_draw        = check_direct_merge_draw + check_reviewed_merge_draw
-    squared_residual_fix_opened_reviewed = ComputeSquaredStdResidual(observed_merged_total, check_total_merge_draw)
+    squared_residual_fix_opened_reviewed = ComputeSquaredStdResidual(observed_merged, check_total_merge_draw)
 
     # Step 4: condition on observed opens, reviews, and direct merges
     fixed_reviewed_merge_draw     = rng.binomial(n_reviewed, prob_merge_after_review, n_draws)
     fixed_total_merge_draw        = int(observed_merged_directly) + fixed_reviewed_merge_draw
-    squared_residual_fix_opened_reviewed_direct = ComputeSquaredStdResidual(observed_merged_total, fixed_total_merge_draw)
+    squared_residual_fix_opened_reviewed_direct = ComputeSquaredStdResidual(observed_merged, fixed_total_merge_draw)
 
     # If any step is NaN, propagate NaN so the averages use a consistent period set
     if any(np.isnan(v) for v in [squared_residual_total, squared_residual_fix_opened,
@@ -360,11 +380,11 @@ def StageDecomposition(observed_opened, observed_reviewed, observed_merged_direc
     return squared_residual_total, delta_open, delta_review, delta_direct_merge, delta_reviewed_merge
 
 
-def AllSquaredResiduals(observed, opened_draw, reviewed_draw, merged_direct_draw, merged_after_review_draw, merged_total_draw,
+def AllSquaredResiduals(observed, opened_draw, reviewed_draw, merged_direct_draw, merged_after_review_draw, merged_draw,
                         prob_review, prob_merge_direct, prob_merge_after_review, rng):
-    (merged_total_squared_residual, delta_opened, delta_reviewed, delta_merged_direct, delta_merged_after_review) = StageDecomposition(
+    (merged_squared_residual, delta_opened, delta_reviewed, delta_merged_direct, delta_merged_after_review) = StageDecomposition(
         observed["pull_request_opened_observed"], observed["pull_request_reviewed_observed"],
-        observed["pull_request_merged_direct_observed"], observed["pull_request_merged_total_observed"],
+        observed["pull_request_merged_direct_observed"], observed["pull_request_merged_observed"],
         merged_direct_draw, merged_after_review_draw,
         prob_review, prob_merge_direct, prob_merge_after_review, N_MODEL_DRAWS, rng
     )
@@ -373,7 +393,7 @@ def AllSquaredResiduals(observed, opened_draw, reviewed_draw, merged_direct_draw
         "squared_std_residual_reviewed":           ComputeSquaredStdResidual(observed["pull_request_reviewed_observed"], reviewed_draw),
         "squared_std_residual_merged_direct":      ComputeSquaredStdResidual(observed["pull_request_merged_direct_observed"], merged_direct_draw),
         "squared_std_residual_merged_after_review": ComputeSquaredStdResidual(observed["pull_request_merged_after_review_observed"], merged_after_review_draw),
-        "squared_std_residual_merged_total":       merged_total_squared_residual,
+        "squared_std_residual_merged":       merged_squared_residual,
         "delta_squared_std_residual_opened":             delta_opened,
         "delta_squared_std_residual_reviewed":           delta_reviewed,
         "delta_squared_std_residual_merged_direct":      delta_merged_direct,
@@ -381,13 +401,13 @@ def AllSquaredResiduals(observed, opened_draw, reviewed_draw, merged_direct_draw
     }
 
 
-def AllSignedResiduals(observed, opened_draw, reviewed_draw, merged_direct_draw, merged_after_review_draw, merged_total_draw):
+def AllSignedResiduals(observed, opened_draw, reviewed_draw, merged_direct_draw, merged_after_review_draw, merged_draw):
     return {
         "signed_std_residual_opened":             ComputeSignedStdResidual(observed["pull_request_opened_observed"], opened_draw),
         "signed_std_residual_reviewed":           ComputeSignedStdResidual(observed["pull_request_reviewed_observed"], reviewed_draw),
         "signed_std_residual_merged_direct":      ComputeSignedStdResidual(observed["pull_request_merged_direct_observed"], merged_direct_draw),
         "signed_std_residual_merged_after_review": ComputeSignedStdResidual(observed["pull_request_merged_after_review_observed"], merged_after_review_draw),
-        "signed_std_residual_merged_total":       ComputeSignedStdResidual(observed["pull_request_merged_total_observed"], merged_total_draw),
+        "signed_std_residual_merged":       ComputeSignedStdResidual(observed["pull_request_merged_observed"], merged_draw),
     }
 
 

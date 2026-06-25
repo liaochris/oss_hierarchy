@@ -1,7 +1,12 @@
 import numpy as np
+import pandas as pd
 
 PROB_SUM_TOLERANCE = 1e-6
 NEGATIVE_BINOMIAL_SIZE_FLOOR = 1e-9
+MEMBER_COUNT_COLUMNS = [
+    "member_pull_request_opened", "member_pull_request_reviewed",
+    "member_pull_request_merged_direct", "member_pull_request_merged_after_review",
+]
 
 # SCRIPT SINGLE-USE EXCEPTION: cohesive staged-count-model library — ComputeStageProbabilities and
 # DrawCounts are called only from predict_model.py, but belong beside the fit functions
@@ -43,25 +48,21 @@ def FitMemberProbabilities(repo_name, df_pre_period, df_repo_counts, estimation_
 def FitMemberProbabilitiesPooled(repo_name, df_pre_period, df_repo_counts):
     total_opened   = float(df_repo_counts["repo_pull_request_opened"].sum())
     total_reviewed = float(df_repo_counts["repo_pull_request_reviewed"].sum())
+    member_count_sums = df_pre_period.groupby("actor_id")[MEMBER_COUNT_COLUMNS].sum()
+    return MemberProbabilityRows(repo_name, member_count_sums, total_opened, total_reviewed)
 
-    df_member_agg = df_pre_period.groupby("actor_id").agg(
-        sum_opens=("member_pull_request_opened",                      "sum"),
-        sum_reviews=("member_pull_request_reviewed",                  "sum"),
-        sum_merges_direct=("member_pull_request_merged_direct",       "sum"),
-        sum_merges_after_review=("member_pull_request_merged_after_review", "sum"),
-    ).reset_index()
 
-    member_prob_rows = []
-    for _, member_agg_row in df_member_agg.iterrows():
-        member_prob_rows.append({
-            "repo_name":               repo_name,
-            "actor_id":                member_agg_row["actor_id"],
-            "prob_open":               member_agg_row["sum_opens"]               / total_opened   if total_opened   > 0 else 0.0,
-            "prob_review":             member_agg_row["sum_reviews"]             / total_opened   if total_opened   > 0 else 0.0,
-            "prob_merge_direct":       member_agg_row["sum_merges_direct"]       / total_opened   if total_opened   > 0 else 0.0,
-            "prob_merge_after_review": member_agg_row["sum_merges_after_review"] / total_reviewed if total_reviewed > 0 else 0.0,
-        })
-    return member_prob_rows
+def MemberProbabilityRows(repo_name, member_count_sums, total_opened, total_reviewed):
+    opened_present   = total_opened   > 0
+    reviewed_present = total_reviewed > 0
+    return pd.DataFrame({
+        "repo_name":               repo_name,
+        "actor_id":                member_count_sums.index,
+        "prob_open":               member_count_sums["member_pull_request_opened"].values               / total_opened   if opened_present   else 0.0,
+        "prob_review":             member_count_sums["member_pull_request_reviewed"].values             / total_opened   if opened_present   else 0.0,
+        "prob_merge_direct":       member_count_sums["member_pull_request_merged_direct"].values         / total_opened   if opened_present   else 0.0,
+        "prob_merge_after_review": member_count_sums["member_pull_request_merged_after_review"].values   / total_reviewed if reviewed_present else 0.0,
+    }).to_dict("records")
 
 
 def FitMemberProbabilitiesPerPeriod(repo_name, df_pre_period, df_repo_counts):
@@ -156,7 +157,7 @@ def DrawCounts(distribution_type, dist_params,
     prob_merge_after_review = np.clip(prob_merge_after_review, 0.0, 1.0)
     pull_request_merged_reviewed_draw = rng.binomial(pull_request_reviewed_draw, prob_merge_after_review)
 
-    pull_request_merged_total_draw = pull_request_merged_directly_draw + pull_request_merged_reviewed_draw
+    pull_request_merged_draw = pull_request_merged_directly_draw + pull_request_merged_reviewed_draw
     return (pull_request_opened_draw, pull_request_reviewed_draw,
             pull_request_merged_directly_draw, pull_request_merged_reviewed_draw,
-            pull_request_merged_total_draw)
+            pull_request_merged_draw)
