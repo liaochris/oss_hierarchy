@@ -119,10 +119,20 @@ def FitMemberProbabilitiesPerPeriod(repo_name, df_pre_period, df_repo_counts):
 def ComputeStageProbabilities(df_member_probs):
     prob_open = float(df_member_probs["prob_open"].sum())
     assert -PROB_SUM_TOLERANCE <= prob_open <= 1.0 + PROB_SUM_TOLERANCE, f"prob_open sum out of [0, 1]: {prob_open}"
-    prob_review             = 1.0 - float(np.prod(1.0 - df_member_probs["prob_review"].values))
+    prob_review             = float(df_member_probs["prob_review"].sum())
     prob_merge_direct       = float(df_member_probs["prob_merge_direct"].sum())
     prob_merge_after_review = float(df_member_probs["prob_merge_after_review"].sum())
+    assert prob_review + prob_merge_direct <= 1.0 + PROB_SUM_TOLERANCE, \
+        f"review + direct-merge competing-path probabilities exceed 1: {prob_review + prob_merge_direct}"
     return prob_open, prob_review, prob_merge_direct, prob_merge_after_review
+
+
+def CompetingPathProbabilities(prob_review, prob_merge_direct):
+    # Review / direct-merge / neither form a simplex by construction; the clamps only absorb
+    # floating-point rounding at the boundary (e.g. a repo whose opened pulls are all reviewed).
+    prob_review       = min(1.0, prob_review)
+    prob_merge_direct = min(prob_merge_direct, 1.0 - prob_review)
+    return [prob_review, prob_merge_direct, 1.0 - prob_review - prob_merge_direct]
 
 
 def DrawCounts(distribution_type, dist_params,
@@ -143,15 +153,11 @@ def DrawCounts(distribution_type, dist_params,
     prob_open = np.clip(prob_open, 0.0, 1.0)
     pull_request_opened_draw = rng.binomial(latent_problem_count_draw, prob_open)
 
-    # Stage 2: review vs direct-merge vs exit (sequential multinomial decomposition)
-    prob_review = np.clip(prob_review, 0.0, 1.0)
-    pull_request_reviewed_draw = rng.binomial(pull_request_opened_draw, prob_review)
-    remaining = pull_request_opened_draw - pull_request_reviewed_draw
-    if prob_review < 1.0:
-        conditional_direct_merge_prob = np.clip(prob_merge_direct / (1.0 - prob_review), 0.0, 1.0)
-    else:
-        conditional_direct_merge_prob = 0.0
-    pull_request_merged_directly_draw = rng.binomial(remaining, conditional_direct_merge_prob)
+    # Stage 2: each opened pull is reviewed, direct-merged, or neither (multinomial over opened)
+    stage_two_outcomes = rng.multinomial(
+        pull_request_opened_draw, CompetingPathProbabilities(prob_review, prob_merge_direct))
+    pull_request_reviewed_draw        = stage_two_outcomes[:, 0]
+    pull_request_merged_directly_draw = stage_two_outcomes[:, 1]
 
     # Stage 3: merge after review
     prob_merge_after_review = np.clip(prob_merge_after_review, 0.0, 1.0)

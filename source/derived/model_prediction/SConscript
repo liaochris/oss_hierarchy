@@ -51,6 +51,8 @@ mean_reversion_deps = [
 
 env.Python(
     ['#output/derived/model_prediction/mean_reversion/mean_reversion_ratios.parquet',
-     '#output/derived/model_prediction/mean_reversion/mean_reversion_ratios.log'],
+     '#output/derived/model_prediction/mean_reversion/mean_reversion_ratios.log',
+     '#output/derived/model_prediction/mean_reversion/org_reversion_stats.parquet',
+     '#output/derived/model_prediction/mean_reversion/org_reversion_stats.log'],
     mean_reversion_deps + panel_sources,
 )

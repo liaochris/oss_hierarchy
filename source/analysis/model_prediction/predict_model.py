@@ -15,7 +15,7 @@ from source.lib.python.repo_utils import MakeRepoNameSafe
 from source.lib.JMSLab.SaveData import SaveData
 from source.lib.model.staged_count_model import (
     FitLatentDistribution, FitMemberProbabilities, ComputeStageProbabilities, DrawCounts,
-    MemberProbabilityRows, MEMBER_COUNT_COLUMNS
+    MemberProbabilityRows, CompetingPathProbabilities, MEMBER_COUNT_COLUMNS
 )
 
 GLOBAL_SETTINGS         = LoadGlobalSettings()
@@ -342,22 +342,21 @@ def StageDecomposition(observed_opened, observed_reviewed, observed_merged_direc
     # Step 1: full model squared residual
     squared_residual_total = ComputeSquaredStdResidual(observed_merged, total_merge_draw)
 
-    # Step 2: condition on observed opens
-    prob_review             = np.clip(prob_review, 0.0, 1.0)
-    prob_merge_direct       = np.clip(prob_merge_direct, 0.0, 1.0)
+    # Step 2: condition on observed opens (review / direct-merge / neither is multinomial)
     prob_merge_after_review = np.clip(prob_merge_after_review, 0.0, 1.0)
     n_opened = int(observed_opened)
-    conditional_reviewed_draw     = rng.binomial(n_opened, prob_review, n_draws)
-    remaining                     = n_opened - conditional_reviewed_draw
-    conditional_direct_merge_prob = np.clip(prob_merge_direct / (1.0 - prob_review), 0.0, 1.0) if prob_review < 1.0 else 0.0
-    conditional_direct_merge_draw = rng.binomial(remaining, conditional_direct_merge_prob, n_draws)
+    stage_two_outcomes = rng.multinomial(
+        n_opened, CompetingPathProbabilities(prob_review, prob_merge_direct), n_draws)
+    conditional_reviewed_draw       = stage_two_outcomes[:, 0]
+    conditional_direct_merge_draw   = stage_two_outcomes[:, 1]
     conditional_reviewed_merge_draw = rng.binomial(conditional_reviewed_draw, prob_merge_after_review, n_draws)
-    conditional_total_merge_draw  = conditional_direct_merge_draw + conditional_reviewed_merge_draw
-    squared_residual_fix_opened   = ComputeSquaredStdResidual(observed_merged, conditional_total_merge_draw)
+    conditional_total_merge_draw    = conditional_direct_merge_draw + conditional_reviewed_merge_draw
+    squared_residual_fix_opened     = ComputeSquaredStdResidual(observed_merged, conditional_total_merge_draw)
 
-    # Step 3: condition on observed opens and reviews
+    # Step 3: additionally condition on observed reviews; direct merges fall among the unreviewed opens
     n_reviewed = int(observed_reviewed)
-    check_direct_merge_draw       = rng.binomial(int(n_opened - n_reviewed), conditional_direct_merge_prob, n_draws)
+    direct_merge_given_unreviewed = min(1.0, prob_merge_direct / (1.0 - prob_review)) if prob_review < 1.0 else 0.0
+    check_direct_merge_draw       = rng.binomial(int(n_opened - n_reviewed), direct_merge_given_unreviewed, n_draws)
     check_reviewed_merge_draw     = rng.binomial(n_reviewed, prob_merge_after_review, n_draws)
     check_total_merge_draw        = check_direct_merge_draw + check_reviewed_merge_draw
     squared_residual_fix_opened_reviewed = ComputeSquaredStdResidual(observed_merged, check_total_merge_draw)

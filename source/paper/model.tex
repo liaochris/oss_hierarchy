@@ -62,9 +62,9 @@ My goal is to predict how organizational activity changes when a member leaves.
 To do that, I need a model of how individual actions contribute to organizational outcomes.
 
 Let $\mathcal{J} = \{1, \ldots, J\}$ be the set of members.
-Let $A_{j,t}^o$, $A_{j,t}^r$, $A_{j,t}^{m|o}$, and $A_{j,t}^{m|r}$ denote the counts of pull requests opened, reviewed, merged directly after opening, and merged after review by member $j$ in period $t$.
+Let $A_{j,t}^o$, $A_{j,t}^r$, $A_{j,t}^{m|o}$, and $A_{j,t}^{m|r}$ denote the counts of pull requests opened, first reviewed, merged directly after opening, and merged after review by member $j$ in period $t$.
 For state $s \in \{o, r, m|o, m|r\}$, let $p_{j,t}^s \in [0,1]$ denote member $j$'s probability of performing a state-$s$ action on any given unit at time $t$.
-For a given latent problem, at most one member can open, merge directly, or merge after review; any number of members can review an opened pull request.
+Each observed action on a given problem is attributed to a single member: the member who opens it, the first member to review it, the member who merges it directly, or the member who merges it after review.
 
 \begin{assumption}[Problem-invariant member probabilities]
 \label{asm:problem-invariant}
@@ -77,16 +77,11 @@ Under Assumptions~\ref{asm:independence} and~\ref{asm:problem-invariant}, the id
 $$ \left( \left\{A_{j,t}^o \right\}_{j\in\mathcal J}, A_{0, t}^o \right) \mid N_{i,t} \sim \text{Multinomial}\left(N_{i,t}; \left \{p_{j,t}^o \right \}_{j\in\mathcal J}, p_{0}^o \right). $$
 Hence, $\pi_{i,t}^o = \sum_{j\in\mathcal J}p_{j,t}^o$, and the number of pulls opened is distributed binomially as $N_{i,t}^o \mid N_{i,t} \sim \text{Binomial}(N_{i,t},\, \pi_{i,t}^o)$.
 
-\begin{assumption}[Independent review decisions]
-\label{asm:review-independence}
-Conditional on an opened pull request, each member $j$ decides whether to review it independently of all other members, so member $j$'s review decision does not affect member $j'$'s decision.
-\end{assumption}
-
-Under Assumptions~\ref{asm:problem-invariant} and~\ref{asm:review-independence}, conditional on $N_{i,t}^o$ opened pull requests, member $j$ independently reviews each before any merge with probability $p_{j,t}^r$.
-The quantity of pull requests reviewed by member $j$ in period $t$ is the sum of $N_{i,t}^o$ independent Bernoulli actions,
-$$A_{j,t}^r = \sum_{n=1}^{N_{i,t}^o}\mathbf{1}[\text{member }j\text{ reviews pull request }n],$$
-so $A_{j,t}^r \mid N_{i,t}^o \sim \text{Binomial}(N_{i,t}^o, p_{j,t}^r)$.
-Hence, the probability that at least one member reviews any given pull request before merge is $\pi_{i,t}^r = 1-\prod_{j\in\mathcal J}(1-p_{j,t}^r)$.
+For any opened pull request at time $t$, let $p_{j,t}^r$ denote the probability that member $j$ is the first member to review it.
+The probability that no member reviews it is $p_{0,t}^r = 1-\sum_{j\in\mathcal J} p_{j,t}^r$.
+Under Assumptions~\ref{asm:independence} and~\ref{asm:problem-invariant}, by the same argument as for opening, the identity of the first reviewer is an i.i.d.\ categorical draw across opened pull requests:
+$$ \left( \left\{A_{j,t}^r \right\}_{j\in\mathcal J}, A_{0, t}^r \right) \mid N_{i,t}^o \sim \text{Multinomial}\left(N_{i,t}^o; \left \{p_{j,t}^r \right \}_{j\in\mathcal J}, p_{0,t}^r \right). $$
+Hence, $\pi_{i,t}^r = \sum_{j\in\mathcal J}p_{j,t}^r$, and the number of pulls reviewed is distributed binomially as $N_{i,t}^r \mid N_{i,t}^o \sim \text{Binomial}(N_{i,t}^o,\, \pi_{i,t}^r)$.
 
 For any opened pull request at time $t$, let $p_{j,t}^{m|o}$ denote the probability that member $j$ is the unique member who merges it directly before review.
 The probability that no member merges it directly is $p_{0,t}^{m|o} = 1-\sum_{j\in\mathcal J} p_{j,t}^{m|o}$.
@@ -139,7 +134,7 @@ When the data are not over-dispersed ($v_i \le m_i$), the moment estimators are 
 The Negative Binomial therefore nests the Poisson, and this adaptive choice never fits the latent opened-count distribution worse than a Poisson would.
 \todo[inline]{Explore alternative distributions (e.g., zero-inflated, hurdle, or mixture models) if the adaptive fit remains poor.}
 
-I estimate $p_j^s$ by pooling all pre-period observations uniformly across all organizations; MLE gives the analytical solution $\hat{p}_j^o = \frac{\sum_t A_{j,t}^o}{\sum_t N_{i,t}^o}$, $\hat{p}_j^r = \frac{\sum_t A_{j,t}^r}{\sum_t N_{i,t}^o}$, $\hat{p}_j^{m|o} = \frac{\sum_t A_{j,t}^{m|o}}{\sum_t N_{i,t}^o}$, and $\hat{p}_j^{m|r} = \frac{\sum_t A_{j,t}^{m|r}}{\sum_t N_{i,t}^r}$.
+I estimate $p_j^s$ by pooling all pre-period observations within each organization; MLE gives the analytical solution $\hat{p}_j^o = \frac{\sum_t A_{j,t}^o}{\sum_t N_{i,t}^o}$, $\hat{p}_j^r = \frac{\sum_t A_{j,t}^r}{\sum_t N_{i,t}^o}$, $\hat{p}_j^{m|o} = \frac{\sum_t A_{j,t}^{m|o}}{\sum_t N_{i,t}^o}$, and $\hat{p}_j^{m|r} = \frac{\sum_t A_{j,t}^{m|r}}{\sum_t N_{i,t}^r}$.
 
 \todo[inline]{1. Penalized estimation of p? 2. Model entry/exit of members? 3. Pick one combination out of the 4}
 
@@ -276,6 +271,27 @@ $\Delta Q_{\mathrm{reviewed merge}}$ measures how much is due to errors in predi
 \todo[inline]{Insert a 4x2 figure showing the distribution of $\Delta Q_{\mathrm{open}}, \Delta Q_{\mathrm{review}}, \Delta Q_{\mathrm{direct merge}}$, and $\Delta Q_{\mathrm{reviewed merge}}$, each as a percent of $Q_{i, t}(N^m)$,  with the first row for treated organizations $i$ and the second row for control organizations $i$. For each figure, also report in a box in the upper right a mean/median as well, and the 95\% interval of the percents}
 \todo[inline]{Insert a 4x2 figure showing the distribution of $\Delta Q_{\mathrm{open}}, \Delta Q_{\mathrm{review}}, \Delta Q_{\mathrm{direct merge}}$, and $\Delta Q_{\mathrm{reviewed merge}}$ calculated using LOO method, each as a percent of $Q_{i, t}(N^m)$,  with the first row for treated organizations $i$ and the second row for control organizations $i$. For each figure, also report in a box in the upper right a mean/median as well, and the 95\% interval of the percents}
 
+\subsection{Post-period mean reversion}
+\label{sec:mean-reversion}
+
+The model fits the latent opening distribution $F_i$ on pre-period data and, under Assumption~\ref{asm:time-invariant}, applies it unchanged to the post-period.
+This time-invariance is violated empirically: the post-period fit for \emph{control} organizations --- which experience no departure --- is systematically worse than the pre-period leave-one-out fit, with observed post-period counts falling below the pre-period-implied distribution.
+This is consistent with a secular decline in the latent opening rate from the pre- to the post-period that is present even absent any departure.
+
+To separate this organization-wide drift from the departure effect, I scale the post-period latent rate by a mean-reversion factor $\delta$.
+Let $\hat F_i^{\delta}$ denote the fitted latent distribution with its mean scaled by $\delta$ (the Poisson rate $\hat\lambda_i \mapsto \delta\hat\lambda_i$, or the Negative Binomial size scaled so its mean is multiplied by $\delta$).
+Post-period draws (event time $t \ge 0$) call Algorithm~\ref{alg:drawcounts} with $\hat F_i^{\delta}$ in place of $\hat F_i$; pre-period draws are unchanged ($\delta = 1$).
+
+I estimate $\delta$ from control organizations only, so it reflects drift rather than departure.
+For each control organization I form the ratio of its mean post-period per-period opening count to its mean pre-period per-period opening count, and set $\hat\delta$ to the median of these ratios across control organizations, retaining organizations with no post-period activity (ratio $0$).
+This gives $\hat\delta \approx 0.77$: the typical control organization opens about 77\% as many pull requests per period after the event as before.
+
+I use the equal-weighted median rather than a count-weighted estimator such as a Poisson fixed-effects regression of post- on pre-period counts (which would estimate $\delta = e^{\hat\beta}$ from $\log\mathbb{E}[N_{i,t}^o] = \alpha_i + \beta\,\mathbf{1}[t \ge 0]$).
+The post/pre ratio rises monotonically with organization size --- most organizations contract while a few large ones grow --- so a count-weighted estimator is dominated by the largest, growing organizations and returns $\delta > 1$, which would \emph{worsen} the over-prediction the adjustment is meant to correct.
+The equal-weighted median instead tracks the typical organization and improves the control post-period fit.
+
+The factor applies to both control and treated organizations from event time $0$ onward; treated organizations additionally substitute the counterfactual stage-completion probabilities with $j^*$ removed in their post-departure periods.
+
 \subsection{Evaluating predictions on control and treated organizations}
 
 I next evaluate how well the model fitted on all $T$ pre-periods predicts out-of-sample outcomes.
@@ -287,7 +303,7 @@ I also propose an approach for isolating departure-specific prediction error for
 \subsubsection{Control organizations}
 
 \begin{enumerate}
-    \item For each control organization $i$, call Algorithm~\ref{alg:drawcounts} using $(\hat{F}_i,\;\hat{\pi}_i^o,\;\hat{\pi}_i^r,\;\hat{\pi}_i^{m|o},\;\hat{\pi}_i^{m|r})$ which is fitted using pre-period data. Then, compute $\mu_i(x)$ and $\sigma_i(x)$ for each $x \in \{N^o, N^r, N^{m|o}, N^{m|r}, N^m\}$.
+    \item For each control organization $i$, call Algorithm~\ref{alg:drawcounts} using $(\hat{F}_i^{\delta},\;\hat{\pi}_i^o,\;\hat{\pi}_i^r,\;\hat{\pi}_i^{m|o},\;\hat{\pi}_i^{m|r})$, where the stage probabilities are fitted on pre-period data and the post-period latent rate is scaled by $\delta$ (Section~\ref{sec:mean-reversion}). Then, compute $\mu_i(x)$ and $\sigma_i(x)$ for each $x \in \{N^o, N^r, N^{m|o}, N^{m|r}, N^m\}$.
     \item For each post-period $t'$ and outcome $x$, compute
     $$Q_{i,t'}^{post}(x) = \left(\frac{x_{i,t'}^{\mathrm{obs}} - \mu_i(x)}{\sigma_i(x)}\right)^2 - 1,$$ and calculate the average $\bar{Q}_i^{post}(x) = \frac{1}{T'}\sum_{t'=1}^{T'} Q_{i,t'}^{post}(x)$.
 \end{enumerate}
@@ -303,11 +319,11 @@ Algorithm~\ref{alg:stageoutcomes} can additionally be applied to $Q_{i,t'}^{post
 
 \begin{enumerate}
     \item Compute counterfactual stage-completion probabilities after removing $j^*$:
-    $$\hat{\pi}_i^{o,(-j^*)} = \sum_{j\in\mathcal J\setminus\{j^*\}}\hat{p}_j^o, \qquad \hat{\pi}_i^{r,(-j^*)} = 1-\prod_{j\in\mathcal J\setminus\{j^*\}}(1-\hat{p}_j^r),$$
+    $$\hat{\pi}_i^{o,(-j^*)} = \sum_{j\in\mathcal J\setminus\{j^*\}}\hat{p}_j^o, \qquad \hat{\pi}_i^{r,(-j^*)} = \sum_{j\in\mathcal J\setminus\{j^*\}}\hat{p}_j^r,$$
     $$\hat{\pi}_i^{m|o,(-j^*)} = \sum_{j\in\mathcal J\setminus\{j^*\}}\hat{p}_j^{m|o}, \qquad \hat{\pi}_i^{m|r,(-j^*)} = \sum_{j\in\mathcal J\setminus\{j^*\}}\hat{p}_j^{m|r},$$
-    where $\hat{\pi}_i^{o,(-j^*)}$ is the probability any latent problem gets opened absent $j^*$, $\hat{\pi}_i^{r,(-j^*)}$ is the probability any opened pull request receives at least one review before merge, $\hat{\pi}_i^{m|o,(-j^*)}$ is the probability any opened pull request gets merged directly before review, and $\hat{\pi}_i^{m|r,(-j^*)}$ is the probability any reviewed pull request gets merged after review.
+    where $\hat{\pi}_i^{o,(-j^*)}$ is the probability any latent problem gets opened absent $j^*$, $\hat{\pi}_i^{r,(-j^*)}$ is the probability an opened pull request is reviewed by a remaining member, $\hat{\pi}_i^{m|o,(-j^*)}$ is the probability any opened pull request gets merged directly before review, and $\hat{\pi}_i^{m|r,(-j^*)}$ is the probability any reviewed pull request gets merged after review.
     Note that the remaining members' probabilities are unchanged after the departure of $j^*$, which follows directly from Assumption~\ref{asm:stationary}.
-    \item Call Algorithm~\ref{alg:drawcounts} using $(\hat{F}_i,\;\hat{\pi}_i^{o,(-j^*)},\;\hat{\pi}_i^{r,(-j^*)},\;\hat{\pi}_i^{m|o,(-j^*)},\;\hat{\pi}_i^{m|r,(-j^*)})$, which is fitted on pre-period data. Then, compute $\mu_i^{(-j^*)}(x)$ and $\sigma_i^{(-j^*)}(x)$ for each $x \in \{N^o, N^r, N^{m|o}, N^{m|r}, N^m\}$.
+    \item Call Algorithm~\ref{alg:drawcounts} using $(\hat{F}_i^{\delta},\;\hat{\pi}_i^{o,(-j^*)},\;\hat{\pi}_i^{r,(-j^*)},\;\hat{\pi}_i^{m|o,(-j^*)},\;\hat{\pi}_i^{m|r,(-j^*)})$, with stage probabilities fitted on pre-period data and the post-period latent rate scaled by $\delta$ (Section~\ref{sec:mean-reversion}). Then, compute $\mu_i^{(-j^*)}(x)$ and $\sigma_i^{(-j^*)}(x)$ for each $x \in \{N^o, N^r, N^{m|o}, N^{m|r}, N^m\}$.
     \item For the post-departure period $t'$ and outcome $x$, compute
     $$Q_{i,t'}^{post}(x) = \left(\frac{x_{i,t'}^{\mathrm{obs}} - \mu_i^{(-j^*)}(x)}{\sigma_i^{(-j^*)}(x)}\right)^2 - 1$$, and calculate the average $\bar{Q}_i^{post}(x) = \frac{1}{T'}\sum_{t'=1}^{T'} Q_{i,t'}^{post}(x)$.
     \item Compute the differenced residual $\tilde{Q}_{i,t'}^{treated}(x) = Q_{i,t'}^{post}(x) - \bar{Q}_i^{LOO}(x)$, where $\bar{Q}_i^{LOO}(x) = \frac{1}{T}\sum_{t=1}^T Q_{i,t}^{LOO}(x)$ is the leave-one-out pre-period baseline defined above.
@@ -318,7 +334,7 @@ $\tilde{Q}_{i,t'}^{treated}$ attempts to solve this by removing the organization
 Here, we assume that the model's leave-one-out pre-period misspecification error $\bar{Q}_i^{LOO}(x)$ is a good estimate of the model's general out-of-sample misspecification error for organization $i$.
 $\tilde{Q}_{i,t'}^{treated} \approx 0$ indicates post-period misspecification error is no worse than pre-period misspecification error, whereas $\tilde{Q}_{i,t'}^{treated} \gg 0$ indicates the departure generates prediction error beyond what the model already had in the pre-period, suggesting that the model misspecifies the departure effect.
 
-\todo[inline]{Caveat to verify and flag: empirically the \emph{post-period control} fit (pure misspecification error, no departure) appears \emph{worse} than the \emph{pre-period leave-one-out} fit for both control and treated organizations. If so, the assumption above fails: the leave-one-out pre-period error $\bar{Q}_i^{LOO}$ \emph{under-states} the model's post-period out-of-sample error, so subtracting it leaves residual misspecification error inside $\tilde{Q}_{i,t'}^{treated}$ and over-states the departure-specific component. This is consistent with non-stationarity (e.g.\ the latent opening rate declining from pre- to post-period), which degrades the post-period fit even absent any departure. A more honest baseline would be calibrated from control organizations' \emph{post-period} error rather than the treated organizations' pre-period leave-one-out error.}
+\todo[inline]{Caveat to verify and flag: empirically the \emph{post-period control} fit (pure misspecification error, no departure) appears \emph{worse} than the \emph{pre-period leave-one-out} fit for both control and treated organizations. If so, the assumption above fails: the leave-one-out pre-period error $\bar{Q}_i^{LOO}$ \emph{under-states} the model's post-period out-of-sample error, so subtracting it leaves residual misspecification error inside $\tilde{Q}_{i,t'}^{treated}$ and over-states the departure-specific component. This is consistent with non-stationarity (e.g.\ the latent opening rate declining from pre- to post-period), which degrades the post-period fit even absent any departure. The post-period mean-reversion factor $\delta$ (Section~\ref{sec:mean-reversion}), estimated from control organizations' post/pre opening ratio, now scales the latent rate to correct this decline; re-examine whether the $\delta$-adjusted post-period control fit closes the gap before relying on the leave-one-out baseline. A more honest baseline would otherwise be calibrated from control organizations' \emph{post-period} error rather than the treated organizations' pre-period leave-one-out error.}
 Algorithm~\ref{alg:stageoutcomes} can additionally be applied to $Q_{i,t'}^{post}(N^m)$ and $\tilde{Q}_{i,t'}^{treated}(N^m)$ to decompose post-departure total-merge misspecification error by stage.
 
 \todo[inline]{Post-period fit and decomposition for treated organizations are shown together with control in the combined two-row figures referenced in the control subsection above (\texttt{post\_period\_fit.png} and \texttt{post\_period\_decomp.png}, top row = treated, bottom row = control); no separate treated-only figures.}

@@ -84,7 +84,7 @@ source = (['#source/analysis/model_prediction/predict_model.py',
 env.Python(target, source)
 predict_outputs = target
 
-outcomes = ["opened", "reviewed", "merged_direct", "merged_after_review", "merged_total"]
+outcomes = ["opened", "reviewed", "merged_direct", "merged_after_review", "merged"]
 
 squared_panel_names = [
     "pre_period_fit_insample.png",
@@ -124,3 +124,13 @@ source = (['#source/analysis/model_prediction/evaluate_predictions.py',
            '#source/lib/config/model_prediction.json']
           + predict_outputs)
 env.Python(target, source)
+
+mean_reversion_diagnostics = [
+    f'#output/analysis/model_prediction/mean_reversion/diagnostics/{variant}/ratio_vs_volume_{importance_type}_{qualified_sample}_{control_group}.png'
+    for variant, importance_type, qualified_sample, control_group in product(variants, importance_types, qualified_samples, control_groups)
+]
+env.Python(
+    mean_reversion_diagnostics,
+    ['#source/analysis/model_prediction/plot_mean_reversion_diagnostics.py',
+     '#output/derived/model_prediction/mean_reversion/org_reversion_stats.parquet'],
+)

@@ -13,9 +13,12 @@ variant          = MODEL_PREDICTION_CONFIG["variants"]["run"][0]
 distribution     = MODEL_PREDICTION_CONFIG["distribution_types"]["run"][0]
 estimation       = "pooled"
 
-non_aggregated_samples = ["exact1", "exact2"]
-figure_samples         = ["exact1", "exact2", "exact_1_2"]
-outcomes               = ["pull_request_merged", "pull_request_opened"]
+non_aggregated_samples  = ["exact1", "exact2"]
+figure_samples          = ["exact1", "exact2", "exact_1_2"]
+outcomes                = ["pull_request_merged", "pull_request_opened"]
+norm_labels             = ["norm", "raw"]
+covar_types             = CONFIG["feature_sets"]["run"]
+forest_training_outcome = CONFIG["forest_training_outcome"]
 
 script_deps = [
     '#source/analysis/model_event_study/estimate_model_event_study.R',
@@ -41,20 +44,30 @@ panel_sources = [
     for sample in non_aggregated_samples
 ]
 draw_sources = [
-    f'#output/analysis/model_prediction/{variant}/{distribution}/draws/{estimation}/{imp}/{sample}/{cg}/raw_draws.parquet'
+    f'#drive/output/analysis/model_prediction/{variant}/{distribution}/draws/{estimation}/{imp}/{sample}/{cg}/raw_draws.parquet'
     for imp, cg in product(importance_types, control_groups)
     for sample in non_aggregated_samples
 ]
+forest_sources = [
+    f'#output/analysis/event_study_forest/{imp}/{rolling_label}/{sample}/{cg}/{covar_type}/{norm_label}/{forest_training_outcome}_repo_att_event_study_forest.parquet'
+    for imp, cg in product(importance_types, control_groups)
+    for sample in non_aggregated_samples
+    for covar_type in covar_types
+    for norm_label in norm_labels
+]
 
-norm_labels = ["norm", "raw"]
 targets = ['#output/analysis/model_event_study/band_estimates.csv',
-           '#output/analysis/model_event_study/band_estimates.log']
+           '#output/analysis/model_event_study/band_estimates.log',
+           '#output/analysis/model_event_study/resilience_band_estimates.csv',
+           '#output/analysis/model_event_study/resilience_band_estimates.log']
 for imp, cg in product(importance_types, control_groups):
     for sample in figure_samples:
         base = f'#output/analysis/model_event_study/{variant}/{distribution}/{estimation}/{imp}/{sample}/{cg}'
         for norm_label in norm_labels:
             for outcome in outcomes:
                 targets += [f'{base}/bands/{norm_label}/{outcome}.png']
+                for covar_type in covar_types:
+                    targets += [f'{base}/resilience/{covar_type}/{norm_label}/{outcome}.png']
 
-env.R(targets, script_deps + panel_sources + draw_sources)
+env.R(targets, script_deps + panel_sources + draw_sources + forest_sources)
 

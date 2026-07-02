@@ -136,8 +136,12 @@ def SeparateActionTypes(df_actions):
     # consumer of the action data is deduped consistently -- see HANDOFF.md.
     df_opens   = (df_actions[is_open].sort_values("created_at")
                   .drop_duplicates("thread_number")[["quasi_event_time", "actor_id", "thread_number"]])
-    df_reviews = df_actions[is_review][["quasi_event_time", "actor_id", "thread_number"]]
-    df_merges  = df_actions[is_merge ][["quasi_event_time", "actor_id", "thread_number"]]
+    # Attribute each thread to its first reviewer and first merger so per-member review and merge
+    # probabilities sum to the repo rates, keeping review + direct-merge a valid multinomial over opens.
+    df_reviews = (df_actions[is_review].sort_values("created_at")
+                  .drop_duplicates("thread_number")[["quasi_event_time", "actor_id", "thread_number"]])
+    df_merges  = (df_actions[is_merge].sort_values("created_at")
+                  .drop_duplicates("thread_number")[["quasi_event_time", "actor_id", "thread_number"]])
 
     reviewed_threads = set(df_reviews["thread_number"].unique())
     is_direct = ~df_merges["thread_number"].isin(reviewed_threads)
