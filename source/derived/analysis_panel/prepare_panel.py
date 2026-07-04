@@ -8,6 +8,7 @@ from sklearn.decomposition import PCA
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 
+from source.derived.analysis_panel.panel_filters import CreateCompletePanel, FilterControlGroup, FilterQualifiedSample
 from source.lib.python.config_loaders import FlattenConfigValues, LoadAnalysisParameters, LoadOutcomeVariables, LoadPaperSettings, LoadPipelineInputs
 from source.lib.JMSLab.SaveData import SaveData
 from source.lib.JMSLab.autofill import GenerateAutofillMacros
@@ -76,63 +77,9 @@ def BuildPreparedSample(panel, active_outcomes, qualified_sample, control_group)
     prepared = panel.copy()
     prepared = FilterQualifiedSample(prepared, qualified_sample)
     prepared = FilterControlGroup(prepared, control_group)
-    prepared = CreateCompletePanel(prepared, active_outcomes)
+    prepared = CreateCompletePanel(prepared, active_outcomes, MIN_EVENT_TIME, MAX_EVENT_TIME)
     prepared["quasi_event_time"] = prepared["time_index"] - prepared["quasi_treatment_group"]
     return prepared
-
-
-def FilterQualifiedSample(panel, qualified_sample):
-    qualified_counts = ParseQualifiedSample(qualified_sample)
-    at_event = panel[panel["time_index"] == panel["quasi_treatment_group"]]
-    keep = at_event.loc[at_event["num_important_qualified"].isin(qualified_counts), "repo_name"].unique()
-    return panel[panel["repo_name"].isin(keep)].copy()
-
-
-def FilterControlGroup(panel, control_group):
-    if control_group == "nevertreated":
-        return panel[panel["num_departures"] <= 1].copy()
-    if control_group == "notyettreated":
-        return panel[panel["num_departures"] == 1].copy()
-    raise ValueError(f"Unsupported control group: {control_group}")
-
-
-def ParseQualifiedSample(qualified_sample):
-    if not qualified_sample.startswith("exact"):
-        raise ValueError(f"Unsupported qualified sample: {qualified_sample}")
-    parts = qualified_sample.replace("exact", "").lstrip("_").split("_")
-    return {int(p) for p in parts}
-
-
-def CreateCompletePanel(panel, active_outcomes):
-    if panel.empty:
-        return panel.copy()
-
-    present_outcomes = [o for o in active_outcomes if o in panel.columns]
-    keep_repos = set.intersection(*[set(GetOutcomeValidRepos(panel, o)) for o in present_outcomes])
-    filtered = panel[panel["repo_name"].isin(keep_repos)].copy()
-    event_time = filtered["time_index"] - filtered["quasi_treatment_group"]
-    keep_window = (
-        filtered.assign(quasi_event_time=event_time)
-        .groupby("repo_name")["quasi_event_time"]
-        .apply(lambda x: set(range(MIN_EVENT_TIME, MAX_EVENT_TIME + 1)).issubset(set(x.tolist())))
-    )
-    return filtered[filtered["repo_name"].isin(keep_window[keep_window].index)].copy()
-
-
-def GetOutcomeValidRepos(panel, outcome):
-    baseline_mask = (
-        (panel["time_index"] < panel["quasi_treatment_group"])
-        & (panel["time_index"] >= panel["quasi_treatment_group"] - MAX_EVENT_TIME)
-    )
-    baseline_values = panel.loc[baseline_mask, ["repo_name", outcome]]
-    baseline_stats = (
-        baseline_values
-        .groupby("repo_name")[outcome]
-        .agg(["mean", "std"])
-    )
-    df = panel[["repo_name", outcome]].join(baseline_stats, on="repo_name")
-    normalized = (df[outcome] - df["mean"]) / df["std"]
-    return df.loc[np.isfinite(normalized), "repo_name"].unique()
 
 
 def AssignFolds(repo_names, n_folds, seed):

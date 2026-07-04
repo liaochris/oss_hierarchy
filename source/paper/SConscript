@@ -1,5 +1,5 @@
 Import('*')
-from source.lib.python.config_loaders import LoadPaperSettings
+from source.lib.python.config_loaders import LoadPaperSettings, LoadGlobals
 
 autofill_sources = [
     '#output/autofill/event_study_autofill.tex',
@@ -7,6 +7,7 @@ autofill_sources = [
     '#output/autofill/panel_autofill.tex',
     '#output/autofill/config_autofill.tex',
     '#output/autofill/pc_autofill.tex',
+    '#output/autofill/mean_reversion_autofill.tex',
 ]
 
 table_sources = [
@@ -17,6 +18,13 @@ table_sources = [
     '#output/tables/discussion_quality.tex',
     '#output/tables/investment_in_new_talent.tex',
     '#output/tables/problem_solving_routines.tex',
+    '#output/tables/mean_reversion.tex',
+    '#output/tables/model_fit_signed_pre_period_fit_insample.tex',
+    '#output/tables/model_fit_signed_pre_period_fit_leaveoneout.tex',
+    '#output/tables/model_fit_signed_post_period_fit.tex',
+    '#output/tables/model_fit_squared_pre_period_fit_insample.tex',
+    '#output/tables/model_fit_squared_pre_period_fit_leaveoneout.tex',
+    '#output/tables/model_fit_squared_post_period_fit.tex',
 ]
 
 CONFIG = LoadPaperSettings("../../source/lib/config/paper_settings.json")
@@ -30,6 +38,19 @@ PRIMARY_SPEC = "/".join([
 EVENT_STUDY_DIR = f'#output/analysis/event_study/{PRIMARY_SPEC}'
 FOREST_DIR = f'#output/analysis/event_study_forest/{PRIMARY_SPEC}'
 ANALYZE_FOREST_DIR = f'#output/analysis/analyze_forest/{PRIMARY_SPEC}/norm'
+
+# Model outputs carry no rolling label, unlike PRIMARY_SPEC.
+MODEL_PREDICTION_CONFIG = LoadGlobals("../../source/lib/config/model_prediction.json")
+MODEL_VARIANT      = MODEL_PREDICTION_CONFIG["variants"]["run"][0]
+MODEL_DISTRIBUTION = MODEL_PREDICTION_CONFIG["distribution_types"]["run"][0]
+MODEL_ESTIMATION   = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"][0]
+MODEL_SPEC = "/".join([
+    CONFIG["primary_importance_type"],
+    CONFIG["primary_qualified_sample"],
+    CONFIG["primary_control_group"],
+])
+MODEL_FIT_DIR         = f'#output/analysis/model_prediction/{MODEL_VARIANT}/{MODEL_DISTRIBUTION}/evaluation/{MODEL_ESTIMATION}/{MODEL_SPEC}'
+MODEL_EVENT_STUDY_DIR = f'#output/analysis/model_event_study/{MODEL_VARIANT}/{MODEL_DISTRIBUTION}/{MODEL_ESTIMATION}/{MODEL_SPEC}'
 
 OUTCOMES = [
     'pull_request_opened',
@@ -52,6 +73,16 @@ figure_sources = [
     '#source/figures/event_study_other_practices.tex',
     '#source/figures/event_study_practice_categories_knowledge_quality.tex',
     '#source/figures/event_study_practice_categories_investment_routines.tex',
+    '#source/figures/model_fit_insample.tex',
+    '#source/figures/model_fit_post.tex',
+    '#source/figures/model_fit_insample_loo.tex',
+    '#source/figures/model_fit_insample_q.tex',
+    '#source/figures/model_fit_loo_q.tex',
+    '#source/figures/model_fit_post_q.tex',
+    '#source/figures/model_departure_effects.tex',
+    '#source/figures/model_departure_effects_paths.tex',
+    '#source/figures/model_departure_resilience.tex',
+    '#source/figures/model_departure_resilience_paths.tex',
 ]
 
 figure_asset_sources = [
@@ -88,15 +119,27 @@ for split_dir in [
         for outcome in OUTCOMES
     ]
 
+MODEL_FIT_STEMS = ['pre_period_fit_insample', 'pre_period_fit_leaveoneout', 'post_period_fit']
+figure_asset_sources += [
+    f'{MODEL_FIT_DIR}/panels/{kind}/{stem}.png'
+    for kind in ['signed', 'squared']
+    for stem in MODEL_FIT_STEMS
+]
+
+MODEL_ES_OUTCOMES = [
+    'pull_request_opened', 'pull_request_reviewed', 'pull_request_merged',
+    'pull_request_merged_direct', 'pull_request_merged_after_review',
+]
+figure_asset_sources += [
+    f'{MODEL_EVENT_STUDY_DIR}/{group}/norm/{outcome}.png'
+    for group in ['bands', 'resilience/pc_score']
+    for outcome in MODEL_ES_OUTCOMES
+]
+
 target = ['#output/paper/main.pdf']
 source = [
     '#source/paper/main.tex',
     '#source/paper/references.bib',
     '#source/paper/aea.bst',
 ] + figure_sources + figure_asset_sources + autofill_sources + table_sources
-env.Latex(target, source)
-
-
-target = ['#output/paper/model.pdf']
-source = ['#source/paper/model.tex']
 env.Latex(target, source)

@@ -1,5 +1,5 @@
 Import('*')
-from source.lib.python.config_loaders import LoadPaperSettings
+from source.lib.python.config_loaders import LoadPaperSettings, LoadGlobals
 
 CONFIG = LoadPaperSettings("../../source/lib/config/paper_settings.json")
 PRIMARY_SPEC = "/".join([
@@ -12,6 +12,19 @@ PRIMARY_SPEC = "/".join([
 EVENT_STUDY_DIR = f'#output/analysis/event_study/{PRIMARY_SPEC}'
 FOREST_DIR = f'#output/analysis/event_study_forest/{PRIMARY_SPEC}'
 ANALYZE_FOREST_DIR = f'#output/analysis/analyze_forest/{PRIMARY_SPEC}/norm'
+
+# Model outputs carry no rolling label, unlike PRIMARY_SPEC.
+MODEL_PREDICTION_CONFIG = LoadGlobals("../../source/lib/config/model_prediction.json")
+MODEL_VARIANT      = MODEL_PREDICTION_CONFIG["variants"]["run"][0]
+MODEL_DISTRIBUTION = MODEL_PREDICTION_CONFIG["distribution_types"]["run"][0]
+MODEL_ESTIMATION   = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"][0]
+MODEL_SPEC = "/".join([
+    CONFIG["primary_importance_type"],
+    CONFIG["primary_qualified_sample"],
+    CONFIG["primary_control_group"],
+])
+MODEL_FIT_DIR         = f'#output/analysis/model_prediction/{MODEL_VARIANT}/{MODEL_DISTRIBUTION}/evaluation/{MODEL_ESTIMATION}/{MODEL_SPEC}'
+MODEL_EVENT_STUDY_DIR = f'#output/analysis/model_event_study/{MODEL_VARIANT}/{MODEL_DISTRIBUTION}/{MODEL_ESTIMATION}/{MODEL_SPEC}'
 
 OUTCOMES = ['pull_request_opened', 'pull_request_merged', 'overall_new_release_count']
 
@@ -93,3 +106,34 @@ source = [
     f'{ANALYZE_FOREST_DIR}/pc_score_combo_high_low_grid.png',
 ]
 env.Depends(target=target, dependency=source)
+
+MODEL_FIT_FIGURES = [
+    ('model_fit_insample',      'signed',  'pre_period_fit_insample'),
+    ('model_fit_post',          'signed',  'post_period_fit'),
+    ('model_fit_insample_loo',  'signed',  'pre_period_fit_leaveoneout'),
+    ('model_fit_insample_q',    'squared', 'pre_period_fit_insample'),
+    ('model_fit_loo_q',         'squared', 'pre_period_fit_leaveoneout'),
+    ('model_fit_post_q',        'squared', 'post_period_fit'),
+]
+for figure_name, kind, stem in MODEL_FIT_FIGURES:
+    env.Depends(
+        target=[f'#source/figures/{figure_name}.tex'],
+        dependency=[
+            f'{MODEL_FIT_DIR}/panels/{kind}/{stem}.png',
+            f'#output/tables/model_fit_{kind}_{stem}.tex',
+        ],
+    )
+
+MAIN_ES_OUTCOMES = ['pull_request_opened', 'pull_request_reviewed', 'pull_request_merged']
+PATH_ES_OUTCOMES = ['pull_request_merged_direct', 'pull_request_merged_after_review']
+MODEL_EVENT_STUDY_FIGURES = [
+    ('model_departure_effects',            'bands/norm',              MAIN_ES_OUTCOMES),
+    ('model_departure_effects_paths',      'bands/norm',              PATH_ES_OUTCOMES),
+    ('model_departure_resilience',         'resilience/pc_score/norm', MAIN_ES_OUTCOMES),
+    ('model_departure_resilience_paths',   'resilience/pc_score/norm', PATH_ES_OUTCOMES),
+]
+for figure_name, subdir, es_outcomes in MODEL_EVENT_STUDY_FIGURES:
+    env.Depends(
+        target=[f'#source/figures/{figure_name}.tex'],
+        dependency=[f'{MODEL_EVENT_STUDY_DIR}/{subdir}/{outcome}.png' for outcome in es_outcomes],
+    )

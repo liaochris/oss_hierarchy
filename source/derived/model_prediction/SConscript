@@ -37,22 +37,27 @@ target = [
 
 env.Python(target, script_deps + panel_sources)
 
-# ---- Mean-reversion ratios (estimated from control orgs, consumed by predict_model.py) ----
+# ---- Mean-reversion adjustment estimator (FE-Poisson rate ratio by num_important_qualified) ----
 mean_reversion_deps = [
     '#source/derived/model_prediction/compute_mean_reversion.py',
+    '#source/derived/analysis_panel/panel_filters.py',
     '#source/lib/python/config_loaders.py',
-    '#source/lib/python/repo_utils.py',
     '#source/lib/JMSLab/SaveData.py',
-    '#source/lib/config/global_settings.json',
+    '#source/lib/JMSLab/autofill.py',
     '#source/lib/config/pipeline_inputs.json',
-    '#source/lib/config/model_prediction.json',
-    '#output/derived/hashes/event_time_member_panel.txt',
+    '#source/lib/config/analysis_parameters.json',
+    '#source/lib/config/paper_settings.json',
+]
+
+org_panel_sources = [
+    f'#drive/output/derived/org_outcomes_practices/org_panel/{imp}/{rolling_period}/panel.parquet'
+    for imp in importance_types
 ]
 
 env.Python(
-    ['#output/derived/model_prediction/mean_reversion/mean_reversion_ratios.parquet',
-     '#output/derived/model_prediction/mean_reversion/mean_reversion_ratios.log',
-     '#output/derived/model_prediction/mean_reversion/org_reversion_stats.parquet',
-     '#output/derived/model_prediction/mean_reversion/org_reversion_stats.log'],
-    mean_reversion_deps + panel_sources,
+    ['#output/derived/model_prediction/mean_reversion/mean_reversion_estimates.csv',
+     '#output/derived/model_prediction/mean_reversion/mean_reversion_estimates.log',
+     '#output/derived/model_prediction/mean_reversion/mean_reversion_table.txt',
+     '#output/autofill/mean_reversion_autofill.tex'],
+    mean_reversion_deps + org_panel_sources,
 )

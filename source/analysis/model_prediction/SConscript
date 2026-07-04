@@ -29,7 +29,6 @@ analysis_panel_sources = [
     for importance_type, qualified_sample, control_group in sample_combinations
 ]
 member_panel_hash      = ['#output/derived/hashes/event_time_member_panel.txt']
-mean_reversion_source  = ['#output/derived/model_prediction/mean_reversion/mean_reversion_ratios.parquet']
 
 
 def OutputBase(stage, variant, distribution_type, estimation_approach,
@@ -52,7 +51,8 @@ for variant, distribution_type, estimation_approach, (importance_type, qualified
     ]
 source = (['#source/analysis/model_prediction/fit_model.py',
            '#source/lib/model/staged_count_model.py',
-           '#source/lib/config/model_prediction.json']
+           '#source/lib/config/model_prediction.json',
+           '#output/derived/model_prediction/mean_reversion/mean_reversion_estimates.csv']
           + shared_dependencies + analysis_panel_sources + member_panel_hash)
 env.Python(target, source)
 fit_outputs = target
@@ -78,26 +78,19 @@ source = (['#source/analysis/model_prediction/predict_model.py',
            '#source/lib/model/staged_count_model.py',
            '#source/lib/config/model_prediction.json',
            '#source/lib/config/global_settings.json',
-           '#source/lib/config/analysis_parameters.json']
+           '#source/lib/config/analysis_parameters.json',
+           '#output/derived/model_prediction/mean_reversion/mean_reversion_estimates.csv']
           + shared_dependencies + fit_outputs + analysis_panel_sources
-          + member_panel_hash + mean_reversion_source)
+          + member_panel_hash)
 env.Python(target, source)
 predict_outputs = target
 
 outcomes = ["opened", "reviewed", "merged_direct", "merged_after_review", "merged"]
 
-squared_panel_names = [
-    "pre_period_fit_insample.png",
-    "pre_period_fit_leaveoneout.png",
-    "pre_period_decomp_insample.png",
-    "pre_period_decomp_leaveoneout.png",
-    "post_period_fit.png",
-    "post_period_decomp.png",
-]
-signed_panel_names = [
-    "pre_period_fit_insample.png",
-    "pre_period_fit_leaveoneout.png",
-    "post_period_fit.png",
+fit_panel_stems = [
+    "pre_period_fit_insample",
+    "pre_period_fit_leaveoneout",
+    "post_period_fit",
 ]
 individual_squared_names = (
     [f"insample_squared_{outcome}.png"    for outcome in outcomes] +
@@ -109,10 +102,11 @@ target = []
 for variant, distribution_type, estimation_approach, (importance_type, qualified_sample, control_group) in model_combinations:
     evaluation_base = OutputBase('evaluation', variant, distribution_type, estimation_approach,
                                  importance_type, qualified_sample, control_group)
-    for panel_name in squared_panel_names:
-        target.append(f'{evaluation_base}/panels/squared/{panel_name}')
-    for panel_name in signed_panel_names:
-        target.append(f'{evaluation_base}/panels/signed/{panel_name}')
+    for stem in fit_panel_stems:
+        target.append(f'{evaluation_base}/panels/squared/{stem}.png')
+        target.append(f'{evaluation_base}/panels/signed/{stem}.png')
+        target.append(f'{evaluation_base}/tables/squared/{stem}.txt')
+        target.append(f'{evaluation_base}/tables/signed/{stem}.txt')
     target.append(f'{evaluation_base}/panels/comparisons.png')
     if "individual" in evaluation_figures:
         for treatment_group in ["treated", "control"]:
@@ -124,13 +118,3 @@ source = (['#source/analysis/model_prediction/evaluate_predictions.py',
            '#source/lib/config/model_prediction.json']
           + predict_outputs)
 env.Python(target, source)
-
-mean_reversion_diagnostics = [
-    f'#output/analysis/model_prediction/mean_reversion/diagnostics/{variant}/ratio_vs_volume_{importance_type}_{qualified_sample}_{control_group}.png'
-    for variant, importance_type, qualified_sample, control_group in product(variants, importance_types, qualified_samples, control_groups)
-]
-env.Python(
-    mean_reversion_diagnostics,
-    ['#source/analysis/model_prediction/plot_mean_reversion_diagnostics.py',
-     '#output/derived/model_prediction/mean_reversion/org_reversion_stats.parquet'],
-)

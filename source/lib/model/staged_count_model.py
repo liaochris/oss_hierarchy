@@ -13,26 +13,42 @@ MEMBER_COUNT_COLUMNS = [
 # (FitLatentDistribution, FitMemberProbabilities) that both fit_model.py and predict_model.py use.
 
 
-def FitLatentDistribution(repo_name, counts_per_period, distribution_type):
-    """Per-org method-of-moments fit: Negative Binomial if over-dispersed, else Poisson."""
+def MeanReversionAdj(mean_reversion_adj_table, num_important_qualified):
+    # Mean-reversion adjustment delta for a period with this many qualified important members present
+    # (= rate(q==0)/rate(q)); 1 when none are present or no estimate is available.
+    if num_important_qualified <= 0 or not mean_reversion_adj_table:
+        return 1.0
+    return mean_reversion_adj_table.get(min(int(num_important_qualified), max(mean_reversion_adj_table)), 1.0)
+
+
+def FitLatentDistribution(repo_name, counts_per_period, member_effects_per_period, distribution_type):
+    """Per-org fit at the q=0 baseline. member_effects_per_period[t] = 1/delta_{q_{i,t}} is the period's
+    exposure a_t, aligned to counts_per_period. The baseline rate lambda0 is the Poisson-exposure MLE
+    sum(N)/sum(a); the family is chosen from the Pearson dispersion of the counts against their period
+    means mu_t = lambda0 * a_t (so q-variation is not mistaken for over-dispersion), and a Negative
+    Binomial takes that dispersion as its variance-to-mean ratio."""
     if distribution_type != "adaptive":
         raise ValueError(f"Unknown distribution_type: {distribution_type}")
 
-    counts_per_period = np.asarray(counts_per_period, dtype=float)
-    mean_count = max(float(np.mean(counts_per_period)), 1e-6)
-    variance   = float(np.var(counts_per_period, ddof=1)) if len(counts_per_period) > 1 else 0.0
-    counts_are_overdispersed = variance > mean_count
+    counts         = np.asarray(counts_per_period, dtype=float)
+    member_effects = np.asarray(member_effects_per_period, dtype=float)   # a_t = 1/delta_{q_t}, the exposure
+    baseline_rate  = max(float(np.sum(counts)) / max(float(np.sum(member_effects)), 1e-6), 1e-6)  # Poisson-exposure MLE: sum(N) / sum(a)
+    period_means   = baseline_rate * member_effects                       # mu_t = lambda0 * a_t = lambda0 / delta_{q_t}
+    if len(counts) > 1 and np.all(period_means > 0):
+        dispersion = float(np.sum((counts - period_means) ** 2 / period_means) / (len(counts) - 1))
+    else:
+        dispersion = 1.0
 
-    if counts_are_overdispersed:
+    if dispersion > 1.0:
         return {
             "repo_name": repo_name, "distribution_type": "negative_binomial",
-            "expected_latent_count": mean_count, "poisson_rate": np.nan,
-            "negative_binomial_size": mean_count ** 2 / (variance - mean_count),
-            "negative_binomial_prob": mean_count / variance,
+            "expected_latent_count": baseline_rate, "poisson_rate": np.nan,
+            "negative_binomial_size": baseline_rate / (dispersion - 1.0),
+            "negative_binomial_prob": 1.0 / dispersion,
         }
     return {
         "repo_name": repo_name, "distribution_type": "poisson",
-        "expected_latent_count": mean_count, "poisson_rate": mean_count,
+        "expected_latent_count": baseline_rate, "poisson_rate": baseline_rate,
         "negative_binomial_size": np.nan, "negative_binomial_prob": np.nan,
     }
 

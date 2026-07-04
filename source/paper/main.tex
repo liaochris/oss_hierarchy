@@ -148,6 +148,7 @@
 \input{output/autofill/panel_autofill.tex}
 \input{output/autofill/config_autofill.tex}
 \input{output/autofill/pc_autofill.tex}
+\input{output/autofill/mean_reversion_autofill.tex}
 
 \begin{document}
 
@@ -869,6 +870,255 @@ Likewise, investment in new talent and structured problem-solving routines are c
 These are contexts in which organizational alignment requires systematization and onboarding processes most, making it easier to maintain continuity post-departure.
 Associated resilience benefits from high organizational practice scores arise from complementarities between having high scores across multiple practices. 
 
+
+
+\section{Model}\label{sec:model}
+
+The model describes an organization's software development workflow.
+The model connects organizational outcomes with individual members' contributions.
+My model is fit solely on pre-period data, in parallel to the random-forest event-study design, and enables me to generate post-period predictions for treated and control organizations under a range of counterfactuals cenarios.
+
+\subsection{Organizational setting and workflow}
+
+\subsubsection{Problem workflow}
+In each period $k$, project $i$ faces a latent number of problems $N_{i,k} \sim F_{ik}(\cdot)$, where $F_{ik}$ is a discrete probability mass function and $k$ indexes event time relative to the focal member's departure ($k<0$ pre-period, $k>0$ post-period).
+Each problem passes through up to three stages within the period.
+The absorbing state $\varnothing$ indicates the problem receives no further action.
+\begin{enumerate}
+    \item a latent problem ($\ell$) may lead to an opened pull request ($o$) or exit unopened;
+    \item an opened pull request ($o$) may be reviewed ($r$), merged directly without review ($m|o$), or exit with no further action;
+    \item a reviewed pull request ($r$) may be merged after review ($m|r$) or exit unmerged; the states $m|o$, $m|r$, and $\varnothing$ are absorbing.
+\end{enumerate}
+Let $X_{n,k} \in \{\ell,o,r,m|o,m|r,\varnothing\}$ denote the state of problem $n$ within period $k$.
+I characterize state transitions under three assumptions.
+
+\begin{assumption}[Problem exchangeability (organization)]
+\label{asm:exchangeability}
+Conditional on being in the same state, any two problems have the same probability of advancing to the next state.
+\end{assumption}
+
+\begin{assumption}[Problem independence]
+\label{asm:independence}
+Conditional on their current states, problems transition independently of one another.
+\end{assumption}
+
+\begin{assumption}[One-shot state transitions]
+\label{asm:one-shot}
+A problem gets one opportunity to advance from each active state ($\ell$, $o$, $r$); upon failure, it enters the absorbing state $\varnothing$.
+\end{assumption}
+
+Under Assumptions~\ref{asm:exchangeability}--\ref{asm:one-shot}, every problem in project $i$ at event time $k$ faces the same transition matrix
+\[
+\pi_{i,k} =
+\begin{pmatrix}
+0 & \pi_{i,k}^o & 0 & 0 & 0 & 1-\pi_{i,k}^o \\
+0 & 0 & \pi_{i,k}^r & \pi_{i,k}^{m|o} & 0 & 1-\pi_{i,k}^r-\pi_{i,k}^{m|o} \\
+0 & 0 & 0 & 0 & \pi_{i,k}^{m|r} & 1-\pi_{i,k}^{m|r} \\
+0 & 0 & 0 & 1 & 0 & 0 \\
+0 & 0 & 0 & 0 & 1 & 0 \\
+0 & 0 & 0 & 0 & 0 & 1
+\end{pmatrix},
+\]
+where $\pi_{i,k}^o$ is the probability that a latent problem leads to an opened pull request, $\pi_{i,k}^r$ is the probability that an opened pull request is reviewed before any merge, $\pi_{i,k}^{m|o}$ is the probability that an opened pull request is merged directly without review, and $\pi_{i,k}^{m|r}$ is the probability that a reviewed pull request merges after review.
+The residual probability at each active state flows to $\varnothing$: unopened latent problems, opened pull requests that are not reviewed or merged, and reviewed pull requests that are unmerged.
+
+The expected counts at each stage
+\begin{enumerate}
+    \item for pull requests opened $N_{i,k}^o$ is $\mathbb{E}[N_{i,k}^o] = \mathbb{E}[N_{i,k}]\cdot\pi_{i,k}^o$,
+    \item for pull requests reviewed $N_{i,k}^r$ is $\mathbb{E}[N_{i,k}^r] = \mathbb{E}[N_{i,k}^o]\cdot\pi_{i,k}^r$,
+    \item for pull requests merged directly after opening $N_{i,k}^{m|o}$ is $\mathbb{E}[N_{i,k}^{m|o}] = \mathbb{E}[N_{i,k}^o]\cdot\pi_{i,k}^{m|o}$,
+    \item for pull requests merged after review $N_{i,k}^{m|r}$ is $\mathbb{E}[N_{i,k}^{m|r}] = \mathbb{E}[N_{i,k}^r]\cdot\pi_{i,k}^{m|r}$.
+\end{enumerate}
+
+\subsubsection{Qualified important members}
+Let $q_{i,k}$ be the number of qualified important members present in organization $i$ in period $k$.
+My sample is selected on organizations having a given $q_{i,k}$ at event time~$0$. Because these members drive much of an organization's activity, selecting on $q_{i,k}$ implicitly selects periods of elevated, sustained activity, with $q_{i,k}$ proxying for how elevated that activity is.
+This matters for prediction: in the unobserved post-period the latent problem flow may differ from the fitted pre-period simply because $q_{i,k}$ has changed, so a model that ignored $q_{i,k}$ would anchor post-period predictions to the elevated activity of the selected pre-period.
+Note that in my event studies, the sample consists of organizations with a fixed number of qualified important members at event time~$0$, and treated and control organizations are distinguished only by whether an important member departs.
+
+\subsection{Individual contributions to organizational outcomes}
+
+My goal is to predict how organizational activity changes when a member leaves.
+To do that, I need a model of how individual actions contribute to organizational outcomes.
+
+Let $\mathcal{J}_{i,pre} = \{1, \ldots, J_i\}$ be the set of members of organization $i$ present in the pre-period.
+Let $A_{i,j,k}^o$, $A_{i,j,k}^r$, $A_{i,j,k}^{m|o}$, and $A_{i,j,k}^{m|r}$ denote the number of pull requests opened, reviewed, merged directly after opening, and merged after review by member $j$ in period $k$.
+For state $s \in \{o, r, m|o, m|r\}$, let $p_{i,j,k}^s \in [0,1]$ denote member $j$'s probability of performing a state-$s$ action on any given unit in period $k$; for $s=r$ the action is being the \emph{first} reviewer.\footnote{A pull request may have multiple reviewers, but since my initial goal is to model whether a pull request is reviewed at all, focusing on the member that is the first reviewer is sufficient}.
+
+Just as problems are exchangeable at the organizational level (Assumption~\ref{asm:exchangeability}), I assume members do not distinguish among problems either:
+\begin{assumption}[Problem exchangeability (member)]
+\label{asm:problem-invariant}
+A member's probability of opening, reviewing, directly merging, or merging after review does not vary across problems within a period --- $p_{i,j,k}^s$ is the same regardless of which particular problem is being acted on.
+\end{assumption}
+
+For any latent problem in period $k$, let $p_{i,j,k}^o$ denote the probability that member $j$ is the unique member who opens a pull request to address that problem.
+The index $0$ denotes the outcome where no member takes the action, so $A_{i,0,k}^o$ is the number of latent problems that no member opens and $p_{i,0,k}^o = 1-\sum_{j\in\mathcal J_{i,pre}} p_{i,j,k}^o$ is its probability.
+Under Assumptions~\ref{asm:independence} and~\ref{asm:problem-invariant}, the identity of the opening member is an i.i.d.\ draw from a categorical distribution over $\mathcal{J}_{i,pre} \cup \{0\}$ across problems, so the joint count vector follows a multinomial:
+\[ \left( \left\{A_{i,j,k}^o \right\}_{j\in\mathcal J_{i,pre}}, A_{i,0,k}^o \right) \mid N_{i,k} \sim \text{Multinomial}\left(N_{i,k}; \left \{p_{i,j,k}^o \right \}_{j\in\mathcal J_{i,pre}}, p_{i,0,k}^o \right). \]
+This enables me to characterize the aggregate probability a pull is opened as $\pi_{i,k}^o = \sum_{j\in\mathcal J_{i,pre}}p_{i,j,k}^o$, making the number of pulls opened distributed binomially as $N_{i,k}^o \mid N_{i,k} \sim \text{Binomial}(N_{i,k},\, \pi_{i,k}^o)$.
+The remaining stages --- review, direct merge, and merge after review --- follow this same structure: a single member is attributed the action on each eligible pull request (for review, the first reviewer; for the two merges, the unique merger), an i.i.d.\ categorical draw under Assumptions~\ref{asm:independence} and~\ref{asm:problem-invariant}, so the stage probability aggregates as $\pi_{i,k}^s = \sum_{j\in\mathcal J_{i,pre}} p_{i,j,k}^s$ (with residual $p_{i,0,k}^s = 1-\pi_{i,k}^s$) and the stage count is Binomial in its upstream count. The stages differ only in the attributed member and the conditioning count:
+\begin{itemize}
+  \item \emph{review}: $p_{i,j,k}^r$ is the probability member $j$ is the first reviewer of an opened pull request, and $N_{i,k}^r \mid N_{i,k}^o \sim \text{Binomial}(N_{i,k}^o,\, \pi_{i,k}^r)$;
+  \item \emph{direct merge}: $p_{i,j,k}^{m|o}$ is the probability member $j$ is the unique member who merges an opened pull request directly without review, and $N_{i,k}^{m|o} \mid N_{i,k}^o \sim \text{Binomial}(N_{i,k}^o,\, \pi_{i,k}^{m|o})$;
+  \item \emph{merge after review}: $p_{i,j,k}^{m|r}$ is the probability member $j$ is the unique member who merges a reviewed pull request, and $N_{i,k}^{m|r} \mid N_{i,k}^r \sim \text{Binomial}(N_{i,k}^r,\, \pi_{i,k}^{m|r})$.
+\end{itemize}
+Review and direct merge are competing post-opening paths --- each opened pull request is reviewed, merged directly, or neither --- so the two counts follow a multinomial over opened pull requests,
+\[ (N_{i,k}^r,N_{i,k}^{m|o}, N_{i,k}^{\emptyset|o}) \mid N_{i,k}^o \sim \text{Multinomial}\left(N_{i,k}^o;\pi_{i,k}^r,\pi_{i,k}^{m|o},1-\pi_{i,k}^r-\pi_{i,k}^{m|o}\right), \]
+where $N_{i,k}^{\emptyset|o}$ consists of the number of opened pulls that receive neither action. Total merges are $N_{i,k}^m=N_{i,k}^{m|o}+N_{i,k}^{m|r}$.
+
+\subsection{Fitting the model}
+Using this framework, I fit the model's key parameters --- the latent problem-flow distribution $F_i$ and the member action probabilities $p_{i,j,k}^s$ --- on pre-period data.
+The fitted model defines a data-generating process from which I can simulate organizational outcomes.
+Since those outcomes are built up from individual contributions, I can also simulate the counterfactual in which a member's contributions are removed.
+I use this framework to estimate the effect of the departure of the focal member $j^*$, a qualified important member whose exit defines the event.
+
+To simplify estimation of the latent problem rate, I assume the following:
+
+\begin{assumption}[Complete problem opening]
+\label{asm:complete-opening}
+In pre-periods $k$, $p_{i,0,k}^o = 0$: every latent problem leads to an opened pull request.
+Under this assumption, $N_{i,k} = N_{i,k}^o$, so the quantity of latent problems is observed in the data as the quantity of pull requests opened.
+\footnote{We only need that $p_{i,0,k}^o$ be constant across $k$, since any constant unopened fraction is absorbed into the scale of $F_i$, but setting it to $0$ allows for a cleaner normalization.}
+\end{assumption}
+
+\begin{assumption}[Organization-specific latent flow]
+\label{asm:time-invariant}
+Each organization has an organization-specific latent-flow distribution $F_i(q_{i,k})$ that is parameterized by $q_{i,k}$, the number of qualified important members present in period $k$, but is otherwise constant across all periods.
+\end{assumption}
+
+To estimate how $q_{i,k}$ affects the latent problem flow (Assumption~\ref{asm:time-invariant}), I fit a Poisson regression of opened counts on indicators for each level of $q_{i,k}$ and organization fixed effects:
+\[\log\mathbb{E}[N_{i,k}] = \alpha_i + \sum_{L\ge 1}\beta_L\,\mathbf{1}[q_{i,k}=L].\]
+I pool observations across organizations over all available pre-periods, imposing the sample restrictions of Section~\ref{sec:treatment_sample} except that I do not condition on $q_{i,k}$ at event time~$0$.
+The mean-reversion adjustment $\delta_L = e^{-\beta_L} \in (0,1]$ is the latent opening rate of an organization with no qualified important members relative to one with $L$.
+Table~\ref{tab:mean_reversion} reports $\hat\beta_L$ with confidence intervals and the implied $\hat\delta_L$.
+For instance, an organization with no qualified important members opens pull requests at \MeanReversionRelativeRateOne\% of the rate of an otherwise-comparable organization with one.
+
+
+I model the latent count in each period as a draw from an organization-specific distribution family with mean $\mu_{i,k} = \lambda_i^0/\delta_{q_{i,k}}$.
+I fit it in two steps, both taken relative to the period-specific means implied by the mean-reversion adjustment so that variation in $q_{i,k}$ is not mistaken for baseline heterogeneity.
+First, I estimate the organization's $q=0$ baseline rate as the maximum-likelihood Poisson rate over the $T = \NumPostPeriod$ pre-periods, weighting each period by $\delta_{q_{i,k}}^{-1}$:
+\[\widehat{\lambda}_i^0 = \frac{\sum_{k=-T}^{-1} N_{i,k}}{\sum_{k=-T}^{-1} \delta_{q_{i,k}}^{-1}}, \qquad \widehat{\mu}_{i,k} = \widehat{\lambda}_i^0/\delta_{q_{i,k}}.\]
+The two windows differ by purpose: mean reversion is estimated over each organization's full pre-period history to capture selection into high-intensity periods from lower-intensity periods, while the baseline uses the shorter, more recent $T$-period window to keep predictions from anchoring on distant pre-periods.
+Second, I select the count distribution family using the dispersion statistic
+\[ \widehat{\phi}_i = \frac{1}{T-1}\sum_{k=-T}^{-1} \frac{(N_{i,k} - \widehat{\mu}_{i,k})^2}{\widehat{\mu}_{i,k}}, \]
+choosing a Poisson when $\widehat{\phi}_i \le 1$ and a negative binomial otherwise.
+I then draw each period's latent problem count as
+\[ N_{i,k} \sim \begin{cases}\mathrm{Poisson}(\widehat{\mu}_{i,k}), & \widehat{\phi}_i \le 1,\\[3pt] \mathrm{NB}(\widehat{\mu}_{i,k},\ \widehat{\phi}_i), & \widehat{\phi}_i > 1,\end{cases} \]
+where $\mathrm{NB}(\mu,\phi)$ denotes a negative binomial with mean $\mu$ and variance $\phi\,\mu$.
+
+The model's remaining parameters are the member action probabilities $p_{i,j}^s$, which I assume to be stable over time.
+
+\begin{assumption}[Stationary member probabilities]
+\label{asm:stationary}
+Member action probabilities do not vary across all time periods, so $p_{i,j,k}^s = p_{i,j}^s$ for all $k$ and $s \in \{o,r,m|o,m|r\}$.
+\end{assumption}
+
+Stationarity lets me estimate each $p_{i,j}^s$ by pooling all pre-period observations within the organization; MLE gives the analytical solution $\hat{p}_{i,j}^o = \frac{\sum_k A_{i,j,k}^o}{\sum_k N_{i,k}^o}$, $\hat{p}_{i,j}^r = \frac{\sum_k A_{i,j,k}^r}{\sum_k N_{i,k}^o}$, $\hat{p}_{i,j}^{m|o} = \frac{\sum_k A_{i,j,k}^{m|o}}{\sum_k N_{i,k}^o}$, and $\hat{p}_{i,j}^{m|r} = \frac{\sum_k A_{i,j,k}^{m|r}}{\sum_k N_{i,k}^r}$.
+
+\subsubsection{Simulating a departure}
+\label{sec:counterfactual}
+
+Simulating a departure requires specifying how the organization's membership changes.
+
+\begin{assumption}[Fixed membership]
+\label{asm:fixed-membership}
+The set of members $\mathcal{J}_{i,pre}$ is fixed across pre-periods, and the only change between the pre-period and post-period membership set is the departure of key member $j^*$.
+Hence, $\mathcal{J}_{i,pre} \setminus \mathcal{J}_{i,post} = \{j^*\}$.
+\end{assumption}
+
+To predict the effect of $j^*$'s departure, I re-draw from the fitted model with $j^*$ removed from the membership set.
+Because each stage probability is a sum of member probabilities, I can generate counterfactual stage probabilities by simply removing $j^*$'s contribution.
+\[\pi_{i,k}^{s,(-j^*)} = \sum_{j\in\mathcal J_{i,post}} p_{i,j}^s, \qquad s\in\{o,r,m|o,m|r\}.\]
+The surviving members' probabilities are held fixed, a direct consequence of Assumption~\ref{asm:stationary}.
+Post-departure outcomes are then simulated by drawing from the model using the counterfactual probabilities $\pi_{i,k}^{s,(-j^*)}$.
+
+\subsection{Evaluating model fit}
+
+Although the model describes a DGP, the pre-period data represents, at best, a few draws from that DGP.
+To evaluate the model's fit, I compare the data to simulated data drawn from the model.
+
+\subsubsection{Fit metrics}\label{sec:metric}
+
+For each organization $i$ and period $k$, I draw $\NModelDraws$ outcome realizations from the fitted model following Algorithm~\ref{alg:drawcounts}.
+
+\begin{algorithm}[t]
+\caption{DrawCounts($\hat{F}_i,\;\hat{\pi}^o,\;\hat{\pi}^r,\;\hat{\pi}^{m|o},\;\hat{\pi}^{m|r}$)}
+\label{alg:drawcounts}
+\begin{algorithmic}[1]
+\For{$d = 1$ \textbf{to} $\NModelDraws$}
+  \State Draw $N^{(d)} \sim \hat{F}_i$
+  \State Draw $N^{o,(d)} \sim \mathrm{Binomial}(N^{(d)},\;\hat{\pi}^o)$
+  \State Draw $(N^{r,(d)},N^{m|o,(d)},N^{0,(d)}) \sim \mathrm{Multinomial}(N^{o,(d)};\;\hat{\pi}^r,\;\hat{\pi}^{m|o},\;1-\hat{\pi}^r-\hat{\pi}^{m|o})$
+  \State Draw $N^{m|r,(d)} \sim \mathrm{Binomial}(N^{r,(d)},\;\hat{\pi}^{m|r})$
+  \State Set $N^{m,(d)} = N^{m|o,(d)} + N^{m|r,(d)}$
+\EndFor
+\State \Return $\bigl\{N^{o,(d)},\;N^{r,(d)},\;N^{m|o,(d)},\;N^{m|r,(d)},\;N^{m,(d)}\bigr\}_{d=1}^{\NModelDraws}$
+\end{algorithmic}
+\end{algorithm}
+
+For each outcome $x \in \{N^o, N^r, N^{m|o}, N^{m|r}, N^m\}$ in each organization-period, I approximate the model's mean $\mu_{i,k}(x)$ and standard deviation $\sigma_{i,k}(x)$ using the $\NModelDraws$ draws.
+I can measure fit for any observed value $x_{i,k}^{\mathrm{obs}}$ using the z-score $Z_{i,k}(x)$ and centered squared z-score $Q_{i,k}(x)$:
+\begin{equation}\label{eq:residuals}
+Z_{i,k}(x) = \frac{x_{i,k}^{\mathrm{obs}} - \mu_{i,k}(x)}{\sigma_{i,k}(x)}, \qquad Q_{i,k}(x) = Z_{i,k}(x)^2 - 1.
+\end{equation}
+Across all organizations $i$ and periods $k$ within the comparison set, $\mathbb{E}[Z_{i,k}(x)]\approx 0$ indicates that the model's implied means align with the observed counts, and $\mathbb{E}[Q_{i,k}(x)]\approx 0$ that its implied means and variances both do.
+
+Another way to evaluate model fit is to compare the distribution of observed residuals to the model-implied distribution.
+For example, although $Z_{i,k}(x)$ is standardized, it is not distributed according to a standard normal because the model's draws are not normally distributed (they are truncated below at zero).
+To deal with this, I construct a \emph{simulated null} by drawing, for each organization-period, $\NModelDraws$ realizations from its fitted model and standardizing them following~Equation~\ref{eq:residuals}.
+Pooling these standardized draws across all organization-periods, I report the Kolmogorov--Smirnov distance between the observed $Z_{i,k}(x)$ distribution and this simulated null.
+The same construction applies to the centered squared z-score $Q_{i,k}(x)$.
+
+\subsubsection{Model fit results}\label{sec:model_fit_results}
+
+Figure~\ref{fig:model_fit_insample} plots the pooled signed residuals $Z_{i,k}(x)$ calculated using pre-period data across the four outcomes, separately for treated and control organizations, against the simulated null distribution.
+As depicted in Figure~\ref{fig:model_fit_insample}, the model's mean is well-calibrated in the pre-period, with the mean residual concentrated near zero across all outcomes and both treatment groups.
+The model's variance is also well-calibrated: the centered squared residuals $Q_{i,k}(x)$, reported in Appendix Figure~\ref{fig:model_fit_insample_Q}, concentrate near zero across all outcomes and both treatment groups.
+Appendix Figure~\ref{fig:model_fit_insample_loo} plots a leave-one-out variant of Figure~\ref{fig:model_fit_insample}, in which each period's prediction comes from a model fit only on the other $T-1$ pre-periods; the findings about fit are qualitatively unchanged.
+
+Figure~\ref{fig:model_fit_post} plots analogous results, but for post-period data.
+The only difference between using Algorithm~\ref{alg:drawcounts} to draw pre- and post-period data is that for treated organizations, I use the counterfactual stage probabilities implied by $j^*$'s departure described in Section~\ref{sec:counterfactual}.
+In the post-period, some distributional drift remains even after modelling both selection into the sample and the key member's departure.
+Control organizations, which experience no departure, isolate this drift, showing how well the model fits post-period data absent any departure.
+Their signed residuals are fairly close to zero across all outcomes, so the model captures most of the distributional drift in the mean, though not the drift in the variance (see the centered squared residual distribution in Appendix Figure~\ref{fig:model_fit_post_Q}).
+Prediction error for treated organizations mixes distributional drift with mismodelled departure effects.
+Since the model fits controls well, their larger, non-zero mean residuals suggest that the effects of departure are mismodelled rather than to failure to accurately model distributional drift.
+%@CLAUDE: HOw can I extend parallel trends or use it to justify that only bad prediction is departure mismodelling
+
+
+\subsection{Visualizing departure effects}
+I visualize the model's predicted departure effects by estimating event studies on data drawn from the model; comparing them to the observed effects estimated on actual data offers a further check on fit.
+
+\subsubsection{Model-implied departure effects}
+
+For each organization, I draw $\NModelDraws$ simulated datasets over the event-study window and estimate the event study on each.
+Figure~\ref{fig:model_departure_effects} plots the resulting distribution of simulated treatment effects against the actual effect for pull requests opened, reviewed, and merged; the direct- and reviewed-merge outcomes appear in Appendix Figure~\ref{fig:model_departure_effects_paths}.
+The model predicts the decline in pull requests opened well, but over-predicts the decline in pull requests reviewed and merged.
+
+This pattern follows from how the counterfactual removes a departing member: it strips out the member's own reviews and merges without letting surviving members absorb them.
+Both actions are low-effort and easily substituted --- merging is little more than a click, and a pull request the departed member would have reviewed first can still be reviewed by someone else --- so treating their reviews and merges as lost over-states how far each falls.
+Opening, by contrast, is effortful and not so readily picked up by others, so treating the member's own opens as lost is closer to what happens; this is why the model tracks the opening decline but over-predicts the review and merge declines.
+
+\subsubsection{Departure effects by resilience}
+
+Figure~\ref{fig:model_departure_resilience} repeats the comparison for organizations split by high and low resilience; the direct- and reviewed-merge outcomes appear in Appendix Figure~\ref{fig:model_departure_resilience_paths}.
+The model's predicted departure effects are similar for the two groups, so it does not explain why some organizations are resilient to departures and others are not.
+This is informative, as it suggests that organizational resilience is not simply a function of the departed member's own contributions.
+Rather, organizational practices explain differences in resilience that the departed member's past contributions cannot.
+
+\subsection{Extensions}
+
+\begin{enumerate}
+    \item \textbf{Relax Assumption~\ref{asm:exchangeability} (problem exchangeability).} Problems need not be indistinguishable. For example, the identity of the pull request opener may affect the probability that the pull request is eventually merged.
+
+    \item \textbf{Relax Assumption~\ref{asm:independence} (problem independence).} Problems need not evolve independently. For example, one pull request being merged may increase the likelihood that followup problems are opened or closed.
+
+    \item \textbf{Relax Assumption~\ref{asm:stationary} (stationary member probabilities).} Member probabilities need not be constant over the pre-period, and --- more importantly for the departure question --- surviving members need not keep their probabilities fixed after $j^*$ leaves. Organizational adaptation would let $p_{i,j}^s$ respond to the departure: for example, remaining members opening or reviewing less once an important member is gone, or taking over the merging the departed member had done. The counterfactual currently holds surviving members' probabilities fixed (a direct consequence of this assumption); relaxing it is the natural route to the residual departure-specific mis-prediction on opens and merges.
+\end{enumerate}
+
+\newpage
+
+
 \section{Conclusion} \label{sec:conclusion}
 In this paper, I develop measures of organizational resilience and practices using detailed activity-level data on open source software projects.
 I show, via a novel method combining event study and heterogeneous treatment effect estimation, that differences in organizational practices explain substantial variation in organizational resilience to key member departures. 
@@ -881,36 +1131,19 @@ First, studying how the composition of software releases changes following key m
 To better understand the causal drivers of resilience, it would be valuable to examine the mechanisms through which organizations maintain resilience and assess whether these mechanisms align with the hypotheses discovered in this paper.
 Finally, since adopting organizational practices involves meaningful tradeoffs, incorporating these tradeoffs into the analytical framework would deepen our understanding of the broader relationship between practices and organizational outcomes.
 
-\iffalse
-\section{Next Steps}
-\subsection{Estimating reach}
-I'm hoping to quantify the impact of reduced software development activity in OSS organizations.
-For example, if I can quantify how issues/pull requests affect users or other major OSS, I can describe the benefits of resilience not in terms of these units.
-
-I quantify how issues \& pull requests affect users by classifying the issues into categories. 
-The categories are:
-\begin{enumerate}
-    \item Issue type: bug, enhancement, question.  
-    \item Resolution found: yes, no. 
-    \item Resolution type: code, discussion.
-Code changes might be more burdensome to make, but the knowledge they draw upon already exists (within the codebase)
-    \item Resolution details: was it resolved through a pull request, commit, or comment, and what were the details?
-    \item Resolution inability: no responder, asker ghosted, responder ghosted, resolution impossible
-    \item Backwards-incompatible change? yes - external, yes - internal, no
-    \item Is the software broken? yes, no
-    \item Was the feature implemented? 
-\end{enumerate}
-
-I quantify how issues \& pull requests affect downstream projects by checking whether a major OSS project would have been affected by an issue
-
-\fi
-
 \newpage
 \input{output/tables/collaboration}
 \input{output/tables/knowledge_level}
 \input{output/tables/discussion_quality}
 \input{output/tables/investment_in_new_talent}
 \input{output/tables/problem_solving_routines}
+\newpage
+\input{output/tables/mean_reversion}
+\input{source/figures/model_fit_insample}
+\input{source/figures/model_fit_post}
+\input{source/figures/model_departure_effects}
+\input{source/figures/model_departure_resilience}
+
 \newpage
 
 \clearpage
@@ -924,8 +1157,6 @@ I quantify how issues \& pull requests affect downstream projects by checking wh
 \appendix
 
 
-
-
 \renewcommand{\thesection}{\Alph{section}}
 \renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
 \setcounter{figure}{0}
@@ -935,7 +1166,17 @@ I quantify how issues \& pull requests affect downstream projects by checking wh
 
 \input{source/figures/event_study_other_practices}
 
-\iffalse
+\section{Additional Model Fit Diagnostics}\label{sec:app_model_fit}
+
+\input{source/figures/model_fit_insample_loo}
+\input{source/figures/model_fit_insample_q}
+\input{source/figures/model_fit_loo_q}
+\input{source/figures/model_fit_post_q}
+
+\input{source/figures/model_departure_effects_paths}
+\input{source/figures/model_departure_resilience_paths}
+
+
 \section{Additional Details on Data Construction}\label{sec:app_data}
 % Organize into sections later on
 \begin{enumerate}
@@ -996,6 +1237,6 @@ For example, I don't see declines or increases in member count prior to their de
 \section{How I match repo names to repo ids in cases where identity changes}
 1. For each github repo, use bigquery to identify all repo (name, id) pairs that have either the same name or id.
 Do this continuously, incorporating all added (name, id) pairs until
-\fi
+
 
 \end{document}

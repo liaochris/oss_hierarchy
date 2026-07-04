@@ -5,12 +5,10 @@ from itertools import product
 
 from joblib import Parallel, delayed
 
-from source.lib.python.config_loaders import LoadGlobalSettings, LoadPipelineInputs, LoadModelPredictionConfig
+from source.lib.python.config_loaders import LoadGlobalSettings, LoadPipelineInputs, LoadModelPredictionConfig, LoadMeanReversionAdj
 from source.lib.python.repo_utils import MakeRepoNameSafe
 from source.lib.JMSLab.SaveData import SaveData
-from source.lib.model.staged_count_model import (
-    FitLatentDistribution, FitMemberProbabilities
-)
+from source.lib.model.staged_count_model import FitLatentDistribution, FitMemberProbabilities, MeanReversionAdj
 
 GLOBAL_SETTINGS         = LoadGlobalSettings()
 CONFIG                  = LoadPipelineInputs()
@@ -20,6 +18,7 @@ INDIR_MEMBER_PANEL   = Path("drive/output/derived/model_prediction/event_time_me
 INDIR_ANALYSIS_PANEL = Path("output/derived/analysis_panel")
 OUTDIR               = Path("output/analysis/model_prediction")
 ROLLING_LABEL         = f"rolling{CONFIG['rolling_periods']['run'][0]}"
+PRE_PERIOD_COUNT      = CONFIG['rolling_periods']['run'][0]
 VARIANTS              = MODEL_PREDICTION_CONFIG["variants"]["run"]
 DISTRIBUTION_TYPES    = MODEL_PREDICTION_CONFIG["distribution_types"]["run"]
 ESTIMATION_APPROACHES = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"]
@@ -56,9 +55,16 @@ def RunCombination(variant, distribution_type, estimation_approach,
     df_panel = pd.read_parquet(panel_path)
     df_all_repos = df_panel[df_panel["quasi_event_time"] == 0][["repo_name"]]
 
+    mean_reversion_adj_table = LoadMeanReversionAdj(importance_type, control_group)
+    num_important_qualified_by_repo = {
+        repo_name: dict(zip(group["quasi_event_time"].astype(int), group["num_important_qualified"].astype(int)))
+        for repo_name, group in df_panel.groupby("repo_name")
+    }
+
     repo_fit_results = Parallel(n_jobs=N_JOBS)(
         delayed(FitRepo)(row["repo_name"], variant, importance_type, qualified_sample,
-                         control_group, distribution_type, estimation_approach)
+                         control_group, distribution_type, estimation_approach,
+                         mean_reversion_adj_table, num_important_qualified_by_repo.get(row["repo_name"], {}))
         for _, row in df_all_repos.iterrows()
     )
 
@@ -83,7 +89,7 @@ def RunCombination(variant, distribution_type, estimation_approach,
 
 
 def FitRepo(repo_name, variant, importance_type, qualified_sample, control_group,
-            distribution_type, estimation_approach):
+            distribution_type, estimation_approach, mean_reversion_adj_table, num_important_qualified_by_period):
     member_path = (
         INDIR_MEMBER_PANEL / variant / importance_type / qualified_sample
         / control_group / f"{MakeRepoNameSafe(repo_name)}.parquet"
@@ -92,7 +98,7 @@ def FitRepo(repo_name, variant, importance_type, qualified_sample, control_group
         return None
 
     df_member = pd.read_parquet(member_path)
-    df_pre    = df_member[df_member["quasi_event_time"] < 0].copy()
+    df_pre    = df_member[df_member["quasi_event_time"].between(-PRE_PERIOD_COUNT, -1)].copy()
     df_repo_counts = (
         df_pre.groupby("quasi_event_time")[
             ["repo_pull_request_opened", "repo_pull_request_reviewed",
@@ -100,8 +106,11 @@ def FitRepo(repo_name, variant, importance_type, qualified_sample, control_group
         ].first().reset_index()
     )
     counts_per_period = df_repo_counts["repo_pull_request_opened"].values.astype(float)
+    member_effects = np.array(
+        [1.0 / MeanReversionAdj(mean_reversion_adj_table, num_important_qualified_by_period.get(int(period), 0))
+         for period in df_repo_counts["quasi_event_time"]], dtype=float)
 
-    dist_result  = FitLatentDistribution(repo_name, counts_per_period, distribution_type)
+    dist_result  = FitLatentDistribution(repo_name, counts_per_period, member_effects, distribution_type)
     member_probs = FitMemberProbabilities(repo_name, df_pre, df_repo_counts, estimation_approach)
     return {
         "dist":   dist_result,

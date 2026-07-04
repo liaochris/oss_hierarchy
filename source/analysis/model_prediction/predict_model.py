@@ -9,13 +9,13 @@ from itertools import product
 from joblib import Parallel, delayed
 
 from source.lib.python.config_loaders import (
-    LoadGlobalSettings, LoadPipelineInputs, LoadAnalysisParameters, LoadModelPredictionConfig
+    LoadGlobalSettings, LoadPipelineInputs, LoadAnalysisParameters, LoadModelPredictionConfig, LoadMeanReversionAdj
 )
 from source.lib.python.repo_utils import MakeRepoNameSafe
 from source.lib.JMSLab.SaveData import SaveData
 from source.lib.model.staged_count_model import (
     FitLatentDistribution, FitMemberProbabilities, ComputeStageProbabilities, DrawCounts,
-    MemberProbabilityRows, CompetingPathProbabilities, MEMBER_COUNT_COLUMNS
+    MemberProbabilityRows, MeanReversionAdj, MEMBER_COUNT_COLUMNS
 )
 
 GLOBAL_SETTINGS         = LoadGlobalSettings()
@@ -25,19 +25,17 @@ CONFIG                  = LoadPipelineInputs()
 
 INDIR_MEMBER_PANEL   = Path("drive/output/derived/model_prediction/event_time_member_panel")
 INDIR_ANALYSIS_PANEL = Path("output/derived/analysis_panel")
-INDIR_MEAN_REVERSION = Path("output/derived/model_prediction/mean_reversion")
 INDIR_FITTED         = Path("output/analysis/model_prediction")
 OUTDIR               = Path("output/analysis/model_prediction")
 DATASTORE_OUTDIR     = Path("drive/output/analysis/model_prediction")
 ROLLING_LABEL         = f"rolling{CONFIG['rolling_periods']['run'][0]}"
+PRE_PERIOD_COUNT      = CONFIG['rolling_periods']['run'][0]
 VARIANTS              = MODEL_PREDICTION_CONFIG["variants"]["run"]
 DISTRIBUTION_TYPES    = MODEL_PREDICTION_CONFIG["distribution_types"]["run"]
 ESTIMATION_APPROACHES = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"]
 
 N_MODEL_DRAWS = PARAMETERS["n_model_draws"]
 N_JOBS        = GLOBAL_SETTINGS["n_jobs"]
-
-MEAN_REVERSION_STATISTIC = MODEL_PREDICTION_CONFIG["mean_reversion_statistic"]
 
 OUTCOMES = ["opened", "reviewed", "merged_direct", "merged_after_review", "merged"]
 STAGES   = ["opened", "reviewed", "merged_direct", "merged_after_review"]
@@ -78,7 +76,7 @@ def RunCombination(variant, distribution_type, estimation_approach,
     df_dist  = pd.read_parquet(fitted_dir / "distribution_params.parquet")
     df_probs = pd.read_parquet(fitted_dir / "member_probabilities.parquet")
 
-    mean_reversion_ratio = LoadMeanReversionRatio(variant, importance_type, qualified_sample, control_group)
+    mean_reversion_adj_table = LoadMeanReversionAdj(importance_type, control_group)
 
     panel_path = (
         INDIR_ANALYSIS_PANEL / importance_type / ROLLING_LABEL
@@ -88,6 +86,11 @@ def RunCombination(variant, distribution_type, estimation_approach,
     df_all_repos = df_panel[df_panel["quasi_event_time"] == 0][
         ["repo_name", "dropouts_actors", "num_dropouts"]
     ]
+    num_important_qualified_by_repo = {
+        repo_name: dict(zip(group["quasi_event_time"].astype(int),
+                            group["num_important_qualified"].astype(int)))
+        for repo_name, group in df_panel.groupby("repo_name")
+    }
 
     repo_results = Parallel(n_jobs=N_JOBS)(
         delayed(ProcessRepo)(
@@ -97,7 +100,8 @@ def RunCombination(variant, distribution_type, estimation_approach,
             df_dist[df_dist["repo_name"] == row["repo_name"]],
             df_probs[df_probs["repo_name"] == row["repo_name"]],
             variant, importance_type, qualified_sample, control_group,
-            distribution_type, estimation_approach, mean_reversion_ratio,
+            distribution_type, estimation_approach, mean_reversion_adj_table,
+            num_important_qualified_by_repo.get(row["repo_name"], {}),
         )
         for _, row in df_all_repos.iterrows()
     )
@@ -135,21 +139,12 @@ def RunCombination(variant, distribution_type, estimation_approach,
     Parallel(n_jobs=N_JOBS, prefer="threads")(write_jobs)
 
 
-def LoadMeanReversionRatio(variant, importance_type, qualified_sample, control_group):
-    df_ratios = pd.read_parquet(INDIR_MEAN_REVERSION / "mean_reversion_ratios.parquet")
-    matched = df_ratios[
-        (df_ratios["variant"] == variant)
-        & (df_ratios["importance_type"] == importance_type)
-        & (df_ratios["qualified_sample"] == qualified_sample)
-        & (df_ratios["control_group"] == control_group)
-    ]
-    return float(matched[MEAN_REVERSION_STATISTIC].iloc[0])
 
 
 def ProcessRepo(repo_name, is_treated, dropout_set,
                 df_dist_repo, df_member_probs,
                 variant, importance_type, qualified_sample, control_group,
-                distribution_type, estimation_approach, mean_reversion_ratio):
+                distribution_type, estimation_approach, mean_reversion_adj_table, num_important_qualified_by_period):
     if df_dist_repo.empty:
         return None
 
@@ -168,11 +163,13 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
         ].first().reset_index()
     )
     all_periods  = sorted(int(k) for k in df_repo_counts["quasi_event_time"])
-    pre_periods  = [k for k in all_periods if k < 0]
+    # Everything downstream is bounded to the +/- PRE_PERIOD_COUNT event-study window; only the
+    # mean-reversion Poisson (compute_mean_reversion.py) uses the full pre-period history.
+    pre_periods       = [k for k in all_periods if -PRE_PERIOD_COUNT <= k < 0]
     if len(pre_periods) == 0:
         return None
     treatment_periods = [k for k in all_periods if k == 0]   # member still present at event time 0
-    post_periods      = [k for k in all_periods if k >= 1]
+    post_periods      = [k for k in all_periods if 1 <= k <= PRE_PERIOD_COUNT]
     observed_by_period = {int(row["quasi_event_time"]): ExtractObserved(row) for _, row in df_repo_counts.iterrows()}
 
     dist_row = df_dist_repo.iloc[0]
@@ -191,22 +188,26 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
 
     rng = np.random.default_rng(int(hashlib.md5(repo_name.encode()).hexdigest()[:8], 16))
 
-    # The mean-reversion ratio scales the latent rate from event time 0 onward; pre-periods unchanged.
-    pre_block       = DrawPeriodBlock(repo_distribution, dist_params, full_stage_probs, pre_periods, N_MODEL_DRAWS, rng)
-    treatment_block = DrawPeriodBlock(repo_distribution, dist_params, full_stage_probs, treatment_periods, N_MODEL_DRAWS, rng, mean_reversion_ratio)
-    post_block      = DrawPeriodBlock(repo_distribution, dist_params, post_stage_probs, post_periods, N_MODEL_DRAWS, rng, mean_reversion_ratio)
+    # F_i is fit at the q==0 baseline rate lambda_i^0 (see FitLatentDistribution), so each period runs at
+    # lambda_i^0 times the member effect a_{i,t} = 1/delta_{q_t} (>= 1, larger with more important members).
+    member_effect     = {k: 1.0 / MeanReversionAdj(mean_reversion_adj_table, num_important_qualified_by_period.get(k, 0)) for k in all_periods}
+    period_multiplier = {k: member_effect[k] for k in all_periods}
+    pre_block       = DrawByMultiplier(repo_distribution, dist_params, full_stage_probs, pre_periods, period_multiplier, N_MODEL_DRAWS, rng)
+    treatment_block = DrawByMultiplier(repo_distribution, dist_params, full_stage_probs, treatment_periods, period_multiplier, N_MODEL_DRAWS, rng)
+    post_block      = DrawByMultiplier(repo_distribution, dist_params, post_stage_probs, post_periods, period_multiplier, N_MODEL_DRAWS, rng)
     period_draws = {**pre_block, **treatment_block, **post_block}
     period_stage_probs = {k: full_stage_probs for k in pre_periods + treatment_periods}
     period_stage_probs.update({k: post_stage_probs for k in post_periods})
 
-    raw_draws = BuildRawDrawRows(repo_name, is_treated, all_periods, period_draws)
+    drawn_periods = pre_periods + treatment_periods + post_periods
+    raw_draws = BuildRawDrawRows(repo_name, is_treated, drawn_periods, period_draws)
 
     insample_period_rows, insample_ref_blocks = ScorePeriods(repo_name, is_treated, pre_periods, observed_by_period, period_draws, period_stage_probs, rng)
     post_period_rows,     post_ref_blocks     = ScorePeriods(repo_name, is_treated, post_periods, observed_by_period, period_draws, period_stage_probs, rng)
 
     leaveoneout_period_rows, leaveoneout_ref_blocks = LeaveOneOutResiduals(
         repo_name, is_treated, pre_periods, df_member, observed_by_period,
-        distribution_type, estimation_approach, rng)
+        distribution_type, estimation_approach, mean_reversion_adj_table, num_important_qualified_by_period, rng)
 
     return {
         "raw_draws":             raw_draws,
@@ -217,6 +218,14 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
         "leaveoneout_reference": ReferenceFrame(repo_name, is_treated, leaveoneout_ref_blocks),
         "post_reference":        ReferenceFrame(repo_name, is_treated, post_ref_blocks),
     }
+
+
+def DrawByMultiplier(repo_distribution, dist_params, stage_probs, periods, period_multiplier, n_draws, rng):
+    block = {}
+    for multiplier in sorted({period_multiplier[k] for k in periods}):
+        matched_periods = [k for k in periods if period_multiplier[k] == multiplier]
+        block.update(DrawPeriodBlock(repo_distribution, dist_params, stage_probs, matched_periods, n_draws, rng, multiplier))
+    return block
 
 
 def DrawPeriodBlock(repo_distribution, dist_params, stage_probs, periods, n_draws, rng, latent_rate_multiplier=1.0):
@@ -255,8 +264,7 @@ def ScorePeriods(repo_name, is_treated, periods, observed_by_period, period_draw
     for period in periods:
         observed = observed_by_period[period]
         draws    = period_draws[period]
-        _, prob_review, prob_merge_direct, prob_merge_after_review = period_stage_probs[period]
-        squared_residuals = AllSquaredResiduals(observed, *draws, prob_review, prob_merge_direct, prob_merge_after_review, rng)
+        squared_residuals = AllSquaredResiduals(observed, *draws)
         signed_residuals  = AllSignedResiduals(observed, *draws)
         period_rows.append(PeriodRow(repo_name, is_treated, period, signed_residuals, squared_residuals))
         reference_blocks.append((period, {outcome: StandardizeDraws(draw) for outcome, draw in zip(OUTCOMES, draws)}))
@@ -264,7 +272,8 @@ def ScorePeriods(repo_name, is_treated, periods, observed_by_period, period_draw
 
 
 def LeaveOneOutResiduals(repo_name, is_treated, pre_periods, df_member, observed_by_period,
-                         distribution_type, estimation_approach, rng):
+                         distribution_type, estimation_approach, mean_reversion_adj_table,
+                         num_important_qualified_by_period, rng):
     period_rows = []
     reference_blocks = []
     if len(pre_periods) < 2:
@@ -280,8 +289,12 @@ def LeaveOneOutResiduals(repo_name, is_treated, pre_periods, df_member, observed
     full_member_sums = df_pre.groupby("actor_id")[MEMBER_COUNT_COLUMNS].sum() if estimation_approach == "pooled" else None
 
     for held_out_time in pre_periods:
-        counts_train = repo_counts_by_period["repo_pull_request_opened"].drop(held_out_time).values.astype(float)
-        dist_loo  = FitLatentDistribution(repo_name, counts_train, distribution_type)
+        counts_train_series  = repo_counts_by_period["repo_pull_request_opened"].drop(held_out_time)
+        counts_train         = counts_train_series.values.astype(float)
+        member_effects_train = np.array(
+            [1.0 / MeanReversionAdj(mean_reversion_adj_table, num_important_qualified_by_period.get(int(t), 0))
+             for t in counts_train_series.index], dtype=float)
+        dist_loo  = FitLatentDistribution(repo_name, counts_train, member_effects_train, distribution_type)
         if estimation_approach == "pooled":
             held_member_sums   = df_pre.loc[df_pre["quasi_event_time"] == held_out_time].set_index("actor_id")[MEMBER_COUNT_COLUMNS]
             member_sums_loo    = full_member_sums.subtract(held_member_sums, fill_value=0)
@@ -298,9 +311,11 @@ def LeaveOneOutResiduals(repo_name, is_treated, pre_periods, df_member, observed
             "negative_binomial_size": dist_loo["negative_binomial_size"],
             "negative_binomial_prob": dist_loo["negative_binomial_prob"],
         }
-        draws = DrawCounts(dist_loo["distribution_type"], dist_params_loo, *probs_loo, N_MODEL_DRAWS, rng, 1.0)
+        # The LOO fit is already at the q==0 baseline, so draw the held-out period at its own member effect.
+        held_out_multiplier = 1.0 / MeanReversionAdj(mean_reversion_adj_table, num_important_qualified_by_period.get(held_out_time, 0))
+        draws = DrawCounts(dist_loo["distribution_type"], dist_params_loo, *probs_loo, N_MODEL_DRAWS, rng, held_out_multiplier)
         observed = observed_by_period[held_out_time]
-        squared_residuals = AllSquaredResiduals(observed, *draws, probs_loo[1], probs_loo[2], probs_loo[3], rng)
+        squared_residuals = AllSquaredResiduals(observed, *draws)
         signed_residuals  = AllSignedResiduals(observed, *draws)
         period_rows.append(PeriodRow(repo_name, is_treated, held_out_time, signed_residuals, squared_residuals))
         reference_blocks.append((held_out_time, {outcome: StandardizeDraws(draw) for outcome, draw in zip(OUTCOMES, draws)}))
@@ -333,70 +348,13 @@ def ComputeSignedStdResidual(observed, draws):
     return (observed - draw_mean) / draw_std
 
 
-def StageDecomposition(observed_opened, observed_reviewed, observed_merged_directly, observed_merged,
-                       direct_merge_draw, reviewed_merge_draw,
-                       prob_review, prob_merge_direct, prob_merge_after_review, n_draws, rng):
-    """Delta decomposition of the squared standardized residual of total merges across stages."""
-    total_merge_draw = direct_merge_draw + reviewed_merge_draw
-
-    # Step 1: full model squared residual
-    squared_residual_total = ComputeSquaredStdResidual(observed_merged, total_merge_draw)
-
-    # Step 2: condition on observed opens (review / direct-merge / neither is multinomial)
-    prob_merge_after_review = np.clip(prob_merge_after_review, 0.0, 1.0)
-    n_opened = int(observed_opened)
-    stage_two_outcomes = rng.multinomial(
-        n_opened, CompetingPathProbabilities(prob_review, prob_merge_direct), n_draws)
-    conditional_reviewed_draw       = stage_two_outcomes[:, 0]
-    conditional_direct_merge_draw   = stage_two_outcomes[:, 1]
-    conditional_reviewed_merge_draw = rng.binomial(conditional_reviewed_draw, prob_merge_after_review, n_draws)
-    conditional_total_merge_draw    = conditional_direct_merge_draw + conditional_reviewed_merge_draw
-    squared_residual_fix_opened     = ComputeSquaredStdResidual(observed_merged, conditional_total_merge_draw)
-
-    # Step 3: additionally condition on observed reviews; direct merges fall among the unreviewed opens
-    n_reviewed = int(observed_reviewed)
-    direct_merge_given_unreviewed = min(1.0, prob_merge_direct / (1.0 - prob_review)) if prob_review < 1.0 else 0.0
-    check_direct_merge_draw       = rng.binomial(int(n_opened - n_reviewed), direct_merge_given_unreviewed, n_draws)
-    check_reviewed_merge_draw     = rng.binomial(n_reviewed, prob_merge_after_review, n_draws)
-    check_total_merge_draw        = check_direct_merge_draw + check_reviewed_merge_draw
-    squared_residual_fix_opened_reviewed = ComputeSquaredStdResidual(observed_merged, check_total_merge_draw)
-
-    # Step 4: condition on observed opens, reviews, and direct merges
-    fixed_reviewed_merge_draw     = rng.binomial(n_reviewed, prob_merge_after_review, n_draws)
-    fixed_total_merge_draw        = int(observed_merged_directly) + fixed_reviewed_merge_draw
-    squared_residual_fix_opened_reviewed_direct = ComputeSquaredStdResidual(observed_merged, fixed_total_merge_draw)
-
-    # If any step is NaN, propagate NaN so the averages use a consistent period set
-    if any(np.isnan(v) for v in [squared_residual_total, squared_residual_fix_opened,
-                                 squared_residual_fix_opened_reviewed, squared_residual_fix_opened_reviewed_direct]):
-        return np.nan, np.nan, np.nan, np.nan, np.nan
-
-    delta_open           = squared_residual_total - squared_residual_fix_opened
-    delta_review         = squared_residual_fix_opened - squared_residual_fix_opened_reviewed
-    delta_direct_merge   = squared_residual_fix_opened_reviewed - squared_residual_fix_opened_reviewed_direct
-    delta_reviewed_merge = squared_residual_fix_opened_reviewed_direct
-
-    return squared_residual_total, delta_open, delta_review, delta_direct_merge, delta_reviewed_merge
-
-
-def AllSquaredResiduals(observed, opened_draw, reviewed_draw, merged_direct_draw, merged_after_review_draw, merged_draw,
-                        prob_review, prob_merge_direct, prob_merge_after_review, rng):
-    (merged_squared_residual, delta_opened, delta_reviewed, delta_merged_direct, delta_merged_after_review) = StageDecomposition(
-        observed["pull_request_opened_observed"], observed["pull_request_reviewed_observed"],
-        observed["pull_request_merged_direct_observed"], observed["pull_request_merged_observed"],
-        merged_direct_draw, merged_after_review_draw,
-        prob_review, prob_merge_direct, prob_merge_after_review, N_MODEL_DRAWS, rng
-    )
+def AllSquaredResiduals(observed, opened_draw, reviewed_draw, merged_direct_draw, merged_after_review_draw, merged_draw):
     return {
         "squared_std_residual_opened":             ComputeSquaredStdResidual(observed["pull_request_opened_observed"], opened_draw),
         "squared_std_residual_reviewed":           ComputeSquaredStdResidual(observed["pull_request_reviewed_observed"], reviewed_draw),
         "squared_std_residual_merged_direct":      ComputeSquaredStdResidual(observed["pull_request_merged_direct_observed"], merged_direct_draw),
         "squared_std_residual_merged_after_review": ComputeSquaredStdResidual(observed["pull_request_merged_after_review_observed"], merged_after_review_draw),
-        "squared_std_residual_merged":       merged_squared_residual,
-        "delta_squared_std_residual_opened":             delta_opened,
-        "delta_squared_std_residual_reviewed":           delta_reviewed,
-        "delta_squared_std_residual_merged_direct":      delta_merged_direct,
-        "delta_squared_std_residual_merged_after_review": delta_merged_after_review,
+        "squared_std_residual_merged":       ComputeSquaredStdResidual(observed["pull_request_merged_observed"], merged_draw),
     }
 
 
@@ -447,7 +405,7 @@ def PeriodRow(repo_name, is_treated, quasi_event_time, signed_residuals, squared
         **{residual_name: residual_value for residual_name, residual_value in signed_residuals.items()
            if residual_name.startswith("signed_std_residual_")},
         **{residual_name: residual_value for residual_name, residual_value in squared_residuals.items()
-           if residual_name.startswith("squared_std_residual_") or residual_name.startswith("delta_squared_std_residual_")},
+           if residual_name.startswith("squared_std_residual_")},
     }
 
 

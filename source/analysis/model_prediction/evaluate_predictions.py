@@ -28,7 +28,7 @@ EVALUATION_FIGURES    = MODEL_PREDICTION_CONFIG["evaluation_figures"]["run"]
 N_JOBS                = GLOBAL_SETTINGS["n_jobs"]
 
 OUTCOMES = ["opened", "reviewed", "merged_direct", "merged_after_review", "merged"]
-STAGES   = ["opened", "reviewed", "merged_direct", "merged_after_review"]
+FIT_PANEL_OUTCOMES = ["opened", "reviewed", "merged_direct", "merged_after_review"]
 
 OUTCOME_LABELS = {
     "opened":              "Opened",
@@ -37,18 +37,10 @@ OUTCOME_LABELS = {
     "merged_after_review": "Reviewed merged",
     "merged":        "Total merged",
 }
-STAGE_LABELS = {
-    "opened":              "Open",
-    "reviewed":            "Review",
-    "merged_direct":       "Direct merge",
-    "merged_after_review": "Reviewed merge",
-}
 GROUP_LABELS = {"treated": "Treated", "control": "Control"}
 SIGNED_AXIS_LABEL = r"Signed std residual $(x - \mu) / \sigma$"
-SQUARED_RESIDUAL_CLIP = 15
-SIGNED_RESIDUAL_CLIP  = 10
-DECOMP_PERCENT_CLIP   = 1200
-DECOMP_PERCENT_QUANTILE = 0.90
+SQUARED_RESIDUAL_CLIP = 10
+SIGNED_RESIDUAL_CLIP  = 5
 
 MEDIAN_COLOR    = "#C0392B"
 MEAN_COLOR      = "#27AE60"
@@ -97,28 +89,21 @@ def RunCombination(variant, distribution_type, estimation_approach,
 
     panels_squared = base_out / "panels" / "squared"
     panels_signed  = base_out / "panels" / "signed"
-    panels_squared.mkdir(parents=True, exist_ok=True)
-    panels_signed.mkdir(parents=True, exist_ok=True)
+    tables_signed  = base_out / "tables" / "signed"
+    tables_squared = base_out / "tables" / "squared"
+    for directory in (panels_squared, panels_signed, tables_signed, tables_squared):
+        directory.mkdir(parents=True, exist_ok=True)
 
     fit_panels = [
-        ("pre_period_fit_insample",    df_insample,    df_insample_reference,    "Pre-Period Fit (InSample)"),
-        ("pre_period_fit_leaveoneout", df_leaveoneout, df_leaveoneout_reference, "Pre-Period Fit (LeaveOneOut)"),
-        ("post_period_fit",            df_post,        df_post_reference,        "Post-Period Fit"),
+        ("pre_period_fit_insample",    df_insample,    df_insample_reference),
+        ("pre_period_fit_leaveoneout", df_leaveoneout, df_leaveoneout_reference),
+        ("post_period_fit",            df_post,        df_post_reference),
     ]
-    for name, df_residuals, df_reference, title in fit_panels:
-        SignedFitPanel(panels_signed / f"{name}.png", df_residuals, df_reference, title)
-        if name == "post_period_fit":
-            PostSquaredFitPanel(panels_squared / f"{name}.png", df_residuals, df_reference, df_leaveoneout, title)
-        else:
-            SquaredFitPanel(panels_squared / f"{name}.png", df_residuals, df_reference, title)
-
-    decomp_panels = [
-        ("pre_period_decomp_insample",    df_insample,    "Pre-Period Decomp (InSample)"),
-        ("pre_period_decomp_leaveoneout", df_leaveoneout, "Pre-Period Decomp (LeaveOneOut)"),
-        ("post_period_decomp",            df_post,        "Post-Period Decomp"),
-    ]
-    for name, df_residuals, title in decomp_panels:
-        SquaredDecompPanel(panels_squared / f"{name}.png", df_residuals, title)
+    for name, df_residuals, df_reference in fit_panels:
+        SignedFitPanel(panels_signed / f"{name}.png", df_residuals, df_reference)
+        SquaredFitPanel(panels_squared / f"{name}.png", df_residuals, df_reference)
+        WriteFitTable(tables_signed / f"{name}.txt", name, df_residuals, df_reference, "signed")
+        WriteFitTable(tables_squared / f"{name}.txt", name, df_residuals, df_reference, "squared")
 
     ComparisonFigure(base_out / "panels" / "comparisons.png", df_leaveoneout, df_post)
 
@@ -130,77 +115,69 @@ def SplitGroups(df_residuals):
     return {"treated": df_residuals[df_residuals["is_treated"]], "control": df_residuals[~df_residuals["is_treated"]]}
 
 
-def SignedFitPanel(outpath, residuals, reference, title):
+# The fit panels lay out treatment groups on grid rows and outcomes on grid columns.
+# FitResidualValues / FitReferenceValues return the plotted series for a given group frame and
+# outcome, and are shared by the panel figures and the companion tablefill tables.
+def FitResidualValues(group_df, outcome, kind):
+    if kind == "signed":
+        return group_df[f"signed_std_residual_{outcome}"]
+    return group_df[f"squared_std_residual_{outcome}"]
+
+
+def FitReferenceValues(group_df, outcome, kind):
+    if kind == "signed":
+        return group_df[f"signed_std_residual_{outcome}"]
+    return group_df[f"signed_std_residual_{outcome}"] ** 2 - 1.0
+
+
+def SignedFitPanel(outpath, residuals, reference):
     residuals_by_group, reference_by_group = SplitGroups(residuals), SplitGroups(reference)
     MakePanel(
-        outpath, rows=OUTCOMES,
+        outpath, rows=FIT_PANEL_OUTCOMES,
         cols={group: residuals_by_group[group] for group in GROUP_LABELS},
-        col_getter=lambda group_df, outcome: group_df[f"signed_std_residual_{outcome}"],
+        col_getter=lambda group_df, outcome: FitResidualValues(group_df, outcome, "signed"),
         row_labels=OUTCOME_LABELS, col_labels=GROUP_LABELS,
-        suptitle=f"{title} Signed Std Residual", xlabel=SIGNED_AXIS_LABEL,
-        clip=SIGNED_RESIDUAL_CLIP,
+        clip=SIGNED_RESIDUAL_CLIP, boundary_symbol="z",
         ref_cols={group: reference_by_group[group] for group in GROUP_LABELS},
-        ref_getter=lambda group_df, outcome: group_df[f"signed_std_residual_{outcome}"],
+        ref_getter=lambda group_df, outcome: FitReferenceValues(group_df, outcome, "signed"),
     )
 
 
-def SquaredFitPanel(outpath, residuals, reference, title):
+def SquaredFitPanel(outpath, residuals, reference):
     residuals_by_group, reference_by_group = SplitGroups(residuals), SplitGroups(reference)
     MakePanel(
-        outpath, rows=OUTCOMES,
+        outpath, rows=FIT_PANEL_OUTCOMES,
         cols={group: residuals_by_group[group] for group in GROUP_LABELS},
-        col_getter=lambda group_df, outcome: group_df[f"squared_std_residual_{outcome}"],
+        col_getter=lambda group_df, outcome: FitResidualValues(group_df, outcome, "squared"),
         row_labels=OUTCOME_LABELS, col_labels=GROUP_LABELS,
-        suptitle=f"{title} Squared Std Residual",
-        clip=SQUARED_RESIDUAL_CLIP,
+        clip=SQUARED_RESIDUAL_CLIP, boundary_symbol="Q",
         ref_cols={group: reference_by_group[group] for group in GROUP_LABELS},
-        ref_getter=lambda group_df, outcome: group_df[f"signed_std_residual_{outcome}"] ** 2 - 1.0,
+        ref_getter=lambda group_df, outcome: FitReferenceValues(group_df, outcome, "squared"),
     )
 
 
-def PostSquaredFitPanel(outpath, df_post, df_post_reference, df_leaveoneout, title):
-    """Post-period squared-residual fit, with an added treated row net of each org's LOO baseline."""
-    post_by_group = SplitGroups(df_post)
-    reference_by_group = SplitGroups(df_post_reference)
-    loo_treated_residuals = SplitGroups(df_leaveoneout)["treated"]
-    loo_baseline = (loo_treated_residuals.groupby("repo_name")[[f"squared_std_residual_{outcome}" for outcome in OUTCOMES]]
-                    .mean().add_prefix("baseline_").reset_index())
+def WriteFitTable(outpath, name, residuals, reference, kind):
+    residuals_by_group, reference_by_group = SplitGroups(residuals), SplitGroups(reference)
+    lines = [f"<tab:model_fit_{kind}_{name}>"]
+    for outcome in FIT_PANEL_OUTCOMES:
+        for group in GROUP_LABELS:
+            observed_values  = FitResidualValues(residuals_by_group[group], outcome, kind).dropna()
+            reference_values = FitReferenceValues(reference_by_group[group], outcome, kind).dropna()
+            lines.extend(FitTableRow(observed_values, reference_values))
+    outpath.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    def subtract_baseline(group_residuals, residual_column_name):
-        residuals_minus_baseline = group_residuals.merge(loo_baseline, on="repo_name", how="left")
-        for outcome in OUTCOMES:
-            residuals_minus_baseline[residual_column_name(outcome)] = (
-                residuals_minus_baseline[residual_column_name(outcome)]
-                - residuals_minus_baseline[f"baseline_squared_std_residual_{outcome}"])
-        return residuals_minus_baseline
 
-    def with_reference_squared(reference):
-        reference = reference.copy()
-        for outcome in OUTCOMES:
-            reference[f"reference_squared_{outcome}"] = reference[f"signed_std_residual_{outcome}"] ** 2 - 1.0
-        return reference
-
-    cols = {
-        "treated":          post_by_group["treated"],
-        "control":          post_by_group["control"],
-        "treated_adjusted": subtract_baseline(post_by_group["treated"], lambda outcome: f"squared_std_residual_{outcome}"),
-    }
-    ref_cols = {
-        "treated":          with_reference_squared(reference_by_group["treated"]),
-        "control":          with_reference_squared(reference_by_group["control"]),
-        "treated_adjusted": subtract_baseline(with_reference_squared(reference_by_group["treated"]),
-                                              lambda outcome: f"reference_squared_{outcome}"),
-    }
-    col_labels = {"treated": "Treated", "control": "Control",
-                  "treated_adjusted": r"Treated $-$ LOO baseline"}
-    MakePanel(
-        outpath, rows=OUTCOMES, cols=cols,
-        col_getter=lambda group_df, outcome: group_df[f"squared_std_residual_{outcome}"],
-        row_labels=OUTCOME_LABELS, col_labels=col_labels,
-        suptitle=f"{title} Squared Std Residual",
-        clip=SQUARED_RESIDUAL_CLIP,
-        ref_cols=ref_cols, ref_getter=lambda group_df, outcome: group_df[f"reference_squared_{outcome}"],
-    )
+def FitTableRow(observed_values, reference_values):
+    n_observed = len(observed_values)
+    if n_observed == 0:
+        return [str(n_observed), "", "", ""]
+    ks = ks_2samp(observed_values.values, reference_values.values)
+    return [
+        str(n_observed),
+        f"{observed_values.mean():.3f}",
+        f"{observed_values.median():.3f}",
+        f"{ks.statistic:.3f}",
+    ]
 
 
 def DrawOverlay(ax, series_1, series_2, clip):
@@ -269,19 +246,6 @@ def ComparisonFigure(outpath, df_leaveoneout, df_post):
     plt.close(fig)
 
 
-def SquaredDecompPanel(outpath, residuals, title):
-    residuals_by_group = SplitGroups(residuals)
-    MakePanel(
-        outpath, rows=STAGES,
-        cols={group: residuals_by_group[group] for group in GROUP_LABELS},
-        col_getter=lambda group_df, stage: DecompPct(group_df, stage),
-        row_labels=STAGE_LABELS, col_labels=GROUP_LABELS,
-        suptitle=f"{title} — % of total-merge residual",
-        xlabel="% of total-merge residual", clip=DECOMP_PERCENT_CLIP,
-        bound_quantile=DECOMP_PERCENT_QUANTILE,
-    )
-
-
 def PlotIndividual(base_out, residuals_by_eval):
     for eval_name, residuals in residuals_by_eval.items():
         slug = eval_name.lower().replace("-", "_").replace(" ", "_")
@@ -313,11 +277,6 @@ def SharedDisplayBound(series_list, hard_cap, quantile=0.99):
     return min(hard_cap, max(1, whole_number_bound))
 
 
-def DecompPct(df_residuals, stage):
-    total_merge_residual = df_residuals["squared_std_residual_merged"].replace(0, np.nan)
-    return df_residuals[f"delta_squared_std_residual_{stage}"] / total_merge_residual * 100
-
-
 def KSStatisticAndLocation(sample_1, sample_2):
     sample_1 = np.sort(np.asarray(sample_1, dtype=float))
     sample_2 = np.sort(np.asarray(sample_2, dtype=float))
@@ -334,14 +293,14 @@ def KSStatisticAndLocation(sample_1, sample_2):
 
 
 def DistributionLegendHandles(include_reference):
-    # Median/Mean/Max-KS are keyed by swatches inside each subplot's stats box; the bottom legend
-    # only needs the black KDE reference curve, which has no box entry.
+    # The fit panels drop the in-plot summary stats, so the bottom legend only needs the black KDE
+    # reference curve (the simulated model null overlaid on each subplot).
     if not include_reference:
         return []
     return [Line2D([0], [0], color=REFERENCE_COLOR, linestyle="-", linewidth=1.3, label="Model null (KDE)")]
 
 
-def DrawDistribution(ax, panel_values, clip, edge_lw=0.4):
+def DrawDistribution(ax, panel_values, clip, edge_lw=0.4, draw_summary_lines=True):
     if clip is not None:
         n_lo = int((panel_values < -clip).sum())
         n_hi = int((panel_values > clip).sum())
@@ -361,34 +320,29 @@ def DrawDistribution(ax, panel_values, clip, edge_lw=0.4):
         n_lo = n_hi = 0
         ax.hist(panel_values, bins=25, color="#3A5F8A", edgecolor="white", linewidth=edge_lw, alpha=0.85)
 
-    p25, p75 = float(panel_values.quantile(0.25)), float(panel_values.quantile(0.75))
-    panel_median, panel_mean = float(panel_values.median()), float(panel_values.mean())
-    ax.axvspan(p25, p75, alpha=0.12, color="#888888", label=f"IQR  [{FormatStat(p25, 1)}, {FormatStat(p75, 1)}]")
-    if clip is None or -clip <= panel_median <= clip:
-        ax.axvline(panel_median, color=MEDIAN_COLOR, linewidth=1.6, linestyle="-", zorder=5,
-                   label=f"Median = {FormatStat(panel_median, 1)}")
-    if clip is None or -clip <= panel_mean <= clip:
-        ax.axvline(panel_mean, color=MEAN_COLOR, linewidth=1.6, linestyle="--", zorder=5,
-                   label=f"Mean = {FormatStat(panel_mean, 1)}")
+    if draw_summary_lines:
+        p25, p75 = float(panel_values.quantile(0.25)), float(panel_values.quantile(0.75))
+        panel_median, panel_mean = float(panel_values.median()), float(panel_values.mean())
+        ax.axvspan(p25, p75, alpha=0.12, color="#888888", label=f"IQR  [{FormatStat(p25, 1)}, {FormatStat(p75, 1)}]")
+        if clip is None or -clip <= panel_median <= clip:
+            ax.axvline(panel_median, color=MEDIAN_COLOR, linewidth=1.6, linestyle="-", zorder=5,
+                       label=f"Median = {FormatStat(panel_median, 1)}")
+        if clip is None or -clip <= panel_mean <= clip:
+            ax.axvline(panel_mean, color=MEAN_COLOR, linewidth=1.6, linestyle="--", zorder=5,
+                       label=f"Mean = {FormatStat(panel_mean, 1)}")
     return n_lo + n_hi
 
 
-def StatsSegments(panel_values, clip, n_trunc, ks_statistic=None, ks_location=None):
-    # each segment is (text, line) where line is (color, linestyle) for a swatch, or None for plain text
-    segments = [
-        (f"n={len(panel_values)}", None),
-        (f"Mean={FormatStat(float(panel_values.mean()))}", (MEAN_COLOR, "--")),
-        (f"Med={FormatStat(float(panel_values.median()))}", (MEDIAN_COLOR, "-")),
-        (f"95%=[{FormatStat(float(panel_values.quantile(0.025)))},{FormatStat(float(panel_values.quantile(0.975)))}]", None),
-    ]
-    if clip is not None:
-        segments.append((f"|x|>{clip}: {n_trunc}", None))
-    if ks_statistic is not None:
-        segments.append((f"KS D={ks_statistic:.3f} @ x={ks_location:.2f}", (KS_LINE_COLOR, ":")))
-    return segments
+def StatsSegments(clip, n_trunc, boundary_symbol="x"):
+    # Fit panels report only truncation: whether values hit the display boundary and how many did.
+    if clip is None or n_trunc == 0:
+        return []
+    return [(f"|{boundary_symbol}|>{clip}: {n_trunc}", None)]
 
 
 def DrawStatsBox(ax, segments):
+    if not segments:
+        return
     segment_rows = []
     for segment_text, swatch_style in segments:
         swatch = DrawingArea(20, 8, 0, 0)
@@ -417,25 +371,16 @@ def OverlayReferenceKde(ax, reference, n_in_range, clip):
     ax.plot(kde.support, kde.density * n_in_range * hist_width, color=REFERENCE_COLOR, linewidth=1.3, zorder=6)
 
 
-def PlotPanelSubplot(ax, panel_values, title="", xlabel="", clip=None, reference=None):
+def PlotPanelSubplot(ax, panel_values, clip=None, reference=None, boundary_symbol="x"):
     if len(panel_values) == 0:
-        ax.set_title(title, fontsize=9)
         return
-    n_trunc = DrawDistribution(ax, panel_values, clip)
-    ks_statistic, ks_location = (None, None)
+    n_trunc = DrawDistribution(ax, panel_values, clip, draw_summary_lines=False)
     if reference is not None:
         OverlayReferenceKde(ax, reference, len(panel_values) - n_trunc, clip)
-        ks_statistic, ks_location = KSStatisticAndLocation(panel_values.values, reference)
-        if ks_location is not None and (clip is None or -clip <= ks_location <= clip):
-            ax.axvline(ks_location, color=KS_LINE_COLOR, linestyle=":", linewidth=1.4, zorder=7)
-    DrawStatsBox(ax, StatsSegments(panel_values, clip, n_trunc, ks_statistic, ks_location))
-    ax.set_title(title, fontsize=9)
-    if xlabel:
-        ax.set_xlabel(xlabel, fontsize=8)
-    ax.set_ylabel("Count", fontsize=8)
+    DrawStatsBox(ax, StatsSegments(clip, n_trunc, boundary_symbol))
     ax.yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
     ax.spines[["top", "right"]].set_visible(False)
-    ax.tick_params(labelsize=7)
+    ax.tick_params(labelsize=9)
 
 
 def PlotErrorDistribution(series, xlabel, outpath, clip=None):
@@ -461,49 +406,53 @@ def PlotErrorDistribution(series, xlabel, outpath, clip=None):
     plt.close(fig)
 
 
-def RenderPanelGrid(outpath, cell_grid, hard_cap,
-                    suptitle="", xlabel="Squared std residual", suptitle_fontsize=12, bound_quantile=0.99):
-    all_cell_series = [cell_series for cell_row in cell_grid for (_, cell_series, _) in cell_row if cell_series is not None]
-    shared_clip = SharedDisplayBound(all_cell_series, hard_cap, bound_quantile) if hard_cap is not None else None
+def RenderPanelGrid(outpath, cell_grid, row_headers, col_headers, hard_cap, boundary_symbol="x"):
+    # hard_cap is a uniform display bound applied to every subplot (no per-panel shrinking), so the
+    # same axis limits hold across all figures of a given residual type.
+    shared_clip = hard_cap
     n_rows = len(cell_grid)
     n_cols = max(len(cell_row) for cell_row in cell_grid)
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(4 * n_cols, 3.5 * n_rows), squeeze=False)
     for row_index, cell_row in enumerate(cell_grid):
         for col_index in range(n_cols):
             ax = axes[row_index][col_index]
-            cell_title, cell_series, cell_reference = cell_row[col_index] if col_index < len(cell_row) else ("", None, None)
-            if cell_series is None or len(cell_series) == 0:
-                ax.set_title(cell_title, fontsize=9)
-                continue
-            PlotPanelSubplot(ax, cell_series, cell_title, xlabel=xlabel, clip=shared_clip, reference=cell_reference)
-    include_reference = any(cell[2] is not None for cell_row in cell_grid for cell in cell_row)
+            cell_series, cell_reference = cell_row[col_index] if col_index < len(cell_row) else (None, None)
+            if cell_series is not None and len(cell_series) > 0:
+                PlotPanelSubplot(ax, cell_series, clip=shared_clip, reference=cell_reference,
+                                 boundary_symbol=boundary_symbol)
+            if row_index == 0:
+                ax.set_title(col_headers[col_index], fontsize=14)
+            if col_index == 0:
+                ax.set_ylabel(row_headers[row_index], rotation=0, ha="right", va="center",
+                              fontsize=15, labelpad=38)
+    include_reference = any(cell[1] is not None for cell_row in cell_grid for cell in cell_row)
     handles = DistributionLegendHandles(include_reference)
     bottom_margin = 0.0
     if handles:
-        fig.legend(handles=handles, loc="lower center", ncol=len(handles), fontsize=9, frameon=False)
+        fig.legend(handles=handles, loc="lower center", ncol=len(handles), fontsize=11, frameon=False)
         bottom_margin = 0.03
-    fig.suptitle(suptitle, fontsize=suptitle_fontsize)
-    fig.tight_layout(rect=(0, bottom_margin, 1, 0.97))
+    fig.tight_layout(rect=(0, bottom_margin, 1, 1))
     fig.savefig(outpath, dpi=150)
     plt.close(fig)
 
 
 def MakePanel(outpath, rows, cols, col_getter, row_labels, col_labels,
-              suptitle="", xlabel="Squared std residual", clip=None,
-              ref_cols=None, ref_getter=None, bound_quantile=0.99):
+              clip=None, boundary_symbol="x", ref_cols=None, ref_getter=None):
     def reference_for(col_key, row_key):
         if ref_cols is None or ref_cols.get(col_key) is None:
             return None
         return ref_getter(ref_cols[col_key], row_key).dropna().values
 
+    # Grid rows are treatment groups (cols dict); grid columns are outcomes (rows list). Labels are
+    # applied once per edge in RenderPanelGrid rather than repeated in every subplot title.
     cell_grid = [
-        [(f"{row_labels[row_key]}\n{col_labels[col_key]}",
-          col_getter(group_df, row_key).dropna(),
-          reference_for(col_key, row_key))
+        [(col_getter(group_df, row_key).dropna(), reference_for(col_key, row_key))
          for row_key in rows]
         for col_key, group_df in cols.items()
     ]
-    RenderPanelGrid(outpath, cell_grid, clip, suptitle=suptitle, xlabel=xlabel, bound_quantile=bound_quantile)
+    row_headers = [col_labels[col_key] for col_key in cols]
+    col_headers = [row_labels[row_key] for row_key in rows]
+    RenderPanelGrid(outpath, cell_grid, row_headers, col_headers, clip, boundary_symbol=boundary_symbol)
 
 
 if __name__ == "__main__":

@@ -286,17 +286,16 @@ PlotBand <- function(event_study_band, actual_results, sample_name, outcome, nor
   event_labels  <- as.character(event_study_band$event_time)
   actual_matrix <- actual_results[rownames(actual_results) %in% event_labels, , drop = FALSE]
   model         <- BandModelMatrices(event_study_band)
-  kstar_matrix  <- CoefMatrix(event_study_band$event_time, event_study_band$draw_kstar, event_study_band$draw_kstar, event_study_band$draw_kstar)
 
   png(out_path, width = 1000, height = 700, res = 110)
   PlotEventStudyComparison(
-    es_list       = list(list(results = actual_matrix), list(results = model$matrix), list(results = kstar_matrix)),
-    legend_labels = c("Actual", "Model", "Model draw 0"),
+    es_list       = list(list(results = actual_matrix), list(results = model$matrix)),
+    legend_labels = c("Actual", "Model"),
     legend_title  = NULL,
     add_comparison = FALSE, add_pretrends = TRUE,
-    pt_pch        = c(20, 20, 4),
-    ci_bounds     = list(NULL, model$bounds, NULL),
-    ylim          = ComputeSharedYLim(list(actual_matrix, model$matrix, kstar_matrix))
+    pt_pch        = c(20, 20),
+    ci_bounds     = list(NULL, model$bounds),
+    ylim          = ComputeSharedYLim(list(actual_matrix, model$matrix))
   )
   dev.off()
 }

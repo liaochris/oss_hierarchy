@@ -1,5 +1,5 @@
 Import('*')
-from source.lib.python.config_loaders import LoadPaperSettings
+from source.lib.python.config_loaders import LoadPaperSettings, LoadGlobals
 
 CONFIG = LoadPaperSettings("../../source/lib/config/paper_settings.json")
 PRIMARY_SPEC = "/".join([
@@ -8,6 +8,25 @@ PRIMARY_SPEC = "/".join([
     CONFIG["primary_qualified_sample"],
     CONFIG["primary_control_group"],
 ])
+
+# Model outputs carry no rolling label, unlike PRIMARY_SPEC.
+MODEL_PREDICTION_CONFIG = LoadGlobals("../../source/lib/config/model_prediction.json")
+MODEL_VARIANT      = MODEL_PREDICTION_CONFIG["variants"]["run"][0]
+MODEL_DISTRIBUTION = MODEL_PREDICTION_CONFIG["distribution_types"]["run"][0]
+MODEL_ESTIMATION   = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"][0]
+MODEL_SPEC = "/".join([
+    CONFIG["primary_importance_type"],
+    CONFIG["primary_qualified_sample"],
+    CONFIG["primary_control_group"],
+])
+MODEL_FIT_DIR = f'#output/analysis/model_prediction/{MODEL_VARIANT}/{MODEL_DISTRIBUTION}/evaluation/{MODEL_ESTIMATION}/{MODEL_SPEC}'
+
+for _kind in ["signed", "squared"]:
+    for _stem in ["pre_period_fit_insample", "pre_period_fit_leaveoneout", "post_period_fit"]:
+        env.Tablefill(
+            f'#output/tables/model_fit_{_kind}_{_stem}.tex',
+            [f'#source/tables/model_fit_{_kind}_{_stem}.tex',
+             f'{MODEL_FIT_DIR}/tables/{_kind}/{_stem}.txt'])
 
 env.Tablefill(
     '#output/tables/outcome_summary_table.tex',
@@ -18,6 +37,11 @@ env.Tablefill(
     '#output/tables/tree_depth.tex',
     ['#source/tables/tree_depth.tex',
      f'#output/analysis/analyze_forest/{PRIMARY_SPEC}/norm/tree_depth.txt'])
+
+env.Tablefill(
+    '#output/tables/mean_reversion.tex',
+    ['#source/tables/mean_reversion.tex',
+     '#output/derived/model_prediction/mean_reversion/mean_reversion_table.txt'])
 
 env.Tablefill(
     '#output/tables/pc_score_combo_k2_top3.tex',

@@ -1,0 +1,30 @@
+\begin{figure}[t]
+  \caption{Model-implied departure effects}
+  \label{fig:model_departure_effects}
+  \centering
+  \begin{minipage}[b]{0.325\textwidth}
+    \centering
+    \subcaption{Pull requests opened}
+    \label{fig:model_departure_opened}
+    \includegraphics[width=\textwidth]{\ModelEventStudyDir/bands/norm/pull_request_opened.png}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.325\textwidth}
+    \centering
+    \subcaption{Pull requests reviewed}
+    \label{fig:model_departure_reviewed}
+    \includegraphics[width=\textwidth]{\ModelEventStudyDir/bands/norm/pull_request_reviewed.png}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.325\textwidth}
+    \centering
+    \subcaption{Pull requests merged}
+    \label{fig:model_departure_merged}
+    \includegraphics[width=\textwidth]{\ModelEventStudyDir/bands/norm/pull_request_merged.png}
+  \end{minipage}
+
+  \begin{minipage}{\textwidth}
+    \textbf{Figure notes:} Each panel overlays the actual event-study estimate of a key member's departure (solid line) on the model-implied effect: the shaded band is the 95\% interval of departure effects across \NModelDraws\ datasets simulated from the fitted model with $j^*$ removed. Outcomes are standardized to within-organization standard-deviation units over five pre-periods. The merge-path outcomes appear in Appendix Figure~\ref{fig:model_departure_effects_paths}.
+  \end{minipage}
+\todo[inline]{Improve figure notes.}
+\end{figure}
