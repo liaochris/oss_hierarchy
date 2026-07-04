@@ -142,9 +142,11 @@ TrainForestModel <- function(df_train, x_train, y_train, seed) {
   prob_cohort_given_x <- predict(treatment_model)$predictions
   W_hat               <- AdjustPropensityMatrix(prob_cohort_given_x, W, df_train)
   outcome_model       <- regression_forest(x_train, y_train,
-                                           clusters = df_train$repo_id, num.trees = N_TREES)
+                                           clusters = df_train$repo_id, num.trees = N_TREES,
+                                           compute.oob.predictions = FALSE)
   model               <- lm_forest(X = x_train, Y = y_train, W = W,
-                                   clusters = df_train$repo_id, num.trees = N_TREES, W.hat = W_hat)
+                                   clusters = df_train$repo_id, num.trees = N_TREES, W.hat = W_hat,
+                                   compute.oob.predictions = FALSE)
   list(model = model, treatment_model = treatment_model, outcome_model = outcome_model)
 }
 
@@ -210,7 +212,8 @@ FitBaselineControlsFold <- function(df_data, feature_cols, fold_id, marg_dist,
   model <- lm_forest(df_nt_in_quasi %>% select(all_of(feature_cols)),
                      df_nt_in_quasi$fd_outcome,
                      W_nt, num.trees = num_trees, W.hat = W_hat,
-                     clusters = df_nt_in_quasi$repo_id)
+                     clusters = df_nt_in_quasi$repo_id,
+                     compute.oob.predictions = FALSE)
 
   time_varying_controls_dir <- file.path(outdir_ds, "time_varying_controls")
   dir_create(time_varying_controls_dir)
@@ -227,7 +230,8 @@ FitBaselineControlsFold <- function(df_data, feature_cols, fold_id, marg_dist,
     df_nt_ti <- df_panel_nt %>% filter(time_index == ti)
     model_ti <- regression_forest(df_nt_ti %>% select(all_of(feature_cols)),
                                   df_nt_ti$fd_outcome,
-                                  num.trees = num_trees, clusters = df_nt_ti$repo_id)
+                                  num.trees = num_trees, clusters = df_nt_ti$repo_id,
+                                  compute.oob.predictions = FALSE)
     saveRDS(model_ti, file.path(time_varying_controls_dir,
       paste0("event_study_forest_", outcome, "_fold", fold_id, "_time_index", ti, ".rds")))
     pred_mat <- cbind(pred_mat, predict(model_ti, x_hold)$predictions)

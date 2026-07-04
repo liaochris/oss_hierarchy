@@ -109,19 +109,26 @@ PlotHighLowGrid <- function(combo_summary, pc_score_cols) {
     )
 }
 
+SummarizeCellAttDoublyRobust <- function(df, group_vars) {
+  df %>%
+    group_by(across(all_of(group_vars))) %>%
+    reframe(count = n(), broom::tidy(t.test(att_doubly_robust))) %>%
+    rename(att_doubly_robust_mean = estimate, p_value = p.value,
+           ci_lower = conf.low, ci_upper = conf.high)
+}
+
 CreatePCScoreComboTables <- function(df_bins, pc_split_cols, outdir_ds) {
   for (k in c(2, 3)) {
     combos <- combn(pc_split_cols, k, simplify = FALSE)
 
     combo_rows_all <- lapply(combos, function(vars) {
-      df_bins %>%
-        group_by(across(all_of(vars))) %>%
-        summarize(att_doubly_robust_mean = mean(att_doubly_robust, na.rm = TRUE), count = n(), .groups = "drop") %>%
+      SummarizeCellAttDoublyRobust(df_bins, vars) %>%
         arrange(-att_doubly_robust_mean) %>%
         mutate(rank = row_number(),
                pattern = apply(as.matrix(pick(all_of(vars))), 1, paste, collapse = "-"),
                pc_score_subset = paste(vars, collapse = " x ")) %>%
-        select(pc_score_subset, pattern, rank, att_doubly_robust_mean, count)
+        select(pc_score_subset, pattern, rank, att_doubly_robust_mean, count,
+               p_value, ci_lower, ci_upper)
     })
     combo_all_path <- file.path(outdir_ds, paste0("pc_score_combo_k", k, "_table.csv"))
     SaveData(bind_rows(combo_rows_all) %>% arrange(-att_doubly_robust_mean),
@@ -130,20 +137,19 @@ CreatePCScoreComboTables <- function(df_bins, pc_split_cols, outdir_ds) {
              sub("\\.csv$", ".log", combo_all_path))
 
     combo_rows_high <- lapply(combos, function(vars) {
-      grp      <- df_bins %>%
-        group_by(across(all_of(vars))) %>%
-        summarize(att_doubly_robust_mean = mean(att_doubly_robust, na.rm = TRUE), count = n(), .groups = "drop")
-      all_high <- grp %>% filter(if_all(all_of(vars), ~ .x == "high"))
-      others   <- grp %>% filter(!if_all(all_of(vars), ~ .x == "high"))
-      if (nrow(all_high) == 0) return(NULL)
-      att_others <- if (nrow(others) > 0 && sum(others$count) > 0)
-        sum(others$att_doubly_robust_mean * others$count) / sum(others$count) else NA_real_
-      tibble(pc_score_subset = paste(vars, collapse = " x "),
-             pc_score_label = paste(PC_LABELS[vars], collapse = " $\\times$ "),
-             att_high = all_high$att_doubly_robust_mean,
-             att_others_wavg = att_others,
-             difference = all_high$att_doubly_robust_mean - att_others,
-             count_high = all_high$count)
+      is_all_high <- Reduce(`&`, lapply(vars, function(v) df_bins[[v]] == "high"))
+      if (!any(is_all_high)) return(NULL)
+      high_vs_others <- broom::tidy(t.test(df_bins$att_doubly_robust[is_all_high],
+                                           df_bins$att_doubly_robust[!is_all_high]))
+      tibble(pc_score_subset     = paste(vars, collapse = " x "),
+             pc_score_label      = paste(PC_LABELS[vars], collapse = " $\\times$ "),
+             att_high            = high_vs_others$estimate1,
+             att_others_wavg     = high_vs_others$estimate2,
+             difference          = high_vs_others$estimate,
+             difference_p_value  = high_vs_others$p.value,
+             difference_ci_lower = high_vs_others$conf.low,
+             difference_ci_upper = high_vs_others$conf.high,
+             count_high          = sum(is_all_high))
     })
     combo_high_path <- file.path(outdir_ds, paste0("pc_score_combo_k", k, "_high_table.csv"))
     SaveData(bind_rows(combo_rows_high) %>% arrange(-difference),
@@ -157,9 +163,10 @@ CreatePCScoreComboTables <- function(df_bins, pc_split_cols, outdir_ds) {
       apply(top3_pc_combos, 1, function(r) {
         paste(
           trimws(r["pc_score_label"]),
-          formatC(as.numeric(r["difference"]),      format = "f", digits = 2),
-          formatC(as.numeric(r["att_high"]),        format = "f", digits = 2),
-          formatC(as.numeric(r["att_others_wavg"]), format = "f", digits = 2),
+          formatC(as.numeric(r["difference"]),         format = "f", digits = 2),
+          formatC(as.numeric(r["att_high"]),           format = "f", digits = 2),
+          formatC(as.numeric(r["att_others_wavg"]),    format = "f", digits = 2),
+          formatC(as.numeric(r["difference_p_value"]), format = "f", digits = 3),
           sep = "\t"
         )
       })
