@@ -1,51 +1,60 @@
-I would like you to check a few things for me about the model-prediction calculations, implement a few improvements to the dianostics, and examine the current predictions + help me come up with improvements I can implement to improve predictive accuracy. 
+# Model-prediction: checks, diagnostics, and predictive-accuracy improvements
 
-Each check/action within each of the subcategories of tasks should be a separate commit, if changes are necessary. Please update this markdown with the plan. 
-I'd also liek to reorder parts of the plan so that smaller, less substantive analysis/conceptual questions like renaming figures etc are tackled first. 
+This is the working plan for verifying the model-prediction calculations, improving the diagnostics, and refining the model's predictive accuracy. Tasks are ordered so that small, low-risk changes come first and expensive recomputation is batched. Each substantive change is its own commit.
 
-Also things could be written more clearly than they are now. the english is a little poor and unprofessional, improve. 
+Companion documents:
+- `future_exploration.md` — the stage decomposition (and what positive/negative values mean) and the π^r/π^{m|o} constraint.
+- `model_improvement_proposal.md` — candidate refinements to the generative model, framed around the fit statistic.
 
-You may find ~/Downloads/ad-price-drivers.pdf and ~/Downloads/qjae041.pdf helpful in thiking about predictive models in economics. 
+Legend: ✅ done · ◻ pending · ⏸ awaiting decision.
 
-### Checks 
-1. Can you ensure that `source/derived/model_prediction` restricts the panel + downstream analysis, for each of `exact1`, `exact2` and `exact1_2`, to the final sample of organizations that have well-defined outcomes across all pre-periods and the sample is equivalent to the event study sample? 
-2. For `source/analysis/model_prediction`, when you predict the count of outcomes after the first (like pull requests opened), like reviewed, merged, etc, are you accounting for randomness from the model in the intermediary steps as well? 
-3. There’s several things I don’t understand about the decomposition
-    - What are the units - are they percentages?
-    - Why can values be negative? Shouldn't they all be "contributing" to some positive percent of the overall error? Or are you saying holding things fixed at the truth in some cases worsens error? Which doesn't make sense.... either.... 
-4. Does anything in source/analysis/model_prediction not align with model.tex?
-4. Why is Q so large for control orgs in pre-period, LOO???
+## Conceptual checks (resolved)
 
-### Implement improvements
-1. Instead of calculating the KS statistic vs the standard normal, you should calculate the KS statistic vs. the following distributino because the standard normal doesn't account for zero lower truncation
-    - Randomly draw an org, then randomly draw from the model fit on the org's post-period data (we can call this the true model, or our approximation of the true model). Calculate the z score associated with this draw, across all 5 post-periods (as we typically do). Repeat this like num_draws time across each org so that I have a cross-org distribution of what the actual true distributino f z scores hsould look like. You can also do this for the qs. using the same z-scores. 
-    - @CLAUDE: can you a) check whether this is a correct way to approximate the correct "comparison" distribution for the ks statistic when i'm doing cross-org comprisons and zero truncation, and b) rewrite this more clearly. You wuld probably do this for every outcome? 
-2. You didn't calculate, in `source/analysis/model_prediction`, the version of error where you try to approximate departure-specific prediction error error by sutracting, within treated groups in the post-period, the treated organization pre-period LOO error (average across Zs/Qs)
-3. I'm thinking again about why i care about in-sample pre-period fit. Obviously it's a good check, so maybe it's good to have (not sure...) but like under what scenario or ciumstance do we actually care about it/is it useful? The scenario under which Z/Q is not concentrated around standard normal (adjusted) or chis quared (adjusted) is rare r???
+- **Sample restriction (exact1 / exact2 / exact_1_2):** ✅ The model-prediction sample is identical to the event-study sample for all three; no change needed. (`exact_1_2` equals the disjoint union of `exact1` and `exact2`.)
+- **Intermediate-stage randomness:** ✅ Already handled — each stage is drawn from the previous stage's *draws* (not point estimates), so downstream Z/Q carry the full cascading uncertainty.
+- **Alignment with `model.tex`:** ✅ The implementation matches the math except (i) the treated differenced residual $\tilde Q^{treated}=Q^{post}-\bar Q^{LOO}$ (Phase 3b below) and (ii) the departure-effect event-study visualization (deferred).
+- **Decomposition units / negative values, and the π^r/π^{m|o} constraint:** ✅ Explained in `future_exploration.md`.
+- **In-sample pre-period fit — when is it useful?** ✅ It is the misspecification floor (can the family even cover the training data?). With overdispersed counts a per-org Poisson commonly fails in-sample, so the panel is worth keeping, framed as that floor.
+- **Why Q is large for control orgs in pre-period LOO:** ✅ Systemic Poisson overdispersion (≈87% of control orgs overdispersed; median var/mean ≈ 4). This motivated the adaptive distribution below and the simulated-null KS reference.
 
+## Phase 1 — Figure and diagnostic cleanup ✅
 
-### More Improvements
-1. I want a single fit statistic that allows me to choose how to pick a) how i'm calculating things (neg bin, poisson) x (per period, pooled). One option is just to use PRs merged fit. But then I need a statistic summarizing this fit (KS statistic)?
-2. As you can tell from the distribution of z's and q's, the model is an ~ok~ fit to the real data (see LOO pre-period fits, control organization post-period). Please see `source/paper/model.tex` for the math underlying the model. How can I improve the model such that it is a better prediction of reality? Please think deeply about this and provide suggestions. Here are some ideas I had but these aren't very good ideas... Please help me think of ways to refine my existing model that keeps it in a simple format... The improvements should also use the fit statistic I adopt throughout to systematzie comparisons/picking best predictive model.
-    1. Model churn: other departures and new entrants 
-    2. Reduce number of parameters by modeling an “other” member, instead of all members, or incorporate regularization somehow
-        1. Although regularization messes up aggregate term - maybe regularization determines who goes into the aggregate?
-    3. Use less pre period
-3. I want to also be able to use the fit statistic or some other set of statistics to compare the post-period fits for treated and control organizations, to separate departure-specific error from modelling post-period error. I also want to be able tor say whether the model systematically is worse at predicting for treated vs. control orgs.. because validating the model-specific predictions in post-period after removing LOO requires pre-period LOO and post-period control to be similar in error distribution. (Actually I realize u can just compare the z score distribution?)
-4. Is there a way to use the error distribution for control post-period, which we know is just model prediction error in post-period, to try and separate quantitatively approximte model prediction error vs. approximate departure model prediction error?
-5. Can we think about how much of the variation in each outcome my model explains? 
+- ✅ **1a.** Distinctive negative numbers in the summary-stat boxes (bold wide minus).
+- ✅ **1b.** Fixed the truncated-count bars overlapping the last histogram bar (drawn flush outside the range).
+- ✅ **1c.** Per-PNG, data-adaptive, whole-number x-axis bound shared across subplots within a figure (so in-sample panels are no longer an unreadable spike).
+- ✅ **1d.** Combined the control and treated panels into single two-row figures for `post_period_fit`, `post_period_decomp`, and `pre_period_decomp`; updated `model.tex`; deleted the old separated files.
+- ✅ **1e.** Added a global `evaluation_figures` option (`panels` only for now) and removed the per-org `individual/` plots.
+- ✅ Refactored `evaluate_predictions.py` into modular primitives (`DrawDistribution`, `StatsText`, `RenderPanelGrid`).
+- ✅ Updated the evaluate-stage SConscript targets to the combined panel names, and made the `individual/` targets conditional on the `evaluation_figures` option (so scons no longer recreates `individual/` under panels-only).
+- ✅ Forced the non-interactive `Agg` matplotlib backend (was the slow interactive `macosx`) — the main figure-generation slowdown.
 
-### OTHER improvements
-1. `output/analysis/model_prediction/opened_cohort/fitted` isn't a very clear name - `fitted` should be replaced with something that is more clear about how these are the actual parameters of the model. Also, does it make sense to have `fitted` be a separate outer folder, separate from `negative_binomial` and `poisson`? Wouldn't it make more sense for the paraeter files to be in a separate subfolder of say `output/analysis/model_prediction/opened_cohort/negative_binomial`?
+## Adaptive latent-count distribution ✅
 
-Also, `output/analysis/model_prediction/opened_cohort/poisson/predictions` isn't very clear that it's describing predictive statistics which are different from evaluative graphs... 
+- ✅ Replaced the Poisson-vs-Negative-Binomial choice with a single **adaptive** per-organization fit: a method-of-moments Negative Binomial when the opened counts are over-dispersed, and a Poisson otherwise (the NB cannot represent under-dispersion, and nests the Poisson). Renamed the fitting routine to `FitLatentDistribution`; the draw step now samples from each org's chosen family. Documented the math in `model.tex`. (Regenerate outputs via scons.)
 
-2. The minus signs in each of the analysis figures in the summary stats should be made more distinctive somehow, the negative should either be bigger, or there should be some visaul marker to distinguish negative hnumbers.... 
-3. The truncated bar count overlaps with the last bar - can we fix the visualization so that there isn't overlap? This applies to all figures in `output/analysis/model_prediction/opened_cohort/poisson`, `output/analysis/model_prediction/opened_cohort/negative_binomial`. 
-4. I would like a better way of visualizing the distribution of the Z and Q scores. The axis scales should be the same across all figures in each png... but maybe they should differ for each png? For example, current boundaries don't work for `output/analysis/model_prediction/opened_cohort/poisson/evaluation/pooled/important_degree_top3/exact_1_2/nevertreated/panels/z/pre_period_fit_insample.png`  but do work for `output/analysis/model_prediction/opened_cohort/poisson/evaluation/pooled/important_degree_top3/exact_1_2/nevertreated/panels/z/pre_period_fit_leaveoneout.png`
-5. Please combine `output/analysis/model_prediction/opened_cohort/poisson/evaluation/pooled/important_degree_top3/exact_1_2/nevertreated/panels/z/post_period_fit_control.png` and  `output/analysis/model_prediction/opened_cohort/poisson/evaluation/pooled/important_degree_top3/exact_1_2/nevertreated/panels/z/post_period_fit_treated.png`. into one figure with two panels. ALso update model.tex accordingly. You should also delete the old separated files. 
-6. Integrate source/derived/model_prediction into DATA_APPENDIX.md
-7. Am wondering if for `source/paper/model.tex` main figures i should just use one outcome like pulls merged, and have the other 4 + pulls merged be in an appendix figure. Not sure it makes sense to depict pulls reviewed, opened and merged as 'main' figures. 
+## Phase 2 — Output folder rename ◻
 
-### Notes for later
-Actually add the figures to the draft and interpret them in the draft
+- ◻ Rename `…/fitted/{dist}/…` → `…/{dist}/parameters/…` and `…/{dist}/predictions/…` → `…/{dist}/residuals/…` for clarity (the `predictions` folder holds per-org residuals, distinct from the `evaluation` figures). Touches the SConscript and the three scripts.
+
+## Phase 3 — Metric and statistic changes ◻ (each handled and committed separately)
+
+- ◻ **3a.** Replace the analytic KS reference (N(0,1) for Z, χ²(1)−1 for Q) with a **simulated-null** reference built from the existing K=1000 draws — standardize each draw by its own org's mean/SD to get the model-implied null, pool across orgs, and KS-compare. This accounts for discreteness, zero-truncation, and cross-org rate heterogeneity, which the analytic references do not.
+- ◻ **3b.** Compute the treated **differenced residual** $\tilde Q^{treated}_i(x)=\bar Q^{post}_i(x)-\bar Q^{LOO}_i(x)$ and integrate it into the existing post-period figure (`model.tex` already defines it).
+- ⏸ **3c.** A single fit statistic (simulated-null KS on PRs merged) plus a model-selection table over the pooled/per-period estimators.
+- ⏸ **3d.** Compare treated-post vs. control-post (and pre-period-LOO vs. control-post) Z distributions to test whether the model is systematically worse for treated orgs.
+- ⏸ **3e.** Use the control-post error (pure model error) as the misspecification baseline to separate model error from departure-specific error.
+- ⏸ **3f.** Report a per-outcome variance-explained / pseudo-R² measure.
+
+## Phase 4 — Model refinements ◻
+
+- ◻ Beyond the adaptive distribution, evaluate (via the Phase-3 KS statistic) the refinements in `model_improvement_proposal.md`: zero-inflation / hurdle latent counts, regularization or an aggregated "other" member, and modeling churn (entry/exit). Implement the best one or two.
+
+## Phase 5 — Documentation and paper (last) ◻
+
+- ◻ Add a section for `source/derived/model_prediction` to `DATA_APPENDIX.MD`.
+- ◻ In `model.tex`, make **PRs merged** the single main-text outcome and move the other four to an appendix; replace the figure stubs with the generated panels and write the interpretation.
+
+## Open decisions
+
+- ⏸ **Event-study exact_1_2:** model_prediction already reads the upstream panel; only the event study aggregates `exact1`+`exact2`. Change the event study to read the upstream panel (changes the estimator), or leave as is?
+- ⏸ **π^r/π^{m|o} constraint:** renormalize onto the simplex (then assert, drop the clip) or keep the clip and log when it binds. See `future_exploration.md`.
