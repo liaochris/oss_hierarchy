@@ -35,6 +35,13 @@ ES_OUTCOMES <- c("pull_request_opened", "pull_request_reviewed",
                  "pull_request_merged_direct", "pull_request_merged_after_review", "pull_request_merged")
 KSTAR       <- 0
 
+# Drop scale-outlier orgs: a handful of very high-volume repos (all controls) dominate the count-weighted
+# raw event study and manufacture a pretrend that vanishes under normalization. Trim orgs whose pre-period
+# (event time [-5,-1]) mean of TRIM_OUTCOME falls outside the pooled [1,99] percentile, pooled across
+# treated and control within each subsample.
+TRIM_OUTCOME <- "pull_request_opened"
+TRIM_PROBS   <- c(0.01, 0.99)
+
 
 Main <- function() {
   samples_data <- setNames(lapply(SUB_SAMPLES, LoadSampleData), SUB_SAMPLES)
@@ -110,6 +117,7 @@ LoadSampleData <- function(sub_sample) {
                                       IMPORTANCE_TYPE, sub_sample, CONTROL_GROUP, "raw_draws.parquet"))
 
   common_repos <- Reduce(intersect, list(unique(panel$repo_name), unique(observed$repo_name), unique(draws$repo_name)))
+  common_repos <- TrimOutcomeOutlierRepos(observed, common_repos)
   skeleton     <- panel %>% filter(repo_name %in% common_repos) %>% select(-any_of(ES_OUTCOMES))
   draws        <- draws %>% filter(repo_name %in% common_repos) %>%
     select(repo_name, quasi_event_time, draw_id, all_of(ES_OUTCOMES))
@@ -123,6 +131,20 @@ LoadSampleData <- function(sub_sample) {
     draw_list = split(draws, draws$draw_id),
     n_treated = length(unique(skeleton$repo_name[skeleton$treatment_group != 0]))
   )
+}
+
+
+# SINGLE-USE EXCEPTION: kept beside LoadSampleData; the eventual home for this restriction is the
+# data-prep sample construction (panel_filters.py), shared across event_study / event_study_forest.
+TrimOutcomeOutlierRepos <- function(observed, common_repos) {
+  pre_period_mean <- observed %>%
+    filter(repo_name %in% common_repos, quasi_event_time >= MIN_EVENT_TIME, quasi_event_time <= -1) %>%
+    group_by(repo_name) %>%
+    summarise(pre_mean_outcome = mean(.data[[TRIM_OUTCOME]]), .groups = "drop")
+  bounds <- quantile(pre_period_mean$pre_mean_outcome, TRIM_PROBS, names = FALSE)
+  pre_period_mean %>%
+    filter(pre_mean_outcome >= bounds[1], pre_mean_outcome <= bounds[2]) %>%
+    pull(repo_name)
 }
 
 
