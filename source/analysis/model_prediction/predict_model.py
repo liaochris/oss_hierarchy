@@ -24,6 +24,7 @@ MODEL_PREDICTION_CONFIG = LoadModelPredictionConfig()
 CONFIG                  = LoadPipelineInputs()
 
 INDIR_MEMBER_PANEL   = Path("drive/output/derived/model_prediction/event_time_member_panel")
+INDIR_MEMBER_CROSS   = Path("drive/output/derived/model_prediction/event_time_member_crossmerge")
 INDIR_ANALYSIS_PANEL = Path("output/derived/analysis_panel")
 INDIR_FITTED         = Path("output/analysis/model_prediction")
 OUTDIR               = Path("output/analysis/model_prediction")
@@ -141,6 +142,41 @@ def RunCombination(variant, distribution_type, estimation_approach,
 
 
 
+def CounterfactualStageProbs(surviving_member_probs, df_member, df_crossmerge, dropout_set, pre_periods):
+    # No-reaction: each surviving opener loses exactly what the departing members did to its pulls -- the pulls
+    # they merged (direct and after-review other-merges) and the pulls they solely reviewed. Subtract each
+    # departed count over j's own denominator (opened pulls, or reviewed-opened pulls) from the corresponding
+    # rate. Self-merges and survivors' own rates are untouched; group-reviewed pulls survive (only solo drops).
+    df_pre            = df_member[df_member["quasi_event_time"].isin(pre_periods)]
+    opens_by_actor    = df_pre.groupby("actor_id")["member_pull_request_opened"].sum()
+    reviewed_by_actor = df_pre.groupby("actor_id")["member_pull_request_reviewed_opened"].sum()
+
+    if df_crossmerge is not None and not df_crossmerge.empty:
+        departed = df_crossmerge[df_crossmerge["quasi_event_time"].isin(pre_periods)
+                                 & df_crossmerge["other_id"].isin(dropout_set)]
+        c_direct = departed.groupby("opener_id")["n_merged_direct_other"].sum()
+        c_after  = departed.groupby("opener_id")["n_merged_after_review_other"].sum()
+        c_review = departed.groupby("opener_id")["n_solo_reviewed"].sum()
+    else:
+        c_direct = c_after = c_review = pd.Series(dtype=float)
+
+    def reduced_rate(rate, actor, departed_counts, denom_by_actor):
+        denom = float(denom_by_actor.get(actor, 0.0))
+        return max(0.0, rate - float(departed_counts.get(actor, 0.0)) / denom) if denom > 0 else rate
+
+    adjusted = surviving_member_probs.copy()
+    adjusted["prob_review_opened"] = [
+        reduced_rate(rate, actor, c_review, opens_by_actor)
+        for actor, rate in zip(adjusted["actor_id"], adjusted["prob_review_opened"])]
+    adjusted["prob_merge_direct_opened_other"] = [
+        reduced_rate(rate, actor, c_direct, opens_by_actor)
+        for actor, rate in zip(adjusted["actor_id"], adjusted["prob_merge_direct_opened_other"])]
+    adjusted["prob_merge_after_review_other"] = [
+        reduced_rate(rate, actor, c_after, reviewed_by_actor)
+        for actor, rate in zip(adjusted["actor_id"], adjusted["prob_merge_after_review_other"])]
+    return adjusted
+
+
 def ProcessRepo(repo_name, is_treated, dropout_set,
                 df_dist_repo, df_member_probs,
                 variant, importance_type, qualified_sample, control_group,
@@ -156,6 +192,11 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
         return None
 
     df_member = pd.read_parquet(member_path)
+    crossmerge_path = (
+        INDIR_MEMBER_CROSS / variant / importance_type / qualified_sample
+        / control_group / f"{MakeRepoNameSafe(repo_name)}.parquet"
+    )
+    df_crossmerge   = pd.read_parquet(crossmerge_path) if crossmerge_path.exists() else None
     df_repo_counts = (
         df_member.groupby("quasi_event_time")[
             ["repo_pull_request_opened", "repo_pull_request_reviewed",
@@ -182,7 +223,13 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
 
     full_stage_probs = ComputeStageProbabilities(df_member_probs)
     if is_treated:
-        post_stage_probs = ComputeStageProbabilities(df_member_probs[~df_member_probs["actor_id"].isin(dropout_set)])
+        # No-reaction counterfactual: recompute the stage inputs over the surviving members only, so opens lose
+        # j*'s share (unredistributed), and each surviving opener drops exactly what j* did to its pulls -- the
+        # pulls j* merged and the pulls j* solely reviewed (group-reviewed pulls survive). No survivor compensates.
+        surviving_member_probs = df_member_probs[~df_member_probs["actor_id"].isin(dropout_set)]
+        counterfactual_probs   = CounterfactualStageProbs(
+            surviving_member_probs, df_member, df_crossmerge, dropout_set, pre_periods)
+        post_stage_probs = ComputeStageProbabilities(counterfactual_probs)
     else:
         post_stage_probs = full_stage_probs
 

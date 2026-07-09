@@ -873,7 +873,8 @@ Associated resilience benefits from high organizational practice scores arise fr
 
 
 \section{Model}\label{sec:model}
-
+%@CLAUDE: ONLY DO THIS ONCE I INSTRUCT YOU TO DO THIS
+%Here are a list of potential todo's
 The model describes an organization's software development workflow.
 The model connects organizational outcomes with individual members' contributions.
 My model is fit solely on pre-period data, in parallel to the random-forest event-study design, and enables me to generate post-period predictions for treated and control organizations under a range of counterfactuals cenarios.
@@ -914,20 +915,21 @@ Under Assumptions~\ref{asm:exchangeability}--\ref{asm:one-shot}, every problem i
 \pi_{i,k} =
 \begin{pmatrix}
 0 & \pi_{i,k}^o & 0 & 0 & 0 & 1-\pi_{i,k}^o \\
-0 & 0 & \pi_{i,k}^r & \pi_{i,k}^{m|o} & 0 & 1-\pi_{i,k}^r-\pi_{i,k}^{m|o} \\
+0 & 0 & \pi_{i,k}^{r|o} & \pi_{i,k}^{m|o} & 0 & 1-\pi_{i,k}^{r|o}-\pi_{i,k}^{m|o} \\
 0 & 0 & 0 & 0 & \pi_{i,k}^{m|r} & 1-\pi_{i,k}^{m|r} \\
 0 & 0 & 0 & 1 & 0 & 0 \\
 0 & 0 & 0 & 0 & 1 & 0 \\
 0 & 0 & 0 & 0 & 0 & 1
 \end{pmatrix},
 \]
-where $\pi_{i,k}^o$ is the probability that a latent problem leads to an opened pull request, $\pi_{i,k}^r$ is the probability that an opened pull request is reviewed before any merge, $\pi_{i,k}^{m|o}$ is the probability that an opened pull request is merged directly without review, and $\pi_{i,k}^{m|r}$ is the probability that a reviewed pull request merges after review.
+where $\pi_{i,k}^o$ is the probability that a latent problem leads to an opened pull request, $\pi_{i,k}^{r|o}$ is the probability that an opened pull request is reviewed before any merge, $\pi_{i,k}^{m|o}$ is the probability that an opened pull request is merged directly without review, and $\pi_{i,k}^{m|r}$ is the probability that a reviewed pull request merges after review.
 The residual probability at each active state flows to $\varnothing$: unopened latent problems, opened pull requests that are not reviewed or merged, and reviewed pull requests that are unmerged.
+\todo[inline]{Revisit the Markov / one-shot transition framing (Assumptions~\ref{asm:exchangeability}--\ref{asm:one-shot}): the single-period, memoryless, one-shot chain is a strong simplification --- a problem may get several advancement attempts, transitions may carry across periods, and dependence across problems is ruled out. Reconsider whether a richer (multi-step or cross-period) transition model is warranted, and how it would interact with the fitting/counterfactual machinery below.}
 
 The expected counts at each stage
 \begin{enumerate}
     \item for pull requests opened $N_{i,k}^o$ is $\mathbb{E}[N_{i,k}^o] = \mathbb{E}[N_{i,k}]\cdot\pi_{i,k}^o$,
-    \item for pull requests reviewed $N_{i,k}^r$ is $\mathbb{E}[N_{i,k}^r] = \mathbb{E}[N_{i,k}^o]\cdot\pi_{i,k}^r$,
+    \item for pull requests reviewed $N_{i,k}^r$ is $\mathbb{E}[N_{i,k}^r] = \mathbb{E}[N_{i,k}^o]\cdot\pi_{i,k}^{r|o}$,
     \item for pull requests merged directly after opening $N_{i,k}^{m|o}$ is $\mathbb{E}[N_{i,k}^{m|o}] = \mathbb{E}[N_{i,k}^o]\cdot\pi_{i,k}^{m|o}$,
     \item for pull requests merged after review $N_{i,k}^{m|r}$ is $\mathbb{E}[N_{i,k}^{m|r}] = \mathbb{E}[N_{i,k}^r]\cdot\pi_{i,k}^{m|r}$.
 \end{enumerate}
@@ -943,14 +945,19 @@ Note that in my event studies, the sample consists of organizations with a fixed
 My goal is to predict how organizational activity changes when a member leaves.
 To do that, I need a model of how individual actions contribute to organizational outcomes.
 
-Let $\mathcal{J}_{i,pre} = \{1, \ldots, J_i\}$ be the set of members of organization $i$ present in the pre-period.
-Let $A_{i,j,k}^o$, $A_{i,j,k}^r$, $A_{i,j,k}^{m|o}$, and $A_{i,j,k}^{m|r}$ denote the number of pull requests opened, reviewed, merged directly after opening, and merged after review by member $j$ in period $k$.
-For state $s \in \{o, r, m|o, m|r\}$, let $p_{i,j,k}^s \in [0,1]$ denote member $j$'s probability of performing a state-$s$ action on any given unit in period $k$; for $s=r$ the action is being the \emph{first} reviewer.\footnote{A pull request may have multiple reviewers, but since my initial goal is to model whether a pull request is reviewed at all, focusing on the member that is the first reviewer is sufficient}.
 
-Just as problems are exchangeable at the organizational level (Assumption~\ref{asm:exchangeability}), I assume members do not distinguish among problems either:
-\begin{assumption}[Problem exchangeability (member)]
+Let $\mathcal{J}_{i,pre} = \{1, \ldots, J_i\}$ be the set of members of organization $i$ present in the pre-period.
+All of a pull's downstream counts are indexed by the pull's \emph{opener} $j$: let $A_{i,j,k}^o$ be the number of pulls $j$ opened in period $k$, and $R_{i,j,k}^o$ the number of those that are reviewed (by a peer --- solo or group).
+The merge counts $A_{i,j,k}^{m|o}$ and $A_{i,j,k}^{m|r}$ are the pulls opened by $j$ that are merged directly and merged after review.
+Each merge is a \emph{self-merge} if the opener $j$ merges its own pull or an \emph{other-merge} if a different member does, so $A_{i,j,k}^{m|o} = A_{i,j,k}^{m|o,\mathrm{self}} + A_{i,j,k}^{m|o,\mathrm{other}}$ and likewise for $A_{i,j,k}^{m|r}$.
+For the departure counterfactual I further track \emph{which} member acts on $j$'s pulls: $A_{i,j,m,k}^{m|o,\mathrm{other}}$ is the number of $j$'s pulls that member $m\neq j$ merged directly, and $A_{i,j,m,k}^{r,\mathrm{solo}}$ the number $m$ was the \emph{sole} reviewer of (with an after-review analogue), so $A_{i,j,k}^{m|o,\mathrm{other}} = \sum_{m\neq j} A_{i,j,m,k}^{m|o,\mathrm{other}}$.
+Each count defines a member probability, written $p$ with its conditioning (e.g.\ $p_{i,j,k}^o$, $p_{i,j,k}^{r|o}$, $p_{i,j,k}^{m|o,\mathrm{self}}$); I reserve $\pi$ for the organization-level (marginal) rates of the transition matrix, and estimate every $p$ in Section~\ref{sec:fitting}.
+
+%
+Just as problems are exchangeable at the organizational level (Assumption~\ref{asm:exchangeability}), I assume members do not distinguish among problems either --- once conditioned on the role a member plays in a given pull:
+\begin{assumption}[Conditional problem exchangeability]
 \label{asm:problem-invariant}
-A member's probability of opening, reviewing, directly merging, or merging after review does not vary across problems within a period --- $p_{i,j,k}^s$ is the same regardless of which particular problem is being acted on.
+Within a period, a member's probability of acting on a pull does not vary across problems once conditioned on that member's role in it --- opener, reviewer, or neither --- so the per-member probabilities defined above are common across problems of a given type.
 \end{assumption}
 
 For any latent problem in period $k$, let $p_{i,j,k}^o$ denote the probability that member $j$ is the unique member who opens a pull request to address that problem.
@@ -958,21 +965,29 @@ The index $0$ denotes the outcome where no member takes the action, so $A_{i,0,k
 Under Assumptions~\ref{asm:independence} and~\ref{asm:problem-invariant}, the identity of the opening member is an i.i.d.\ draw from a categorical distribution over $\mathcal{J}_{i,pre} \cup \{0\}$ across problems, so the joint count vector follows a multinomial:
 \[ \left( \left\{A_{i,j,k}^o \right\}_{j\in\mathcal J_{i,pre}}, A_{i,0,k}^o \right) \mid N_{i,k} \sim \text{Multinomial}\left(N_{i,k}; \left \{p_{i,j,k}^o \right \}_{j\in\mathcal J_{i,pre}}, p_{i,0,k}^o \right). \]
 This enables me to characterize the aggregate probability a pull is opened as $\pi_{i,k}^o = \sum_{j\in\mathcal J_{i,pre}}p_{i,j,k}^o$, making the number of pulls opened distributed binomially as $N_{i,k}^o \mid N_{i,k} \sim \text{Binomial}(N_{i,k},\, \pi_{i,k}^o)$.
-The remaining stages --- review, direct merge, and merge after review --- follow this same structure: a single member is attributed the action on each eligible pull request (for review, the first reviewer; for the two merges, the unique merger), an i.i.d.\ categorical draw under Assumptions~\ref{asm:independence} and~\ref{asm:problem-invariant}, so the stage probability aggregates as $\pi_{i,k}^s = \sum_{j\in\mathcal J_{i,pre}} p_{i,j,k}^s$ (with residual $p_{i,0,k}^s = 1-\pi_{i,k}^s$) and the stage count is Binomial in its upstream count. The stages differ only in the attributed member and the conditioning count:
+Each post-opening stage --- review, direct merge, merge after review --- has a per-pull probability that depends on the pull's opener, so its count is a \emph{Poisson-binomial} across openers (a sum of the per-opener binomials).
+All the probabilities below are fractions of $j$'s own pulls, so each lies in $[0,1]$ by construction; their maximum-likelihood estimators are the count ratios given in Section~\ref{sec:fitting}.
 \begin{itemize}
-  \item \emph{review}: $p_{i,j,k}^r$ is the probability member $j$ is the first reviewer of an opened pull request, and $N_{i,k}^r \mid N_{i,k}^o \sim \text{Binomial}(N_{i,k}^o,\, \pi_{i,k}^r)$;
-  \item \emph{direct merge}: $p_{i,j,k}^{m|o}$ is the probability member $j$ is the unique member who merges an opened pull request directly without review, and $N_{i,k}^{m|o} \mid N_{i,k}^o \sim \text{Binomial}(N_{i,k}^o,\, \pi_{i,k}^{m|o})$;
-  \item \emph{merge after review}: $p_{i,j,k}^{m|r}$ is the probability member $j$ is the unique member who merges a reviewed pull request, and $N_{i,k}^{m|r} \mid N_{i,k}^r \sim \text{Binomial}(N_{i,k}^r,\, \pi_{i,k}^{m|r})$.
+  \item \emph{review}: $p_{i,j,k}^{r|o}$ is the probability that a pull opened by $j$ is reviewed by a peer (a member other than $j$, whether a single one or several).
+  Reviewed pulls opened by $j$ split off the competing stage below, with $N_{i,k}^r = \sum_j N_{i,j,k}^r$ and $N_{i,j,k}^r \mid N_{i,j,k}^o \sim \text{Binomial}(N_{i,j,k}^o,\, p_{i,j,k}^{r|o})$;
+  \item \emph{direct merge}: $p_{i,j,k}^{m|o}$ is the probability that a pull opened by $j$ is directly merged --- the opener $j$ merges it (self) or a different member does (other):
+  \[ p_{i,j,k}^{m|o} = \underbrace{p_{i,j,k}^{m|o,\mathrm{self}}}_{j\text{ merges it}} + \underbrace{p_{i,j,k}^{m|o,\mathrm{other}}}_{\text{someone}\neq j\text{ merges it}}, \qquad p_{i,j,k}^{m|o,\mathrm{other}} = \sum_{m\neq j} p_{i,j,m,k}^{m|o,\mathrm{other}}, \]
+  where $p_{i,j,m,k}^{m|o,\mathrm{other}}$ is the probability member $m$ merges a pull opened by $j$.
+  Both parts are fractions of the same denominator (the pulls $j$ opened), so $p_{i,j,k}^{m|o}\in[0,1]$ is simply the fraction of $j$'s opened pulls that get merged, and the count is Poisson-binomial, $N_{i,k}^{m|o} = \sum_j N_{i,j,k}^{m|o}$ with $N_{i,j,k}^{m|o}\mid N_{i,j,k}^o \sim \text{Binomial}(N_{i,j,k}^o,\, p_{i,j,k}^{m|o})$;
+  \item \emph{merge after review}: identically, $p_{i,j,k}^{m|r} = p_{i,j,k}^{m|r,\mathrm{self}} + p_{i,j,k}^{m|r,\mathrm{other}}$ is the probability that a \emph{reviewed} pull opened by $j$ is merged after review (a fraction of $j$'s reviewed pulls), with count $N_{i,k}^{m|r} = \sum_j N_{i,j,k}^{m|r}$, $N_{i,j,k}^{m|r}\mid N_{i,j,k}^r \sim \text{Binomial}(N_{i,j,k}^r,\, p_{i,j,k}^{m|r})$.
 \end{itemize}
-Review and direct merge are competing post-opening paths --- each opened pull request is reviewed, merged directly, or neither --- so the two counts follow a multinomial over opened pull requests,
-\[ (N_{i,k}^r,N_{i,k}^{m|o}, N_{i,k}^{\emptyset|o}) \mid N_{i,k}^o \sim \text{Multinomial}\left(N_{i,k}^o;\pi_{i,k}^r,\pi_{i,k}^{m|o},1-\pi_{i,k}^r-\pi_{i,k}^{m|o}\right), \]
-where $N_{i,k}^{\emptyset|o}$ consists of the number of opened pulls that receive neither action. Total merges are $N_{i,k}^m=N_{i,k}^{m|o}+N_{i,k}^{m|r}$.
+Review and direct merge are competing post-opening paths, resolved per opener: among the $N_{i,j,k}^o$ pulls opened by $j$, the reviewed, directly merged, and inactive counts follow a multinomial,
+\[ (N_{i,j,k}^r,N_{i,j,k}^{m|o}, N_{i,j,k}^{\emptyset|o}) \mid N_{i,j,k}^o \sim \text{Multinomial}\left(N_{i,j,k}^o;\ p_{i,j,k}^{r|o},\ p_{i,j,k}^{m|o},\ 1-p_{i,j,k}^{r|o}-p_{i,j,k}^{m|o}\right). \]
+Reviewed and directly-merged pulls are disjoint subsets of $j$'s opens, so $p_{i,j,k}^{r|o} + p_{i,j,k}^{m|o}\le 1$ and the multinomial is always valid.
+Reviewed pulls carry their opener into the after-review stage, so no separate reviewed-opener composition is needed; total merges are $N_{i,k}^m=N_{i,k}^{m|o}+N_{i,k}^{m|r}$.
 
+The scalars $\pi_{i,k}^{s}$ in the transition matrix are the organization-level \emph{marginal} rates.
+Because the mean of a Poisson-binomial is the sum of its per-trial probabilities, the expected stage count is $\mathbb{E}[N_{i,k}^{m|o}] = \sum_j \mathbb{E}[N_{i,j,k}^o]\, p_{i,j,k}^{m|o}$, so the marginal rate is recovered as the opener-weighted average $\pi_{i,k}^{m|o} = \sum_j (p_{i,j,k}^o/\pi_{i,k}^o)\, p_{i,j,k}^{m|o}$ --- an org-level rate does exist, and it pins down the \emph{mean}.
+The per-opener structure is needed not for the mean but for the \emph{variance} (a Poisson-binomial is under-dispersed relative to a single $\text{Binomial}(N^o,\pi^{m|o})$ with the same mean) and for the departure counterfactual, which removes specific openers and mergers rather than a repo-wide rate.
 \subsection{Fitting the model}
-Using this framework, I fit the model's key parameters --- the latent problem-flow distribution $F_i$ and the member action probabilities $p_{i,j,k}^s$ --- on pre-period data.
-The fitted model defines a data-generating process from which I can simulate organizational outcomes.
-Since those outcomes are built up from individual contributions, I can also simulate the counterfactual in which a member's contributions are removed.
-I use this framework to estimate the effect of the departure of the focal member $j^*$, a qualified important member whose exit defines the event.
+\label{sec:fitting}
+I fit the model's key parameters --- the latent problem-flow distribution $F_i$ and the member action probabilities $p_{i,j,k}^s$ --- on pre-period data, yielding a data-generating process I can simulate.
+Because outcomes are built up from individual contributions, I can also simulate the counterfactual that removes the focal member $j^*$, a qualified important member whose exit defines the event.
 
 To simplify estimation of the latent problem rate, I assume the following:
 
@@ -1015,25 +1030,42 @@ The model's remaining parameters are the member action probabilities $p_{i,j}^s$
 Member action probabilities do not vary across all time periods, so $p_{i,j,k}^s = p_{i,j}^s$ for all $k$ and $s \in \{o,r,m|o,m|r\}$.
 \end{assumption}
 
-Stationarity lets me estimate each $p_{i,j}^s$ by pooling all pre-period observations within the organization; MLE gives the analytical solution $\hat{p}_{i,j}^o = \frac{\sum_k A_{i,j,k}^o}{\sum_k N_{i,k}^o}$, $\hat{p}_{i,j}^r = \frac{\sum_k A_{i,j,k}^r}{\sum_k N_{i,k}^o}$, $\hat{p}_{i,j}^{m|o} = \frac{\sum_k A_{i,j,k}^{m|o}}{\sum_k N_{i,k}^o}$, and $\hat{p}_{i,j}^{m|r} = \frac{\sum_k A_{i,j,k}^{m|r}}{\sum_k N_{i,k}^r}$.
+Stationarity lets me estimate the member probabilities by pooling all pre-period observations within the organization.
+Each is a maximum-likelihood ratio of counts over the subpopulation its conditioning names.
+Opening is a fraction of all opened pulls; every downstream rate is a fraction of the pulls $j$ opened (or, after review, the pulls $j$ opened that were reviewed):
+\[ \hat{p}_{i,j}^o = \frac{\sum_k A_{i,j,k}^o}{\sum_k N_{i,k}^o}, \qquad \hat{p}_{i,j}^{r|o} = \frac{\sum_k R_{i,j,k}^o}{\sum_k A_{i,j,k}^o}, \qquad \hat{p}_{i,j}^{m|o,\mathrm{self}} = \frac{\sum_k A_{i,j,k}^{m|o,\mathrm{self}}}{\sum_k A_{i,j,k}^o}, \qquad \hat{p}_{i,j}^{m|r,\mathrm{self}} = \frac{\sum_k A_{i,j,k}^{m|r,\mathrm{self}}}{\sum_k R_{i,j,k}^{o}}. \]
+The other-merge and solo-review probabilities are estimated per \emph{pair} $(j,m)$ --- the rate at which member $m$ merges, or solely reviews, a pull opened by $j$ --- so the departure counterfactual can remove a specific member's contribution:
+\[ \hat{p}_{i,j,m}^{m|o,\mathrm{other}} = \frac{\sum_k A_{i,j,m,k}^{m|o,\mathrm{other}}}{\sum_k A_{i,j,k}^o}, \qquad \hat{p}_{i,j,m}^{m|r,\mathrm{other}} = \frac{\sum_k A_{i,j,m,k}^{m|r,\mathrm{other}}}{\sum_k R_{i,j,k}^{o}}, \qquad \hat{p}_{i,j,m}^{r,\mathrm{solo}} = \frac{\sum_k A_{i,j,m,k}^{r,\mathrm{solo}}}{\sum_k A_{i,j,k}^o}, \]
+and $\hat{p}_{i,j}^{m|o,\mathrm{other}} = \sum_{m\neq j}\hat{p}_{i,j,m}^{m|o,\mathrm{other}}$ (likewise after review).
+Because reviewed and directly-merged pulls are disjoint subsets of $j$'s opens, $\hat p_{i,j}^{r|o} + \hat p_{i,j}^{m|o}\le 1$, and every rate lies in $[0,1]$ with no clipping.
 
 \subsubsection{Simulating a departure}
 \label{sec:counterfactual}
-
 Simulating a departure requires specifying how the organization's membership changes.
+The probabilities below are the fitted estimates $\hat p$ of Section~\ref{sec:fitting}.
 
 \begin{assumption}[Fixed membership]
 \label{asm:fixed-membership}
-The set of members $\mathcal{J}_{i,pre}$ is fixed across pre-periods, and the only change between the pre-period and post-period membership set is the departure of key member $j^*$.
-Hence, $\mathcal{J}_{i,pre} \setminus \mathcal{J}_{i,post} = \{j^*\}$.
+The set of members $\mathcal{J}_{i,pre}$ is fixed across pre-periods, and in each post-period $k\in\{1,\dots,5\}$ the only change is the departure of key member $j^*$, so the surviving membership is $\mathcal{J}_{i,pre}\setminus\{j^*\}$.
 \end{assumption}
 
-To predict the effect of $j^*$'s departure, I re-draw from the fitted model with $j^*$ removed from the membership set.
-Because each stage probability is a sum of member probabilities, I can generate counterfactual stage probabilities by simply removing $j^*$'s contribution.
-\[\pi_{i,k}^{s,(-j^*)} = \sum_{j\in\mathcal J_{i,post}} p_{i,j}^s, \qquad s\in\{o,r,m|o,m|r\}.\]
-The surviving members' probabilities are held fixed, a direct consequence of Assumption~\ref{asm:stationary}.
-Post-departure outcomes are then simulated by drawing from the model using the counterfactual probabilities $\pi_{i,k}^{s,(-j^*)}$.
+To predict the effect of $j^*$'s departure, I re-draw from the fitted model with $j^*$ removed, recomputing each surviving member's stage probabilities.
 
+\begin{assumption}[No-reaction departure]
+\label{asm:departure-response}
+In each post-period $k\in\{1,\dots,5\}$ the only change is the removal of $j^*$: surviving members retain their pre-period action probabilities, and no surviving member takes on $j^*$'s work.
+Opens and solo reviews lose $j^*$'s contribution, and the pulls $j^*$ merged now go unmerged.
+\end{assumption}
+
+Under Assumption~\ref{asm:departure-response}, $j^*$ is removed as an opener --- the opener composition is drawn over the surviving members, so $j^*$'s share of opens flows to the unopened state (unredistributed) rather than being reallocated.
+From every surviving opener $j$'s stage probabilities I then subtract exactly what $j^*$ contributed to $j$'s pulls.
+Because each other-merge and solo-review rate is a sum of the pairwise probabilities $\hat p_{i,j,m}$, this is just dropping $j^*$'s term:
+\[ \hat p_{i,j}^{r|o,(-j^*)} = \hat p_{i,j}^{r|o} - \hat p_{i,j,j^*}^{r,\mathrm{solo}}, \qquad \hat p_{i,j}^{m|o,\mathrm{other},(-j^*)} = \hat p_{i,j}^{m|o,\mathrm{other}} - \hat p_{i,j,j^*}^{m|o,\mathrm{other}}, \qquad \hat p_{i,j}^{m|r,\mathrm{other},(-j^*)} = \hat p_{i,j}^{m|r,\mathrm{other}} - \hat p_{i,j,j^*}^{m|r,\mathrm{other}}, \]
+for $j\in\mathcal J_{i,pre}\setminus\{j^*\}$.
+Self-merges and each survivor's own rates are untouched; group-reviewed pulls keep their review (only $j^*$'s \emph{solo} reviews are lost), and $j^*$'s self-merges vanish with $j^*$'s opens.
+This removes $j^*$ as opener, solo-reviewer, and merger without any surviving member raising their activity to compensate.
+It therefore predicts the largest decline consistent with simply subtracting $j^*$, against which graded survivor responses can later be measured.
+Post-departure outcomes are then simulated by drawing from the model with these probabilities (Algorithm~\ref{alg:drawcounts}).
 \subsection{Evaluating model fit}
 
 Although the model describes a DGP, the pre-period data represents, at best, a few draws from that DGP.
@@ -1044,14 +1076,17 @@ To evaluate the model's fit, I compare the data to simulated data drawn from the
 For each organization $i$ and period $k$, I draw $\NModelDraws$ outcome realizations from the fitted model following Algorithm~\ref{alg:drawcounts}.
 
 \begin{algorithm}[t]
-\caption{DrawCounts($\hat{F}_i,\;\hat{\pi}^o,\;\hat{\pi}^r,\;\hat{\pi}^{m|o},\;\hat{\pi}^{m|r}$)}
+\caption{DrawCounts($\hat{F}_i,\;\{\hat{p}_j^o\},\;\{\hat{p}_j^{r|o}\},\;\{\hat{p}_j^{m|o}\},\;\{\hat{p}_j^{m|r}\}$)}
 \label{alg:drawcounts}
 \begin{algorithmic}[1]
 \For{$d = 1$ \textbf{to} $\NModelDraws$}
   \State Draw $N^{(d)} \sim \hat{F}_i$
-  \State Draw $N^{o,(d)} \sim \mathrm{Binomial}(N^{(d)},\;\hat{\pi}^o)$
-  \State Draw $(N^{r,(d)},N^{m|o,(d)},N^{0,(d)}) \sim \mathrm{Multinomial}(N^{o,(d)};\;\hat{\pi}^r,\;\hat{\pi}^{m|o},\;1-\hat{\pi}^r-\hat{\pi}^{m|o})$
-  \State Draw $N^{m|r,(d)} \sim \mathrm{Binomial}(N^{r,(d)},\;\hat{\pi}^{m|r})$
+  \State Draw the opener composition $\bigl(\{N_j^{o,(d)}\}_{j},\,N_0^{o,(d)}\bigr) \sim \mathrm{Multinomial}\bigl(N^{(d)};\;\{\hat{p}_j^o\},\,\hat{p}_0^o\bigr)$
+  \For{each member $j\in\mathcal J_{i,pre}$}
+    \State Draw $(N_j^{r,(d)},N_j^{m|o,(d)},N_j^{0,(d)}) \sim \mathrm{Multinomial}(N_j^{o,(d)};\;\hat{p}_j^{r|o},\;\hat{p}_j^{m|o},\;1-\hat{p}_j^{r|o}-\hat{p}_j^{m|o})$
+    \State Draw $N_j^{m|r,(d)} \sim \mathrm{Binomial}(N_j^{r,(d)},\;\hat{p}_j^{m|r})$
+  \EndFor
+  \State Set $N^{o,(d)}=\sum_j N_j^{o,(d)}$, $N^{r,(d)}=\sum_j N_j^{r,(d)}$, $N^{m|o,(d)}=\sum_j N_j^{m|o,(d)}$, $N^{m|r,(d)}=\sum_j N_j^{m|r,(d)}$
   \State Set $N^{m,(d)} = N^{m|o,(d)} + N^{m|r,(d)}$
 \EndFor
 \State \Return $\bigl\{N^{o,(d)},\;N^{r,(d)},\;N^{m|o,(d)},\;N^{m|r,(d)},\;N^{m,(d)}\bigr\}_{d=1}^{\NModelDraws}$
@@ -1085,7 +1120,7 @@ Control organizations, which experience no departure, isolate this drift, showin
 Their signed residuals are fairly close to zero across all outcomes, so the model captures most of the distributional drift in the mean, though not the drift in the variance (see the centered squared residual distribution in Appendix Figure~\ref{fig:model_fit_post_Q}).
 Prediction error for treated organizations mixes distributional drift with mismodelled departure effects.
 Since the model fits controls well, their larger, non-zero mean residuals suggest that the effects of departure are mismodelled rather than to failure to accurately model distributional drift.
-%@CLAUDE: HOw can I extend parallel trends or use it to justify that only bad prediction is departure mismodelling
+\todo[inline]{Extend the parallel-trends / no-anticipation assumptions to formally justify that the only source of post-period mis-prediction for treated organizations is departure mis-modelling (controls pin down the distributional drift, so the residual gap is attributable to the departure counterfactual).}
 
 
 \subsection{Visualizing departure effects}
@@ -1097,9 +1132,8 @@ For each organization, I draw $\NModelDraws$ simulated datasets over the event-s
 Figure~\ref{fig:model_departure_effects} plots the resulting distribution of simulated treatment effects against the actual effect for pull requests opened, reviewed, and merged; the direct- and reviewed-merge outcomes appear in Appendix Figure~\ref{fig:model_departure_effects_paths}.
 The model predicts the decline in pull requests opened well, but over-predicts the decline in pull requests reviewed and merged.
 
-This pattern follows from how the counterfactual removes a departing member: it strips out the member's own reviews and merges without letting surviving members absorb them.
-Both actions are low-effort and easily substituted --- merging is little more than a click, and a pull request the departed member would have reviewed first can still be reviewed by someone else --- so treating their reviews and merges as lost over-states how far each falls.
-Opening, by contrast, is effortful and not so readily picked up by others, so treating the member's own opens as lost is closer to what happens; this is why the model tracks the opening decline but over-predicts the review and merge declines.
+By Assumption~\ref{asm:departure-response} the counterfactual is pure no-reaction: it removes $j^*$'s opens, solo reviews, and merges without any surviving member compensating, so the predicted decline is the largest consistent with simply subtracting $j^*$.
+That the model over-predicts the decline in reviews and merges is therefore expected --- survivors in the data plainly do absorb some of $j^*$'s substitutable work, which the no-reaction benchmark omits by construction.
 
 \subsubsection{Departure effects by resilience}
 
@@ -1115,7 +1149,7 @@ Rather, organizational practices explain differences in resilience that the depa
 
     \item \textbf{Relax Assumption~\ref{asm:independence} (problem independence).} Problems need not evolve independently. For example, one pull request being merged may increase the likelihood that followup problems are opened or closed.
 
-    \item \textbf{Relax Assumption~\ref{asm:stationary} (stationary member probabilities).} Member probabilities need not be constant over the pre-period, and --- more importantly for the departure question --- surviving members need not keep their probabilities fixed after $j^*$ leaves. Organizational adaptation would let $p_{i,j}^s$ respond to the departure: for example, remaining members opening or reviewing less once an important member is gone, or taking over the merging the departed member had done. The counterfactual currently holds surviving members' probabilities fixed (a direct consequence of this assumption); relaxing it is the natural route to the residual departure-specific mis-prediction on opens and merges.
+    \item \textbf{Relax Assumption~\ref{asm:stationary} (stationary member probabilities).} Member probabilities need not be constant over the pre-period, and --- more importantly for the departure question --- surviving members need not stay at their pre-period rates as the no-reaction Assumption~\ref{asm:departure-response} posits. That benchmark removes $j^*$ with no compensating response, but it does not capture graded adaptation --- survivors opening, reviewing, or merging more, or taking on the pulls $j^*$ would have merged --- nor the arrival of new members who take on some of the departed member's work. Modeling these responses is the natural route to the residual departure-specific mis-prediction.
 \end{enumerate}
 
 \newpage

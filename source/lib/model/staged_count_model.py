@@ -5,7 +5,10 @@ PROB_SUM_TOLERANCE = 1e-6
 NEGATIVE_BINOMIAL_SIZE_FLOOR = 1e-9
 MEMBER_COUNT_COLUMNS = [
     "member_pull_request_opened", "member_pull_request_reviewed",
-    "member_pull_request_merged_direct", "member_pull_request_merged_after_review",
+    "member_pull_request_reviewed_opened", "member_pull_request_merged_self",
+    "member_pull_request_merged_direct_opened_other",
+    "member_pull_request_merged_after_review_opened_self",
+    "member_pull_request_merged_after_review_opened_other",
 ]
 
 # SCRIPT SINGLE-USE EXCEPTION: cohesive staged-count-model library — ComputeStageProbabilities and
@@ -71,13 +74,40 @@ def FitMemberProbabilitiesPooled(repo_name, df_pre_period, df_repo_counts):
 def MemberProbabilityRows(repo_name, member_count_sums, total_opened, total_reviewed):
     opened_present   = total_opened   > 0
     reviewed_present = total_reviewed > 0
+    member_own_opened   = member_count_sums["member_pull_request_opened"].values
+    member_own_reviewed = member_count_sums["member_pull_request_reviewed_opened"].values
+    # Merges are indexed by the pull's opener, so each merge rate is the fraction of j's OWN opened pulls (or
+    # reviewed-opened pulls) reaching that stage -- self and other share the same denominator, so the total
+    # merge probability of a pull opened by j is in [0, 1] by construction (no clipping needed). "self" = the
+    # opener merges its own pull; "other" = a different member merges j's pull.
+    prob_merge_self = np.divide(
+        member_count_sums["member_pull_request_merged_self"].values, member_own_opened,
+        out=np.zeros(len(member_count_sums)), where=member_own_opened > 0)
+    prob_merge_direct_opened_other = np.divide(
+        member_count_sums["member_pull_request_merged_direct_opened_other"].values, member_own_opened,
+        out=np.zeros(len(member_count_sums)), where=member_own_opened > 0)
+    prob_merge_after_review_self = np.divide(
+        member_count_sums["member_pull_request_merged_after_review_opened_self"].values, member_own_reviewed,
+        out=np.zeros(len(member_count_sums)), where=member_own_reviewed > 0)
+    prob_merge_after_review_other = np.divide(
+        member_count_sums["member_pull_request_merged_after_review_opened_other"].values, member_own_reviewed,
+        out=np.zeros(len(member_count_sums)), where=member_own_reviewed > 0)
+    # Review is opener-specific: prob_review_opened is p^{r|o}_j = R^o_j / A^o_j, the fraction of j's opened
+    # pulls that get reviewed. Reviewed and directly-merged pulls are disjoint subsets of j's opens, so
+    # p^{r|o}_j + pi_direct_j <= 1 by construction (the competing multinomial is always valid).
+    prob_review_opened = np.divide(
+        member_own_reviewed, member_own_opened,
+        out=np.zeros(len(member_count_sums)), where=member_own_opened > 0)
     return pd.DataFrame({
         "repo_name":               repo_name,
         "actor_id":                member_count_sums.index,
-        "prob_open":               member_count_sums["member_pull_request_opened"].values               / total_opened   if opened_present   else 0.0,
-        "prob_review":             member_count_sums["member_pull_request_reviewed"].values             / total_opened   if opened_present   else 0.0,
-        "prob_merge_direct":       member_count_sums["member_pull_request_merged_direct"].values         / total_opened   if opened_present   else 0.0,
-        "prob_merge_after_review": member_count_sums["member_pull_request_merged_after_review"].values   / total_reviewed if reviewed_present else 0.0,
+        "prob_open":               member_own_opened                                          / total_opened if opened_present else 0.0,
+        "prob_review":             member_count_sums["member_pull_request_reviewed"].values   / total_opened if opened_present else 0.0,
+        "prob_review_opened":             prob_review_opened,
+        "prob_merge_self":                prob_merge_self,
+        "prob_merge_direct_opened_other": prob_merge_direct_opened_other,
+        "prob_merge_after_review_self":   prob_merge_after_review_self,
+        "prob_merge_after_review_other":  prob_merge_after_review_other,
     }).to_dict("records")
 
 
@@ -133,26 +163,41 @@ def FitMemberProbabilitiesPerPeriod(repo_name, df_pre_period, df_repo_counts):
 
 
 def ComputeStageProbabilities(df_member_probs):
-    prob_open = float(df_member_probs["prob_open"].sum())
-    assert -PROB_SUM_TOLERANCE <= prob_open <= 1.0 + PROB_SUM_TOLERANCE, f"prob_open sum out of [0, 1]: {prob_open}"
-    prob_review             = float(df_member_probs["prob_review"].sum())
-    prob_merge_direct       = float(df_member_probs["prob_merge_direct"].sum())
-    prob_merge_after_review = float(df_member_probs["prob_merge_after_review"].sum())
-    assert prob_review + prob_merge_direct <= 1.0 + PROB_SUM_TOLERANCE, \
-        f"review + direct-merge competing-path probabilities exceed 1: {prob_review + prob_merge_direct}"
-    return prob_open, prob_review, prob_merge_direct, prob_merge_after_review
+    # Returns the per-opener stage inputs the draw needs. Review and both merge stages are opener-specific
+    # (a pull's fate depends on who opened it), so all three are per-member arrays whose counts are
+    # Poisson-binomial across openers; opening is the opener composition.
+    opener_shares = df_member_probs["prob_open"].to_numpy(dtype=float)
+    total_open    = float(opener_shares.sum())
+    assert -PROB_SUM_TOLERANCE <= total_open <= 1.0 + PROB_SUM_TOLERANCE, f"prob_open sum out of [0, 1]: {total_open}"
+
+    pi_review = df_member_probs["prob_review_opened"].to_numpy(dtype=float)
+    # Direct-merge probability of a pull opened by j: self (j merges it) + other (a different member merges it),
+    # both over the same denominator (j's opened pulls); likewise after-review over j's reviewed-opened pulls.
+    pi_direct = (df_member_probs["prob_merge_self"].to_numpy(dtype=float)
+                 + df_member_probs["prob_merge_direct_opened_other"].to_numpy(dtype=float))
+    pi_after  = (df_member_probs["prob_merge_after_review_self"].to_numpy(dtype=float)
+                 + df_member_probs["prob_merge_after_review_other"].to_numpy(dtype=float))
+    # Review and direct merge compete for the same opened pull; both are fractions of j's opened pulls, and
+    # reviewed and directly-merged pulls are disjoint, so their per-opener sum is <= 1 by construction (no clip).
+    assert pi_after.max(initial=0.0) <= 1.0 + PROB_SUM_TOLERANCE, f"pi_after exceeds 1: {pi_after.max()}"
+    assert (pi_review + pi_direct).max(initial=0.0) <= 1.0 + PROB_SUM_TOLERANCE, \
+        f"review + direct-merge competing probabilities exceed 1 for some opener: {(pi_review + pi_direct).max()}"
+    return opener_shares, pi_review, pi_direct, pi_after
 
 
-def CompetingPathProbabilities(prob_review, prob_merge_direct):
-    # Review / direct-merge / neither form a simplex by construction; the clamps only absorb
-    # floating-point rounding at the boundary (e.g. a repo whose opened pulls are all reviewed).
-    prob_review       = min(1.0, prob_review)
-    prob_merge_direct = min(prob_merge_direct, 1.0 - prob_review)
-    return [prob_review, prob_merge_direct, 1.0 - prob_review - prob_merge_direct]
+def MultinomialPvals(shares):
+    # A valid pvals vector for rng.multinomial: the member shares (clamped to sum <= 1) plus a trailing
+    # residual cell (unopened, or reviewed pulls with no member opener) that the caller discards.
+    shares = np.asarray(shares, dtype=float)
+    total  = float(shares.sum())
+    if total > 1.0:
+        shares = shares / total
+        total  = 1.0
+    return np.append(shares, max(0.0, 1.0 - total))
 
 
 def DrawCounts(distribution_type, dist_params,
-               prob_open, prob_review, prob_merge_direct, prob_merge_after_review, n_draws, rng,
+               opener_shares, pi_review, pi_direct, pi_after, n_draws, rng,
                latent_rate_multiplier):
     if distribution_type == "poisson":
         latent_problem_count_draw = rng.poisson(dist_params["poisson_rate"] * latent_rate_multiplier, n_draws)
@@ -165,20 +210,37 @@ def DrawCounts(distribution_type, dist_params,
     else:
         raise ValueError(f"Unknown distribution_type for DrawCounts: {distribution_type}")
 
-    # Stage 1: opened
-    prob_open = np.clip(prob_open, 0.0, 1.0)
-    pull_request_opened_draw = rng.binomial(latent_problem_count_draw, prob_open)
+    opener_shares = np.asarray(opener_shares, dtype=float)
+    n_members     = len(opener_shares)
 
-    # Stage 2: each opened pull is reviewed, direct-merged, or neither (multinomial over opened)
-    stage_two_outcomes = rng.multinomial(
-        pull_request_opened_draw, CompetingPathProbabilities(prob_review, prob_merge_direct))
-    pull_request_reviewed_draw        = stage_two_outcomes[:, 0]
-    pull_request_merged_directly_draw = stage_two_outcomes[:, 1]
+    # Stage 1: opener composition -- who opens each latent problem (last cell = unopened, discarded)
+    opens_full      = rng.multinomial(latent_problem_count_draw, MultinomialPvals(opener_shares))
+    opens_by_opener = opens_full[:, :n_members]
 
-    # Stage 3: merge after review
-    prob_merge_after_review = np.clip(prob_merge_after_review, 0.0, 1.0)
-    pull_request_merged_reviewed_draw = rng.binomial(pull_request_reviewed_draw, prob_merge_after_review)
+    # Stage 2: each opened pull is reviewed, direct-merged, or neither -- a per-opener trinomial drawn in one
+    # vectorized call via numpy's multinomial with a 2-D pvals array (one row per opener; it broadcasts the
+    # per-opener counts against the per-opener probabilities). Both rates are opener-specific, so each stage
+    # count is a Poisson-binomial across openers. Reviewed and directly-merged pulls are disjoint subsets of
+    # j's opens (R^o + merges <= A^o on the integer counts), so the "nothing" residual is >= 0 exactly; in
+    # float it can be a tiny negative. Assert the violation is only float noise (a real one -- a data
+    # inconsistency -- is orders of magnitude larger), then clip that residual to 0 and renormalize each row so
+    # numpy's multinomial, which rejects any pval < 0 and needs rows summing to 1, accepts the array.
+    nothing_residual = 1.0 - pi_review - pi_direct
+    assert nothing_residual.min(initial=0.0) >= -PROB_SUM_TOLERANCE, \
+        f"review + direct-merge exceed 1 beyond float tolerance for some opener: min residual {nothing_residual.min()}"
+    stage_two_pvals = np.clip(np.column_stack([pi_review, pi_direct, nothing_residual]), 0.0, None)
+    stage_two_pvals = stage_two_pvals / stage_two_pvals.sum(axis=1, keepdims=True)
+    stage_two_draw  = rng.multinomial(opens_by_opener, stage_two_pvals)   # (n_draws, n_members, 3)
+    reviewed_by_opener = stage_two_draw[..., 0]
 
+    pull_request_reviewed_draw        = reviewed_by_opener.sum(axis=1)
+    pull_request_merged_directly_draw = stage_two_draw[..., 1].sum(axis=1)
+
+    # Stage 3: each reviewed pull, kept with its opener, is merged after review at that opener's rate -- again
+    # a Poisson-binomial across openers (no separate reviewed-opener re-draw: review is already per opener).
+    pull_request_merged_reviewed_draw = rng.binomial(reviewed_by_opener, np.clip(pi_after, 0.0, 1.0)[None, :]).sum(axis=1)
+
+    pull_request_opened_draw = opens_by_opener.sum(axis=1)
     pull_request_merged_draw = pull_request_merged_directly_draw + pull_request_merged_reviewed_draw
     return (pull_request_opened_draw, pull_request_reviewed_draw,
             pull_request_merged_directly_draw, pull_request_merged_reviewed_draw,
