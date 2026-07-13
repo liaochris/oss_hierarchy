@@ -1,0 +1,179 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\graphicspath{{../figures/}}
+\newtheorem{assumption}{Assumption}
+\title{The latent problem-arrival model:\\ a pre-period-only negative-binomial forecaster for control organizations}
+\author{issue/improve\_latent}
+\date{}
+
+\begin{document}
+\maketitle
+
+\noindent\textbf{Setup.} The staged-count model draws each period's latent problem count from an organization-specific Poisson/NB. For never-treated \emph{control} organizations, complete opening ($p^o_0=0$) means the opened count \emph{is} the latent count, so getting latent arrival right is a control-organization post-period forecasting problem that we score directly. We replace the current mean --- a flat-forward of the recent-5 opened rate reverted by the $\delta(q)$ headcount multiplier --- with a \textbf{simple, pre-period-OUTCOMES-only} negative-binomial parameterization that drops $\delta$.
+
+\medskip
+\noindent\textbf{Evaluation.} Each candidate produces a 100-draw \texttt{raw\_draws.parquet} through the \emph{real} model cascade (only the latent-arrival fit/draw is swapped), scored on two tests: (i) the \textbf{cyborg event study} --- the real Sun--Abraham estimator on actual-treated $+$ modeled-control, so the opened gap $=\text{mean}_{k=1..5}(\text{actual}-p_{50})$ equals (modeled-control $-$ actual-control); (ii) the real prediction \textbf{scatter} (through-origin $\beta$, $R^2$). A reproduction gate confirms the harness reproduces the committed \texttt{raw\_draws}/\texttt{band\_estimates.csv} to $\sim$0. Every org's \emph{inputs} are pre-period only; pooled coefficients are learned from control, cross-fitted 5-fold by repo.
+
+% =====================================================================
+\section{Primary specification: \texttt{glm\_flatpost}}
+
+\paragraph{Specification.} A negative-binomial GLM with a log link whose only organization-specific input is the last pre-period opened count $y_{i,-1}$, and with a \textbf{single post-period level} (no per-horizon terms):
+\[
+\boxed{\;\mu_{i,k}=\exp\!\big(\beta_0+\beta_1\log(1+y_{i,-1})\big)\quad\text{for all }k=1,\dots,5,\qquad
+N_{i,k}\sim\mathrm{NB2}(\mu_{i,k},\alpha)\;}
+\]
+$\mathrm{Var}=\mu+\alpha\mu^2$. The mean coefficients are fit by a Poisson GLM with \textbf{organization-equal weights} $w_i=1/\overline{\text{open}}_i$. Fitted: $\hat\beta_1=0.918$, $\hat\alpha=1.23$. The forecast is \emph{flat} across the five post-periods.
+
+\paragraph{What it captures, and why the flat post-level is the key.} (i) \emph{Level anchored on the last pre-period value} ($\hat\beta_1\approx1$, near-proportional). (ii) \emph{Organization-equal weighting} --- the weighting the normalized ES itself uses --- so the typical org's level is calibrated ($\beta\to1$). (iii) \emph{A single post-period level.} A per-horizon model estimates one term per event time $k$, which forces the model to match control's per-period mean opened; but that per-period mean is riser-inflated at long horizons (\S\ref{sec:specexp}), so per-horizon dummies overfit and over-predict at $k=4,5$. The flat post-level avoids this: in the cyborg event study the per-period \emph{shape} of the coefficient is carried by the shared actual-treated arm, so the modeled-control arm only needs the right \emph{level} --- fitting each period's control outcome adds noise, not signal.
+
+\paragraph{Estimation.} Pre-period-outcomes-only. (1) Fit the org-equal-weighted Poisson GLM of post-period opened on $\log(1+y_{i,-1})$ (no horizon terms), cross-fitted 5-fold on control; treated use the full-control fit. (2) $\hat\alpha$ by NB2 method-of-moments on control residuals. Poisson QMLE is consistent for the mean under overdispersion, so the two-step is valid.
+
+\paragraph{Results (cyborg opened, exact1).} It uniquely achieves \textbf{norm$\approx$0 and $\beta\approx$1 with full coverage on both axes}:
+\begin{table}[h]\centering\small
+\begin{tabular}{lcccc}
+\toprule
+ & raw gap & raw cov & norm gap & norm cov\\
+\midrule
+full window (actual on full panel)     & $+0.055$ & 1.00 & $+0.060$ & 1.00\\
+$[-5,5]$ aligned (Q1)                   & $-0.312$ & 1.00 & $+0.028$ & 1.00\\
+$[-5,5]$ + drop top-3 projects (Q2)     & $-0.695$ & 1.00 & $+0.027$ & 1.00\\
+\bottomrule
+\end{tabular}
+\caption{\texttt{glm\_flatpost} cyborg opened event study. Scatter: control through-origin $\beta=0.985$, $R^2=0.44$. The normalized gap is $\approx0$ with full coverage in every configuration; the raw gap is small at the full window and slightly negative (over-reverts) once the estimation windows are aligned (the full-window $\approx0$ is partly the $+0.37$ window artifact offsetting a slight over-reversion).}
+\end{table}
+
+\begin{figure}[h]\centering\includegraphics[width=\textwidth]{glm_flatpost/es_band_opened.png}
+\caption{\texttt{glm\_flatpost} cyborg event study (opened): full / $[-5,5]$ / $[-5,5]$+drop-3 $\times$ (raw, norm). Actual (black) vs modeled-control $p_{50}$ (red) with 95\% band. No long-horizon blow-up; the normalized band tracks the actual at every event time.}\end{figure}
+
+\begin{figure}[h]\centering\includegraphics[width=0.62\textwidth]{glm_flatpost/scatter/org_prediction_scatter.png}
+\caption{\texttt{glm\_flatpost} prediction scatter, opened panel: control $\beta=0.985$. Symlog axes (linear in $[0,1]$, log beyond) so predicted$=0$/actual$=0$ cells are kept; $\beta$/$R^2$ are the through-origin fit on \emph{all} cells (not the positive-only log--log subset).}\end{figure}
+
+\paragraph{One limitation.} Being flat, it does not distinguish horizons \emph{within} a repo, so per-cell scatter $R^2$ ($0.44$) is a touch below \texttt{nbrf} ($0.52$); but on the event study --- the primary test --- it dominates.
+
+\clearpage
+% =====================================================================
+\section{Robustness}
+
+\subsection{Q1 --- the event-study estimation window}
+The model draws exist only on $[-5,5]$, but by default the \emph{actual} series is Sun--Abraham-fit on the whole member-panel window ($\approx[-15,11]$). Restricting the actual to $[-5,5]$ (\texttt{restrict="win"}) removes a \textbf{$\sim$0.37 constant} from every candidate's raw gap --- an estimation-window artifact, not control-forecast error. The normalized gap barely moves.
+
+\subsection{Q2 --- dropping the 3 largest projects}
+The three largest control projects (\texttt{0xproject/0x-monorepo}, \texttt{tensorflow/models}, \texttt{arenadata/adcm}) dominate the level-weighted \emph{raw} gap. Org-equal weighting down-weights them by design, so specs that use it (\texttt{glm\_flatpost}, \texttt{glm\_eqw}) fit them loosely and their raw gap shifts when the giants are dropped; the count-anchored \texttt{nbrf} fits them and is unaffected.
+
+\subsection{Retained specifications (robustness set)}
+Alongside the primary, we keep four specifications; each is the same NB2 latent parameterization differing only in how the mean is estimated (Appendix~\ref{app:specs}). They all lie within Monte-Carlo noise of each other on the fair, robust comparison and differ mainly in \emph{which} organizations they fit best.
+\begin{table}[h]\centering\small
+\begin{tabular}{lccccc}
+\toprule
+spec & raw full & raw $[-5,5]$ & raw $[-5,5]$+d3 & norm $[-5,5]$ & $\beta$/$R^2$\\
+\midrule
+\textbf{glm\_flatpost} (primary) & $+0.06$ & $-0.31$ & $-0.70$ & $\mathbf{+0.03}$ & $0.99$/$0.44$\\
+glm\_eqw (per-horizon)           & $+1.01$ & $+0.64$ & $+0.08$ & $+0.16$ & $0.95$/$0.43$\\
+glm\_offset (exposure offset)    & $+1.26$ & $+0.89$ & $+0.20$ & $-0.14$ & $0.73$/$0.41$\\
+glm\_nb (count-weighted)         & $+1.14$ & $+0.77$ & $+0.35$ & $+0.21$ & $0.89$/$0.44$\\
+nbrf (RandomForest mean)         & $+1.13$ & $+0.77$ & $+0.53$ & $+0.15$ & $1.02$/$0.52$\\
+baseline ($\delta$)              & $+3.88$ & $+3.52$ & --- & $+0.12$ & $0.58$/$0.38$\\
+\bottomrule
+\end{tabular}
+\caption{Cyborg opened gaps across window/robustness configurations. \texttt{glm\_flatpost} is alone in reaching norm$\approx$0 \emph{and} $\beta\approx$1 with full coverage.}
+\end{table}
+
+\subsection{Specification experiments}\label{sec:specexp}
+Three probes of the primary spec's choices, all under the same NB2/org-equal structure:
+
+\paragraph{Weighting --- why $1/\overline{\text{open}}$, not $1/n$.} In a log-link Poisson GLM the effective (IRLS) weight on an observation is $\text{var\_weight}\times\mu$, and $\mu$ scales with org size. A uniform weight (``$1/n$'') therefore gives effective weight $\propto\mu$ --- \emph{large orgs dominate} --- and reproduces the count-weighted \texttt{glm\_nb} exactly (verified: $\hat\beta_1=0.905$ either way). To make each org contribute equally one must divide out the size, $w_i=1/\overline{\text{open}}_i$, giving effective weight $\approx1$ per org.
+
+\paragraph{Anchor --- the single last value beats lags and means.} With per-horizon dummies (i.e.\ the \texttt{glm\_eqw} family), replacing the anchor $\log(1+y_{i,-1})$ by the five separate lags, or by $\overline{y}_{-1:-3}$, or by $\overline{y}_{-1:-5}$, makes every metric worse:
+\begin{center}\small
+\begin{tabular}{lcccc}
+\toprule
+anchor & raw & norm & $\beta$ & $R^2$\\
+\midrule
+last $y_{-1}$ (baseline)      & $1.01$ & $0.19$ & $0.95$ & $0.43$\\
+5 lags $y_{-1..-5}$           & $2.20$ & $0.26$ & $0.76$ & $0.39$\\
+mean$(y_{-1},y_{-2},y_{-3})$  & $2.80$ & $0.31$ & $0.72$ & $0.36$\\
+mean$(y_{-1..-5})$            & $2.54$ & $0.33$ & $0.76$ & $0.34$\\
+\bottomrule
+\end{tabular}
+\end{center}
+The lag coefficients concentrate on $y_{-1}$ ($0.73$ vs $0.11,0.08,0.02,0.03$): earlier periods are collinear and add noise. $y_{-1}$ is the most recent level and aligns with the ES reference period ($-1$).
+
+\paragraph{Normalized inputs --- do not help.} Passing the last value \emph{normalized} into the GLM --- as a ratio $y_{-1}/\overline{\text{open}}$ or z-score $(y_{-1}-\overline{\text{open}})/\text{sd}$, with $\log\overline{\text{open}}$ as an exposure offset to restore the level --- gives raw $4.76$ / $5.70$ (much worse than baseline). Normalizing away the level and re-injecting it via the offset, together with org-equal weighting and per-horizon dummies, badly over-predicts. (The \emph{log}-deviation version \emph{without} org-equal weighting is \texttt{glm\_offset}, which is fine.)
+
+\paragraph{Horizon --- one flat level beats per-horizon terms (the primary).} Dropping the per-horizon dummies entirely (a single post-period indicator) is the change that produced the primary spec: raw $1.01\!\to\!0.06$, norm $0.19\!\to\!0.06$, both to full coverage. The per-horizon dummies were fitting control's per-period means; since the ES per-period shape comes from the treated arm, that is overfitting.
+
+\subsection{Master list of all variants estimated}
+\begin{table}[h]\centering\footnotesize
+\begin{tabular}{llcccc}
+\toprule
+variant & one-line description & raw & norm & $\beta$ & $R^2$\\
+\midrule
+\multicolumn{6}{l}{\emph{Baseline / benchmarks}}\\
+baseline ($\delta$)   & current flat-forward $\times\,\delta(q)$ headcount reversion              & $3.88$ & $0.15$ & $0.58$ & $0.38$\\
+flat                  & drop $\delta$, no reversion (post $=$ pre-mean)                          & $4.17$ & $0.20$ & $0.56$ & $0.35$\\
+\multicolumn{6}{l}{\emph{Per-org-only forecasters (fail --- reversion not in an org's own history)}}\\
+vasicek\_shrink       & empirical-Bayes/Vasicek shrinkage of the level toward the grand mean     & $4.02$ & $0.20$ & $0.59$ & $0.36$\\
+perm\_trans           & permanent--transitory / Kelley within-org reliability shrink             & $4.08$ & $0.23$ & $0.60$ & $0.40$\\
+damped\_trend         & ETS(A,A$_d$,N) damped trend (extrapolates the pre-slope up)              & $6.76$ & $0.88$ & $0.33$ & $0.28$\\
+cre\_proj             & Chamberlain--Mundlak projection on the pre-period slope                  & $5.90$ & $0.38$ & $0.50$ & $0.36$\\
+\multicolumn{6}{l}{\emph{Pooled cross-fitted reversion (multiplicative)}}\\
+pooled\_decay         & $c_k\times$pre-mean, $c_k=$ ratio-of-sums                               & $1.78$ & $-0.06$ & $0.68$ & $0.33$\\
+pooled\_decay\_med    & $c_k\times$pre-mean, $c_k=$ median ratio                                 & $-2.08$ & $-0.47$ & $1.05$ & $0.36$\\
+ar1\_partial          & Fama--French/OU geometric reversion                                     & $-1.85$ & $-0.45$ & $1.05$ & $0.36$\\
+bin\_decay            & trajectory bins $\times$ bin decay curve                                & $1.69$ & $-0.13$ & $0.64$ & $0.34$\\
+decay\_last           & $c_k\times$pre-\emph{last}                                              & $-1.79$ & $-0.44$ & $1.07$ & $0.45$\\
+\multicolumn{6}{l}{\emph{NB/Poisson GLM estimation variants (retained frontier in \textbf{bold})}}\\
+glm\_pois             & Poisson GLM on $\log(1+$last$)$ (2 coef $+$ horizon)                     & $1.32$ & $0.26$ & $0.89$ & $0.45$\\
+glm\_nb               & $+$ NB2 dispersion (count-weighted standard)                            & $1.14$ & $0.24$ & $0.89$ & $0.44$\\
+glm\_offset           & exposure offset $\log(\overline{\text{open}})$                          & $1.26$ & $-0.10$ & $0.73$ & $0.41$\\
+glm\_eqw              & org-equal weights, per-horizon                                          & $1.01$ & $0.19$ & $0.95$ & $0.43$\\
+nbrf                  & NB mean $=$ cross-fitted RandomForest prediction                        & $1.13$ & $0.18$ & $1.02$ & $0.52$\\
+\textbf{glm\_flatpost} & org-equal, \textbf{single flat post level} (primary)                   & $\mathbf{0.06}$ & $\mathbf{0.06}$ & $\mathbf{0.99}$ & $0.44$\\
+\multicolumn{6}{l}{\emph{Anchor / input / weighting experiments (\S\ref{sec:specexp})}}\\
+glm\_eqw\_lags        & anchor $=$ 5 lags $y_{-1..-5}$                                           & $2.20$ & $0.26$ & $0.76$ & $0.39$\\
+glm\_eqw\_mean3/5     & anchor $=$ mean of recent 3 / all 5 pre-periods                         & $2.5$--$2.8$ & $0.31$ & $0.73$ & $0.35$\\
+glm\_normmean/normz   & normalized input (ratio / z-score) $+$ exposure offset                  & $4.8$--$5.7$ & $0.34$ & $0.60$ & $0.43$\\
+\multicolumn{6}{l}{\emph{ML ceiling / stratification (benchmarks; stratification underperforms --- \S\ref{app:strat})}}\\
+ml\_rf / ml\_gbm      & RandomForest / gradient boosting, repo-CV                               & $1.19$ & $0.19$ & $1.02$ & $0.53$\\
+glm\_size/cnt/trend   & size- or trend-stratified GLMs (2/3-way)                                & $1.3$--$1.6$ & $0.2$--$0.26$ & $0.8$ & $0.4$\\
+\bottomrule
+\end{tabular}
+\caption{All latent-arrival variants estimated (cyborg opened, full window, exact1). The RandomForest ceiling ($R^2\approx0.53$) shows $R^2\approx0.7$--$0.8$ is not attainable from pre-period outcomes alone.}
+\end{table}
+
+\paragraph{Findings that survived everything.} (1) \emph{Reversion must be imported pooled} --- every forecaster using only an org's own pre-series fails, because the $\sim$44\% post-period decay is invisible in any single org's pre-period levels. (2) The \emph{norm-vs-$\beta$ tension} that appeared across the multiplicative and per-horizon GLMs was largely created by fitting control's per-period means; the single-flat-post spec (\texttt{glm\_flatpost}) resolves it. (3) Stratifying by size or trend does not help --- it loses pooled borrowing-strength and cannot remove the heavy right tail, which lives inside whichever stratum you cut.
+
+\clearpage
+% =====================================================================
+\appendix
+\section{Robustness-set specification details}\label{app:specs}
+Each is $N_{i,k}\sim\mathrm{NB2}(\mu_{i,k},\alpha)$, pre-period-outcomes-only, cross-fitted on control.
+
+\subsection*{\texttt{glm\_eqw} --- org-equal, per-horizon}
+$\log\mu_{i,k}=\beta_0+\beta_1\log(1+y_{i,-1})+\gamma_k$, org-equal weights, $\hat\beta_1=0.92$, $\hat\alpha=1.22$. Identical to the primary but retaining per-horizon terms $\gamma_k$; excellent at $k=1$--$3$ but the $\gamma_k$ rise at $k=4,5$ (fitting the riser-inflated control mean), inflating the raw gap. Fair/robust raw drops to $+0.08$.
+\begin{figure}[h]\centering\includegraphics[width=0.95\textwidth]{glm_eqw/es_band_opened.png}\caption{\texttt{glm\_eqw}.}\end{figure}
+
+\subsection*{\texttt{nbrf} --- NB with a RandomForest mean}
+$\mu_{i,k}=\widehat{\mathrm{RF}}_{i,k}$ (cross-fitted RF of post-opened on pre-period opened features), $\hat\alpha=0.92$. Best $\beta$ ($1.02$) and $R^2$ ($0.52$), robust to the giant repos; the nonparametric ceiling of pre-period-outcome signal. Not closed-form.
+\begin{figure}[h]\centering\includegraphics[width=0.95\textwidth]{nbrf/es_band_opened.png}\caption{\texttt{nbrf}.}\end{figure}
+
+\subsection*{\texttt{glm\_offset} --- exposure-offset NB-GLM}
+$\log\mu_{i,k}=\log(\overline{\text{open}}_i)+\beta_0+\beta_1(\log(1+y_{i,-1})-\log\overline{\text{open}}_i)+\gamma_k$. A count-model normalization matching the ES scaling; uniquely drives the norm gap to $\approx-0.1$ with full coverage, at the cost of $\beta=0.73$.
+\begin{figure}[h]\centering\includegraphics[width=0.95\textwidth]{glm_offset/es_band_opened.png}\caption{\texttt{glm\_offset}.}\end{figure}
+
+\subsection*{\texttt{glm\_nb} --- count-weighted (standard)}
+The plain unweighted (hence count-weighted) NB-GLM on $\log(1+y_{i,-1})$; the benchmark the estimation variants improve on.
+\begin{figure}[h]\centering\includegraphics[width=0.95\textwidth]{glm_nb/es_band_opened.png}\caption{\texttt{glm\_nb}.}\end{figure}
+
+\section{Why stratification does not help}\label{app:strat}
+Splitting by pre-period size (2/3 quantiles) or robust trend (Theil--Sen slope terciles) and fitting a separate GLM per stratum --- in any weighting combination --- underperforms the pooled models (raw $1.24$--$1.60$, norm $0.19$--$0.26$). It discards the pooled borrowing-strength that calibrates the typical-org level, and the long-horizon over-prediction is driven by a fat right tail of repos that spike post-period, which sits inside whichever stratum it is cut into.
+
+\section{Diagnostic}
+On the 421 trimmed control repos: 30\% pre-period declining / 28\% stagnant / 42\% increasing. The \emph{median} of (opened/pre-mean) reverts down in every bin (all-control $0.60\!\to\!0.45$); the equal-weighted mean rises only because a minority of small repos grow a lot in relative terms. Post/anchor $\approx0.56$ for every pre-period anchor, so the reversion is a common law not visible in any single org's pre-period levels. The apparent overdispersion is unmodeled heterogeneity (U-shaped PIT); hence the fix is the conditional mean (and NB dispersion for coverage).
+
+\end{document}
