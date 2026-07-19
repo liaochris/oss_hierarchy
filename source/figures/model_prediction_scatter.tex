@@ -1,0 +1,11 @@
+\begin{figure}[t]
+  \caption{Predicted versus actual post-period pull requests opened}
+  \label{fig:model_prediction_scatter}
+  \centering
+  \includegraphics[width=0.6\textwidth]{\ModelFitDir/scatter/opened_prediction_scatter.png}
+
+  \begin{minipage}{\textwidth}
+    \textbf{Figure notes:} Each point is an organization-period in post-periods $1$--$5$: the model's mean predicted opened count against the actual opened count, on a symmetric-log scale so zero cells remain visible. The dashed line is the $45^\circ$ line; the colored lines are through-origin fits estimated separately for control and treated organizations, with slope (standard error) and $R^2$ reported in the box. Outcomes are the raw opened counts.
+  \end{minipage}
+\todo[inline]{Improve figure notes.}
+\end{figure}

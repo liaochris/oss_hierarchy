@@ -1,6 +1,8 @@
 import json
+import warnings
 from pathlib import Path
 
+import binsreg
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -11,6 +13,7 @@ import statsmodels.api as sm
 
 from source.lib.python.config_loaders import LoadPipelineInputs, LoadModelPredictionConfig
 from source.lib.python.repo_utils import MakeRepoNameSafe
+from source.lib.JMSLab.autofill import GenerateAutofillMacros
 
 CONFIG                  = LoadPipelineInputs()
 MODEL_PREDICTION_CONFIG = LoadModelPredictionConfig()
@@ -25,6 +28,7 @@ ROLLING_LABEL       = f"rolling{CONFIG['rolling_periods']['run'][0]}"
 PRE_PERIOD_COUNT    = CONFIG["rolling_periods"]["run"][0]
 POST_PERIODS        = list(range(1, PRE_PERIOD_COUNT + 1))
 PRE_PERIODS         = list(range(-PRE_PERIOD_COUNT, 0))
+TRIM_PROBS          = (0.01, 0.99)   # outlier trim, matching estimate_model_event_study.R (TRIM_PROBS)
 
 DRAWS_PATH = (Path("drive/output/analysis/model_prediction") / VARIANT / DISTRIBUTION_TYPE / "draws"
               / ESTIMATION_APPROACH / IMPORTANCE_TYPE / QUALIFIED_SAMPLE / CONTROL_GROUP / "raw_draws.parquet")
@@ -38,14 +42,21 @@ ANALYSIS_PANEL_PATH = (Path("output/derived/analysis_panel") / IMPORTANCE_TYPE /
                        / QUALIFIED_SAMPLE / CONTROL_GROUP / "panel.parquet")
 OUTDIR = (Path("output/analysis/model_prediction") / VARIANT / DISTRIBUTION_TYPE / "evaluation"
           / ESTIMATION_APPROACH / IMPORTANCE_TYPE / QUALIFIED_SAMPLE / CONTROL_GROUP / "scatter")
+AUTOFILL_PATH = Path("output/autofill/model_prediction_autofill.tex")
+SCATTER_SLOPE_TOLERANCE = 0.05   # the control through-origin slope must lie within this of 1
 
 ORG_COLORS        = {"control": "#2a78d6", "treated": "#e34948"}
-MEMBERSHIP_COLORS = {"incumbent": "#2a78d6", "new": "#eb6834", "dropout": "#4a3aa7"}
+# Raw member points are the de-emphasized backdrop (incumbents grey so the blue/red binscatter reads on top);
+# new members stay orange so their predicted=0 mass is visible. The binscatter is colored by treated/control
+# (ORG_COLORS) exactly like the org figure, so the causal contrast pops the same way.
+MEMBERSHIP_COLORS = {"incumbent": "#9aa0a6", "new": "#eb6834", "dropout": "#7d3ac1"}
 TREATED_MARKER    = {False: "o", True: "^"}
-IDENTITY_COLOR    = "#4a4a4a"
-POINT_ALPHA       = 0.14
-POINT_SIZE        = 7
-BIN_COUNT         = 20
+IDENTITY_COLOR         = "#4a4a4a"
+POINT_ALPHA            = 0.14
+POINT_SIZE             = 7
+MIN_BINSCATTER_POINTS  = 30
+MIN_BINSCATTER_UNIQUE  = 5
+BINSCATTER_BINS        = 10
 
 REPO_COUNT_COLUMNS = ["repo_pull_request_opened", "repo_pull_request_reviewed",
                       "repo_pull_request_merged_direct", "repo_pull_request_merged_after_review"]
@@ -63,9 +74,11 @@ def Main():
     stats_records = []
 
     member_panel = LoadMemberData()
+    member_panel = TrimOutlierRepos(member_panel)
 
     org_points = BuildOrgPoints(member_panel)
     PlotOrgFigure(org_points, OUTDIR / "org_prediction_scatter.png", stats_records)
+    PlotOpenedScatter(org_points, OUTDIR / "opened_prediction_scatter.png", AUTOFILL_PATH)
 
     membership = ClassifyMembership(member_panel, dropouts_by_repo)
     member_actor  = BuildMemberActorPoints(member_panel, membership, treatment_by_repo)
@@ -109,9 +122,20 @@ def LoadMemberData():
     return member_panel
 
 
-# ---------------------------------------------------------------------------
-# Organization layer (one point per repo x post-period), predicted from draws.
-# ---------------------------------------------------------------------------
+def TrimOutlierRepos(member_panel):
+    # Match the event-study outlier trim (estimate_model_event_study.R: TrimOutcomeOutlierRepos) so the scatter's
+    # org sample equals the event study's: keep only repos whose pre-period mean of repo_pull_request_opened lies
+    # within the [1%, 99%] quantiles across repos. The pre-window PRE_PERIODS == the R MIN_EVENT_TIME..-1
+    # (max_event_time == PRE_PERIOD_COUNT == 5); numpy's default quantile matches R's type-7.
+    pre = member_panel[member_panel["quasi_event_time"].isin(PRE_PERIODS)]
+    pre_mean = (pre.groupby(["repo_name", "quasi_event_time"])["repo_pull_request_opened"].first()
+                .groupby("repo_name").mean())
+    lo, hi = pre_mean.quantile(TRIM_PROBS[0]), pre_mean.quantile(TRIM_PROBS[1])
+    kept = pre_mean[(pre_mean >= lo) & (pre_mean <= hi)].index
+    print(f"Outlier trim: kept {len(kept)}/{len(pre_mean)} repos "
+          f"(dropped {len(pre_mean) - len(kept)} outside pre-mean-opened [{lo:.2f}, {hi:.2f}])")
+    return member_panel[member_panel["repo_name"].isin(kept)].copy()
+
 
 def BuildOrgPoints(member_panel):
     RequireExists(DRAWS_PATH, "raw_draws.parquet")
@@ -142,10 +166,6 @@ def BuildOrgPoints(member_panel):
     return org
 
 
-# ---------------------------------------------------------------------------
-# Membership classification (incumbent / dropout / new), one label per repo x actor.
-# ---------------------------------------------------------------------------
-
 def ClassifyMembership(member_panel, dropouts_by_repo):
     # Incumbent = any pre-period activity (the member panel is a full member x period grid, so a member's mere
     # presence is not activity); new = active only post-departure (no pre-period activity, so the model gives
@@ -169,10 +189,6 @@ def ClassifyMembership(member_panel, dropouts_by_repo):
                            for repo_name, actor_id in zip(pairs["repo_name"], pairs["actor_id"])]
     return pairs
 
-
-# ---------------------------------------------------------------------------
-# Member (actor) layer: rates over repo opens, predicted = pre-period rate carried forward.
-# ---------------------------------------------------------------------------
 
 MEMBER_ACTOR_PANELS = [
     ("Opens",                          "open"),
@@ -216,10 +232,6 @@ def BuildMemberActorPoints(member_panel, membership, treatment_by_repo):
     return FinalizeMemberPoints(points, [key for _, key in MEMBER_ACTOR_PANELS], treatment_by_repo)
 
 
-# ---------------------------------------------------------------------------
-# Member (conditional-on-open) layer: fitted probs vs post-period own-open ratios.
-# ---------------------------------------------------------------------------
-
 MEMBER_COND_PANELS = [
     ("P(reviewed | opened)",      "prob_review_opened",             "member_pull_request_reviewed_opened",                 "member_pull_request_opened"),
     ("Self direct-merge | open",  "prob_merge_self",                "member_pull_request_merged_self",                     "member_pull_request_opened"),
@@ -253,10 +265,6 @@ def FinalizeMemberPoints(points, keys, treatment_by_repo):
     return points
 
 
-# ---------------------------------------------------------------------------
-# Fitting and plotting.
-# ---------------------------------------------------------------------------
-
 def FitThroughOrigin(predicted, actual):
     predicted = np.asarray(predicted, dtype=float)
     actual = np.asarray(actual, dtype=float)
@@ -269,25 +277,78 @@ def FitThroughOrigin(predicted, actual):
             "se": float(fit.bse[0]), "r_squared": float(fit.rsquared)}
 
 
-def BinnedMeans(predicted, actual, n_bins=BIN_COUNT):
-    # Binscatter: split predicted into quantile bins and return the (mean predicted, mean actual) per bin, so
-    # calibration is legible through the overplotting. None when predicted has too little spread to bin.
-    frame = pd.DataFrame({"predicted": np.asarray(predicted, float), "actual": np.asarray(actual, float)})
-    frame = frame.replace([np.inf, -np.inf], np.nan).dropna()
-    if len(frame) < n_bins or frame["predicted"].nunique() < 2:
-        return None
-    frame["bin"] = pd.qcut(frame["predicted"], q=min(n_bins, frame["predicted"].nunique()), duplicates="drop")
-    binned = frame.groupby("bin", observed=True).agg(predicted=("predicted", "mean"), actual=("actual", "mean"))
-    return binned["predicted"].to_numpy(), binned["actual"].to_numpy()
+def PlotOpenedScatter(org, outpath, autofill_path):
+    fits = {"control": FitThroughOrigin(org.loc[~org["is_treated"], "opened_predicted"], org.loc[~org["is_treated"], "repo_pull_request_opened"]),
+            "treated": FitThroughOrigin(org.loc[org["is_treated"], "opened_predicted"], org.loc[org["is_treated"], "repo_pull_request_opened"]),
+            "pooled":  FitThroughOrigin(org["opened_predicted"], org["repo_pull_request_opened"])}
+
+    fig, ax = plt.subplots(figsize=(6.0, 6.0))
+    axis_max = float(max(org["opened_predicted"].max(), org["repo_pull_request_opened"].max()))
+    for label, mask in [("control", ~org["is_treated"]), ("treated", org["is_treated"])]:
+        subset = org[mask]
+        ax.scatter(subset["opened_predicted"], subset["repo_pull_request_opened"], s=POINT_SIZE,
+                   alpha=POINT_ALPHA, color=ORG_COLORS[label], marker="o", linewidths=0, label=label)
+        ax.plot([0, axis_max], [0, fits[label]["beta"] * axis_max], color=ORG_COLORS[label], linewidth=1.2)
+    ax.plot([0, axis_max], [0, axis_max], color=IDENTITY_COLOR, linestyle="--", linewidth=1, label="45$^\\circ$")
+    ax.set_xscale("symlog", linthresh=1)
+    ax.set_yscale("symlog", linthresh=1)
+    ax.set_xlim(-0.3, axis_max * 1.3)
+    ax.set_ylim(-0.3, axis_max * 1.3)
+    ax.set_xlabel("Predicted pull requests opened")
+    ax.set_ylabel("Actual pull requests opened")
+    ax.spines[["top", "right"]].set_visible(False)
+
+    box_lines = []
+    for label in ("control", "treated"):
+        box_lines.append(label.capitalize())
+        box_lines.append(f"  Slope = {fits[label]['beta']:.2f} ({fits[label]['se']:.2f})")
+        box_lines.append(f"  $R^2$ = {fits[label]['r_squared']:.2f}")
+    ax.text(0.04, 0.96, "\n".join(box_lines), transform=ax.transAxes, va="top", ha="left", fontsize=9,
+            bbox=dict(boxstyle="round,pad=0.4", facecolor="white", edgecolor="0.6", alpha=0.9))
+    ax.legend(loc="lower right", fontsize=8, frameon=False)
+    fig.tight_layout()
+    fig.savefig(outpath, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+    control_slope = fits["control"]["beta"]
+    assert abs(control_slope - 1.0) <= SCATTER_SLOPE_TOLERANCE, \
+        f"Control through-origin slope {control_slope:.3f} is not within {SCATTER_SLOPE_TOLERANCE:.0%} of 1"
+    WriteScatterAutofill(fits, autofill_path)
+
+
+def WriteScatterAutofill(fits, autofill_path):
+    ScatterControlSlope       = fits["control"]["beta"]
+    ScatterTreatedSlope       = fits["treated"]["beta"]
+    ScatterControlRSquaredPct = fits["control"]["r_squared"] * 100
+    ScatterTreatedRSquaredPct = fits["treated"]["r_squared"] * 100
+    autofill_path.parent.mkdir(parents=True, exist_ok=True)
+    GenerateAutofillMacros(
+        [["ScatterControlSlope", "ScatterTreatedSlope"], ["ScatterControlRSquaredPct", "ScatterTreatedRSquaredPct"]],
+        ["{:.2f}", "{:.0f}"],
+        str(autofill_path))
 
 
 def DrawBinScatter(ax, predicted, actual, color, marker):
-    binned = BinnedMeans(predicted, actual)
-    if binned is None:
+    # Cattaneo et al. binscatter (binsreg): up to BINSCATTER_BINS quantile bins, so calibration against the unit
+    # line is legible through the overplotting. Skip groups binsreg cannot bin (tiny, degenerate mass points).
+    predicted = np.asarray(predicted, dtype=float)
+    actual = np.asarray(actual, dtype=float)
+    valid = np.isfinite(predicted) & np.isfinite(actual)
+    predicted, actual = predicted[valid], actual[valid]
+    if len(predicted) < MIN_BINSCATTER_POINTS or np.unique(predicted).size < MIN_BINSCATTER_UNIQUE:
         return
-    bin_predicted, bin_actual = binned
-    ax.plot(bin_predicted, bin_actual, marker=marker, color=color, markersize=6, linewidth=1.2,
-            markeredgecolor="black", markeredgewidth=0.4, zorder=5)
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            estimate = binsreg.binsreg(actual, predicted, noplot=True, nbins=BINSCATTER_BINS)
+    except (ValueError, np.linalg.LinAlgError):
+        return
+    dots = estimate.data_plot[0].dots
+    if dots is None:
+        return
+    dots = dots.dropna(subset=["x", "fit"])
+    ax.plot(dots["x"], dots["fit"], marker=marker, linestyle="none", color=color, markersize=9,
+            markeredgecolor="black", markeredgewidth=0.6, zorder=5)
 
 
 def DrawIdentityLine(ax, group_frames, log_scale=False):
@@ -353,6 +414,13 @@ def PlotMemberFigure(points, panel_specs, outpath, stats_records):
             "predicted": points[f"pred_{key}"], "actual": points[f"act_{key}"],
             "membership": points["membership"], "is_treated": points["is_treated"],
         }).dropna(subset=["predicted", "actual"])
+        # Drop members with no signal on THIS panel's dimension (predicted 0 AND actual 0): the full
+        # member x period grid otherwise piles thousands of trivial points at the origin. Applied per panel,
+        # so membership (esp. "new", which is predicted 0) is figure-specific -- a member appears in the
+        # opens panel only if they opened, in the review panel only if they reviewed, etc. This does not
+        # change any through-origin slope or R^2 (predicted-0 points contribute 0 to all sums); it only
+        # removes the origin clutter and makes each group's n reflect activity on that dimension.
+        frame = frame[~((frame["predicted"] == 0) & (frame["actual"] == 0))]
 
         group_frames = {}
         for membership_label in ["incumbent", "new", "dropout"]:
@@ -368,7 +436,7 @@ def PlotMemberFigure(points, panel_specs, outpath, stats_records):
         for (membership_label, is_treated), subset in group_frames.items():
             if membership_label == "incumbent":
                 DrawBinScatter(ax, subset["predicted"], subset["actual"],
-                               MEMBERSHIP_COLORS["incumbent"], TREATED_MARKER[is_treated])
+                               ORG_COLORS["treated" if is_treated else "control"], TREATED_MARKER[is_treated])
 
         stat_lines = []
         for membership_label, is_treated in [("incumbent", True), ("incumbent", False), ("new", None), ("dropout", None)]:
@@ -389,13 +457,15 @@ def PlotMemberFigure(points, panel_specs, outpath, stats_records):
     membership_handles = [Line2D([0], [0], marker="o", linestyle="", markerfacecolor=color, markeredgecolor="none",
                                  markersize=7, label=membership_label)
                           for membership_label, color in MEMBERSHIP_COLORS.items()]
-    marker_handles = [Line2D([0], [0], marker=TREATED_MARKER[is_treated], linestyle="", color="#555555",
-                             markersize=7, label="treated" if is_treated else "control")
-                      for is_treated in [False, True]]
-    fig.legend(handles=membership_handles, title="membership", loc="lower center", ncol=3,
-               frameon=False, bbox_to_anchor=(0.4, -0.05))
-    fig.legend(handles=marker_handles, title="organization", loc="lower center", ncol=2,
-               frameon=False, bbox_to_anchor=(0.75, -0.05))
+    binscatter_handles = [Line2D([0], [0], marker=TREATED_MARKER[is_treated], linestyle="",
+                                 markerfacecolor=ORG_COLORS["treated" if is_treated else "control"],
+                                 markeredgecolor="black", markeredgewidth=0.6, markersize=9,
+                                 label="treated" if is_treated else "control")
+                          for is_treated in [False, True]]
+    fig.legend(handles=membership_handles, title="raw points (members)", loc="lower center", ncol=3,
+               frameon=False, bbox_to_anchor=(0.38, -0.06))
+    fig.legend(handles=binscatter_handles, title="binscatter (incumbents)", loc="lower center", ncol=2,
+               frameon=False, bbox_to_anchor=(0.74, -0.06))
     fig.suptitle(f"{outpath.stem} (predicted vs actual, post-periods 1–5)", y=1.02)
     fig.tight_layout()
     fig.savefig(outpath, dpi=150, bbox_inches="tight")

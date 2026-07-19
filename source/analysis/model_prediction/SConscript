@@ -1,10 +1,11 @@
 Import('*')
 
 from itertools import product
-from source.lib.python.config_loaders import LoadPipelineInputs, LoadGlobals
+from source.lib.python.config_loaders import LoadPipelineInputs, LoadGlobals, LoadPaperSettings
 
 CONFIG                  = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
 MODEL_PREDICTION_CONFIG = LoadGlobals("../../../source/lib/config/model_prediction.json")
+PAPER_SETTINGS          = LoadPaperSettings("../../../source/lib/config/paper_settings.json")
 
 importance_types      = CONFIG["importance_types"]["run"]
 rolling_label         = f"rolling{CONFIG['rolling_periods']['run'][0]}"
@@ -49,10 +50,15 @@ for variant, distribution_type, estimation_approach, (importance_type, qualified
         f'{parameter_base}/review_fit_check.parquet',
         f'{parameter_base}/review_fit_check.log',
     ]
+# The post-period latent-flow regression coefficients table is written once, for the primary combination.
+primary_parameter_base = OutputBase('parameters', variants[0], distribution_types[0], estimation_approaches[0],
+                                    PAPER_SETTINGS["primary_importance_type"], PAPER_SETTINGS["primary_qualified_sample"],
+                                    PAPER_SETTINGS["primary_control_group"])
+target += [f'{primary_parameter_base}/model_latent_negative_binomial_table.txt']
 source = (['#source/analysis/model_prediction/fit_model.py',
            '#source/lib/model/staged_count_model.py',
            '#source/lib/config/model_prediction.json',
-           '#output/derived/model_prediction/mean_reversion/mean_reversion_estimates.csv']
+           '#source/lib/config/paper_settings.json']
           + shared_dependencies + analysis_panel_sources + member_panel_hash)
 env.Python(target, source)
 fit_outputs = target
@@ -78,8 +84,7 @@ source = (['#source/analysis/model_prediction/predict_model.py',
            '#source/lib/model/staged_count_model.py',
            '#source/lib/config/model_prediction.json',
            '#source/lib/config/global_settings.json',
-           '#source/lib/config/analysis_parameters.json',
-           '#output/derived/model_prediction/mean_reversion/mean_reversion_estimates.csv']
+           '#source/lib/config/analysis_parameters.json']
           + shared_dependencies + fit_outputs + analysis_panel_sources
           + member_panel_hash)
 env.Python(target, source)
@@ -117,4 +122,47 @@ source = (['#source/analysis/model_prediction/evaluate_predictions.py',
            '#source/lib/config/pipeline_inputs.json',
            '#source/lib/config/model_prediction.json']
           + predict_outputs)
+env.Python(target, source)
+
+# Churn/reaction measurement: descriptive facts on natural dropout, entry, and survivor reaction.
+# Reads the member panel + crossmerge and the analysis panel directly, so it does not depend on the
+# fitted model or the draws; it imports the sample definition (trim + membership) from the scatter.
+# Single-spec diagnostic: like the scatter it imports from, it resolves one combination -- the primary
+# (run[0]) one -- so its targets and its analysis-panel dependency are declared for that combination only.
+churn_reaction_base = OutputBase('evaluation', variants[0], distribution_types[0], estimation_approaches[0],
+                                 importance_types[0], qualified_samples[0], control_groups[0]) + '/churn_reaction'
+target = [
+    f'{churn_reaction_base}/churn_decomposition.png',
+    f'{churn_reaction_base}/reaction_by_event_time.png',
+    f'{churn_reaction_base}/churn_reaction_tables.txt',
+]
+primary_analysis_panel = [f'#output/derived/analysis_panel/{importance_types[0]}/{rolling_label}'
+                          f'/{qualified_samples[0]}/{control_groups[0]}/panel.parquet']
+source = (['#source/analysis/model_prediction/measure_churn_reaction.py',
+           '#source/analysis/model_prediction/plot_prediction_scatter.py',
+           '#source/lib/config/model_prediction.json']
+          + shared_dependencies + primary_analysis_panel + member_panel_hash)
+env.Python(target, source)
+
+# Predicted-vs-actual prediction scatter (single-spec, primary/run[0] combination): the paper's opened
+# figure, the org/member diagnostic panels, and the control/treated slope and R^2 autofill macros.
+scatter_base         = OutputBase('evaluation', variants[0], distribution_types[0], estimation_approaches[0],
+                                  importance_types[0], qualified_samples[0], control_groups[0]) + '/scatter'
+scatter_draws        = OutputBase('draws', variants[0], distribution_types[0], estimation_approaches[0],
+                                  importance_types[0], qualified_samples[0], control_groups[0], root='#drive/output') + '/raw_draws.parquet'
+scatter_member_probs = OutputBase('parameters', variants[0], distribution_types[0], estimation_approaches[0],
+                                  importance_types[0], qualified_samples[0], control_groups[0]) + '/member_probabilities.parquet'
+target = [
+    f'{scatter_base}/opened_prediction_scatter.png',
+    f'{scatter_base}/org_prediction_scatter.png',
+    f'{scatter_base}/member_prediction_scatter.png',
+    f'{scatter_base}/member_cond_open_prediction_scatter.png',
+    f'{scatter_base}/prediction_scatter_stats.txt',
+    '#output/autofill/model_prediction_autofill.tex',
+]
+source = (['#source/analysis/model_prediction/plot_prediction_scatter.py',
+           '#source/lib/JMSLab/autofill.py',
+           '#source/lib/config/model_prediction.json',
+           scatter_draws, scatter_member_probs]
+          + shared_dependencies + primary_analysis_panel + member_panel_hash)
 env.Python(target, source)

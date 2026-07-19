@@ -9,13 +9,13 @@ from itertools import product
 from joblib import Parallel, delayed
 
 from source.lib.python.config_loaders import (
-    LoadGlobalSettings, LoadPipelineInputs, LoadAnalysisParameters, LoadModelPredictionConfig, LoadMeanReversionAdj
+    LoadGlobalSettings, LoadPipelineInputs, LoadAnalysisParameters, LoadModelPredictionConfig
 )
 from source.lib.python.repo_utils import MakeRepoNameSafe
 from source.lib.JMSLab.SaveData import SaveData
 from source.lib.model.staged_count_model import (
     FitLatentDistribution, FitMemberProbabilities, ComputeStageProbabilities, DrawCounts,
-    MemberProbabilityRows, MeanReversionAdj, MEMBER_COUNT_COLUMNS
+    MemberProbabilityRows, MEMBER_COUNT_COLUMNS
 )
 
 GLOBAL_SETTINGS         = LoadGlobalSettings()
@@ -77,8 +77,6 @@ def RunCombination(variant, distribution_type, estimation_approach,
     df_dist  = pd.read_parquet(fitted_dir / "distribution_params.parquet")
     df_probs = pd.read_parquet(fitted_dir / "member_probabilities.parquet")
 
-    mean_reversion_adj_table = LoadMeanReversionAdj(importance_type, control_group)
-
     panel_path = (
         INDIR_ANALYSIS_PANEL / importance_type / ROLLING_LABEL
         / qualified_sample / control_group / "panel.parquet"
@@ -87,11 +85,6 @@ def RunCombination(variant, distribution_type, estimation_approach,
     df_all_repos = df_panel[df_panel["quasi_event_time"] == 0][
         ["repo_name", "dropouts_actors", "num_dropouts"]
     ]
-    num_important_qualified_by_repo = {
-        repo_name: dict(zip(group["quasi_event_time"].astype(int),
-                            group["num_important_qualified"].astype(int)))
-        for repo_name, group in df_panel.groupby("repo_name")
-    }
 
     repo_results = Parallel(n_jobs=N_JOBS)(
         delayed(ProcessRepo)(
@@ -101,8 +94,7 @@ def RunCombination(variant, distribution_type, estimation_approach,
             df_dist[df_dist["repo_name"] == row["repo_name"]],
             df_probs[df_probs["repo_name"] == row["repo_name"]],
             variant, importance_type, qualified_sample, control_group,
-            distribution_type, estimation_approach, mean_reversion_adj_table,
-            num_important_qualified_by_repo.get(row["repo_name"], {}),
+            distribution_type, estimation_approach,
         )
         for _, row in df_all_repos.iterrows()
     )
@@ -180,7 +172,7 @@ def CounterfactualStageProbs(surviving_member_probs, df_member, df_crossmerge, d
 def ProcessRepo(repo_name, is_treated, dropout_set,
                 df_dist_repo, df_member_probs,
                 variant, importance_type, qualified_sample, control_group,
-                distribution_type, estimation_approach, mean_reversion_adj_table, num_important_qualified_by_period):
+                distribution_type, estimation_approach):
     if df_dist_repo.empty:
         return None
 
@@ -204,8 +196,7 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
         ].first().reset_index()
     )
     all_periods  = sorted(int(k) for k in df_repo_counts["quasi_event_time"])
-    # Everything downstream is bounded to the +/- PRE_PERIOD_COUNT event-study window; only the
-    # mean-reversion Poisson (compute_mean_reversion.py) uses the full pre-period history.
+    # Everything downstream is bounded to the +/- PRE_PERIOD_COUNT event-study window.
     pre_periods       = [k for k in all_periods if -PRE_PERIOD_COUNT <= k < 0]
     if len(pre_periods) == 0:
         return None
@@ -235,13 +226,12 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
 
     rng = np.random.default_rng(int(hashlib.md5(repo_name.encode()).hexdigest()[:8], 16))
 
-    # F_i is fit at the q==0 baseline rate lambda_i^0 (see FitLatentDistribution), so each period runs at
-    # lambda_i^0 times the member effect a_{i,t} = 1/delta_{q_t} (>= 1, larger with more important members).
-    member_effect     = {k: 1.0 / MeanReversionAdj(mean_reversion_adj_table, num_important_qualified_by_period.get(k, 0)) for k in all_periods}
-    period_multiplier = {k: member_effect[k] for k in all_periods}
-    pre_block       = DrawByMultiplier(repo_distribution, dist_params, full_stage_probs, pre_periods, period_multiplier, N_MODEL_DRAWS, rng)
-    treatment_block = DrawByMultiplier(repo_distribution, dist_params, full_stage_probs, treatment_periods, period_multiplier, N_MODEL_DRAWS, rng)
-    post_block      = DrawByMultiplier(repo_distribution, dist_params, post_stage_probs, post_periods, period_multiplier, N_MODEL_DRAWS, rng)
+    repo_variance_to_mean_ratio = (1.0 / dist_params["negative_binomial_prob"]
+                             if repo_distribution == "negative_binomial" else 1.0)
+    post_distribution, post_dist_params = PostLatentDistribution(dist_row["post_latent_mean"], repo_variance_to_mean_ratio)
+    pre_block       = DrawPeriodBlock(repo_distribution, dist_params, full_stage_probs, pre_periods, N_MODEL_DRAWS, rng)
+    treatment_block = DrawPeriodBlock(repo_distribution, dist_params, full_stage_probs, treatment_periods, N_MODEL_DRAWS, rng)
+    post_block      = DrawPeriodBlock(post_distribution, post_dist_params, post_stage_probs, post_periods, N_MODEL_DRAWS, rng)
     period_draws = {**pre_block, **treatment_block, **post_block}
     period_stage_probs = {k: full_stage_probs for k in pre_periods + treatment_periods}
     period_stage_probs.update({k: post_stage_probs for k in post_periods})
@@ -254,7 +244,7 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
 
     leaveoneout_period_rows, leaveoneout_ref_blocks = LeaveOneOutResiduals(
         repo_name, is_treated, pre_periods, df_member, observed_by_period,
-        distribution_type, estimation_approach, mean_reversion_adj_table, num_important_qualified_by_period, rng)
+        distribution_type, estimation_approach, rng)
 
     return {
         "raw_draws":             raw_draws,
@@ -267,19 +257,21 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
     }
 
 
-def DrawByMultiplier(repo_distribution, dist_params, stage_probs, periods, period_multiplier, n_draws, rng):
-    block = {}
-    for multiplier in sorted({period_multiplier[k] for k in periods}):
-        matched_periods = [k for k in periods if period_multiplier[k] == multiplier]
-        block.update(DrawPeriodBlock(repo_distribution, dist_params, stage_probs, matched_periods, n_draws, rng, multiplier))
-    return block
+def PostLatentDistribution(post_latent_mean, repo_variance_to_mean_ratio):
+    latent_mean = max(float(post_latent_mean), 1e-9)
+    if not np.isfinite(repo_variance_to_mean_ratio) or repo_variance_to_mean_ratio <= 1.0:
+        return "poisson", {"poisson_rate": latent_mean,
+                           "negative_binomial_size": np.nan, "negative_binomial_prob": np.nan}
+    return "negative_binomial", {"poisson_rate": np.nan,
+                                 "negative_binomial_size": latent_mean / (repo_variance_to_mean_ratio - 1.0),
+                                 "negative_binomial_prob": 1.0 / repo_variance_to_mean_ratio}
 
 
-def DrawPeriodBlock(repo_distribution, dist_params, stage_probs, periods, n_draws, rng, latent_rate_multiplier=1.0):
+def DrawPeriodBlock(repo_distribution, dist_params, stage_probs, periods, n_draws, rng):
     if not periods:
         return {}
     n_draws_total = len(periods) * n_draws
-    flat_outcome_draws = DrawCounts(repo_distribution, dist_params, *stage_probs, n_draws_total, rng, latent_rate_multiplier)
+    flat_outcome_draws = DrawCounts(repo_distribution, dist_params, *stage_probs, n_draws_total, rng)
     outcome_draw_grids = [outcome_draws.reshape(len(periods), n_draws) for outcome_draws in flat_outcome_draws]
     return {
         period: tuple(outcome_draw_grid[period_index] for outcome_draw_grid in outcome_draw_grids)
@@ -319,8 +311,7 @@ def ScorePeriods(repo_name, is_treated, periods, observed_by_period, period_draw
 
 
 def LeaveOneOutResiduals(repo_name, is_treated, pre_periods, df_member, observed_by_period,
-                         distribution_type, estimation_approach, mean_reversion_adj_table,
-                         num_important_qualified_by_period, rng):
+                         distribution_type, estimation_approach, rng):
     period_rows = []
     reference_blocks = []
     if len(pre_periods) < 2:
@@ -336,12 +327,8 @@ def LeaveOneOutResiduals(repo_name, is_treated, pre_periods, df_member, observed
     full_member_sums = df_pre.groupby("actor_id")[MEMBER_COUNT_COLUMNS].sum() if estimation_approach == "pooled" else None
 
     for held_out_time in pre_periods:
-        counts_train_series  = repo_counts_by_period["repo_pull_request_opened"].drop(held_out_time)
-        counts_train         = counts_train_series.values.astype(float)
-        member_effects_train = np.array(
-            [1.0 / MeanReversionAdj(mean_reversion_adj_table, num_important_qualified_by_period.get(int(t), 0))
-             for t in counts_train_series.index], dtype=float)
-        dist_loo  = FitLatentDistribution(repo_name, counts_train, member_effects_train, distribution_type)
+        counts_train = repo_counts_by_period["repo_pull_request_opened"].drop(held_out_time).values.astype(float)
+        dist_loo  = FitLatentDistribution(repo_name, counts_train, distribution_type)
         if estimation_approach == "pooled":
             held_member_sums   = df_pre.loc[df_pre["quasi_event_time"] == held_out_time].set_index("actor_id")[MEMBER_COUNT_COLUMNS]
             member_sums_loo    = full_member_sums.subtract(held_member_sums, fill_value=0)
@@ -358,9 +345,7 @@ def LeaveOneOutResiduals(repo_name, is_treated, pre_periods, df_member, observed
             "negative_binomial_size": dist_loo["negative_binomial_size"],
             "negative_binomial_prob": dist_loo["negative_binomial_prob"],
         }
-        # The LOO fit is already at the q==0 baseline, so draw the held-out period at its own member effect.
-        held_out_multiplier = 1.0 / MeanReversionAdj(mean_reversion_adj_table, num_important_qualified_by_period.get(held_out_time, 0))
-        draws = DrawCounts(dist_loo["distribution_type"], dist_params_loo, *probs_loo, N_MODEL_DRAWS, rng, held_out_multiplier)
+        draws = DrawCounts(dist_loo["distribution_type"], dist_params_loo, *probs_loo, N_MODEL_DRAWS, rng)
         observed = observed_by_period[held_out_time]
         squared_residuals = AllSquaredResiduals(observed, *draws)
         signed_residuals  = AllSignedResiduals(observed, *draws)

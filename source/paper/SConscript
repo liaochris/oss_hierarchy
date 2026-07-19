@@ -7,7 +7,8 @@ autofill_sources = [
     '#output/autofill/panel_autofill.tex',
     '#output/autofill/config_autofill.tex',
     '#output/autofill/pc_autofill.tex',
-    '#output/autofill/mean_reversion_autofill.tex',
+    '#output/autofill/overdispersion_autofill.tex',
+    '#output/autofill/model_prediction_autofill.tex',
 ]
 
 table_sources = [
@@ -18,7 +19,7 @@ table_sources = [
     '#output/tables/discussion_quality.tex',
     '#output/tables/investment_in_new_talent.tex',
     '#output/tables/problem_solving_routines.tex',
-    '#output/tables/mean_reversion.tex',
+    '#output/tables/model_latent_negative_binomial.tex',
     '#output/tables/model_fit_signed_pre_period_fit_insample.tex',
     '#output/tables/model_fit_signed_pre_period_fit_leaveoneout.tex',
     '#output/tables/model_fit_signed_post_period_fit.tex',
@@ -75,6 +76,8 @@ figure_sources = [
     '#source/figures/event_study_practice_categories_investment_routines.tex',
     '#source/figures/model_fit_insample.tex',
     '#source/figures/model_fit_post.tex',
+    '#source/figures/actual_treated_model_control.tex',
+    '#source/figures/model_prediction_scatter.tex',
     '#source/figures/model_fit_insample_loo.tex',
     '#source/figures/model_fit_insample_q.tex',
     '#source/figures/model_fit_loo_q.tex',
@@ -124,6 +127,10 @@ figure_asset_sources += [
     f'{MODEL_FIT_DIR}/panels/{kind}/{stem}.png'
     for kind in ['signed', 'squared']
     for stem in MODEL_FIT_STEMS
+]
+figure_asset_sources += [
+    f'{MODEL_FIT_DIR}/scatter/opened_prediction_scatter.png',
+    f'{MODEL_EVENT_STUDY_DIR}/actual_treated_model_control/norm/pull_request_opened.png',
 ]
 
 MODEL_ES_OUTCOMES = [

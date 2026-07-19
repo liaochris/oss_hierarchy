@@ -19,7 +19,8 @@ MODEL_SPEC = "/".join([
     CONFIG["primary_qualified_sample"],
     CONFIG["primary_control_group"],
 ])
-MODEL_FIT_DIR = f'#output/analysis/model_prediction/{MODEL_VARIANT}/{MODEL_DISTRIBUTION}/evaluation/{MODEL_ESTIMATION}/{MODEL_SPEC}'
+MODEL_FIT_DIR   = f'#output/analysis/model_prediction/{MODEL_VARIANT}/{MODEL_DISTRIBUTION}/evaluation/{MODEL_ESTIMATION}/{MODEL_SPEC}'
+MODEL_PARAM_DIR = f'#output/analysis/model_prediction/{MODEL_VARIANT}/{MODEL_DISTRIBUTION}/parameters/{MODEL_ESTIMATION}/{MODEL_SPEC}'
 
 for _kind in ["signed", "squared"]:
     for _stem in ["pre_period_fit_insample", "pre_period_fit_leaveoneout", "post_period_fit"]:
@@ -39,9 +40,9 @@ env.Tablefill(
      f'#output/analysis/analyze_forest/{PRIMARY_SPEC}/norm/tree_depth.txt'])
 
 env.Tablefill(
-    '#output/tables/mean_reversion.tex',
-    ['#source/tables/mean_reversion.tex',
-     '#output/derived/model_prediction/mean_reversion/mean_reversion_table.txt'])
+    '#output/tables/model_latent_negative_binomial.tex',
+    ['#source/tables/model_latent_negative_binomial.tex',
+     f'{MODEL_PARAM_DIR}/model_latent_negative_binomial_table.txt'])
 
 env.Tablefill(
     '#output/tables/pc_score_combo_k2_top3.tex',

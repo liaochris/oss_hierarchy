@@ -33,6 +33,7 @@ setFixest_nthreads(1)   # parallelism comes from mclapply over draws; keep each 
 
 ES_OUTCOMES <- c("pull_request_opened", "pull_request_reviewed",
                  "pull_request_merged_direct", "pull_request_merged_after_review", "pull_request_merged")
+LATENT_FLOW_OUTCOME <- "pull_request_opened"   # the outcome governed by the fitted latent-flow model
 KSTAR       <- 0
 
 # Drop scale-outlier orgs: a handful of very high-volume repos (all controls) dominate the count-weighted
@@ -46,8 +47,9 @@ TRIM_PROBS   <- c(0.01, 0.99)
 Main <- function() {
   samples_data <- setNames(lapply(SUB_SAMPLES, LoadSampleData), SUB_SAMPLES)
 
-  band_rows            <- list()
-  resilience_band_rows <- list()
+  band_rows                       <- list()
+  actual_treated_model_control_rows <- list()
+  resilience_band_rows             <- list()
   for (normalize in NORM_OPTIONS) {
     for (outcome in ES_OUTCOMES) {
       full_sample_bands <- ComputeSampleBands(samples_data, outcome, normalize)
@@ -58,6 +60,19 @@ Main <- function() {
           mutate(sample = sample_name, outcome = outcome, normalize = normalize)
       }
     }
+
+    model_control_samples <- setNames(lapply(SUB_SAMPLES, function(sub_sample)
+      BuildActualTreatedModelControlSample(samples_data[[sub_sample]], LATENT_FLOW_OUTCOME)), SUB_SAMPLES)
+    model_control_bands <- ComputeSampleBands(model_control_samples, LATENT_FLOW_OUTCOME, normalize)
+    for (sample_name in FIGURE_SAMPLES) {
+      PlotActualTreatedModelControl(model_control_bands$band_by_sample[[sample_name]],
+                                    model_control_bands$actual_by_sample[[sample_name]],
+                                    sample_name, LATENT_FLOW_OUTCOME, normalize)
+      actual_treated_model_control_rows[[length(actual_treated_model_control_rows) + 1]] <-
+        model_control_bands$band_by_sample[[sample_name]] %>%
+        mutate(sample = sample_name, outcome = LATENT_FLOW_OUTCOME, normalize = normalize)
+    }
+
     for (covar_type in COVAR_TYPES) {
       resilience_groups_by_subsample <- setNames(
         lapply(SUB_SAMPLES, function(sub_sample) LoadResilienceGroups(sub_sample, covar_type, normalize)), SUB_SAMPLES)
@@ -80,6 +95,12 @@ Main <- function() {
   dir_create(OUTDIR, recurse = TRUE)
   SaveData(band_table, c("sample", "outcome", "normalize", "event_time"),
            file.path(OUTDIR, "band_estimates.csv"), file.path(OUTDIR, "band_estimates.log"), sortbykey = FALSE)
+
+  actual_treated_model_control_table <- bind_rows(actual_treated_model_control_rows) %>%
+    select(sample, outcome, normalize, event_time, p2.5, p50, p97.5, draw_kstar, actual)
+  SaveData(actual_treated_model_control_table, c("sample", "outcome", "normalize", "event_time"),
+           file.path(OUTDIR, "actual_treated_model_control_band_estimates.csv"),
+           file.path(OUTDIR, "actual_treated_model_control_band_estimates.log"), sortbykey = FALSE)
 
   resilience_band_table <- bind_rows(resilience_band_rows) %>%
     select(sample, covar_type, outcome, normalize, split_value, event_time, p2.5, p50, p97.5, draw_kstar, actual)
@@ -313,6 +334,45 @@ PlotBand <- function(event_study_band, actual_results, sample_name, outcome, nor
   PlotEventStudyComparison(
     es_list       = list(list(results = actual_matrix), list(results = model$matrix)),
     legend_labels = c("Actual", "Model"),
+    legend_title  = NULL,
+    add_comparison = FALSE, add_pretrends = TRUE,
+    pt_pch        = c(20, 20),
+    ci_bounds     = list(NULL, model$bounds),
+    ylim          = ComputeSharedYLim(list(actual_matrix, model$matrix))
+  )
+  dev.off()
+}
+
+
+BuildActualTreatedModelControlSample <- function(sample_data, outcome) {
+  treated_repos  <- unique(sample_data$skeleton$repo_name[sample_data$skeleton$treatment_group != 0])
+  actual_treated <- sample_data$actual %>%
+    filter(repo_name %in% treated_repos) %>%
+    transmute(repo_name, quasi_event_time, actual_treated_value = .data[[outcome]])
+  sample_data$draw_list <- lapply(sample_data$draw_list, function(draw)
+    draw %>%
+      left_join(actual_treated, by = c("repo_name", "quasi_event_time")) %>%
+      mutate(!!outcome := if_else(is.na(actual_treated_value), .data[[outcome]], actual_treated_value)) %>%
+      select(-actual_treated_value))
+  sample_data
+}
+
+
+PlotActualTreatedModelControl <- function(event_study_band, actual_results, sample_name, outcome, normalize) {
+  normalization_label <- ifelse(normalize, "norm", "raw")
+  out_path            <- file.path(OUTDIR, VARIANT, DISTRIBUTION, ESTIMATION, IMPORTANCE_TYPE,
+                                   sample_name, CONTROL_GROUP, "actual_treated_model_control", normalization_label,
+                                   paste0(outcome, ".png"))
+  dir_create(dirname(out_path), recurse = TRUE)
+
+  event_labels  <- as.character(event_study_band$event_time)
+  actual_matrix <- actual_results[rownames(actual_results) %in% event_labels, , drop = FALSE]
+  model         <- BandModelMatrices(event_study_band)
+
+  png(out_path, width = 1000, height = 700, res = 110)
+  PlotEventStudyComparison(
+    es_list       = list(list(results = actual_matrix), list(results = model$matrix)),
+    legend_labels = c("Actual (treated + control)", "Modeled control"),
     legend_title  = NULL,
     add_comparison = FALSE, add_pretrends = TRUE,
     pt_pch        = c(20, 20),

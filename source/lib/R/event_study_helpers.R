@@ -239,12 +239,11 @@ PlotEventStudyComparison <- function(es_list, legend_title = NULL, legend_labels
   par(bg = "white", oma = c(0,0,0,0), mar = c(3.2,4,1.2,1.2), xaxs = "r", yaxs = "r",
       mgp = c(3,1.5,0), cex.axis = 1.5, cex.lab = 1.5, las = 1)
 
-  plot_args <- list(object = plot_mats, multi = TRUE, xlab = "Event time (k)", ylab = "",
-    main = title, keep = keep_pattern, drop = "[[:digit:]]{2}", order = event_order,
-    xaxt = "n", yaxt = "n", grid = FALSE)
+  plot_args <- list(xlab = "Event time (k)", ylab = "",
+    main = title, keep = keep_pattern, drop = "[[:digit:]]{2}", order = event_order, grid = FALSE)
   if (!is.null(ylim)) plot_args$ylim <- ylim
   if (!is.null(pt_pch)) plot_args$pt.pch <- pt_pch
-  plot_prms <- do.call(fixest::coefplot, plot_args)$prms
+  plot_prms <- do.call(fixest::coefplot, c(plot_mats, plot_args))$prms
 
   if (!is.null(ci_bounds)) {
     for (i in seq_along(ci_bounds)) {
