@@ -9,7 +9,7 @@ from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 
 from source.derived.analysis_panel.panel_filters import CreateCompletePanel, FilterControlGroup, FilterQualifiedSample
-from source.lib.python.config_loaders import FlattenConfigValues, LoadAnalysisParameters, LoadOutcomeVariables, LoadPipelineInputs
+from source.lib.python.config_loaders import LoadAnalysisParameters, LoadPipelineInputs
 from source.lib.JMSLab.SaveData import SaveData
 
 INDIR = Path("drive/output/derived/org_outcomes_practices/org_panel")
@@ -17,19 +17,19 @@ OUTDIR = Path("output/derived/analysis_panel")
 OUTLIERS_KEPT_SUBDIR = "outliers_kept"
 INDIR_LIB = Path("source/lib")
 
-_analysis_params = LoadAnalysisParameters()
+ANALYSIS_PARAMETERS = LoadAnalysisParameters()
 
-MAX_BASELINE_NA_COUNT = _analysis_params["pc_inclusion_na_threshold"]
-MAX_EVENT_TIME = _analysis_params["max_event_time"]
+MAX_BASELINE_NA_COUNT = ANALYSIS_PARAMETERS["pc_inclusion_na_threshold"]
+MAX_EVENT_TIME = ANALYSIS_PARAMETERS["max_event_time"]
 MIN_EVENT_TIME = -MAX_EVENT_TIME
-N_FOLDS = _analysis_params["n_folds"]
-SEED = _analysis_params["seed"]
+N_FOLDS = ANALYSIS_PARAMETERS["n_folds"]
+SEED = ANALYSIS_PARAMETERS["seed"]
 
-_pipeline_cfg = LoadPipelineInputs()
-IMPORTANCE_TYPES  = _pipeline_cfg["importance_types"]["run"]
-ROLLING_PERIODS   = [f"rolling{p}" for p in _pipeline_cfg["rolling_periods"]["run"]]
-QUALIFIED_SAMPLES = _pipeline_cfg["qualified_samples"]["run"]
-CONTROL_GROUPS    = _pipeline_cfg["control_groups"]["run"]
+PIPELINE_INPUTS = LoadPipelineInputs()
+IMPORTANCE_TYPES  = PIPELINE_INPUTS["importance_types"]["run"]
+ROLLING_PERIODS   = [f"rolling{p}" for p in PIPELINE_INPUTS["rolling_periods"]["run"]]
+QUALIFIED_SAMPLES = PIPELINE_INPUTS["qualified_samples"]["run"]
+CONTROL_GROUPS    = PIPELINE_INPUTS["control_groups"]["run"]
 
 _args            = dict(a.split('=', 1) for a in sys.argv[1:])
 IMPORTANCE_TYPE  = _args['CL_IMPORTANCE_TYPE']
@@ -39,8 +39,7 @@ ROLLING_PERIOD   = _args['CL_ROLLING_PERIOD']
 def Main():
     with open(INDIR_LIB / "pc_groups.json", encoding="utf-8") as fh:
         pc_groups_cfg = json.load(fh)
-    outcome_cfg = LoadOutcomeVariables()
-    active_outcomes = FlattenConfigValues(outcome_cfg, phases=("run",))
+    active_outcomes = ANALYSIS_PARAMETERS["sample_filter_outcomes"]
     ProcessDataset(IMPORTANCE_TYPE, ROLLING_PERIOD, active_outcomes, pc_groups_cfg)
 
 

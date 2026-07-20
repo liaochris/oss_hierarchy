@@ -5,7 +5,7 @@ from source.lib.python.config_loaders import LoadPipelineInputs, LoadPaperSettin
 CONFIG = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
 PAPER_SETTINGS = LoadPaperSettings("../../../source/lib/config/paper_settings.json")
 _outcomes_cfg = LoadOutcomeVariables("../../../source/lib/config/outcome_variables.json")
-PAPER_OUTCOMES = [o for cat in _outcomes_cfg.values() for o in cat.get("run", [])]
+PAPER_OUTCOMES = [o for cat_name, cat in _outcomes_cfg.items() if cat_name != "pull_request_rates" for o in cat.get("run", [])]
 IMPORTANCE_TYPES  = CONFIG["importance_types"]["run"]
 ROLLING_PERIODS   = [f"rolling{p}" for p in CONFIG["rolling_periods"]["run"]]
 QUALIFIED_SAMPLES = CONFIG["qualified_samples"]["run"]

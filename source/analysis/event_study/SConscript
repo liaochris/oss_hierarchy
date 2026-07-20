@@ -16,7 +16,7 @@ _outcomes_cfg = LoadOutcomeVariables("../../../source/lib/config/outcome_variabl
 with open("../../../source/lib/pc_groups.json") as fh:
     _pc_groups_cfg = json.load(fh)
 
-OUTCOMES         = [o for cat in _outcomes_cfg.values() for o in cat.get("run", [])]
+PLOT_OUTCOMES    = [o for cat_name, cat in _outcomes_cfg.items() if cat_name != "pull_request_rates" for o in cat.get("run", [])]
 PC_GROUP_NAMES   = list(_pc_groups_cfg.keys())
 OUTCOME_SAMPLES = CONFIG["outcome_samples"]["run"]
 AGGREGATED_SAMPLES = {"exact_1_2": ["exact1", "exact2"]}
@@ -55,10 +55,10 @@ for outcome_sample in OUTCOME_SAMPLES:
                         f"{base}/estimates.log",
                     ]
                     for norm_label in NORM_LABELS:
-                        for outcome in OUTCOMES:
+                        for outcome in PLOT_OUTCOMES:
                             combo_targets.append(f"{base}/full_sample/{norm_label}/{outcome}.png")
                         for pc_group_name in PC_GROUP_NAMES:
-                            for outcome in OUTCOMES:
+                            for outcome in PLOT_OUTCOMES:
                                 combo_targets.append(
                                     f"{base}/pc_score/{norm_label}/{pc_group_name}_{outcome}_pc_score_split.png"
                                 )

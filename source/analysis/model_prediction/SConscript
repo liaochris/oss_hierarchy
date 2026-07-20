@@ -167,3 +167,14 @@ source = (['#source/analysis/model_prediction/plot_prediction_scatter.py',
            scatter_draws, scatter_member_probs]
           + shared_dependencies + primary_analysis_panel + member_panel_hash)
 env.Python(target, source)
+
+target = ['#output/autofill/overdispersion_autofill.tex']
+source = [
+    '#source/analysis/model_prediction/compute_overdispersion.py',
+    '#source/lib/python/config_loaders.py',
+    '#source/lib/JMSLab/autofill.py',
+    '#source/lib/config/model_prediction.json',
+    '#source/lib/config/paper_settings.json',
+    f'{primary_parameter_base}/distribution_params.parquet',
+]
+env.Python(target, source)

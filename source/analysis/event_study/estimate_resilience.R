@@ -146,30 +146,38 @@ RunPCScoreEventStudies <- function(outcome_specs, pc_group_cfg, outdir_slice,
 
   for (spec in outcome_specs) {
     for (pc_group_name in names(pc_group_cfg)) {
-      if (aggregated) {
-        friendly_label <- pc_group_cfg[[pc_group_name]]$friendly_label
-        agg_by_side <- setNames(lapply(c("low", "high"), function(split_side) {
-          repo_field      <- paste0("repo_", split_side)
-          sub_side_panels <- mapply(
-            function(sub_panel, pc_groups) sub_panel %>% filter(repo_name %in% pc_groups[[pc_group_name]][[repo_field]]),
-            sub_pc_score_panels, sub_pc_score_groups, SIMPLIFY = FALSE
-          )
-          n_treated    <- vapply(sub_side_panels, function(p) length(unique(p$repo_name[p$treatment_group != 0])), integer(1))
-          side_results <- lapply(sub_side_panels, function(p)
-            FitEventStudy(p, spec$outcome, control_group, "sa", normalize = spec$normalize, title = "")$results)
-          WeightedAggregateCoefMatrix(side_results, n_treated)
-        }), c("low", "high"))
-        es_list <- lapply(agg_by_side, function(m) list(results = m))
-      } else {
-        split_group    <- pc_groups[[pc_group_name]]
-        friendly_label <- split_group$friendly_label
-        es_low  <- FitEventStudy(panel %>% filter(repo_name %in% split_group$repo_low),
-                                 spec$outcome, control_group, "sa", title = "", normalize = spec$normalize)
-        es_high <- FitEventStudy(panel %>% filter(repo_name %in% split_group$repo_high),
-                                 spec$outcome, control_group, "sa", title = "", normalize = spec$normalize)
-        agg_by_side <- list(low = es_low$results, high = es_high$results)
-        es_list     <- list(es_low, es_high)
-      }
+      fit <- tryCatch({
+        if (aggregated) {
+          agg_by_side <- setNames(lapply(c("low", "high"), function(split_side) {
+            repo_field      <- paste0("repo_", split_side)
+            sub_side_panels <- mapply(
+              function(sub_panel, pc_groups) sub_panel %>% filter(repo_name %in% pc_groups[[pc_group_name]][[repo_field]]),
+              sub_pc_score_panels, sub_pc_score_groups, SIMPLIFY = FALSE
+            )
+            n_treated    <- vapply(sub_side_panels, function(p) length(unique(p$repo_name[p$treatment_group != 0])), integer(1))
+            side_results <- lapply(sub_side_panels, function(p)
+              FitEventStudy(p, spec$outcome, control_group, "sa", normalize = spec$normalize, title = "")$results)
+            WeightedAggregateCoefMatrix(side_results, n_treated)
+          }), c("low", "high"))
+          list(friendly_label = pc_group_cfg[[pc_group_name]]$friendly_label,
+               agg_by_side = agg_by_side, es_list = lapply(agg_by_side, function(m) list(results = m)))
+        } else {
+          split_group <- pc_groups[[pc_group_name]]
+          es_low  <- FitEventStudy(panel %>% filter(repo_name %in% split_group$repo_low),
+                                   spec$outcome, control_group, "sa", title = "", normalize = spec$normalize)
+          es_high <- FitEventStudy(panel %>% filter(repo_name %in% split_group$repo_high),
+                                   spec$outcome, control_group, "sa", title = "", normalize = spec$normalize)
+          list(friendly_label = split_group$friendly_label,
+               agg_by_side = list(low = es_low$results, high = es_high$results), es_list = list(es_low, es_high))
+        }
+      }, error = function(e) {
+        warning(sprintf("event_study: skipping outcome '%s' pc_group '%s': %s", spec$outcome, pc_group_name, conditionMessage(e)))
+        NULL
+      })
+      if (is.null(fit)) next
+      friendly_label <- fit$friendly_label
+      agg_by_side    <- fit$agg_by_side
+      es_list        <- fit$es_list
 
       norm_label <- ifelse(spec$normalize, "norm", "raw")
       out_path   <- file.path(outdir_pc_score, norm_label,

@@ -7,7 +7,7 @@ from joblib import Parallel, delayed
 from source.lib.python.filesystem_utils import CleanDirs, WriteContentHash
 from source.lib.python.data_utils import ImputeTimePeriod
 from source.lib.python.config_loaders import LoadGlobalSettings, LoadImportanceSpecifications, LoadGlobals
-from source.derived.org_outcomes_practices.helpers import ApplyRolling, ConcatStatsByTimePeriod, FilterOnImportant, FirstFilePresence, LoadBotList, LoadFilteredImportantMembers
+from source.derived.org_outcomes_practices.helpers import ConcatStatsByTimePeriod, FilterOnImportant, FirstFilePresence, LoadBotList, LoadFilteredImportantMembers
 from source.lib.JMSLab.SaveData import SaveData
 
 _globals              = LoadGlobalSettings()

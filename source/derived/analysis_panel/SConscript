@@ -1,5 +1,6 @@
 Import('*')
 
+from itertools import product
 from source.lib.python.config_loaders import LoadPipelineInputs
 
 CONFIG = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
@@ -7,6 +8,8 @@ IMPORTANCE_TYPES     = CONFIG["importance_types"]["run"]
 ROLLING_PERIODS      = [f"rolling{p}" for p in CONFIG["rolling_periods"]["run"]]
 QUALIFIED_SAMPLES    = CONFIG["qualified_samples"]["run"]
 CONTROL_GROUPS       = CONFIG["control_groups"]["run"]
+OUTCOME_SAMPLES      = CONFIG["outcome_samples"]["run"]
+ROLLING_PERIOD       = f"rolling{CONFIG['rolling_periods']['run'][0]}"
 OUTPUT_FILES         = [
     "panel.parquet", "panel.log",
     "pc_score_metadata.csv", "pc_score_metadata.log",
@@ -14,20 +17,18 @@ OUTPUT_FILES         = [
     "pc_score_columns.json",
 ]
 
-helper_sources = [
+prepare_sources = [
     '#source/derived/analysis_panel/prepare_panel.py',
     '#source/derived/analysis_panel/panel_filters.py',
     '#source/lib/config/analysis_parameters.json',
-    '#source/lib/config/outcome_variables.json',
     '#source/lib/config/pipeline_inputs.json',
-    '#source/lib/config/paper_settings.json',
     '#source/lib/pc_groups.json',
 ]
 
 for importance_type in IMPORTANCE_TYPES:
     for rolling_period in ROLLING_PERIODS:
         panel_source = f'#drive/output/derived/org_outcomes_practices/org_panel/{importance_type}/{rolling_period}/panel.parquet'
-        call_sources = helper_sources + [panel_source]
+        call_sources = prepare_sources + [panel_source]
 
         call_targets = []
         for qualified_sample in QUALIFIED_SAMPLES:
@@ -37,3 +38,32 @@ for importance_type in IMPORTANCE_TYPES:
 
         env.Python(call_targets, call_sources,
                    CL_ARG=[f'CL_IMPORTANCE_TYPE={importance_type}', f'CL_ROLLING_PERIOD={rolling_period}'])
+
+combos = list(product(IMPORTANCE_TYPES, QUALIFIED_SAMPLES, CONTROL_GROUPS))
+
+outcome_sample_sources = [
+    '#source/derived/analysis_panel/build_outcome_sample_panel.py',
+    '#source/lib/python/pull_request_stages.py',
+    '#source/lib/python/data_utils.py',
+    '#source/lib/python/config_loaders.py',
+    '#source/lib/python/repo_utils.py',
+    '#source/derived/org_outcomes_practices/helpers.py',
+    '#source/lib/JMSLab/SaveData.py',
+    '#source/lib/config/global_settings.json',
+    '#source/lib/config/pipeline_inputs.json',
+    '#source/lib/config/analysis_parameters.json',
+    '#output/derived/hashes/repo_actions.txt',
+    '#output/derived/create_bot_list/bot_list.csv',
+]
+for importance_type, qualified_sample, control_group in combos:
+    base = f'#output/derived/analysis_panel/outliers_kept/{importance_type}/{ROLLING_PERIOD}/{qualified_sample}/{control_group}'
+    outcome_sample_sources += [f'{base}/panel.parquet', f'{base}/pc_score_columns.json']
+
+outcome_sample_files = ["panel.parquet", "panel.log", "pc_score_columns.json"]
+outcome_sample_targets = [
+    f'#output/derived/analysis_panel/{outcome_sample}/{importance_type}/{ROLLING_PERIOD}/{qualified_sample}/{control_group}/{panel_file}'
+    for outcome_sample in OUTCOME_SAMPLES
+    for importance_type, qualified_sample, control_group in combos
+    for panel_file in outcome_sample_files
+]
+env.Python(outcome_sample_targets, outcome_sample_sources)

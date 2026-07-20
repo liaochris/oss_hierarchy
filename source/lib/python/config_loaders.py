@@ -27,14 +27,6 @@ def LoadAnalysisParameters(json_path=None):
     return LoadGlobals(json_path or CONFIG_DIR / "analysis_parameters.json")
 
 
-def LoadPlotSettings(json_path=None):
-    return LoadGlobals(json_path or CONFIG_DIR / "plotting.json")
-
-
-def LoadFeatureVariables(json_path=None):
-    return LoadGlobals(json_path or CONFIG_DIR / "feature_variables.json")
-
-
 def LoadOutcomeVariables(json_path=None):
     return LoadGlobals(json_path or CONFIG_DIR / "outcome_variables.json")
 

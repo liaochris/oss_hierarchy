@@ -1,10 +1,9 @@
 Import('*')
 
 from itertools import product
-from source.lib.python.config_loaders import LoadPipelineInputs, LoadPaperSettings
+from source.lib.python.config_loaders import LoadPipelineInputs
 
-CONFIG         = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
-PAPER_SETTINGS = LoadPaperSettings("../../../source/lib/config/paper_settings.json")
+CONFIG = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
 
 importance_types  = CONFIG["importance_types"]["run"]
 rolling_period    = f"rolling{CONFIG['rolling_periods']['run'][0]}"
@@ -18,6 +17,7 @@ script_deps = [
     '#source/derived/org_outcomes_practices/helpers.py',
     '#source/lib/python/config_loaders.py',
     '#source/lib/python/data_utils.py',
+    '#source/lib/python/pull_request_stages.py',
     '#source/lib/python/repo_utils.py',
     '#source/lib/python/filesystem_utils.py',
     '#source/lib/JMSLab/SaveData.py',
@@ -33,42 +33,4 @@ panel_sources = [
     for importance_type, qualified_sample, control_group in combos
 ]
 
-outcome_samples = CONFIG["outcome_samples"]["run"]
-outcome_sample_panel_files = ["panel.parquet", "panel.log", "pc_score_columns.json"]
-outcome_sample_panel_targets = [
-    f'#output/derived/analysis_panel/{outcome_sample}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/{panel_file}'
-    for outcome_sample in outcome_samples
-    for importance_type, qualified_sample, control_group in combos
-    for panel_file in outcome_sample_panel_files
-]
-
-target = [
-    '#output/derived/hashes/event_time_member_panel.txt',
-] + outcome_sample_panel_targets
-source = script_deps + panel_sources
-env.Python(target, source)
-
-from source.lib.python.config_loaders import LoadGlobals
-MODEL_PREDICTION_CONFIG = LoadGlobals("../../../source/lib/config/model_prediction.json")
-model_outcome_sample      = MODEL_PREDICTION_CONFIG["outcome_samples"]["run"][0]
-model_distribution = MODEL_PREDICTION_CONFIG["distribution_types"]["run"][0]
-model_estimation   = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"][0]
-distribution_params_source = (
-    f'#output/analysis/model_prediction/{model_outcome_sample}/{model_distribution}/parameters/{model_estimation}/'
-    f'{PAPER_SETTINGS["primary_importance_type"]}/{PAPER_SETTINGS["primary_qualified_sample"]}/'
-    f'{PAPER_SETTINGS["primary_control_group"]}/distribution_params.parquet'
-)
-
-source = [
-    '#source/derived/model_prediction/compute_overdispersion.py',
-    '#source/lib/python/config_loaders.py',
-    '#source/lib/JMSLab/autofill.py',
-    '#source/lib/config/model_prediction.json',
-    '#source/lib/config/paper_settings.json',
-    distribution_params_source,
-]
-
-env.Python(
-    ['#output/autofill/overdispersion_autofill.tex'],
-    source,
-)
+env.Python(['#output/derived/hashes/event_time_member_panel.txt'], script_deps + panel_sources)

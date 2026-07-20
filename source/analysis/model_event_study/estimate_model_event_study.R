@@ -27,13 +27,24 @@ RESILIENCE_GROUPS <- c("high", "low")
 
 GLOBAL_SETTINGS <- LoadProjectConfig("source/lib/config/global_settings.json")
 N_CORES         <- GLOBAL_SETTINGS$n_jobs
-setFixest_nthreads(1)   # parallelism comes from mclapply over draw chunks; keep each fit single-threaded so the forks do not oversubscribe
-setFixest_nthreads(1)   # parallelism comes from mclapply over draws; keep each fit single-threaded so the forks do not oversubscribe
+setFixest_nthreads(1)
 
-ES_OUTCOMES <- c("pull_request_opened", "pull_request_reviewed",
-                 "pull_request_merged_direct", "pull_request_merged_after_review", "pull_request_merged")
-LATENT_FLOW_OUTCOME <- "pull_request_opened"   # the outcome governed by the fitted latent-flow model
+ES_COUNT_OUTCOMES <- c("pull_request_opened", "pull_request_reviewed",
+                       "pull_request_merged_direct", "pull_request_merged_after_review", "pull_request_merged")
+ES_RATE_OUTCOMES  <- c("merge_rate", "review_rate", "direct_merge_rate", "reviewed_merge_rate")
+ES_OUTCOMES <- c(ES_COUNT_OUTCOMES, ES_RATE_OUTCOMES)
+LATENT_FLOW_OUTCOME <- "pull_request_opened"
 KSTAR       <- 0
+
+
+AddRateOutcomes <- function(df) {
+  df %>% mutate(
+    merge_rate          = if_else(pull_request_opened   == 0, NA_real_, pull_request_merged              / pull_request_opened),
+    review_rate         = if_else(pull_request_opened   == 0, NA_real_, pull_request_reviewed            / pull_request_opened),
+    direct_merge_rate   = if_else(pull_request_opened   == 0, NA_real_, pull_request_merged_direct       / pull_request_opened),
+    reviewed_merge_rate = if_else(pull_request_reviewed == 0, NA_real_, pull_request_merged_after_review / pull_request_reviewed)
+  )
+}
 
 
 Main <- function() {
@@ -132,9 +143,10 @@ LoadSampleData <- function(sub_sample) {
   actual_panel <- panel %>% filter(repo_name %in% common_repos)
   skeleton     <- actual_panel %>% select(-any_of(ES_OUTCOMES))
   draws        <- draws %>% filter(repo_name %in% common_repos) %>%
-    select(repo_name, quasi_event_time, draw_id, all_of(ES_OUTCOMES))
+    select(repo_name, quasi_event_time, draw_id, all_of(ES_COUNT_OUTCOMES)) %>%
+    AddRateOutcomes()
 
-  stopifnot(!anyNA(actual_panel[ES_OUTCOMES]))
+  stopifnot(!anyNA(actual_panel[ES_COUNT_OUTCOMES]))
 
   list(
     skeleton  = skeleton,
@@ -186,6 +198,17 @@ DrawPointEstimates <- function(sample_data, outcome, normalize) {
 
 
 ChunkPointEstimates <- function(sample_data, outcome, normalize, chunk_draw_ids) {
+  # Rates carry 0/0 NA, so draws do not share a sample; multi-LHS batching requires a common sample and
+  # fails on heterogeneous NA, so rates are fit one draw at a time (identical to the per-column batched fit).
+  if (outcome %in% ES_RATE_OUTCOMES) {
+    return(map_dfr(chunk_draw_ids, function(draw_id) {
+      draw_column <- paste0("draw_", draw_id)
+      fit <- feols(as.formula(sprintf(
+        "%s ~ sunab(treatment_group, time_index, ref.p=-1) | repo_name + time_index", draw_column)),
+        WideDrawPanel(sample_data, outcome, normalize, draw_id, draw_column))
+      EventTimeCoefficients(coef(fit)) %>% mutate(draw_id = as.integer(draw_id))
+    }))
+  }
   draw_columns <- paste0("draw_", chunk_draw_ids)
   wide_panel   <- WideDrawPanel(sample_data, outcome, normalize, chunk_draw_ids, draw_columns)
   multi_fit    <- feols(as.formula(sprintf(
