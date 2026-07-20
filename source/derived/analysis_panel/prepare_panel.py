@@ -9,15 +9,13 @@ from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 
 from source.derived.analysis_panel.panel_filters import CreateCompletePanel, FilterControlGroup, FilterQualifiedSample
-from source.lib.python.config_loaders import FlattenConfigValues, LoadAnalysisParameters, LoadOutcomeVariables, LoadPaperSettings, LoadPipelineInputs
+from source.lib.python.config_loaders import FlattenConfigValues, LoadAnalysisParameters, LoadOutcomeVariables, LoadPipelineInputs
 from source.lib.JMSLab.SaveData import SaveData
-from source.lib.JMSLab.autofill import GenerateAutofillMacros
 
 INDIR = Path("drive/output/derived/org_outcomes_practices/org_panel")
 OUTDIR = Path("output/derived/analysis_panel")
+OUTLIERS_KEPT_SUBDIR = "outliers_kept"
 INDIR_LIB = Path("source/lib")
-AUTOFILL_OUTDIR = Path("output/autofill")
-TABLES_OUTDIR = Path("output/derived/analysis_panel")
 
 _analysis_params = LoadAnalysisParameters()
 
@@ -32,12 +30,6 @@ IMPORTANCE_TYPES  = _pipeline_cfg["importance_types"]["run"]
 ROLLING_PERIODS   = [f"rolling{p}" for p in _pipeline_cfg["rolling_periods"]["run"]]
 QUALIFIED_SAMPLES = _pipeline_cfg["qualified_samples"]["run"]
 CONTROL_GROUPS    = _pipeline_cfg["control_groups"]["run"]
-
-_paper_settings          = LoadPaperSettings()
-PRIMARY_IMPORTANCE_TYPE  = _paper_settings["primary_importance_type"]
-PRIMARY_QUALIFIED_SAMPLE = _paper_settings["primary_qualified_sample"]
-PRIMARY_ROLLING_LABEL    = _paper_settings["primary_rolling_label"]
-PRIMARY_CONTROL_GROUP    = _paper_settings["primary_control_group"]
 
 _args            = dict(a.split('=', 1) for a in sys.argv[1:])
 IMPORTANCE_TYPE  = _args['CL_IMPORTANCE_TYPE']
@@ -64,13 +56,8 @@ def ProcessDataset(importance_type, rolling_period, active_outcomes, pc_groups_c
                 prepared_panel, pc_groups_cfg, rolling_period, repo_fold)
             SaveSampleOutputs(
                 prepared_panel, repo_pc_scores, pc_loading_metadata, pc_excluded_vars,
-                OUTDIR / importance_type / rolling_period / qualified_sample / control_group,
+                OUTDIR / OUTLIERS_KEPT_SUBDIR / importance_type / rolling_period / qualified_sample / control_group,
             )
-            if (importance_type == PRIMARY_IMPORTANCE_TYPE
-                    and rolling_period == PRIMARY_ROLLING_LABEL
-                    and qualified_sample == PRIMARY_QUALIFIED_SAMPLE
-                    and control_group == PRIMARY_CONTROL_GROUP):
-                GenerateCanonicalAutofill(prepared_panel, repo_pc_scores, pc_loading_metadata, pc_groups_cfg)
 
 
 def BuildPreparedSample(panel, active_outcomes, qualified_sample, control_group):
@@ -226,80 +213,6 @@ def SaveSampleOutputs(panel, repo_pc_scores, pc_loading_metadata, pc_excluded_va
     SaveData(pc_loading_metadata, ["group", "var"], outdir / "pc_score_metadata.csv", outdir / "pc_score_metadata.log")
     SaveData(pc_excluded_vars, ["group", "var"],
              outdir / "pc_score_excluded_vars.csv", outdir / "pc_score_excluded_vars.log")
-
-
-def GenerateCanonicalAutofill(panel, repo_pc_scores, pc_loading_metadata, pc_groups_cfg):
-    AUTOFILL_OUTDIR.mkdir(parents=True, exist_ok=True)
-
-    pc_score_cols = [c for c in repo_pc_scores.columns if c.endswith("_pc_score")]
-    NumOrgs = str(repo_pc_scores.dropna(subset=pc_score_cols)["repo_name"].nunique())
-    SampleStart = str(int(panel["time_period"].min().year))
-    SampleEnd = str(int(panel["time_period"].max().year))
-    GenerateAutofillMacros(
-        ["NumOrgs", "SampleStart", "SampleEnd"],
-        "{}",
-        str(AUTOFILL_OUTDIR / "panel_autofill.tex"),
-    )
-
-    variance = (
-        pc_loading_metadata.drop_duplicates("group")
-        .set_index("group")["variance_explained_pc_score"]
-    )
-    CollabVarianceExplained = variance.get("collaboration", float("nan"))
-    KnowledgeVarianceExplained = variance.get("knowledge_level", float("nan"))
-    DiscussionVarianceExplained = variance.get("discussion_quality", float("nan"))
-    TalentVarianceExplained = variance.get("investment_in_new_talent", float("nan"))
-    RoutinesVarianceExplained = variance.get("problem_solving_routines", float("nan"))
-
-    total_repos = len(repo_pc_scores)
-    binary_scores = CoarsenScoresToAboveBelowMedian(repo_pc_scores)
-    def _excl_pct(group_name):
-        col = f"{group_name}_pc_score_binary"
-        n_missing = binary_scores[col].isna().sum() if col in binary_scores.columns else 0
-        return n_missing / total_repos * 100
-    CollabPCExcludedPct     = _excl_pct("collaboration")
-    KnowledgePCExcludedPct  = _excl_pct("knowledge_level")
-    DiscussionPCExcludedPct = _excl_pct("discussion_quality")
-    TalentPCExcludedPct     = _excl_pct("investment_in_new_talent")
-    RoutinesPCExcludedPct   = _excl_pct("problem_solving_routines")
-
-    GenerateAutofillMacros(
-        ["CollabVarianceExplained", "KnowledgeVarianceExplained",
-         "DiscussionVarianceExplained", "TalentVarianceExplained",
-         "RoutinesVarianceExplained",
-         "CollabPCExcludedPct", "KnowledgePCExcludedPct",
-         "DiscussionPCExcludedPct", "TalentPCExcludedPct", "RoutinesPCExcludedPct"],
-        "{:.1f}",
-        str(AUTOFILL_OUTDIR / "pc_autofill.tex"),
-    )
-
-    GeneratePCLoadingTablefills(pc_loading_metadata, pc_groups_cfg, TABLES_OUTDIR)
-
-
-def GeneratePCLoadingTablefills(pc_loading_metadata, pc_groups_cfg, autofill_outdir):
-    valid_groups = {
-        "collaboration",
-        "knowledge_level",
-        "discussion_quality",
-        "investment_in_new_talent",
-        "problem_solving_routines",
-    }
-    for group_name, cfg in pc_groups_cfg.items():
-        if group_name not in valid_groups:
-            continue
-        group_meta = pc_loading_metadata[pc_loading_metadata["group"] == group_name].copy()
-        if group_meta.empty:
-            continue
-        var_order = cfg["vars"]
-        group_meta["_order"] = pd.Categorical(group_meta["var"], categories=var_order, ordered=True)
-        group_meta = group_meta.sort_values("_order").drop(columns="_order")
-        loadings = -group_meta["loading"] if cfg["sign_flip"] else group_meta["loading"]
-        tab_label = f"{group_name}_metrics"
-        lines = [f"<tab:{tab_label}>"] + [f"{v:.3f}" for v in loadings]
-        autofill_outdir.mkdir(parents=True, exist_ok=True)
-        (autofill_outdir / f"pc_loadings_{group_name}.txt").write_text(
-            "\n".join(lines) + "\n", encoding="utf-8"
-        )
 
 
 def CoarsenScoresToAboveBelowMedian(repo_pc_scores):

@@ -5,7 +5,7 @@ source("source/lib/R/config_loaders.R")
 source("source/lib/R/analysis_utils.R")
 source("source/lib/R/constants.R")
 
-INDIR_PREP <- "output/derived/analysis_panel"
+INDIR_PREP <- file.path("output/derived/analysis_panel", PRIMARY_OUTCOME_SAMPLE)
 
 LoadAnalysisPanel <- function(importance_type, rolling_panel, qualified_sample, control_group) {
   if (qualified_sample %in% names(AGGREGATED_SAMPLES)) {

@@ -2,6 +2,7 @@ Import('*')
 from source.lib.python.config_loaders import LoadPaperSettings, LoadGlobals
 
 CONFIG = LoadPaperSettings("../../source/lib/config/paper_settings.json")
+PRIMARY_OUTCOME_SAMPLE = CONFIG["primary_outcome_sample"]
 PRIMARY_SPEC = "/".join([
     CONFIG["primary_importance_type"],
     CONFIG["primary_rolling_label"],
@@ -9,13 +10,13 @@ PRIMARY_SPEC = "/".join([
     CONFIG["primary_control_group"],
 ])
 
-EVENT_STUDY_DIR = f'#output/analysis/event_study/{PRIMARY_SPEC}'
-FOREST_DIR = f'#output/analysis/event_study_forest/{PRIMARY_SPEC}'
+EVENT_STUDY_DIR = f'#output/analysis/event_study/{PRIMARY_OUTCOME_SAMPLE}/{PRIMARY_SPEC}'
+FOREST_DIR = f'#output/analysis/event_study_forest/{PRIMARY_OUTCOME_SAMPLE}/{PRIMARY_SPEC}'
 ANALYZE_FOREST_DIR = f'#output/analysis/analyze_forest/{PRIMARY_SPEC}/norm'
 
 # Model outputs carry no rolling label, unlike PRIMARY_SPEC.
 MODEL_PREDICTION_CONFIG = LoadGlobals("../../source/lib/config/model_prediction.json")
-MODEL_VARIANT      = MODEL_PREDICTION_CONFIG["variants"]["run"][0]
+MODEL_OUTCOME_SAMPLE      = MODEL_PREDICTION_CONFIG["outcome_samples"]["run"][0]
 MODEL_DISTRIBUTION = MODEL_PREDICTION_CONFIG["distribution_types"]["run"][0]
 MODEL_ESTIMATION   = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"][0]
 MODEL_SPEC = "/".join([
@@ -23,8 +24,8 @@ MODEL_SPEC = "/".join([
     CONFIG["primary_qualified_sample"],
     CONFIG["primary_control_group"],
 ])
-MODEL_FIT_DIR         = f'#output/analysis/model_prediction/{MODEL_VARIANT}/{MODEL_DISTRIBUTION}/evaluation/{MODEL_ESTIMATION}/{MODEL_SPEC}'
-MODEL_EVENT_STUDY_DIR = f'#output/analysis/model_event_study/{MODEL_VARIANT}/{MODEL_DISTRIBUTION}/{MODEL_ESTIMATION}/{MODEL_SPEC}'
+MODEL_FIT_DIR         = f'#output/analysis/model_prediction/{MODEL_OUTCOME_SAMPLE}/{MODEL_DISTRIBUTION}/evaluation/{MODEL_ESTIMATION}/{MODEL_SPEC}'
+MODEL_EVENT_STUDY_DIR = f'#output/analysis/model_event_study/{MODEL_OUTCOME_SAMPLE}/{MODEL_DISTRIBUTION}/{MODEL_ESTIMATION}/{MODEL_SPEC}'
 
 OUTCOMES = ['pull_request_opened', 'pull_request_merged', 'overall_new_release_count']
 

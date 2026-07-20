@@ -10,14 +10,16 @@ OUTDIR <- "output/analysis/event_study"
 
 Main <- function() {
   all_dfs <- list()
-  for (importance_type in IMPORTANCE_TYPES) {
-    for (rolling_panel in ROLLING_LABELS) {
-      for (qualified_sample in QUALIFIED_SAMPLES) {
-        for (control_group in CONTROL_GROUPS) {
-          path <- file.path(INDIR, importance_type, rolling_panel,
-                            qualified_sample, control_group, "estimates.csv")
-          if (file.exists(path)) {
-            all_dfs <- c(all_dfs, list(read_csv(path, show_col_types = FALSE)))
+  for (outcome_sample in OUTCOME_SAMPLES) {
+    for (importance_type in IMPORTANCE_TYPES) {
+      for (rolling_panel in ROLLING_LABELS) {
+        for (qualified_sample in QUALIFIED_SAMPLES) {
+          for (control_group in CONTROL_GROUPS) {
+            path <- file.path(INDIR, outcome_sample, importance_type, rolling_panel,
+                              qualified_sample, control_group, "estimates.csv")
+            if (file.exists(path)) {
+              all_dfs <- c(all_dfs, list(read_csv(path, show_col_types = FALSE)))
+            }
           }
         }
       }
@@ -33,7 +35,7 @@ Main <- function() {
   dir_create(OUTDIR)
   SaveData(
     coeffs_df,
-    c("importance_type", "rolling", "qualified_sample", "control_group", "split_type",
+    c("outcome_sample", "importance_type", "rolling", "qualified_sample", "control_group", "split_type",
       "split_covar", "split_value", "category", "outcome", "normalize", "method", "event_time"),
     file.path(OUTDIR, "all_estimates.csv"),
     file.path(OUTDIR, "all_estimates.log"),
@@ -46,6 +48,7 @@ Main <- function() {
 GenerateEventStudyAutofill <- function(coeffs_df) {
   canonical <- coeffs_df %>%
     filter(
+      outcome_sample          == PRIMARY_OUTCOME_SAMPLE,
       importance_type  == PRIMARY_IMPORTANCE_TYPE,
       rolling          == PRIMARY_ROLLING_LABEL,
       qualified_sample == PRIMARY_QUALIFIED_SAMPLE,

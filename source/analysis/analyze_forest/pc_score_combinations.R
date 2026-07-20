@@ -4,7 +4,7 @@ library(fs)
 
 source("source/analysis/analyze_forest/helpers.R")
 
-INDIR_FOREST <- "output/analysis/event_study_forest"
+INDIR_FOREST <- file.path("output/analysis/event_study_forest", PRIMARY_OUTCOME_SAMPLE)
 OUTDIR       <- "output/analysis/analyze_forest"
 
 Main <- function() {

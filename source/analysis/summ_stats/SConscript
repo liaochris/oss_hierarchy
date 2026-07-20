@@ -11,6 +11,10 @@ reference_repo_safe_name = MakeRepoNameSafe(reference_repo)
 importance_type = paper_cfg["primary_importance_type"]
 rolling_label = paper_cfg["primary_rolling_label"]
 control_group = paper_cfg["primary_control_group"]
+outcome_sample = paper_cfg["primary_outcome_sample"]
+primary_qualified_sample = paper_cfg["primary_qualified_sample"]
+pc_groups = ["collaboration", "knowledge_level", "discussion_quality",
+             "investment_in_new_talent", "problem_solving_routines"]
 exact_samples = sorted(
     [s for s in pipeline_cfg["qualified_samples"]["run"] if "_" not in s],
     key=lambda s: int(s.removeprefix("exact"))
@@ -24,6 +28,7 @@ summary_source = [
     '#source/lib/config/importance_specifications.json',
     '#source/lib/config/paper_settings.json',
     '#source/lib/config/feature_variables.json',
+    '#source/lib/pc_groups.json',
     '#output/scrape/pypi_downloads/popular_python_packages.csv',
     '#output/scrape/pypi_site_info/linked_pypi_github.csv',
     '#output/scrape/extract_github_data/repo_id_history_final.csv',
@@ -33,15 +38,21 @@ summary_source = [
     f'#drive/output/derived/org_outcomes_practices/org_panel/{importance_type}/{rolling_label}/panel.parquet',
 ]
 summary_source += [
-    f'#output/derived/analysis_panel/{importance_type}/{rolling_label}/{sample}/{control_group}/panel.parquet'
+    f'#output/derived/analysis_panel/{outcome_sample}/{importance_type}/{rolling_label}/{sample}/{control_group}/panel.parquet'
     for sample in exact_samples
 ]
+summary_source.append(
+    f'#output/derived/analysis_panel/outliers_kept/{importance_type}/{rolling_label}/{primary_qualified_sample}/{control_group}/pc_score_metadata.csv'
+)
 summary_target = [
     '#output/analysis/summ_stats/project_summary.parquet',
     '#output/analysis/summ_stats/project_summary.log',
     '#output/analysis/summ_stats/summary_table.txt',
     '#output/autofill/config_autofill.tex',
+    '#output/autofill/panel_autofill.tex',
+    '#output/autofill/pc_autofill.tex',
 ]
+summary_target += [f'#output/derived/analysis_panel/pc_loadings_{group}.txt' for group in pc_groups]
 env.Python(summary_target, summary_source)
 
 IMPORTANCE_TYPES   = pipeline_cfg["importance_types"]["run"]
@@ -62,18 +73,18 @@ SUMM_SHARED_LIBS = [
     '#source/lib/config/plotting.json',
 ]
 
-combos = [(imp, roll, samp, ctrl)
-          for imp in IMPORTANCE_TYPES for roll in ROLLING_PERIODS
-          for samp in QUALIFIED_SAMPLES for ctrl in CONTROL_GROUPS]
+combos = [(importance_type, rolling_period, qualified_sample, control_group)
+          for importance_type in IMPORTANCE_TYPES for rolling_period in ROLLING_PERIODS
+          for qualified_sample in QUALIFIED_SAMPLES for control_group in CONTROL_GROUPS]
 
 panel_inputs = list(dict.fromkeys(
-    f'#output/derived/analysis_panel/{imp}/{roll}/{sub}/{ctrl}/panel.parquet'
-    for imp, roll, samp, ctrl in combos
-    for sub in AGGREGATED_SAMPLES.get(samp, [samp])
+    f'#output/derived/analysis_panel/{outcome_sample}/{importance_type}/{rolling_period}/{sub_sample}/{control_group}/panel.parquet'
+    for importance_type, rolling_period, qualified_sample, control_group in combos
+    for sub_sample in AGGREGATED_SAMPLES.get(qualified_sample, [qualified_sample])
 ))
 
-def SummOutdir(imp, roll, samp, ctrl):
-    return f'#output/analysis/summ_stats/{imp}/{roll}/{samp}/{ctrl}/raw'
+def SummOutdir(importance_type, rolling_period, qualified_sample, control_group):
+    return f'#output/analysis/summ_stats/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/raw'
 
 outcome_targets = [f'{SummOutdir(*c)}/outcome_summary.txt' for c in combos]
 env.R(outcome_targets,

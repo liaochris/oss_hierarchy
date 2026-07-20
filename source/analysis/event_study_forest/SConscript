@@ -1,21 +1,27 @@
 Import('*')
 
-from source.lib.python.config_loaders import LoadPipelineInputs
+from source.lib.python.config_loaders import LoadPipelineInputs, LoadPaperSettings, LoadOutcomeVariables
 
 CONFIG = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
+PAPER_SETTINGS = LoadPaperSettings("../../../source/lib/config/paper_settings.json")
+_outcomes_cfg = LoadOutcomeVariables("../../../source/lib/config/outcome_variables.json")
+PAPER_OUTCOMES = [o for cat in _outcomes_cfg.values() for o in cat.get("run", [])]
 IMPORTANCE_TYPES  = CONFIG["importance_types"]["run"]
 ROLLING_PERIODS   = [f"rolling{p}" for p in CONFIG["rolling_periods"]["run"]]
 QUALIFIED_SAMPLES = CONFIG["qualified_samples"]["run"]
 CONTROL_GROUPS    = CONFIG["control_groups"]["run"]
 COVAR_TYPES       = CONFIG["feature_sets"]["run"]
+OUTCOME_SAMPLES  = CONFIG["outcome_samples"]["run"]
 FOREST_OUTCOME   = CONFIG["forest_training_outcome"]
 
 _analysis_cfg = LoadPipelineInputs("../../../source/lib/config/analysis_parameters.json")
 NORM_OPTIONS = _analysis_cfg["norm_options"]
 NORM_LABELS  = {True: "norm", False: "raw"}
+N_FOLDS      = _analysis_cfg["n_folds"]
 
-INDIR_PREP = "#output/derived/analysis_panel"
-OUTDIR     = "#output/analysis/event_study_forest"
+INDIR_PREP       = "#output/derived/analysis_panel"
+OUTDIR           = "#output/analysis/event_study_forest"
+OUTDIR_DATASTORE = "#drive/output/analysis/event_study_forest"
 
 AGGREGATED_SAMPLES     = {"exact_1_2": ["exact1", "exact2"]}
 NON_AGGREGATED_SAMPLES = [s for s in QUALIFIED_SAMPLES if s not in AGGREGATED_SAMPLES]
@@ -33,26 +39,38 @@ fit_helper_sources = [
     "#source/lib/pc_groups.json",
 ]
 
-for importance_type in IMPORTANCE_TYPES:
-    for rolling_period in ROLLING_PERIODS:
-        for qualified_sample in NON_AGGREGATED_SAMPLES:
-            for control_group in CONTROL_GROUPS:
-                call_sources = fit_helper_sources + [
-                    f"{INDIR_PREP}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel_with_pc_scores.parquet",
-                    f"{INDIR_PREP}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/pc_score_columns.json",
-                ]
-                call_targets = []
-                for covar_type in COVAR_TYPES:
-                    for norm_option in NORM_OPTIONS:
-                        outdir_base = f"{OUTDIR}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/{covar_type}/{NORM_LABELS[norm_option]}"
-                        call_targets += [
-                            f"{outdir_base}/{FOREST_OUTCOME}_repo_att_event_study_forest.parquet",
-                            f"{outdir_base}/{FOREST_OUTCOME}_repo_att_event_study_forest.log",
-                            f"{outdir_base}/{FOREST_OUTCOME}_cohort_time_repo_coeffs_event_study_forest.parquet",
-                        ]
-                env.R(call_targets, call_sources,
-                      CL_ARG=[f'CL_IMPORTANCE_TYPE={importance_type}', f'CL_ROLLING_PERIOD={rolling_period}',
-                              f'CL_QUALIFIED_SAMPLE={qualified_sample}', f'CL_CONTROL_GROUP={control_group}'])
+for outcome_sample in OUTCOME_SAMPLES:
+    for importance_type in IMPORTANCE_TYPES:
+        for rolling_period in ROLLING_PERIODS:
+            for qualified_sample in NON_AGGREGATED_SAMPLES:
+                for control_group in CONTROL_GROUPS:
+                    call_sources = fit_helper_sources + [
+                        f"{INDIR_PREP}/{outcome_sample}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel.parquet",
+                        f"{INDIR_PREP}/{outcome_sample}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/pc_score_columns.json",
+                    ]
+                    call_targets = []
+                    for covar_type in COVAR_TYPES:
+                        for norm_option in NORM_OPTIONS:
+                            outdir_base = f"{OUTDIR}/{outcome_sample}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/{covar_type}/{NORM_LABELS[norm_option]}"
+                            call_targets += [
+                                f"{outdir_base}/{FOREST_OUTCOME}_repo_att_event_study_forest.parquet",
+                                f"{outdir_base}/{FOREST_OUTCOME}_repo_att_event_study_forest.log",
+                                f"{outdir_base}/{FOREST_OUTCOME}_cohort_time_repo_coeffs_event_study_forest.parquet",
+                            ]
+                            # Persisted forest models (datastore) consumed downstream by analyze_forest:
+                            # pc_score per-fold models and the pc_score_binary full-sample model.
+                            datastore_base = f"{OUTDIR_DATASTORE}/{outcome_sample}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/{covar_type}/{NORM_LABELS[norm_option]}"
+                            if covar_type == "pc_score":
+                                call_targets += [
+                                    f"{datastore_base}/event_study_forest_{FOREST_OUTCOME}_fold{fold}.rds"
+                                    for fold in range(1, N_FOLDS + 1)
+                                ]
+                            elif covar_type == "pc_score_binary":
+                                call_targets.append(f"{datastore_base}/event_study_forest_{FOREST_OUTCOME}.rds")
+                    env.R(call_targets, call_sources,
+                          CL_ARG=[f'CL_IMPORTANCE_TYPE={importance_type}', f'CL_ROLLING_PERIOD={rolling_period}',
+                                  f'CL_QUALIFIED_SAMPLE={qualified_sample}', f'CL_CONTROL_GROUP={control_group}',
+                                  f'CL_OUTCOME_SAMPLE={outcome_sample}'])
 
 predict_sources = [
     "#source/analysis/event_study_forest/predict_forest_resilience.R",
@@ -64,23 +82,38 @@ predict_sources = [
     "#source/lib/config/pipeline_inputs.json",
     "#source/lib/config/analysis_parameters.json",
 ]
-for importance_type in IMPORTANCE_TYPES:
-    for rolling_period in ROLLING_PERIODS:
-        for qualified_sample in NON_AGGREGATED_SAMPLES:
-            for control_group in CONTROL_GROUPS:
-                predict_sources += [
-                    f"{INDIR_PREP}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel.parquet",
-                ]
-                for covar_type in COVAR_TYPES:
-                    for norm_option in NORM_OPTIONS:
-                        norm_label = NORM_LABELS[norm_option]
-                        predict_sources += [
-                            f"{OUTDIR}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/{covar_type}/{norm_label}/{FOREST_OUTCOME}_repo_att_event_study_forest.parquet",
-                        ]
+for outcome_sample in OUTCOME_SAMPLES:
+    for importance_type in IMPORTANCE_TYPES:
+        for rolling_period in ROLLING_PERIODS:
+            for qualified_sample in NON_AGGREGATED_SAMPLES:
+                for control_group in CONTROL_GROUPS:
+                    predict_sources += [
+                        f"{INDIR_PREP}/{outcome_sample}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel.parquet",
+                    ]
+                    for covar_type in COVAR_TYPES:
+                        for norm_option in NORM_OPTIONS:
+                            norm_label = NORM_LABELS[norm_option]
+                            predict_sources += [
+                                f"{OUTDIR}/{outcome_sample}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/{covar_type}/{norm_label}/{FOREST_OUTCOME}_repo_att_event_study_forest.parquet",
+                            ]
+
+# The resilience-split figures the paper includes (primary outcome_sample + spec) are produced by
+# predict_forest_resilience.R; declare them so the paper's figure dependencies resolve.
+PRIMARY_OUTCOME_SAMPLE = PAPER_SETTINGS["primary_outcome_sample"]
+primary_spec = "/".join([
+    PAPER_SETTINGS["primary_importance_type"], PAPER_SETTINGS["primary_rolling_label"],
+    PAPER_SETTINGS["primary_qualified_sample"], PAPER_SETTINGS["primary_control_group"],
+])
+paper_split_dirs = ["pc_score_binary/split_full_avg", "pc_score/split_full_avg", "pc_score/split_period5"]
+paper_forest_split_figures = [
+    f"{OUTDIR}/{PRIMARY_OUTCOME_SAMPLE}/{primary_spec}/{split_dir}/norm/{outcome}_observed.png"
+    for split_dir in paper_split_dirs
+    for outcome in PAPER_OUTCOMES
+]
 
 predict_targets = [
     f"{OUTDIR}/personalized_event_study_coefficients.csv",
     f"{OUTDIR}/personalized_event_study_coefficients.log",
     "#output/autofill/forest_autofill.tex",
-]
+] + paper_forest_split_figures
 env.R(predict_targets, predict_sources)

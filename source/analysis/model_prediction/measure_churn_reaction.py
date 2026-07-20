@@ -24,11 +24,11 @@ import pandas as pd
 from source.analysis.model_prediction.plot_prediction_scatter import (
     CONTROL_GROUP, CROSSMERGE_COUNT_COLUMNS, CROSSMERGE_DIR, DISTRIBUTION_TYPE,
     ESTIMATION_APPROACH, IMPORTANCE_TYPE, MEMBER_PANEL_COLUMNS, ORG_COLORS, POST_PERIODS,
-    PRE_PERIODS, QUALIFIED_SAMPLE, VARIANT,
-    ClassifyMembership, LoadMemberData, LoadTreatmentInfo, TrimOutlierRepos,
+    PRE_PERIODS, QUALIFIED_SAMPLE, OUTCOME_SAMPLE,
+    ClassifyMembership, LoadMemberData, LoadTreatmentInfo,
 )
 
-OUTDIR = (Path("output/analysis/model_prediction") / VARIANT / DISTRIBUTION_TYPE / "evaluation"
+OUTDIR = (Path("output/analysis/model_prediction") / OUTCOME_SAMPLE / DISTRIBUTION_TYPE / "evaluation"
           / ESTIMATION_APPROACH / IMPORTANCE_TYPE / QUALIFIED_SAMPLE / CONTROL_GROUP / "churn_reaction")
 
 EVENT_TIMES = PRE_PERIODS + [0] + POST_PERIODS
@@ -56,7 +56,7 @@ def Main():
     treatment_by_repo, dropouts_by_repo = LoadTreatmentInfo()
 
     member_panel = LoadMemberData()
-    member_panel = TrimOutlierRepos(member_panel)
+    member_panel = member_panel[member_panel["repo_name"].isin(treatment_by_repo)].copy()
 
     membership = ClassifyMembership(member_panel, dropouts_by_repo)
     member_panel = member_panel.merge(membership, on=["repo_name", "actor_id"], how="left")

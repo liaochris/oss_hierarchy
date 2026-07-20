@@ -9,7 +9,7 @@ MODEL_PREDICTION_CONFIG = LoadGlobals("../../../source/lib/config/model_predicti
 importance_types = CONFIG["importance_types"]["run"]
 rolling_label    = f"rolling{CONFIG['rolling_periods']['run'][0]}"
 control_groups   = CONFIG["control_groups"]["run"]
-variant          = MODEL_PREDICTION_CONFIG["variants"]["run"][0]
+outcome_sample          = MODEL_PREDICTION_CONFIG["outcome_samples"]["run"][0]
 distribution     = MODEL_PREDICTION_CONFIG["distribution_types"]["run"][0]
 estimation       = "pooled"
 
@@ -40,17 +40,17 @@ script_deps = [
 ]
 
 panel_sources = [
-    f'#output/derived/analysis_panel/{importance_type}/{rolling_label}/{qualified_sample}/{control_group}/panel.parquet'
+    f'#output/derived/analysis_panel/{outcome_sample}/{importance_type}/{rolling_label}/{qualified_sample}/{control_group}/panel.parquet'
     for importance_type, control_group in product(importance_types, control_groups)
     for qualified_sample in non_aggregated_samples
 ]
 draw_sources = [
-    f'#drive/output/analysis/model_prediction/{variant}/{distribution}/draws/{estimation}/{importance_type}/{qualified_sample}/{control_group}/raw_draws.parquet'
+    f'#drive/output/analysis/model_prediction/{outcome_sample}/{distribution}/draws/{estimation}/{importance_type}/{qualified_sample}/{control_group}/raw_draws.parquet'
     for importance_type, control_group in product(importance_types, control_groups)
     for qualified_sample in non_aggregated_samples
 ]
 forest_sources = [
-    f'#output/analysis/event_study_forest/{importance_type}/{rolling_label}/{qualified_sample}/{control_group}/{covar_type}/{norm_label}/{forest_training_outcome}_repo_att_event_study_forest.parquet'
+    f'#output/analysis/event_study_forest/{outcome_sample}/{importance_type}/{rolling_label}/{qualified_sample}/{control_group}/{covar_type}/{norm_label}/{forest_training_outcome}_repo_att_event_study_forest.parquet'
     for importance_type, control_group in product(importance_types, control_groups)
     for qualified_sample in non_aggregated_samples
     for covar_type in covar_types
@@ -65,7 +65,7 @@ target = ['#output/analysis/model_event_study/band_estimates.csv',
           '#output/analysis/model_event_study/actual_treated_model_control_band_estimates.log']
 for importance_type, control_group in product(importance_types, control_groups):
     for qualified_sample in figure_samples:
-        base = f'#output/analysis/model_event_study/{variant}/{distribution}/{estimation}/{importance_type}/{qualified_sample}/{control_group}'
+        base = f'#output/analysis/model_event_study/{outcome_sample}/{distribution}/{estimation}/{importance_type}/{qualified_sample}/{control_group}'
         for norm_label in norm_labels:
             target += [f'{base}/actual_treated_model_control/{norm_label}/{latent_flow_outcome}.png']
             for outcome in outcomes:

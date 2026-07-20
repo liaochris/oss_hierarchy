@@ -459,12 +459,13 @@ I use three organizational outcomes to measure resilience at time $t$: the numbe
 Let $Y_{i,t}$ denote a generic outcome. 
 To ensure cross-organization comparability, I standardize each organization’s outcome values using the organization-level mean and standard deviation from its five most recent pre-periods ($-5 \leq k \leq -1$), yielding standardized outcomes $Y_{i,t}^{SD}$ measured in within-organization standard deviations. 
 
-I impose three additional sample restrictions.
+I impose four additional sample restrictions.
 First, all organizations must have one or two key members at the quasi-treatment date, ensuring that differences between treated and control organizations are not driven by differences in the organizational structure.
 I estimate the event study separately for organizations with exactly one and exactly two key members, then combine the estimates using inverse-variance weighting---assigning each sub-sample's estimate a weight proportional to the inverse of its squared standard error---which yields the minimum-variance linear combination of two independent estimates.
 Second, each organization must have observed activity for at least \NumPostPeriod{} pre- and \NumPostPeriod{} post-periods.
 Third, each organization must have a non-degenerate pre-period baseline for every active outcome: organizations where any outcome has all-identical pre-period values (e.g., zero software releases in every pre-period) are excluded, as standardization requires positive variance.
-The final sample features \NumOrgs{} OSS organizations and includes major GitHub projects, such as \texttt{pytorch/pytorch}, the flagship deep learning framework; \texttt{googleapis/google-cloud-Python}, the Python Google Cloud software development kit (SDK); and \texttt{boto/boto3}, the Python Amazon Web Services SDK.
+Fourth, I drop scale-outlier organizations---those whose pre-period mean number of pull requests opened falls outside the 1st--99th percentile, pooled across treated and control organizations---because a few very high-volume projects would otherwise dominate the count-weighted estimates.
+The final sample features \NumOrgs{} OSS organizations and includes major GitHub projects, such as \texttt{encode/django-rest-framework}, a widely used toolkit for building web APIs; \texttt{pytorch/vision}, the computer vision library for the PyTorch deep learning framework; and \texttt{plotly/dash}, a framework for building analytical web applications.
 Table~\ref{tab:outcome_summary} provides summary statistics for the outcomes and project distribution, and plots the distribution of observed, quasi-treatment and treatment dates.
 
 \input{output/tables/outcome_summary_table}

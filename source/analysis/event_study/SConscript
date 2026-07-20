@@ -18,6 +18,7 @@ with open("../../../source/lib/pc_groups.json") as fh:
 
 OUTCOMES         = [o for cat in _outcomes_cfg.values() for o in cat.get("run", [])]
 PC_GROUP_NAMES   = list(_pc_groups_cfg.keys())
+OUTCOME_SAMPLES = CONFIG["outcome_samples"]["run"]
 AGGREGATED_SAMPLES = {"exact_1_2": ["exact1", "exact2"]}
 
 OUTDIR     = "#output/analysis/event_study"
@@ -38,35 +39,33 @@ helper_sources = [
     "#source/lib/pc_groups.json",
 ]
 
-for importance_type in IMPORTANCE_TYPES:
-    for rolling_period in ROLLING_PERIODS:
-        for qualified_sample in QUALIFIED_SAMPLES:
-            for control_group in CONTROL_GROUPS:
-                sub_samples = AGGREGATED_SAMPLES.get(qualified_sample, [qualified_sample])
-                panel_sources = [
-                    path
-                    for s in sub_samples
-                    for path in [
-                        f"{INDIR_PREP}/{importance_type}/{rolling_period}/{s}/{control_group}/panel.parquet",
-                        f"{INDIR_PREP}/{importance_type}/{rolling_period}/{s}/{control_group}/panel_with_pc_scores.parquet",
+for outcome_sample in OUTCOME_SAMPLES:
+    for importance_type in IMPORTANCE_TYPES:
+        for rolling_period in ROLLING_PERIODS:
+            for qualified_sample in QUALIFIED_SAMPLES:
+                for control_group in CONTROL_GROUPS:
+                    sub_samples = AGGREGATED_SAMPLES.get(qualified_sample, [qualified_sample])
+                    panel_sources = [
+                        f"{INDIR_PREP}/{outcome_sample}/{importance_type}/{rolling_period}/{s}/{control_group}/panel.parquet"
+                        for s in sub_samples
                     ]
-                ]
-                base = f"{OUTDIR}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}"
-                combo_targets = [
-                    f"{base}/estimates.csv",
-                    f"{base}/estimates.log",
-                ]
-                for norm_label in NORM_LABELS:
-                    for outcome in OUTCOMES:
-                        combo_targets.append(f"{base}/full_sample/{norm_label}/{outcome}.png")
-                    for pc_group_name in PC_GROUP_NAMES:
+                    base = f"{OUTDIR}/{outcome_sample}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}"
+                    combo_targets = [
+                        f"{base}/estimates.csv",
+                        f"{base}/estimates.log",
+                    ]
+                    for norm_label in NORM_LABELS:
                         for outcome in OUTCOMES:
-                            combo_targets.append(
-                                f"{base}/pc_score/{norm_label}/{pc_group_name}_{outcome}_pc_score_split.png"
-                            )
-                env.R(combo_targets, helper_sources + panel_sources,
-                      CL_ARG=[f'CL_IMPORTANCE_TYPE={importance_type}', f'CL_ROLLING_PERIOD={rolling_period}',
-                              f'CL_QUALIFIED_SAMPLE={qualified_sample}', f'CL_CONTROL_GROUP={control_group}'])
+                            combo_targets.append(f"{base}/full_sample/{norm_label}/{outcome}.png")
+                        for pc_group_name in PC_GROUP_NAMES:
+                            for outcome in OUTCOMES:
+                                combo_targets.append(
+                                    f"{base}/pc_score/{norm_label}/{pc_group_name}_{outcome}_pc_score_split.png"
+                                )
+                    env.R(combo_targets, helper_sources + panel_sources,
+                          CL_ARG=[f'CL_IMPORTANCE_TYPE={importance_type}', f'CL_ROLLING_PERIOD={rolling_period}',
+                                  f'CL_QUALIFIED_SAMPLE={qualified_sample}', f'CL_CONTROL_GROUP={control_group}',
+                                  f'CL_OUTCOME_SAMPLE={outcome_sample}'])
 
 combine_sources = [
     "#source/analysis/event_study/combine_estimates.R",
@@ -75,13 +74,14 @@ combine_sources = [
     "#source/lib/config/pipeline_inputs.json",
     "#source/lib/config/analysis_parameters.json",
 ]
-for importance_type in IMPORTANCE_TYPES:
-    for rolling_period in ROLLING_PERIODS:
-        for qualified_sample in QUALIFIED_SAMPLES:
-            for control_group in CONTROL_GROUPS:
-                combine_sources.append(
-                    f"{OUTDIR}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/estimates.csv"
-                )
+for outcome_sample in OUTCOME_SAMPLES:
+    for importance_type in IMPORTANCE_TYPES:
+        for rolling_period in ROLLING_PERIODS:
+            for qualified_sample in QUALIFIED_SAMPLES:
+                for control_group in CONTROL_GROUPS:
+                    combine_sources.append(
+                        f"{OUTDIR}/{outcome_sample}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/estimates.csv"
+                    )
 combine_targets = [
     f"{OUTDIR}/all_estimates.csv",
     f"{OUTDIR}/all_estimates.log",

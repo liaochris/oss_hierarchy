@@ -11,12 +11,11 @@ source("source/lib/R/event_study_helpers.R")
 source("source/lib/R/constants.R")
 
 INDIR_PANEL  <- "output/derived/analysis_panel"
-INDIR_MEMBER <- "drive/output/derived/model_prediction/event_time_member_panel"
 INDIR_DRAWS  <- "drive/output/analysis/model_prediction"
 INDIR_FOREST <- "output/analysis/event_study_forest"
 OUTDIR       <- "output/analysis/model_event_study"
 
-VARIANT      <- "opened_cohort"
+OUTCOME_SAMPLE      <- "opened_cohort"
 DISTRIBUTION <- "adaptive"
 ESTIMATION   <- "pooled"
 IMPORTANCE_TYPE <- PRIMARY_IMPORTANCE_TYPE
@@ -35,13 +34,6 @@ ES_OUTCOMES <- c("pull_request_opened", "pull_request_reviewed",
                  "pull_request_merged_direct", "pull_request_merged_after_review", "pull_request_merged")
 LATENT_FLOW_OUTCOME <- "pull_request_opened"   # the outcome governed by the fitted latent-flow model
 KSTAR       <- 0
-
-# Drop scale-outlier orgs: a handful of very high-volume repos (all controls) dominate the count-weighted
-# raw event study and manufacture a pretrend that vanishes under normalization. Trim orgs whose pre-period
-# (event time [-5,-1]) mean of TRIM_OUTCOME falls outside the pooled [1,99] percentile, pooled across
-# treated and control within each subsample.
-TRIM_OUTCOME <- "pull_request_opened"
-TRIM_PROBS   <- c(0.01, 0.99)
 
 
 Main <- function() {
@@ -132,18 +124,16 @@ ComputeSampleBands <- function(samples_data_by_subsample, outcome, normalize) {
 
 
 LoadSampleData <- function(sub_sample) {
-  panel    <- LoadPreparedSample(INDIR_PANEL, IMPORTANCE_TYPE, ROLLING_LABEL, sub_sample, CONTROL_GROUP)
-  observed <- LoadObservedOpenedCohort(sub_sample)
-  draws    <- read_parquet(file.path(INDIR_DRAWS, VARIANT, DISTRIBUTION, "draws", ESTIMATION,
-                                      IMPORTANCE_TYPE, sub_sample, CONTROL_GROUP, "raw_draws.parquet"))
+  panel <- LoadPreparedSample(file.path(INDIR_PANEL, OUTCOME_SAMPLE), IMPORTANCE_TYPE, ROLLING_LABEL, sub_sample, CONTROL_GROUP)
+  draws <- read_parquet(file.path(INDIR_DRAWS, OUTCOME_SAMPLE, DISTRIBUTION, "draws", ESTIMATION,
+                                  IMPORTANCE_TYPE, sub_sample, CONTROL_GROUP, "raw_draws.parquet"))
 
-  common_repos <- Reduce(intersect, list(unique(panel$repo_name), unique(observed$repo_name), unique(draws$repo_name)))
-  common_repos <- TrimOutcomeOutlierRepos(observed, common_repos)
-  skeleton     <- panel %>% filter(repo_name %in% common_repos) %>% select(-any_of(ES_OUTCOMES))
+  common_repos <- intersect(unique(panel$repo_name), unique(draws$repo_name))
+  actual_panel <- panel %>% filter(repo_name %in% common_repos)
+  skeleton     <- actual_panel %>% select(-any_of(ES_OUTCOMES))
   draws        <- draws %>% filter(repo_name %in% common_repos) %>%
     select(repo_name, quasi_event_time, draw_id, all_of(ES_OUTCOMES))
 
-  actual_panel <- skeleton %>% inner_join(observed, by = c("repo_name", "quasi_event_time"))
   stopifnot(!anyNA(actual_panel[ES_OUTCOMES]))
 
   list(
@@ -155,39 +145,9 @@ LoadSampleData <- function(sub_sample) {
 }
 
 
-# SINGLE-USE EXCEPTION: kept beside LoadSampleData; the eventual home for this restriction is the
-# data-prep sample construction (panel_filters.py), shared across event_study / event_study_forest.
-TrimOutcomeOutlierRepos <- function(observed, common_repos) {
-  pre_period_mean <- observed %>%
-    filter(repo_name %in% common_repos, quasi_event_time >= MIN_EVENT_TIME, quasi_event_time <= -1) %>%
-    group_by(repo_name) %>%
-    summarise(pre_mean_outcome = mean(.data[[TRIM_OUTCOME]]), .groups = "drop")
-  bounds <- quantile(pre_period_mean$pre_mean_outcome, TRIM_PROBS, names = FALSE)
-  pre_period_mean %>%
-    filter(pre_mean_outcome >= bounds[1], pre_mean_outcome <= bounds[2]) %>%
-    pull(repo_name)
-}
-
-
-LoadObservedOpenedCohort <- function(sub_sample) {
-  member_dir <- file.path(INDIR_MEMBER, VARIANT, IMPORTANCE_TYPE, sub_sample, CONTROL_GROUP)
-  open_dataset(member_dir) %>%
-    select(repo_name, quasi_event_time, repo_pull_request_opened, repo_pull_request_reviewed,
-           repo_pull_request_merged_direct, repo_pull_request_merged_after_review) %>%
-    distinct() %>%
-    collect() %>%
-    transmute(repo_name, quasi_event_time,
-              pull_request_opened              = repo_pull_request_opened,
-              pull_request_reviewed            = repo_pull_request_reviewed,
-              pull_request_merged_direct       = repo_pull_request_merged_direct,
-              pull_request_merged_after_review = repo_pull_request_merged_after_review,
-              pull_request_merged              = repo_pull_request_merged_direct + repo_pull_request_merged_after_review)
-}
-
-
 LoadResilienceGroups <- function(sub_sample, covar_type, normalize) {
   normalization_label <- ifelse(normalize, "norm", "raw")
-  forest_path <- file.path(INDIR_FOREST, IMPORTANCE_TYPE, ROLLING_LABEL, sub_sample, CONTROL_GROUP,
+  forest_path <- file.path(INDIR_FOREST, OUTCOME_SAMPLE, IMPORTANCE_TYPE, ROLLING_LABEL, sub_sample, CONTROL_GROUP,
                            covar_type, normalization_label,
                            paste0(FOREST_TRAINING_OUTCOME, "_repo_att_event_study_forest.parquet"))
   read_parquet(forest_path) %>% select(repo_name, resilience_group = att_doubly_robust_group)
@@ -321,7 +281,7 @@ BandModelMatrices <- function(event_study_band) {
 
 PlotBand <- function(event_study_band, actual_results, sample_name, outcome, normalize) {
   normalization_label <- ifelse(normalize, "norm", "raw")
-  out_path            <- file.path(OUTDIR, VARIANT, DISTRIBUTION, ESTIMATION, IMPORTANCE_TYPE,
+  out_path            <- file.path(OUTDIR, OUTCOME_SAMPLE, DISTRIBUTION, ESTIMATION, IMPORTANCE_TYPE,
                                    sample_name, CONTROL_GROUP, "bands", normalization_label,
                                    paste0(outcome, ".png"))
   dir_create(dirname(out_path), recurse = TRUE)
@@ -360,7 +320,7 @@ BuildActualTreatedModelControlSample <- function(sample_data, outcome) {
 
 PlotActualTreatedModelControl <- function(event_study_band, actual_results, sample_name, outcome, normalize) {
   normalization_label <- ifelse(normalize, "norm", "raw")
-  out_path            <- file.path(OUTDIR, VARIANT, DISTRIBUTION, ESTIMATION, IMPORTANCE_TYPE,
+  out_path            <- file.path(OUTDIR, OUTCOME_SAMPLE, DISTRIBUTION, ESTIMATION, IMPORTANCE_TYPE,
                                    sample_name, CONTROL_GROUP, "actual_treated_model_control", normalization_label,
                                    paste0(outcome, ".png"))
   dir_create(dirname(out_path), recurse = TRUE)
@@ -399,7 +359,7 @@ PlotResilienceComparison <- function(bands_by_resilience_group, sample_name, out
   shared_ylim        <- ComputeSharedYLim(lapply(event_study_series, function(series) series$results))
 
   normalization_label <- ifelse(normalize, "norm", "raw")
-  out_path <- file.path(OUTDIR, VARIANT, DISTRIBUTION, ESTIMATION, IMPORTANCE_TYPE, sample_name, CONTROL_GROUP,
+  out_path <- file.path(OUTDIR, OUTCOME_SAMPLE, DISTRIBUTION, ESTIMATION, IMPORTANCE_TYPE, sample_name, CONTROL_GROUP,
                         "resilience", covar_type, normalization_label, paste0(outcome, ".png"))
   dir_create(dirname(out_path), recurse = TRUE)
   png(out_path, width = 1000, height = 700, res = 110)

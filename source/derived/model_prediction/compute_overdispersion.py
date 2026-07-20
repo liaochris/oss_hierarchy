@@ -12,7 +12,7 @@ from source.lib.python.config_loaders import LoadModelPredictionConfig, LoadPape
 MODEL_PREDICTION_CONFIG = LoadModelPredictionConfig()
 PAPER_SETTINGS          = LoadPaperSettings()
 
-VARIANT         = MODEL_PREDICTION_CONFIG["variants"]["run"][0]
+OUTCOME_SAMPLE         = MODEL_PREDICTION_CONFIG["outcome_samples"]["run"][0]
 DISTRIBUTION    = MODEL_PREDICTION_CONFIG["distribution_types"]["run"][0]
 ESTIMATION      = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"][0]
 INDIR_PARAMS    = Path("output/analysis/model_prediction")
@@ -21,7 +21,7 @@ AUTOFILL_OUTDIR = Path("output/autofill")
 
 def Main():
     params_path = (
-        INDIR_PARAMS / VARIANT / DISTRIBUTION / "parameters" / ESTIMATION
+        INDIR_PARAMS / OUTCOME_SAMPLE / DISTRIBUTION / "parameters" / ESTIMATION
         / PAPER_SETTINGS["primary_importance_type"] / PAPER_SETTINGS["primary_qualified_sample"]
         / PAPER_SETTINGS["primary_control_group"] / "distribution_params.parquet"
     )

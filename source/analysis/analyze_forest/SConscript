@@ -1,13 +1,15 @@
 Import('*')
 
-from source.lib.python.config_loaders import LoadPipelineInputs
+from source.lib.python.config_loaders import LoadPipelineInputs, LoadPaperSettings
 
 CONFIG = LoadPipelineInputs("../../../source/lib/config/pipeline_inputs.json")
+PAPER_SETTINGS = LoadPaperSettings("../../../source/lib/config/paper_settings.json")
 IMPORTANCE_TYPES  = CONFIG["importance_types"]["run"]
 ROLLING_PERIODS   = [f"rolling{p}" for p in CONFIG["rolling_periods"]["run"]]
 QUALIFIED_SAMPLES = CONFIG["qualified_samples"]["run"]
 CONTROL_GROUPS    = CONFIG["control_groups"]["run"]
 FOREST_OUTCOME    = CONFIG["forest_training_outcome"]
+PRIMARY_OUTCOME_SAMPLE = PAPER_SETTINGS["primary_outcome_sample"]
 
 _analysis_cfg = LoadPipelineInputs("../../../source/lib/config/analysis_parameters.json")
 NORM_OPTIONS = _analysis_cfg["norm_options"]
@@ -33,28 +35,28 @@ SHARED_LIBS = [
     "#source/lib/config/plotting.json",
 ]
 
-def ForestParquet(imp, roll, samp, ctrl, norm):
-    return f"{INDIR_FOREST}/{imp}/{roll}/{samp}/{ctrl}/{COVAR_TYPE}/{NORM_LABELS[norm]}/{FOREST_OUTCOME}_repo_att_event_study_forest.parquet"
+def ForestParquet(importance_type, rolling_period, qualified_sample, control_group, norm):
+    return f"{INDIR_FOREST}/{PRIMARY_OUTCOME_SAMPLE}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/{COVAR_TYPE}/{NORM_LABELS[norm]}/{FOREST_OUTCOME}_repo_att_event_study_forest.parquet"
 
-def BaseOutdir(imp, roll, samp, ctrl, norm):
-    return f"{OUTDIR}/{imp}/{roll}/{samp}/{ctrl}/{NORM_LABELS[norm]}"
+def BaseOutdir(importance_type, rolling_period, qualified_sample, control_group, norm):
+    return f"{OUTDIR}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/{NORM_LABELS[norm]}"
 
 def AllCombos(samples=None, norms=None):
     samples = samples or QUALIFIED_SAMPLES
     norms   = norms   or NORM_OPTIONS
     return [
-        (imp, roll, samp, ctrl, norm)
-        for imp  in IMPORTANCE_TYPES
-        for roll in ROLLING_PERIODS
-        for samp in samples
-        for ctrl in CONTROL_GROUPS
+        (importance_type, rolling_period, qualified_sample, control_group, norm)
+        for importance_type  in IMPORTANCE_TYPES
+        for rolling_period in ROLLING_PERIODS
+        for qualified_sample in samples
+        for control_group in CONTROL_GROUPS
         for norm in norms
     ]
 
 all_forest_inputs = list(dict.fromkeys(
-    ForestParquet(imp, roll, sub, ctrl, norm)
-    for imp, roll, samp, ctrl, norm in AllCombos()
-    for sub in AGGREGATED_SAMPLES.get(samp, [samp])
+    ForestParquet(importance_type, rolling_period, sub_sample, control_group, norm)
+    for importance_type, rolling_period, qualified_sample, control_group, norm in AllCombos()
+    for sub_sample in AGGREGATED_SAMPLES.get(qualified_sample, [qualified_sample])
 ))
 
 heatmap_targets = [f"{BaseOutdir(*c)}/pc_score_correlation_heatmap.png" for c in AllCombos()]
@@ -80,15 +82,15 @@ fold_targets = [
                   "fold_correlation_rank.png", "variable_importance.tex", "tree_depth.txt"]
 ]
 all_fold_rds_inputs = list(dict.fromkeys(
-    f"#drive/output/analysis/event_study_forest/{imp}/{roll}/{sub}/{ctrl}/pc_score/{NORM_LABELS[norm]}/event_study_forest_{FOREST_OUTCOME}_fold{f}.rds"
-    for imp, roll, samp, ctrl, norm in AllCombos(list(AGGREGATED_SAMPLES))
-    for sub in AGGREGATED_SAMPLES.get(samp, [samp])
+    f"#drive/output/analysis/event_study_forest/{PRIMARY_OUTCOME_SAMPLE}/{importance_type}/{rolling_period}/{sub_sample}/{control_group}/pc_score/{NORM_LABELS[norm]}/event_study_forest_{FOREST_OUTCOME}_fold{f}.rds"
+    for importance_type, rolling_period, qualified_sample, control_group, norm in AllCombos(list(AGGREGATED_SAMPLES))
+    for sub_sample in AGGREGATED_SAMPLES.get(qualified_sample, [qualified_sample])
     for f in range(1, N_FOLDS + 1)
 ))
 all_binary_full_rds_inputs = list(dict.fromkeys(
-    f"#drive/output/analysis/event_study_forest/{imp}/{roll}/{sub}/{ctrl}/pc_score_binary/{NORM_LABELS[norm]}/event_study_forest_{FOREST_OUTCOME}.rds"
-    for imp, roll, samp, ctrl, norm in AllCombos(list(AGGREGATED_SAMPLES))
-    for sub in AGGREGATED_SAMPLES.get(samp, [samp])
+    f"#drive/output/analysis/event_study_forest/{PRIMARY_OUTCOME_SAMPLE}/{importance_type}/{rolling_period}/{sub_sample}/{control_group}/pc_score_binary/{NORM_LABELS[norm]}/event_study_forest_{FOREST_OUTCOME}.rds"
+    for importance_type, rolling_period, qualified_sample, control_group, norm in AllCombos(list(AGGREGATED_SAMPLES))
+    for sub_sample in AGGREGATED_SAMPLES.get(qualified_sample, [qualified_sample])
 ))
 fold_sources = ["#source/analysis/analyze_forest/fold_comparisons.R"] + SHARED_LIBS + all_forest_inputs + all_fold_rds_inputs + all_binary_full_rds_inputs
 env.R(fold_targets, fold_sources)

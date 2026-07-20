@@ -38,6 +38,7 @@ CONTROL_GROUPS         <- ExtractConfigValues(pipeline_inputs$control_groups)
 CONTROL_GROUP          <- CONTROL_GROUPS[[1]]
 COVAR_TYPES            <- ExtractConfigValues(pipeline_inputs$feature_sets)
 EVENT_STUDY_SPLITS     <- ExtractConfigValues(pipeline_inputs$event_study_splits)
+OUTCOME_SAMPLES       <- ExtractConfigValues(pipeline_inputs$outcome_samples)
 FOREST_TRAINING_OUTCOME <- ForestTrainingOutcome(pipeline_inputs)
 
 pc_groups_cfg <- PCGroupsConfig(feature_variables)
@@ -53,3 +54,4 @@ PRIMARY_IMPORTANCE_TYPE  <- paper_settings$primary_importance_type
 PRIMARY_QUALIFIED_SAMPLE <- paper_settings$primary_qualified_sample
 PRIMARY_ROLLING_LABEL    <- paper_settings$primary_rolling_label
 PRIMARY_CONTROL_GROUP    <- paper_settings$primary_control_group
+PRIMARY_OUTCOME_SAMPLE  <- paper_settings$primary_outcome_sample

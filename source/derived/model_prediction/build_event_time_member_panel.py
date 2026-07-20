@@ -1,12 +1,4 @@
-# Three variants of the event-time member panel are produced:
-#   observed:      reviews/merges counted over all pulls active in a given period,
-#                  regardless of when those pulls were opened (original construction)
-#   same_period:   reviews/merges restricted to pulls opened AND reviewed/merged
-#                  within the same period t (consistent denominator, strict same-period match)
-#   opened_cohort: reviews/merges attributed to the period the pull was opened,
-#                  accumulating activity across any subsequent period
-#                  (consistent denominator, full downstream activity captured)
-
+import shutil
 from itertools import product
 from pathlib import Path
 
@@ -15,18 +7,37 @@ from joblib import Parallel, delayed
 
 from source.derived.org_outcomes_practices.helpers import LoadBotList
 from source.lib.JMSLab.SaveData import SaveData
-from source.lib.python.config_loaders import LoadGlobalSettings, LoadPipelineInputs
+from source.lib.python.config_loaders import LoadAnalysisParameters, LoadGlobalSettings, LoadPipelineInputs
 from source.lib.python.data_utils import ImputeTimePeriod
 from source.lib.python.filesystem_utils import WriteContentHash
 from source.lib.python.repo_utils import MakeRepoNameSafe
 
-GLOBAL_SETTINGS = LoadGlobalSettings()
-CONFIG          = LoadPipelineInputs()
+GLOBAL_SETTINGS     = LoadGlobalSettings()
+CONFIG              = LoadPipelineInputs()
+ANALYSIS_PARAMETERS = LoadAnalysisParameters()
 
 TIME_PERIOD    = GLOBAL_SETTINGS["time_period_months"]
 N_JOBS         = GLOBAL_SETTINGS["n_jobs"]
 ROLLING_PERIOD = f"rolling{CONFIG['rolling_periods']['run'][0]}"
-VARIANTS       = ["observed", "same_period", "opened_cohort"]
+OUTCOME_SAMPLES       = ["observed", "same_period", "opened_cohort"]
+ANALYSIS_PANEL_OUTCOME_SAMPLES = CONFIG["outcome_samples"]["run"]
+
+TRIM_OUTCOME    = ANALYSIS_PARAMETERS["trim_outcome"]
+TRIM_PROBS      = ANALYSIS_PARAMETERS["trim_probs"]
+MAX_EVENT_TIME  = ANALYSIS_PARAMETERS["max_event_time"]
+MIN_EVENT_TIME  = -MAX_EVENT_TIME
+PRE_PERIOD_EVENT_TIMES = list(range(MIN_EVENT_TIME, 0))
+
+OUTLIERS_KEPT_SUBDIR = "outliers_kept"
+BASE_OUTCOMES_REPLACED_BY_SAMPLE = ["pull_request_opened", "pull_request_merged"]
+SAMPLE_OUTCOME_COLUMNS = [
+    "pull_request_opened", "pull_request_reviewed",
+    "pull_request_merged_direct", "pull_request_merged_after_review", "pull_request_merged",
+]
+REPO_STAGE_COLUMNS = [
+    "repo_pull_request_opened", "repo_pull_request_reviewed",
+    "repo_pull_request_merged_direct", "repo_pull_request_merged_after_review",
+]
 
 INDIR_ACTIONS = Path("drive/output/derived/action_data/repo_actions")
 INDIR_BOT     = Path("output/derived/create_bot_list")
@@ -59,52 +70,69 @@ def Combos():
 
 
 def ProcessCombo(combo, df_bot_list):
-    panel_path = (
-        INDIR_PANEL / combo["importance_type"] / ROLLING_PERIOD
-        / combo["qualified_sample"] / combo["control_group"] / "panel.parquet"
+    base_panel_dir = (
+        INDIR_PANEL / OUTLIERS_KEPT_SUBDIR / combo["importance_type"] / ROLLING_PERIOD
+        / combo["qualified_sample"] / combo["control_group"]
     )
+    panel_path = base_panel_dir / "panel.parquet"
     if not panel_path.exists():
         return
 
-    df_panel   = pd.read_parquet(panel_path, columns=["repo_name", "time_period", "quasi_event_time"])
-    df_time_map = df_panel.drop_duplicates()
-    repo_names = df_time_map["repo_name"].unique()
+    base_panel  = pd.read_parquet(panel_path)
+    df_time_map = base_panel[["repo_name", "time_period", "quasi_event_time"]].drop_duplicates()
+    repo_names  = df_time_map["repo_name"].unique()
 
-    Parallel(n_jobs=N_JOBS)(
+    repo_stage_counts = Parallel(n_jobs=N_JOBS)(
         delayed(ProcessRepo)(repo_name, df_time_map, df_bot_list, combo)
         for repo_name in repo_names
     )
+    repo_stage_counts = [counts for counts in repo_stage_counts if counts]
+    if not repo_stage_counts:
+        return
+
+    org_outcomes_by_outcome_sample = {
+        outcome_sample: AggregateOrgOutcomes(repo_stage_counts, outcome_sample)
+        for outcome_sample in ANALYSIS_PANEL_OUTCOME_SAMPLES
+    }
+    kept_repos = KeptRepos(org_outcomes_by_outcome_sample["opened_cohort"])
+
+    for outcome_sample in ANALYSIS_PANEL_OUTCOME_SAMPLES:
+        outcome_sample_panel = BuildOutcomeSamplePanel(base_panel, org_outcomes_by_outcome_sample[outcome_sample], kept_repos)
+        WriteOutcomeSamplePanel(outcome_sample_panel, base_panel_dir, outcome_sample, combo)
 
 
 def ProcessRepo(repo_name, df_time_map, df_bot_list, combo):
     safe_name    = MakeRepoNameSafe(repo_name)
     actions_file = INDIR_ACTIONS / f"{safe_name}.parquet"
     if not actions_file.exists():
-        return
+        return {}
 
     repo_event_times = sorted(df_time_map.loc[df_time_map["repo_name"] == repo_name, "quasi_event_time"].unique())
 
     df_actions = CleanAndFilterData(actions_file, df_time_map, df_bot_list, repo_name)
     df_opens, df_reviews, df_merges_direct, df_merges_after_review, solo_review_threads = SeparateActionTypes(df_actions)
 
-    variant_inputs = {
+    outcome_sample_inputs = {
         "observed":      (df_opens, df_reviews, df_merges_direct, df_merges_after_review),
         "same_period":   RestrictReviewsMergesToSamePeriod(df_opens, df_reviews, df_merges_direct, df_merges_after_review),
         "opened_cohort": AttributeReviewsMergesToOpeningPeriod(df_opens, df_reviews, df_merges_direct, df_merges_after_review),
     }
 
-    for variant, (variant_opens, variant_reviews, variant_merges_direct, variant_merges_after_review) in variant_inputs.items():
-        df_member_counts = CreateMemberStageCounts(variant_opens, variant_reviews, variant_merges_direct, variant_merges_after_review, repo_event_times)
+    repo_stage_counts_by_outcome_sample = {}
+    for outcome_sample, (outcome_sample_opens, outcome_sample_reviews, outcome_sample_merges_direct, outcome_sample_merges_after_review) in outcome_sample_inputs.items():
+        df_member_counts = CreateMemberStageCounts(outcome_sample_opens, outcome_sample_reviews, outcome_sample_merges_direct, outcome_sample_merges_after_review, repo_event_times)
         if df_member_counts is None:
             continue
-        df_repo_counts = CreateRepoStageCounts(variant_opens, variant_reviews, variant_merges_direct, variant_merges_after_review, repo_event_times)
-        if variant in {"same_period", "opened_cohort"}:
-            AssertMergesLeOpened(df_repo_counts, repo_name, variant)
+        df_repo_counts = CreateRepoStageCounts(outcome_sample_opens, outcome_sample_reviews, outcome_sample_merges_direct, outcome_sample_merges_after_review, repo_event_times)
+        if outcome_sample in {"same_period", "opened_cohort"}:
+            AssertMergesLeOpened(df_repo_counts, repo_name, outcome_sample)
+        if outcome_sample in ANALYSIS_PANEL_OUTCOME_SAMPLES:
+            repo_stage_counts_by_outcome_sample[outcome_sample] = df_repo_counts.assign(repo_name=repo_name)
         df_member_panel = df_member_counts.merge(df_repo_counts, on="quasi_event_time", how="left")
         df_member_panel.insert(0, "repo_name", repo_name)
 
-        outdir     = OUTDIR     / variant / combo["importance_type"] / combo["qualified_sample"] / combo["control_group"]
-        log_outdir = LOG_OUTDIR / variant / combo["importance_type"] / combo["qualified_sample"] / combo["control_group"]
+        outdir     = OUTDIR     / outcome_sample / combo["importance_type"] / combo["qualified_sample"] / combo["control_group"]
+        log_outdir = LOG_OUTDIR / outcome_sample / combo["importance_type"] / combo["qualified_sample"] / combo["control_group"]
         outdir.mkdir(parents=True, exist_ok=True)
         log_outdir.mkdir(parents=True, exist_ok=True)
 
@@ -115,10 +143,10 @@ def ProcessRepo(repo_name, df_time_map, df_bot_list, combo):
             log_outdir / f"{safe_name}.log",
         )
 
-        df_crosstab = CreateOpenerPairCounts(variant_opens, variant_merges_direct, variant_merges_after_review,
-                                             variant_reviews, solo_review_threads)
+        df_crosstab = CreateOpenerPairCounts(outcome_sample_opens, outcome_sample_merges_direct, outcome_sample_merges_after_review,
+                                             outcome_sample_reviews, solo_review_threads)
         df_crosstab.insert(0, "repo_name", repo_name)
-        cross_outdir = CROSS_OUTDIR / variant / combo["importance_type"] / combo["qualified_sample"] / combo["control_group"]
+        cross_outdir = CROSS_OUTDIR / outcome_sample / combo["importance_type"] / combo["qualified_sample"] / combo["control_group"]
         cross_outdir.mkdir(parents=True, exist_ok=True)
         SaveData(
             df_crosstab,
@@ -126,6 +154,47 @@ def ProcessRepo(repo_name, df_time_map, df_bot_list, combo):
             cross_outdir / f"{safe_name}.parquet",
             log_outdir / f"{safe_name}.crossmerge.log",
         )
+
+    return repo_stage_counts_by_outcome_sample
+
+
+def AggregateOrgOutcomes(repo_stage_counts, outcome_sample):
+    outcome_sample_frames = [counts[outcome_sample] for counts in repo_stage_counts if outcome_sample in counts]
+    org_counts = pd.concat(outcome_sample_frames, ignore_index=True)
+    org_outcomes = org_counts.assign(
+        pull_request_opened              = org_counts["repo_pull_request_opened"],
+        pull_request_reviewed            = org_counts["repo_pull_request_reviewed"],
+        pull_request_merged_direct       = org_counts["repo_pull_request_merged_direct"],
+        pull_request_merged_after_review = org_counts["repo_pull_request_merged_after_review"],
+        pull_request_merged              = org_counts["repo_pull_request_merged_direct"] + org_counts["repo_pull_request_merged_after_review"],
+    )
+    return org_outcomes[["repo_name", "quasi_event_time"] + SAMPLE_OUTCOME_COLUMNS]
+
+
+def KeptRepos(opened_cohort_org_outcomes):
+    pre_period = opened_cohort_org_outcomes[opened_cohort_org_outcomes["quasi_event_time"].isin(PRE_PERIOD_EVENT_TIMES)]
+    pre_period_mean_opened = pre_period.groupby("repo_name")[TRIM_OUTCOME].mean()
+    lower_bound, upper_bound = pre_period_mean_opened.quantile(TRIM_PROBS).values
+    within_bounds = (pre_period_mean_opened >= lower_bound) & (pre_period_mean_opened <= upper_bound)
+    return set(pre_period_mean_opened[within_bounds].index)
+
+
+def BuildOutcomeSamplePanel(base_panel, org_outcomes, kept_repos):
+    skeleton = base_panel.drop(columns=BASE_OUTCOMES_REPLACED_BY_SAMPLE)
+    outcome_sample_panel = skeleton.merge(org_outcomes, on=["repo_name", "quasi_event_time"], how="inner")
+    outcome_sample_panel = outcome_sample_panel[outcome_sample_panel["repo_name"].isin(kept_repos)].copy()
+    assert not outcome_sample_panel[SAMPLE_OUTCOME_COLUMNS].isna().any().any(), "outcome_sample analysis panel has missing outcomes after join"
+    return outcome_sample_panel
+
+
+def WriteOutcomeSamplePanel(outcome_sample_panel, base_panel_dir, outcome_sample, combo):
+    outdir = (
+        INDIR_PANEL / outcome_sample / combo["importance_type"] / ROLLING_PERIOD
+        / combo["qualified_sample"] / combo["control_group"]
+    )
+    outdir.mkdir(parents=True, exist_ok=True)
+    SaveData(outcome_sample_panel, ["repo_name", "time_index"], outdir / "panel.parquet", outdir / "panel.log")
+    shutil.copyfile(base_panel_dir / "pc_score_columns.json", outdir / "pc_score_columns.json")
 
 
 def CleanAndFilterData(actions_file, df_time_map, df_bot_list, repo_name):
@@ -202,11 +271,11 @@ def AttributeReviewsMergesToOpeningPeriod(df_opens, df_reviews, df_merges_direct
     return df_opens, remap_to_opening_period(df_reviews), remap_to_opening_period(df_merges_direct), remap_to_opening_period(df_merges_after_review)
 
 
-def AssertMergesLeOpened(df_repo_counts, repo_name, variant):
+def AssertMergesLeOpened(df_repo_counts, repo_name, outcome_sample):
     for merge_column in ["repo_pull_request_merged_direct", "repo_pull_request_merged_after_review"]:
         violations = df_repo_counts[df_repo_counts[merge_column] > df_repo_counts["repo_pull_request_opened"]]
         assert violations.empty, (
-            f"[{variant}] {repo_name}: {merge_column} > repo_pull_request_opened "
+            f"[{outcome_sample}] {repo_name}: {merge_column} > repo_pull_request_opened "
             f"in periods {violations['quasi_event_time'].tolist()}"
         )
 

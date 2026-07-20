@@ -32,16 +32,8 @@ for importance_type in IMPORTANCE_TYPES:
         call_targets = []
         for qualified_sample in QUALIFIED_SAMPLES:
             for control_group in CONTROL_GROUPS:
-                base = f'#output/derived/analysis_panel/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}'
+                base = f'#output/derived/analysis_panel/outliers_kept/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}'
                 call_targets.extend(f'{base}/{f}' for f in OUTPUT_FILES)
-
-        if importance_type == IMPORTANCE_TYPES[0] and rolling_period == ROLLING_PERIODS[0]:
-            _pc_groups = ["collaboration", "knowledge_level", "discussion_quality",
-                          "investment_in_new_talent", "problem_solving_routines"]
-            call_targets += (
-                ['#output/autofill/panel_autofill.tex', '#output/autofill/pc_autofill.tex']
-                + [f'#output/derived/analysis_panel/pc_loadings_{g}.txt' for g in _pc_groups]
-            )
 
         env.Python(call_targets, call_sources,
                    CL_ARG=[f'CL_IMPORTANCE_TYPE={importance_type}', f'CL_ROLLING_PERIOD={rolling_period}'])

@@ -11,13 +11,13 @@ importance_types      = CONFIG["importance_types"]["run"]
 rolling_label         = f"rolling{CONFIG['rolling_periods']['run'][0]}"
 qualified_samples     = CONFIG["qualified_samples"]["run"]
 control_groups        = CONFIG["control_groups"]["run"]
-variants              = MODEL_PREDICTION_CONFIG["variants"]["run"]
+outcome_samples              = MODEL_PREDICTION_CONFIG["outcome_samples"]["run"]
 distribution_types    = MODEL_PREDICTION_CONFIG["distribution_types"]["run"]
 estimation_approaches = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"]
 evaluation_figures    = MODEL_PREDICTION_CONFIG["evaluation_figures"]["run"]
 
 sample_combinations = list(product(importance_types, qualified_samples, control_groups))
-model_combinations  = list(product(variants, distribution_types, estimation_approaches, sample_combinations))
+model_combinations  = list(product(outcome_samples, distribution_types, estimation_approaches, sample_combinations))
 
 shared_dependencies = [
     '#source/lib/python/config_loaders.py',
@@ -26,21 +26,22 @@ shared_dependencies = [
     '#source/lib/config/pipeline_inputs.json',
 ]
 analysis_panel_sources = [
-    f'#output/derived/analysis_panel/{importance_type}/{rolling_label}/{qualified_sample}/{control_group}/panel.parquet'
+    f'#output/derived/analysis_panel/{outcome_sample}/{importance_type}/{rolling_label}/{qualified_sample}/{control_group}/panel.parquet'
+    for outcome_sample in outcome_samples
     for importance_type, qualified_sample, control_group in sample_combinations
 ]
 member_panel_hash      = ['#output/derived/hashes/event_time_member_panel.txt']
 
 
-def OutputBase(stage, variant, distribution_type, estimation_approach,
+def OutputBase(stage, outcome_sample, distribution_type, estimation_approach,
                importance_type, qualified_sample, control_group, root='#output'):
-    return (f'{root}/analysis/model_prediction/{variant}/{distribution_type}'
+    return (f'{root}/analysis/model_prediction/{outcome_sample}/{distribution_type}'
             f'/{stage}/{estimation_approach}/{importance_type}/{qualified_sample}/{control_group}')
 
 
 target = []
-for variant, distribution_type, estimation_approach, (importance_type, qualified_sample, control_group) in model_combinations:
-    parameter_base = OutputBase('parameters', variant, distribution_type, estimation_approach,
+for outcome_sample, distribution_type, estimation_approach, (importance_type, qualified_sample, control_group) in model_combinations:
+    parameter_base = OutputBase('parameters', outcome_sample, distribution_type, estimation_approach,
                                 importance_type, qualified_sample, control_group)
     target += [
         f'{parameter_base}/distribution_params.parquet',
@@ -51,7 +52,7 @@ for variant, distribution_type, estimation_approach, (importance_type, qualified
         f'{parameter_base}/review_fit_check.log',
     ]
 # The post-period latent-flow regression coefficients table is written once, for the primary combination.
-primary_parameter_base = OutputBase('parameters', variants[0], distribution_types[0], estimation_approaches[0],
+primary_parameter_base = OutputBase('parameters', outcome_samples[0], distribution_types[0], estimation_approaches[0],
                                     PAPER_SETTINGS["primary_importance_type"], PAPER_SETTINGS["primary_qualified_sample"],
                                     PAPER_SETTINGS["primary_control_group"])
 target += [f'{primary_parameter_base}/model_latent_negative_binomial_table.txt']
@@ -66,14 +67,14 @@ fit_outputs = target
 period_residual_stems = ['insample_period', 'leaveoneout_period', 'post_period']
 reference_stems       = ['insample_reference', 'leaveoneout_reference', 'post_reference']
 target = []
-for variant, distribution_type, estimation_approach, (importance_type, qualified_sample, control_group) in model_combinations:
-    residual_output_base    = OutputBase('residuals', variant, distribution_type, estimation_approach,
+for outcome_sample, distribution_type, estimation_approach, (importance_type, qualified_sample, control_group) in model_combinations:
+    residual_output_base    = OutputBase('residuals', outcome_sample, distribution_type, estimation_approach,
                                          importance_type, qualified_sample, control_group)
-    residual_datastore_base = OutputBase('residuals', variant, distribution_type, estimation_approach,
+    residual_datastore_base = OutputBase('residuals', outcome_sample, distribution_type, estimation_approach,
                                          importance_type, qualified_sample, control_group, root='#drive/output')
-    draws_output_base    = OutputBase('draws', variant, distribution_type, estimation_approach,
+    draws_output_base    = OutputBase('draws', outcome_sample, distribution_type, estimation_approach,
                                       importance_type, qualified_sample, control_group)
-    draws_datastore_base = OutputBase('draws', variant, distribution_type, estimation_approach,
+    draws_datastore_base = OutputBase('draws', outcome_sample, distribution_type, estimation_approach,
                                       importance_type, qualified_sample, control_group, root='#drive/output')
     for stem in period_residual_stems:
         target += [f'{residual_output_base}/{stem}.parquet', f'{residual_output_base}/{stem}.log']
@@ -104,8 +105,8 @@ individual_squared_names = (
 )
 
 target = []
-for variant, distribution_type, estimation_approach, (importance_type, qualified_sample, control_group) in model_combinations:
-    evaluation_base = OutputBase('evaluation', variant, distribution_type, estimation_approach,
+for outcome_sample, distribution_type, estimation_approach, (importance_type, qualified_sample, control_group) in model_combinations:
+    evaluation_base = OutputBase('evaluation', outcome_sample, distribution_type, estimation_approach,
                                  importance_type, qualified_sample, control_group)
     for stem in fit_panel_stems:
         target.append(f'{evaluation_base}/panels/squared/{stem}.png')
@@ -126,17 +127,17 @@ env.Python(target, source)
 
 # Churn/reaction measurement: descriptive facts on natural dropout, entry, and survivor reaction.
 # Reads the member panel + crossmerge and the analysis panel directly, so it does not depend on the
-# fitted model or the draws; it imports the sample definition (trim + membership) from the scatter.
+# fitted model or the draws; it imports the sample definition (membership) from the scatter.
 # Single-spec diagnostic: like the scatter it imports from, it resolves one combination -- the primary
 # (run[0]) one -- so its targets and its analysis-panel dependency are declared for that combination only.
-churn_reaction_base = OutputBase('evaluation', variants[0], distribution_types[0], estimation_approaches[0],
+churn_reaction_base = OutputBase('evaluation', outcome_samples[0], distribution_types[0], estimation_approaches[0],
                                  importance_types[0], qualified_samples[0], control_groups[0]) + '/churn_reaction'
 target = [
     f'{churn_reaction_base}/churn_decomposition.png',
     f'{churn_reaction_base}/reaction_by_event_time.png',
     f'{churn_reaction_base}/churn_reaction_tables.txt',
 ]
-primary_analysis_panel = [f'#output/derived/analysis_panel/{importance_types[0]}/{rolling_label}'
+primary_analysis_panel = [f'#output/derived/analysis_panel/{outcome_samples[0]}/{importance_types[0]}/{rolling_label}'
                           f'/{qualified_samples[0]}/{control_groups[0]}/panel.parquet']
 source = (['#source/analysis/model_prediction/measure_churn_reaction.py',
            '#source/analysis/model_prediction/plot_prediction_scatter.py',
@@ -146,11 +147,11 @@ env.Python(target, source)
 
 # Predicted-vs-actual prediction scatter (single-spec, primary/run[0] combination): the paper's opened
 # figure, the org/member diagnostic panels, and the control/treated slope and R^2 autofill macros.
-scatter_base         = OutputBase('evaluation', variants[0], distribution_types[0], estimation_approaches[0],
+scatter_base         = OutputBase('evaluation', outcome_samples[0], distribution_types[0], estimation_approaches[0],
                                   importance_types[0], qualified_samples[0], control_groups[0]) + '/scatter'
-scatter_draws        = OutputBase('draws', variants[0], distribution_types[0], estimation_approaches[0],
+scatter_draws        = OutputBase('draws', outcome_samples[0], distribution_types[0], estimation_approaches[0],
                                   importance_types[0], qualified_samples[0], control_groups[0], root='#drive/output') + '/raw_draws.parquet'
-scatter_member_probs = OutputBase('parameters', variants[0], distribution_types[0], estimation_approaches[0],
+scatter_member_probs = OutputBase('parameters', outcome_samples[0], distribution_types[0], estimation_approaches[0],
                                   importance_types[0], qualified_samples[0], control_groups[0]) + '/member_probabilities.parquet'
 target = [
     f'{scatter_base}/opened_prediction_scatter.png',

@@ -20,6 +20,8 @@ IMPORTANCE_TYPE  <- .cl[["CL_IMPORTANCE_TYPE"]]
 ROLLING_PERIOD   <- .cl[["CL_ROLLING_PERIOD"]]
 QUALIFIED_SAMPLE <- .cl[["CL_QUALIFIED_SAMPLE"]]
 CONTROL_GROUP    <- .cl[["CL_CONTROL_GROUP"]]
+OUTCOME_SAMPLE  <- .cl[["CL_OUTCOME_SAMPLE"]]
+INDIR_PREP       <- file.path(INDIR_PREP, OUTCOME_SAMPLE)
 
 Main <- function() {
   org_practice_cfg <- feature_variables
@@ -41,9 +43,9 @@ Main <- function() {
 
     for (normalize in NORM_OPTIONS) {
       norm_label       <- ifelse(normalize, "norm", "raw")
-      outdir_datastore <- file.path(OUTDIR_DATASTORE, IMPORTANCE_TYPE, ROLLING_PERIOD,
+      outdir_datastore <- file.path(OUTDIR_DATASTORE, OUTCOME_SAMPLE, IMPORTANCE_TYPE, ROLLING_PERIOD,
                              QUALIFIED_SAMPLE, CONTROL_GROUP, covar_type, norm_label)
-      outdir           <- file.path(OUTDIR, IMPORTANCE_TYPE, ROLLING_PERIOD,
+      outdir           <- file.path(OUTDIR, OUTCOME_SAMPLE, IMPORTANCE_TYPE, ROLLING_PERIOD,
                              QUALIFIED_SAMPLE, CONTROL_GROUP, covar_type, norm_label)
 
       df_data           <- CreateDataPanel(panel, FOREST_TRAINING_OUTCOME, covars,

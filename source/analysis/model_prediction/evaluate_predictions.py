@@ -21,7 +21,7 @@ CONFIG                  = LoadPipelineInputs()
 INDIR           = Path("output/analysis/model_prediction")
 DATASTORE_INDIR = Path("drive/output/analysis/model_prediction")
 OUTDIR          = Path("output/analysis/model_prediction")
-VARIANTS              = MODEL_PREDICTION_CONFIG["variants"]["run"]
+OUTCOME_SAMPLES              = MODEL_PREDICTION_CONFIG["outcome_samples"]["run"]
 DISTRIBUTION_TYPES    = MODEL_PREDICTION_CONFIG["distribution_types"]["run"]
 ESTIMATION_APPROACHES = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"]
 EVALUATION_FIGURES    = MODEL_PREDICTION_CONFIG["evaluation_figures"]["run"]
@@ -55,28 +55,28 @@ def Main():
 
     Parallel(n_jobs=N_JOBS)(
         delayed(RunCombination)(
-            variant, distribution_type, estimation_approach,
+            outcome_sample, distribution_type, estimation_approach,
             importance_type, qualified_sample, control_group
         )
-        for variant, distribution_type, estimation_approach, importance_type, qualified_sample, control_group in product(
-            VARIANTS, DISTRIBUTION_TYPES, ESTIMATION_APPROACHES,
+        for outcome_sample, distribution_type, estimation_approach, importance_type, qualified_sample, control_group in product(
+            OUTCOME_SAMPLES, DISTRIBUTION_TYPES, ESTIMATION_APPROACHES,
             importance_types, qualified_samples, control_groups
         )
     )
 
 
-def RunCombination(variant, distribution_type, estimation_approach,
+def RunCombination(outcome_sample, distribution_type, estimation_approach,
                    importance_type, qualified_sample, control_group):
     pred_dir = (
-        INDIR / variant / distribution_type / "residuals" / estimation_approach
+        INDIR / outcome_sample / distribution_type / "residuals" / estimation_approach
         / importance_type / qualified_sample / control_group
     )
     reference_dir = (
-        DATASTORE_INDIR / variant / distribution_type / "residuals" / estimation_approach
+        DATASTORE_INDIR / outcome_sample / distribution_type / "residuals" / estimation_approach
         / importance_type / qualified_sample / control_group
     )
     base_out = (
-        OUTDIR / variant / distribution_type / "evaluation" / estimation_approach
+        OUTDIR / outcome_sample / distribution_type / "evaluation" / estimation_approach
         / importance_type / qualified_sample / control_group
     )
 

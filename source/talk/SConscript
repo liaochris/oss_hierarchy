@@ -3,6 +3,7 @@ Import('*')
 from source.lib.python.config_loaders import LoadPaperSettings
 
 CONFIG = LoadPaperSettings("../../source/lib/config/paper_settings.json")
+PRIMARY_OUTCOME_SAMPLE = CONFIG["primary_outcome_sample"]
 PRIMARY_SPEC = "/".join([
     CONFIG["primary_importance_type"],
     CONFIG["primary_rolling_label"],
@@ -10,8 +11,8 @@ PRIMARY_SPEC = "/".join([
     CONFIG["primary_control_group"],
 ])
 
-EVENT_STUDY_DIR    = f'#output/analysis/event_study/{PRIMARY_SPEC}'
-FOREST_DIR         = f'#output/analysis/event_study_forest/{PRIMARY_SPEC}'
+EVENT_STUDY_DIR    = f'#output/analysis/event_study/{PRIMARY_OUTCOME_SAMPLE}/{PRIMARY_SPEC}'
+FOREST_DIR         = f'#output/analysis/event_study_forest/{PRIMARY_OUTCOME_SAMPLE}/{PRIMARY_SPEC}'
 ANALYZE_FOREST_DIR = f'#output/analysis/analyze_forest/{PRIMARY_SPEC}/norm'
 
 OUTCOMES  = ['pull_request_opened', 'pull_request_merged', 'overall_new_release_count']

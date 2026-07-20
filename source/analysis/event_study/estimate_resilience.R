@@ -19,10 +19,12 @@ IMPORTANCE_TYPE  <- .cl[["CL_IMPORTANCE_TYPE"]]
 ROLLING_PERIOD   <- .cl[["CL_ROLLING_PERIOD"]]
 QUALIFIED_SAMPLE <- .cl[["CL_QUALIFIED_SAMPLE"]]
 CONTROL_GROUP    <- .cl[["CL_CONTROL_GROUP"]]
+OUTCOME_SAMPLE  <- .cl[["CL_OUTCOME_SAMPLE"]]
+INDIR_PREP       <- file.path(INDIR_PREP, OUTCOME_SAMPLE)
 
 Main <- function() {
   outcome_specs <- BuildOutcomeSpecs()
-  outdir_slice  <- file.path(OUTDIR, IMPORTANCE_TYPE, ROLLING_PERIOD, QUALIFIED_SAMPLE, CONTROL_GROUP)
+  outdir_slice  <- file.path(OUTDIR, OUTCOME_SAMPLE, IMPORTANCE_TYPE, ROLLING_PERIOD, QUALIFIED_SAMPLE, CONTROL_GROUP)
 
   coeffs_all <- list()
 
@@ -69,7 +71,7 @@ Main <- function() {
   dir_create(outdir_slice, recurse = TRUE)
   SaveData(
     coeffs_df,
-    c("importance_type", "rolling", "qualified_sample", "control_group", "split_type",
+    c("outcome_sample", "importance_type", "rolling", "qualified_sample", "control_group", "split_type",
       "split_covar", "split_value", "category", "outcome", "normalize", "method", "event_time"),
     file.path(outdir_slice, "estimates.csv"),
     file.path(outdir_slice, "estimates.log"),
@@ -209,7 +211,7 @@ BuildPCScoreGroups <- function(panel_with_pc_scores, pc_group_cfg) {
 CollectEstimateRows <- function(results, importance_type, rolling_panel, qualified_sample, control_group,
                                 split_type, split_covar, split_value, category, outcome, normalize) {
   as_tibble(results, rownames = "event_time") %>%
-    mutate(importance_type = importance_type, rolling = rolling_panel,
+    mutate(outcome_sample = OUTCOME_SAMPLE, importance_type = importance_type, rolling = rolling_panel,
            qualified_sample = qualified_sample, control_group = control_group,
            split_type = split_type, split_covar = split_covar, split_value = split_value,
            category = category, outcome = outcome, normalize = normalize, method = "sa")

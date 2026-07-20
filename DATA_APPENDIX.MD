@@ -415,6 +415,32 @@ This step creates the panel of organizations used in estimation. Composite covar
 
 The script runs over all combinations of importance type and rolling period defined in `source/lib/config/pipeline_inputs.json`. The primary specification is defined in `source/lib/config/paper_settings.json`.
 
+Because the trim below (Step 6) selects the estimation sample using the opened-cohort opened counts, which are produced downstream in Step 6, `prepare_panel.py`'s output is the **untrimmed** base panel. It is written under `analysis_panel/outliers_kept/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel.parquet`, serves as the member panel's repo-list and period→event-time input, and is retained for robustness (keeping scale-outlier organizations).
+
+---
+
+## Step 6: Event-Time Member Panel and Outcome-Sample Analysis Panels (`source/derived/model_prediction/build_event_time_member_panel.py`)
+
+This step builds the member-level, event-time panel of pull-request activity and, from it, the per-outcome-sample analysis panels that the event study, forest, and model-prediction analyses read. It uses the repo list and period→event-time map from the untrimmed base panel (Step 5.1), and counts opens, reviews, and merges (attributed to the pull's opener) per tracked member and per repository over event time, dropping bots and counting distinct threads.
+
+### Outcome-sample constructions
+
+Reviews and merges can be assigned to periods in three ways. **Opens are identical across all three constructions** — only downstream reviews/merges are re-timed — so a repository's opened counts (and hence the trim below) do not depend on the construction.
+
+| Outcome sample | Construction |
+|----------------|-------------|
+| `observed` | Reviews/merges counted in the period they occur, over all pulls active in that period regardless of when opened (original construction). |
+| `same_period` | Reviews/merges restricted to pulls opened AND reviewed/merged within the same period *t* (strict same-period match, consistent denominator). |
+| `opened_cohort` | Reviews/merges attributed to the period the pull was opened, accumulating downstream activity across any later period (consistent denominator, full downstream activity captured). |
+
+`opened_cohort` is the primary construction used in the paper (the only `run` outcome sample in `pipeline_inputs.json`'s `outcome_samples`); `same_period` and `observed` are `extended` (produced only when the extended phase is enabled). The member panel itself always builds all three member-level constructions.
+
+### Per-outcome-sample analysis panels and the scale-outlier trim
+
+For each `run` outcome sample, the org-level counts are aggregated from the member panel (`pull_request_opened`, `pull_request_reviewed`, `pull_request_merged_direct`, `pull_request_merged_after_review`, and `pull_request_merged = direct + after_review`) and joined onto the base panel's skeleton, covariates, PC scores, and (construction-invariant) release outcomes. The estimation sample is then restricted by a **scale-outlier trim**: organizations whose pre-period (event time [−5, −1]) mean opened-cohort `pull_request_opened` falls outside the pooled 1st–99th percentile (across treated and control) are dropped, because a few very high-volume projects would otherwise dominate the count-weighted estimates. Opens are construction-invariant, so the same kept-repository set applies to every outcome sample. `trim_outcome` and `trim_probs` are set in `source/lib/config/analysis_parameters.json`.
+
+**Output**: `output/derived/analysis_panel/{outcome_sample}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel.parquet` (trimmed; the panels all analyses read), for `outcome_sample ∈ {opened_cohort, same_period}`. The untrimmed base panels remain under `analysis_panel/outliers_kept/...`.
+
 ---
 
 ## Key Identifiers

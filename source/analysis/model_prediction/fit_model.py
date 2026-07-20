@@ -25,7 +25,7 @@ OUTDIR               = Path("output/analysis/model_prediction")
 ROLLING_LABEL         = f"rolling{CONFIG['rolling_periods']['run'][0]}"
 PRE_PERIOD_COUNT      = CONFIG['rolling_periods']['run'][0]
 POST_PERIODS          = list(range(1, PRE_PERIOD_COUNT + 1))
-VARIANTS              = MODEL_PREDICTION_CONFIG["variants"]["run"]
+OUTCOME_SAMPLES              = MODEL_PREDICTION_CONFIG["outcome_samples"]["run"]
 DISTRIBUTION_TYPES    = MODEL_PREDICTION_CONFIG["distribution_types"]["run"]
 ESTIMATION_APPROACHES = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"]
 N_JOBS                = GLOBAL_SETTINGS["n_jobs"]
@@ -35,7 +35,6 @@ DISTRIBUTION_PARAM_COLUMNS = [
     "negative_binomial_size", "negative_binomial_prob",
     "post_latent_mean", "fold_id",
 ]
-TRIM_QUANTILE_BOUNDS = (0.01, 0.99)
 
 
 def Main():
@@ -43,33 +42,33 @@ def Main():
     qualified_samples = CONFIG["qualified_samples"]["run"]
     control_groups    = CONFIG["control_groups"]["run"]
 
-    for variant, distribution_type, estimation_approach, importance_type, qualified_sample, control_group in product(
-        VARIANTS, DISTRIBUTION_TYPES, ESTIMATION_APPROACHES,
+    for outcome_sample, distribution_type, estimation_approach, importance_type, qualified_sample, control_group in product(
+        OUTCOME_SAMPLES, DISTRIBUTION_TYPES, ESTIMATION_APPROACHES,
         importance_types, qualified_samples, control_groups
     ):
         RunCombination(
-            variant, distribution_type, estimation_approach,
+            outcome_sample, distribution_type, estimation_approach,
             importance_type, qualified_sample, control_group
         )
 
 
-def RunCombination(variant, distribution_type, estimation_approach,
+def RunCombination(outcome_sample, distribution_type, estimation_approach,
                    importance_type, qualified_sample, control_group):
     outdir = (
-        OUTDIR / variant / distribution_type / "parameters" / estimation_approach
+        OUTDIR / outcome_sample / distribution_type / "parameters" / estimation_approach
         / importance_type / qualified_sample / control_group
     )
     outdir.mkdir(parents=True, exist_ok=True)
 
     panel_path = (
-        INDIR_ANALYSIS_PANEL / importance_type / ROLLING_LABEL
+        INDIR_ANALYSIS_PANEL / outcome_sample / importance_type / ROLLING_LABEL
         / qualified_sample / control_group / "panel.parquet"
     )
     df_panel = pd.read_parquet(panel_path)
     df_all_repos = df_panel[df_panel["quasi_event_time"] == 0][["repo_name", "num_dropouts"]]
 
     repo_fit_results = Parallel(n_jobs=N_JOBS)(
-        delayed(FitRepo)(row["repo_name"], row["num_dropouts"] > 0, variant, importance_type,
+        delayed(FitRepo)(row["repo_name"], row["num_dropouts"] > 0, outcome_sample, importance_type,
                          qualified_sample, control_group, distribution_type, estimation_approach)
         for _, row in df_all_repos.iterrows()
     )
@@ -98,15 +97,15 @@ def RunCombination(variant, distribution_type, estimation_approach,
         outdir / "review_fit_check.parquet", outdir / "review_fit_check.log",
     )
 
-    if IsPrimaryCombination(variant, distribution_type, estimation_approach,
+    if IsPrimaryCombination(outcome_sample, distribution_type, estimation_approach,
                             importance_type, qualified_sample, control_group):
         WriteLatentRegressionTable(latent_coefficients, outdir / "model_latent_negative_binomial_table.txt")
 
 
-def FitRepo(repo_name, is_treated, variant, importance_type, qualified_sample, control_group,
+def FitRepo(repo_name, is_treated, outcome_sample, importance_type, qualified_sample, control_group,
             distribution_type, estimation_approach):
     member_path = (
-        INDIR_MEMBER_PANEL / variant / importance_type / qualified_sample
+        INDIR_MEMBER_PANEL / outcome_sample / importance_type / qualified_sample
         / control_group / f"{MakeRepoNameSafe(repo_name)}.parquet"
     )
     if not member_path.exists():
@@ -152,11 +151,6 @@ def LatentRegressionInputs(repo_name, is_treated, df_counts_by_period):
 
 
 def FitPostLatent(latent_inputs):
-    pre_period_mean = np.array([repo_inputs["open_mean"] for repo_inputs in latent_inputs], dtype=float)
-    lower_bound, upper_bound = np.quantile(pre_period_mean, TRIM_QUANTILE_BOUNDS)
-    kept_repos = {repo_inputs["repo_name"] for repo_inputs in latent_inputs
-                  if lower_bound <= repo_inputs["open_mean"] <= upper_bound}
-
     repo_features = pd.DataFrame(
         [{key: repo_inputs[key] for key in ("repo_name", "is_treated", "log_last", "open_mean")}
          for repo_inputs in latent_inputs])
@@ -165,15 +159,14 @@ def FitPostLatent(latent_inputs):
          "log_last": repo_inputs["log_last"], "open_mean": repo_inputs["open_mean"]}
         for repo_inputs in latent_inputs
         if not repo_inputs["is_treated"] and repo_inputs["open_mean"] > 0 and repo_inputs["n_pre"] >= 2
-        and repo_inputs["repo_name"] in kept_repos
         for opened in repo_inputs["post_opened"].values()
     ])
     return FitPostLatentRegression(control_post_cells, repo_features)
 
 
-def IsPrimaryCombination(variant, distribution_type, estimation_approach,
+def IsPrimaryCombination(outcome_sample, distribution_type, estimation_approach,
                          importance_type, qualified_sample, control_group):
-    return (variant == VARIANTS[0] and distribution_type == DISTRIBUTION_TYPES[0]
+    return (outcome_sample == OUTCOME_SAMPLES[0] and distribution_type == DISTRIBUTION_TYPES[0]
             and estimation_approach == ESTIMATION_APPROACHES[0]
             and importance_type == PAPER_SETTINGS["primary_importance_type"]
             and qualified_sample == PAPER_SETTINGS["primary_qualified_sample"]

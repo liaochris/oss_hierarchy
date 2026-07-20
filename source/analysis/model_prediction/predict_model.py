@@ -31,7 +31,7 @@ OUTDIR               = Path("output/analysis/model_prediction")
 DATASTORE_OUTDIR     = Path("drive/output/analysis/model_prediction")
 ROLLING_LABEL         = f"rolling{CONFIG['rolling_periods']['run'][0]}"
 PRE_PERIOD_COUNT      = CONFIG['rolling_periods']['run'][0]
-VARIANTS              = MODEL_PREDICTION_CONFIG["variants"]["run"]
+OUTCOME_SAMPLES              = MODEL_PREDICTION_CONFIG["outcome_samples"]["run"]
 DISTRIBUTION_TYPES    = MODEL_PREDICTION_CONFIG["distribution_types"]["run"]
 ESTIMATION_APPROACHES = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"]
 
@@ -47,20 +47,20 @@ def Main():
     qualified_samples = CONFIG["qualified_samples"]["run"]
     control_groups    = CONFIG["control_groups"]["run"]
 
-    for variant, distribution_type, estimation_approach, importance_type, qualified_sample, control_group in product(
-        VARIANTS, DISTRIBUTION_TYPES, ESTIMATION_APPROACHES,
+    for outcome_sample, distribution_type, estimation_approach, importance_type, qualified_sample, control_group in product(
+        OUTCOME_SAMPLES, DISTRIBUTION_TYPES, ESTIMATION_APPROACHES,
         importance_types, qualified_samples, control_groups
     ):
         RunCombination(
-            variant, distribution_type, estimation_approach,
+            outcome_sample, distribution_type, estimation_approach,
             importance_type, qualified_sample, control_group
         )
 
 
-def RunCombination(variant, distribution_type, estimation_approach,
+def RunCombination(outcome_sample, distribution_type, estimation_approach,
                    importance_type, qualified_sample, control_group):
     def stage_dir(root, stage):
-        return (root / variant / distribution_type / stage / estimation_approach
+        return (root / outcome_sample / distribution_type / stage / estimation_approach
                 / importance_type / qualified_sample / control_group)
 
     residuals_outdir      = stage_dir(OUTDIR, "residuals")
@@ -71,14 +71,14 @@ def RunCombination(variant, distribution_type, estimation_approach,
         directory.mkdir(parents=True, exist_ok=True)
 
     fitted_dir = (
-        INDIR_FITTED / variant / distribution_type / "parameters" / estimation_approach
+        INDIR_FITTED / outcome_sample / distribution_type / "parameters" / estimation_approach
         / importance_type / qualified_sample / control_group
     )
     df_dist  = pd.read_parquet(fitted_dir / "distribution_params.parquet")
     df_probs = pd.read_parquet(fitted_dir / "member_probabilities.parquet")
 
     panel_path = (
-        INDIR_ANALYSIS_PANEL / importance_type / ROLLING_LABEL
+        INDIR_ANALYSIS_PANEL / outcome_sample / importance_type / ROLLING_LABEL
         / qualified_sample / control_group / "panel.parquet"
     )
     df_panel = pd.read_parquet(panel_path)
@@ -93,7 +93,7 @@ def RunCombination(variant, distribution_type, estimation_approach,
             set(json.loads(row["dropouts_actors"])) if row["num_dropouts"] > 0 else set(),
             df_dist[df_dist["repo_name"] == row["repo_name"]],
             df_probs[df_probs["repo_name"] == row["repo_name"]],
-            variant, importance_type, qualified_sample, control_group,
+            outcome_sample, importance_type, qualified_sample, control_group,
             distribution_type, estimation_approach,
         )
         for _, row in df_all_repos.iterrows()
@@ -171,13 +171,13 @@ def CounterfactualStageProbs(surviving_member_probs, df_member, df_crossmerge, d
 
 def ProcessRepo(repo_name, is_treated, dropout_set,
                 df_dist_repo, df_member_probs,
-                variant, importance_type, qualified_sample, control_group,
+                outcome_sample, importance_type, qualified_sample, control_group,
                 distribution_type, estimation_approach):
     if df_dist_repo.empty:
         return None
 
     member_path = (
-        INDIR_MEMBER_PANEL / variant / importance_type / qualified_sample
+        INDIR_MEMBER_PANEL / outcome_sample / importance_type / qualified_sample
         / control_group / f"{MakeRepoNameSafe(repo_name)}.parquet"
     )
     if not member_path.exists():
@@ -185,7 +185,7 @@ def ProcessRepo(repo_name, is_treated, dropout_set,
 
     df_member = pd.read_parquet(member_path)
     crossmerge_path = (
-        INDIR_MEMBER_CROSS / variant / importance_type / qualified_sample
+        INDIR_MEMBER_CROSS / outcome_sample / importance_type / qualified_sample
         / control_group / f"{MakeRepoNameSafe(repo_name)}.parquet"
     )
     df_crossmerge   = pd.read_parquet(crossmerge_path) if crossmerge_path.exists() else None

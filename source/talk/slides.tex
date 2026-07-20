@@ -54,18 +54,8 @@
 \newcommand{\draftnote}{\vspace{0.4em}{\footnotesize\color{dimtext}Draft slide; examples and framing are still being refined.}}
 \newcommand{\linkbutton}[2]{\hyperlink{#2}{\beamergotobutton{#1}}}
 \newcommand{\backbutton}[1]{\hyperlink{#1}{\beamergotobutton{Back}}}
-\newcommand{\plotplaceholder}[2][0.92\linewidth]{%
-  \fbox{\parbox[c][0.52\textheight][c]{#1}{\centering\small #2}}
-}
 \newcommand{\smallplotplaceholder}[2][0.92\linewidth]{%
   \fbox{\parbox[c][0.18\textheight][c]{#1}{\centering\small #2}}
-}
-\newcommand{\safeincludegraphics}[3][\linewidth]{%
-  \IfFileExists{#2}{%
-    \includegraphics[width=#1]{#2}%
-  }{%
-    \plotplaceholder[#1]{#3}%
-  }%
 }
 
 \newcommand{\bottomcenterbuttons}[1]{%
@@ -80,8 +70,8 @@
   \end{tikzpicture}%
 }
 
-\newcommand{\EventStudyDir}{\dir/output/analysis/event_study/\PrimaryImportanceType/\PrimaryRollingLabel/\PrimaryQualifiedSample/\PrimaryControlGroup}
-\newcommand{\ForestDir}{\dir/output/analysis/event_study_forest/\PrimaryImportanceType/\PrimaryRollingLabel/\PrimaryQualifiedSample/\PrimaryControlGroup}
+\newcommand{\EventStudyDir}{\dir/output/analysis/event_study/\PrimaryOutcomeSample/\PrimaryImportanceType/\PrimaryRollingLabel/\PrimaryQualifiedSample/\PrimaryControlGroup}
+\newcommand{\ForestDir}{\dir/output/analysis/event_study_forest/\PrimaryOutcomeSample/\PrimaryImportanceType/\PrimaryRollingLabel/\PrimaryQualifiedSample/\PrimaryControlGroup}
 \newcommand{\AnalyzeForestDir}{\dir/output/analysis/analyze_forest/\PrimaryImportanceType/\PrimaryRollingLabel/\PrimaryQualifiedSample/\PrimaryControlGroup/norm}
 
 \def\hidetablenotes{}
@@ -311,7 +301,7 @@ Y_{i,t}^{SD} = \alpha_i + \lambda_t + \sum_{e \neq \infty}\sum_{k \neq -1} \delt
   \end{itemize}
   \end{column}
   \begin{column}{0.07\textwidth}\end{column}
-  \begin{column}{0.5\textwidth}\safeincludegraphics[.9\linewidth]{\EventStudyDir/full_sample/norm/pull_request_merged.png}{Pull requests merged event study}
+  \begin{column}{0.5\textwidth}\includegraphics[width=.9\linewidth]{\EventStudyDir/full_sample/norm/pull_request_merged.png}
   \end{column}
 \end{columns}
 
@@ -407,7 +397,7 @@ Y_{i,t}^{SD} = \alpha_i + f_t(X_i) + \sum_{e \neq \infty}\sum_{k \neq -1} \delta
 
 \begin{frame}[label=main-combinations]{Combinations of practices predict resilience}
 \centering
-\safeincludegraphics[0.6\linewidth]{\ForestDir/pc_score_binary/split_full_avg/norm/pull_request_merged_observed.png}{Coarsened practice-score forest split}
+\includegraphics[width=0.6\linewidth]{\ForestDir/pc_score_binary/split_full_avg/norm/pull_request_merged_observed.png}
 \medskip
 \small
 \begin{itemize}
@@ -607,11 +597,11 @@ Y_{i,t}^{SD} = \alpha_i + f_t(X_i) + \sum_{e \neq \infty}\sum_{k \neq -1} \delta
 \begin{columns}[T,onlytextwidth]
   \begin{column}{0.49\textwidth}
     \centering\small Pull requests opened\\[0.5em]
-    \safeincludegraphics{\EventStudyDir/full_sample/norm/pull_request_opened.png}{Pull requests opened event study}
+    \includegraphics[width=\linewidth]{\EventStudyDir/full_sample/norm/pull_request_opened.png}
   \end{column}
   \begin{column}{0.49\textwidth}
     \centering\small New software releases\\[0.5em]
-    \safeincludegraphics{\EventStudyDir/full_sample/norm/overall_new_release_count.png}{New releases event study}
+    \includegraphics[width=\linewidth]{\EventStudyDir/full_sample/norm/overall_new_release_count.png}
   \end{column}
 \end{columns}
 
@@ -623,22 +613,22 @@ Y_{i,t}^{SD} = \alpha_i + f_t(X_i) + \sum_{e \neq \infty}\sum_{k \neq -1} \delta
 \begin{columns}[T,onlytextwidth]
   \begin{column}{0.24\textwidth}
   \centering
-  \safeincludegraphics{\EventStudyDir/pc_score/norm/knowledge_level_pull_request_merged_pc_score_split.png}{Knowledge level split}
+  \includegraphics[width=\linewidth]{\EventStudyDir/pc_score/norm/knowledge_level_pull_request_merged_pc_score_split.png}
   {\footnotesize Knowledge level}
   \end{column}
   \begin{column}{0.24\textwidth}
   \centering
-  \safeincludegraphics{\EventStudyDir/pc_score/norm/discussion_quality_pull_request_merged_pc_score_split.png}{Discussion quality split}
+  \includegraphics[width=\linewidth]{\EventStudyDir/pc_score/norm/discussion_quality_pull_request_merged_pc_score_split.png}
   {\footnotesize Discussion quality}
   \end{column}
   \begin{column}{0.24\textwidth}
   \centering
-  \safeincludegraphics{\EventStudyDir/pc_score/norm/investment_in_new_talent_pull_request_merged_pc_score_split.png}{New talent split}
+  \includegraphics[width=\linewidth]{\EventStudyDir/pc_score/norm/investment_in_new_talent_pull_request_merged_pc_score_split.png}
   {\footnotesize New talent}
   \end{column}
   \begin{column}{0.24\textwidth}
   \centering
-  \safeincludegraphics{\EventStudyDir/pc_score/norm/problem_solving_routines_pull_request_merged_pc_score_split.png}{Routines split}
+  \includegraphics[width=\linewidth]{\EventStudyDir/pc_score/norm/problem_solving_routines_pull_request_merged_pc_score_split.png}
   {\footnotesize Routines}
   \end{column}
 \end{columns}
@@ -689,7 +679,7 @@ Y_{i,t}^{SD} = \alpha_i + f_t(X_i) + \sum_{e \neq \infty}\sum_{k \neq -1} \delta
 
 \begin{frame}[label=app-continuous-resilience]{Continuous practice score predictions}
 \centering
-\safeincludegraphics[0.7\linewidth]{\ForestDir/pc_score/split_full_avg/norm/pull_request_merged_observed.png}{Continuous practice-score forest split}
+\includegraphics[width=0.7\linewidth]{\ForestDir/pc_score/split_full_avg/norm/pull_request_merged_observed.png}
 \medskip
 \small
 \begin{itemize}
@@ -702,12 +692,12 @@ Y_{i,t}^{SD} = \alpha_i + f_t(X_i) + \sum_{e \neq \infty}\sum_{k \neq -1} \delta
 \begin{columns}[T,onlytextwidth]
   \begin{column}{0.49\textwidth}
   \centering
-  \safeincludegraphics{\ForestDir/pc_score_binary/split_full_avg/norm/pull_request_opened_observed.png}{Pull requests opened forest split}
+  \includegraphics[width=\linewidth]{\ForestDir/pc_score_binary/split_full_avg/norm/pull_request_opened_observed.png}
   {\footnotesize Pull requests opened}
   \end{column}
   \begin{column}{0.49\textwidth}
   \centering
-  \safeincludegraphics{\ForestDir/pc_score_binary/split_full_avg/norm/overall_new_release_count_observed.png}{New releases forest split}
+  \includegraphics[width=\linewidth]{\ForestDir/pc_score_binary/split_full_avg/norm/overall_new_release_count_observed.png}
   {\footnotesize New software releases}
   \end{column}
 \end{columns}

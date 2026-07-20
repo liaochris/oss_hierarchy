@@ -11,7 +11,7 @@ PRIMARY_SPEC = "/".join([
 
 # Model outputs carry no rolling label, unlike PRIMARY_SPEC.
 MODEL_PREDICTION_CONFIG = LoadGlobals("../../source/lib/config/model_prediction.json")
-MODEL_VARIANT      = MODEL_PREDICTION_CONFIG["variants"]["run"][0]
+MODEL_OUTCOME_SAMPLE      = MODEL_PREDICTION_CONFIG["outcome_samples"]["run"][0]
 MODEL_DISTRIBUTION = MODEL_PREDICTION_CONFIG["distribution_types"]["run"][0]
 MODEL_ESTIMATION   = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"][0]
 MODEL_SPEC = "/".join([
@@ -19,8 +19,8 @@ MODEL_SPEC = "/".join([
     CONFIG["primary_qualified_sample"],
     CONFIG["primary_control_group"],
 ])
-MODEL_FIT_DIR   = f'#output/analysis/model_prediction/{MODEL_VARIANT}/{MODEL_DISTRIBUTION}/evaluation/{MODEL_ESTIMATION}/{MODEL_SPEC}'
-MODEL_PARAM_DIR = f'#output/analysis/model_prediction/{MODEL_VARIANT}/{MODEL_DISTRIBUTION}/parameters/{MODEL_ESTIMATION}/{MODEL_SPEC}'
+MODEL_FIT_DIR   = f'#output/analysis/model_prediction/{MODEL_OUTCOME_SAMPLE}/{MODEL_DISTRIBUTION}/evaluation/{MODEL_ESTIMATION}/{MODEL_SPEC}'
+MODEL_PARAM_DIR = f'#output/analysis/model_prediction/{MODEL_OUTCOME_SAMPLE}/{MODEL_DISTRIBUTION}/parameters/{MODEL_ESTIMATION}/{MODEL_SPEC}'
 
 for _kind in ["signed", "squared"]:
     for _stem in ["pre_period_fit_insample", "pre_period_fit_leaveoneout", "post_period_fit"]:

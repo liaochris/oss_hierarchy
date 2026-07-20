@@ -23,28 +23,38 @@ script_deps = [
     '#source/lib/JMSLab/SaveData.py',
     '#source/lib/config/global_settings.json',
     '#source/lib/config/pipeline_inputs.json',
+    '#source/lib/config/analysis_parameters.json',
     '#output/derived/hashes/repo_actions.txt',
     '#output/derived/create_bot_list/bot_list.csv',
 ]
 
 panel_sources = [
-    f'#output/derived/analysis_panel/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel.parquet'
+    f'#output/derived/analysis_panel/outliers_kept/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel.parquet'
     for importance_type, qualified_sample, control_group in combos
+]
+
+outcome_samples = CONFIG["outcome_samples"]["run"]
+outcome_sample_panel_files = ["panel.parquet", "panel.log", "pc_score_columns.json"]
+outcome_sample_panel_targets = [
+    f'#output/derived/analysis_panel/{outcome_sample}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/{panel_file}'
+    for outcome_sample in outcome_samples
+    for importance_type, qualified_sample, control_group in combos
+    for panel_file in outcome_sample_panel_files
 ]
 
 target = [
     '#output/derived/hashes/event_time_member_panel.txt',
-]
+] + outcome_sample_panel_targets
 source = script_deps + panel_sources
 env.Python(target, source)
 
 from source.lib.python.config_loaders import LoadGlobals
 MODEL_PREDICTION_CONFIG = LoadGlobals("../../../source/lib/config/model_prediction.json")
-model_variant      = MODEL_PREDICTION_CONFIG["variants"]["run"][0]
+model_outcome_sample      = MODEL_PREDICTION_CONFIG["outcome_samples"]["run"][0]
 model_distribution = MODEL_PREDICTION_CONFIG["distribution_types"]["run"][0]
 model_estimation   = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"][0]
 distribution_params_source = (
-    f'#output/analysis/model_prediction/{model_variant}/{model_distribution}/parameters/{model_estimation}/'
+    f'#output/analysis/model_prediction/{model_outcome_sample}/{model_distribution}/parameters/{model_estimation}/'
     f'{PAPER_SETTINGS["primary_importance_type"]}/{PAPER_SETTINGS["primary_qualified_sample"]}/'
     f'{PAPER_SETTINGS["primary_control_group"]}/distribution_params.parquet'
 )

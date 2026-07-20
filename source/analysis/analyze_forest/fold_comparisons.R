@@ -4,8 +4,8 @@ library(fs)
 
 source("source/analysis/analyze_forest/helpers.R")
 
-INDIR_FOREST    <- "output/analysis/event_study_forest"
-INDIR_FOREST_DS <- "drive/output/analysis/event_study_forest"
+INDIR_FOREST    <- file.path("output/analysis/event_study_forest", PRIMARY_OUTCOME_SAMPLE)
+INDIR_FOREST_DS <- file.path("drive/output/analysis/event_study_forest", PRIMARY_OUTCOME_SAMPLE)
 OUTDIR          <- "output/analysis/analyze_forest"
 TREE_DEPTH_MAX  <- 6
 

@@ -16,6 +16,15 @@ ANALYSIS_PARAMS_PATH  = Path("source/lib/config/analysis_parameters.json")
 IMPORTANCE_SPECS_PATH = Path("source/lib/config/importance_specifications.json")
 PAPER_SETTINGS_PATH   = Path("source/lib/config/paper_settings.json")
 FEATURE_VARS_PATH     = Path("source/lib/config/feature_variables.json")
+PC_GROUPS_PATH        = Path("source/lib/pc_groups.json")
+PC_LOADINGS_OUTDIR    = Path("output/derived/analysis_panel")
+PC_TEX_PREFIXES = {
+    "collaboration": "Collab",
+    "knowledge_level": "Knowledge",
+    "discussion_quality": "Discussion",
+    "investment_in_new_talent": "Talent",
+    "problem_solving_routines": "Routines",
+}
 INDIR_PYPI         = Path("output/scrape/pypi_downloads")
 INDIR_LINK         = Path("output/scrape/pypi_site_info")
 INDIR_REPO         = Path("output/scrape/extract_github_data")
@@ -67,6 +76,12 @@ def Main():
 
     ExportSummaryTable(df_summary, analysis_spec["exact_samples"], OUTDIR / "summary_table.txt")
     GenerateConfigAutofill()
+    primary_panel = exact_sample_panels[paper_settings["primary_qualified_sample"]]
+    GeneratePanelAutofill(primary_panel)
+    with open(PC_GROUPS_PATH, encoding="utf-8") as fh:
+        pc_groups_cfg = json.load(fh)
+    pc_metadata = pd.read_csv(analysis_spec["pc_metadata_path"])
+    GeneratePCAutofill(primary_panel, pc_metadata, pc_groups_cfg)
 
 
 def BuildSummary(df_popular, df_linked, df_repo_history,
@@ -127,20 +142,24 @@ def BuildAnalysisSpec(pipeline_cfg, paper_settings):
     importance_type = paper_settings["primary_importance_type"]
     rolling_label = paper_settings["primary_rolling_label"]
     control_group = paper_settings["primary_control_group"]
+    outcome_sample = paper_settings["primary_outcome_sample"]
     exact_samples = sorted(
         [sample for sample in pipeline_cfg["qualified_samples"]["run"] if "_" not in sample],
         key=lambda sample: int(sample.removeprefix("exact"))
     )
     prepared_panel_paths = {
-        sample: Path("output/derived/analysis_panel") / importance_type / rolling_label / sample / control_group / "panel.parquet"
+        sample: Path("output/derived/analysis_panel") / outcome_sample / importance_type / rolling_label / sample / control_group / "panel.parquet"
         for sample in exact_samples
     }
+    pc_metadata_path = (Path("output/derived/analysis_panel") / "outliers_kept" / importance_type / rolling_label
+                        / paper_settings["primary_qualified_sample"] / control_group / "pc_score_metadata.csv")
     return {
         "importance_type": importance_type,
         "rolling_label": rolling_label,
         "control_group": control_group,
         "exact_samples": exact_samples,
         "prepared_panel_paths": prepared_panel_paths,
+        "pc_metadata_path": pc_metadata_path,
     }
 
 
@@ -215,6 +234,45 @@ def ExportSummaryTable(df, exact_samples, outfile):
     outfile.write_text(output)
 
 
+def GeneratePanelAutofill(primary_panel):
+    AUTOFILL_OUTDIR.mkdir(parents=True, exist_ok=True)
+    pc_score_columns = [column for column in primary_panel.columns if column.endswith("_pc_score")]
+    NumOrgs = str(primary_panel.dropna(subset=pc_score_columns)["repo_name"].nunique())
+    SampleStart = str(int(primary_panel["time_period"].min().year))
+    SampleEnd = str(int(primary_panel["time_period"].max().year))
+    GenerateAutofillMacros(
+        ["NumOrgs", "SampleStart", "SampleEnd"],
+        "{}",
+        str(AUTOFILL_OUTDIR / "panel_autofill.tex"),
+    )
+
+
+def GeneratePCAutofill(primary_panel, pc_metadata, pc_groups_cfg):
+    AUTOFILL_OUTDIR.mkdir(parents=True, exist_ok=True)
+    variance = pc_metadata.drop_duplicates("group").set_index("group")["variance_explained_pc_score"]
+    repo_pc_scores = primary_panel.drop_duplicates("repo_name")
+    total_repos = repo_pc_scores["repo_name"].nunique()
+    macros = []
+    for group_name, tex_prefix in PC_TEX_PREFIXES.items():
+        excluded_pct = repo_pc_scores[f"{group_name}_pc_score_binary"].isna().sum() / total_repos * 100
+        macros.append(f"\\newcommand{{\\{tex_prefix}VarianceExplained}}{{{variance[group_name]:.1f}}}")
+        macros.append(f"\\newcommand{{\\{tex_prefix}PCExcludedPct}}{{{excluded_pct:.1f}}}")
+    (AUTOFILL_OUTDIR / "pc_autofill.tex").write_text("\n".join(macros) + "\n", encoding="utf-8")
+    GeneratePCLoadingTablefills(pc_metadata, pc_groups_cfg)
+
+
+def GeneratePCLoadingTablefills(pc_metadata, pc_groups_cfg):
+    PC_LOADINGS_OUTDIR.mkdir(parents=True, exist_ok=True)
+    for group_name, cfg in pc_groups_cfg.items():
+        group_meta = pc_metadata[pc_metadata["group"] == group_name].copy()
+        group_meta["_order"] = pd.Categorical(group_meta["var"], categories=cfg["vars"], ordered=True)
+        loadings = group_meta.sort_values("_order")["loading"]
+        if cfg["sign_flip"]:
+            loadings = -loadings
+        lines = [f"<tab:{group_name}_metrics>"] + [f"{loading:.3f}" for loading in loadings]
+        (PC_LOADINGS_OUTDIR / f"pc_loadings_{group_name}.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def GenerateConfigAutofill():
     with open(GLOBAL_SETTINGS, encoding="utf-8") as fh:
         settings = json.load(fh)
@@ -255,6 +313,7 @@ def GenerateConfigAutofill():
     PrimaryQualifiedSample = paper_settings["primary_qualified_sample"]
     PrimaryRollingLabel = paper_settings["primary_rolling_label"]
     PrimaryControlGroup = paper_settings["primary_control_group"]
+    PrimaryOutcomeSample = paper_settings["primary_outcome_sample"]
 
     CollabMeasureCount      = count_run_vars(feature_vars["collaboration"])
     KnowledgeMeasureCount   = count_run_vars(feature_vars["knowledge_level"])
@@ -271,7 +330,7 @@ def GenerateConfigAutofill():
              "TalentMeasureCount", "RoutinesMeasureCount"],
             ["NumPostPeriodWord", "TopKWord", "MinConsecutiveWord", "TimePeriodWord"],
             ["PrimaryImportanceType", "PrimaryQualifiedSample", "PrimaryRollingLabel",
-             "PrimaryControlGroup"],
+             "PrimaryControlGroup", "PrimaryOutcomeSample"],
         ],
         ["{:,}", "{}", "{}", "{}"],
         str(AUTOFILL_OUTDIR / "config_autofill.tex"),

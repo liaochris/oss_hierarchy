@@ -18,7 +18,7 @@ from source.lib.JMSLab.autofill import GenerateAutofillMacros
 CONFIG                  = LoadPipelineInputs()
 MODEL_PREDICTION_CONFIG = LoadModelPredictionConfig()
 
-VARIANT             = MODEL_PREDICTION_CONFIG["variants"]["run"][0]
+OUTCOME_SAMPLE             = MODEL_PREDICTION_CONFIG["outcome_samples"]["run"][0]
 DISTRIBUTION_TYPE   = MODEL_PREDICTION_CONFIG["distribution_types"]["run"][0]
 ESTIMATION_APPROACH = MODEL_PREDICTION_CONFIG["member_probability_estimation"]["run"][0]
 IMPORTANCE_TYPE     = CONFIG["importance_types"]["run"][0]
@@ -28,19 +28,18 @@ ROLLING_LABEL       = f"rolling{CONFIG['rolling_periods']['run'][0]}"
 PRE_PERIOD_COUNT    = CONFIG["rolling_periods"]["run"][0]
 POST_PERIODS        = list(range(1, PRE_PERIOD_COUNT + 1))
 PRE_PERIODS         = list(range(-PRE_PERIOD_COUNT, 0))
-TRIM_PROBS          = (0.01, 0.99)   # outlier trim, matching estimate_model_event_study.R (TRIM_PROBS)
 
-DRAWS_PATH = (Path("drive/output/analysis/model_prediction") / VARIANT / DISTRIBUTION_TYPE / "draws"
+DRAWS_PATH = (Path("drive/output/analysis/model_prediction") / OUTCOME_SAMPLE / DISTRIBUTION_TYPE / "draws"
               / ESTIMATION_APPROACH / IMPORTANCE_TYPE / QUALIFIED_SAMPLE / CONTROL_GROUP / "raw_draws.parquet")
-MEMBER_PROBS_PATH = (Path("output/analysis/model_prediction") / VARIANT / DISTRIBUTION_TYPE / "parameters"
+MEMBER_PROBS_PATH = (Path("output/analysis/model_prediction") / OUTCOME_SAMPLE / DISTRIBUTION_TYPE / "parameters"
                      / ESTIMATION_APPROACH / IMPORTANCE_TYPE / QUALIFIED_SAMPLE / CONTROL_GROUP / "member_probabilities.parquet")
 MEMBER_PANEL_DIR = (Path("drive/output/derived/model_prediction/event_time_member_panel")
-                    / VARIANT / IMPORTANCE_TYPE / QUALIFIED_SAMPLE / CONTROL_GROUP)
+                    / OUTCOME_SAMPLE / IMPORTANCE_TYPE / QUALIFIED_SAMPLE / CONTROL_GROUP)
 CROSSMERGE_DIR = (Path("drive/output/derived/model_prediction/event_time_member_crossmerge")
-                  / VARIANT / IMPORTANCE_TYPE / QUALIFIED_SAMPLE / CONTROL_GROUP)
-ANALYSIS_PANEL_PATH = (Path("output/derived/analysis_panel") / IMPORTANCE_TYPE / ROLLING_LABEL
+                  / OUTCOME_SAMPLE / IMPORTANCE_TYPE / QUALIFIED_SAMPLE / CONTROL_GROUP)
+ANALYSIS_PANEL_PATH = (Path("output/derived/analysis_panel") / OUTCOME_SAMPLE / IMPORTANCE_TYPE / ROLLING_LABEL
                        / QUALIFIED_SAMPLE / CONTROL_GROUP / "panel.parquet")
-OUTDIR = (Path("output/analysis/model_prediction") / VARIANT / DISTRIBUTION_TYPE / "evaluation"
+OUTDIR = (Path("output/analysis/model_prediction") / OUTCOME_SAMPLE / DISTRIBUTION_TYPE / "evaluation"
           / ESTIMATION_APPROACH / IMPORTANCE_TYPE / QUALIFIED_SAMPLE / CONTROL_GROUP / "scatter")
 AUTOFILL_PATH = Path("output/autofill/model_prediction_autofill.tex")
 SCATTER_SLOPE_TOLERANCE = 0.05   # the control through-origin slope must lie within this of 1
@@ -74,7 +73,7 @@ def Main():
     stats_records = []
 
     member_panel = LoadMemberData()
-    member_panel = TrimOutlierRepos(member_panel)
+    member_panel = member_panel[member_panel["repo_name"].isin(treatment_by_repo)].copy()
 
     org_points = BuildOrgPoints(member_panel)
     PlotOrgFigure(org_points, OUTDIR / "org_prediction_scatter.png", stats_records)
@@ -120,21 +119,6 @@ def LoadMemberData():
     member_panel = member_panel.merge(crossmerge, on=["repo_name", "quasi_event_time", "actor_id"], how="left")
     member_panel[CROSSMERGE_COUNT_COLUMNS] = member_panel[CROSSMERGE_COUNT_COLUMNS].fillna(0)
     return member_panel
-
-
-def TrimOutlierRepos(member_panel):
-    # Match the event-study outlier trim (estimate_model_event_study.R: TrimOutcomeOutlierRepos) so the scatter's
-    # org sample equals the event study's: keep only repos whose pre-period mean of repo_pull_request_opened lies
-    # within the [1%, 99%] quantiles across repos. The pre-window PRE_PERIODS == the R MIN_EVENT_TIME..-1
-    # (max_event_time == PRE_PERIOD_COUNT == 5); numpy's default quantile matches R's type-7.
-    pre = member_panel[member_panel["quasi_event_time"].isin(PRE_PERIODS)]
-    pre_mean = (pre.groupby(["repo_name", "quasi_event_time"])["repo_pull_request_opened"].first()
-                .groupby("repo_name").mean())
-    lo, hi = pre_mean.quantile(TRIM_PROBS[0]), pre_mean.quantile(TRIM_PROBS[1])
-    kept = pre_mean[(pre_mean >= lo) & (pre_mean <= hi)].index
-    print(f"Outlier trim: kept {len(kept)}/{len(pre_mean)} repos "
-          f"(dropped {len(pre_mean) - len(kept)} outside pre-mean-opened [{lo:.2f}, {hi:.2f}])")
-    return member_panel[member_panel["repo_name"].isin(kept)].copy()
 
 
 def BuildOrgPoints(member_panel):
