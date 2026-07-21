@@ -198,17 +198,26 @@ DrawPointEstimates <- function(sample_data, outcome, normalize) {
 
 
 ChunkPointEstimates <- function(sample_data, outcome, normalize, chunk_draw_ids) {
-  # Rates carry 0/0 NA, so draws do not share a sample; multi-LHS batching requires a common sample and
-  # fails on heterogeneous NA, so rates are fit one draw at a time (identical to the per-column batched fit).
-  if (outcome %in% ES_RATE_OUTCOMES) {
-    return(map_dfr(chunk_draw_ids, function(draw_id) {
-      draw_column <- paste0("draw_", draw_id)
-      fit <- feols(as.formula(sprintf(
-        "%s ~ sunab(treatment_group, time_index, ref.p=-1) | repo_name + time_index", draw_column)),
-        WideDrawPanel(sample_data, outcome, normalize, draw_id, draw_column))
-      EventTimeCoefficients(coef(fit)) %>% mutate(draw_id = as.integer(draw_id))
-    }))
+  outcome_has_heterogeneous_draw_samples <- outcome %in% ES_RATE_OUTCOMES
+  if (outcome_has_heterogeneous_draw_samples) {
+    return(FitDrawsIndividually(sample_data, outcome, normalize, chunk_draw_ids))
   }
+  FitDrawsBatched(sample_data, outcome, normalize, chunk_draw_ids)
+}
+
+
+FitDrawsIndividually <- function(sample_data, outcome, normalize, chunk_draw_ids) {
+  map_dfr(chunk_draw_ids, function(draw_id) {
+    draw_column <- paste0("draw_", draw_id)
+    fit <- feols(as.formula(sprintf(
+      "%s ~ sunab(treatment_group, time_index, ref.p=-1) | repo_name + time_index", draw_column)),
+      WideDrawPanel(sample_data, outcome, normalize, draw_id, draw_column))
+    EventTimeCoefficients(coef(fit)) %>% mutate(draw_id = as.integer(draw_id))
+  })
+}
+
+
+FitDrawsBatched <- function(sample_data, outcome, normalize, chunk_draw_ids) {
   draw_columns <- paste0("draw_", chunk_draw_ids)
   wide_panel   <- WideDrawPanel(sample_data, outcome, normalize, chunk_draw_ids, draw_columns)
   multi_fit    <- feols(as.formula(sprintf(

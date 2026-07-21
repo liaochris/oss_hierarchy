@@ -152,6 +152,8 @@ I combine issue and pull request events into a unified action-level dataset with
 
 **Creating unique identifiers**: Each action receives a unique `action_id`. For PR review events (which have sub-threads), the format is `{thread_number}___{discussion_id}___{sequence_number}`. For regular issue and PR events, the format is simply `{thread_number}___{sequence_number}`.
 
+**Opener attribution (single source of truth)**: Each thread's `opener_id` is assigned once here as the *first opener per thread* — the `actor_id` of the earliest opening event in the thread — and broadcast to every row of that thread. 
+
 **Output**:
 - **`drive/output/derived/action_data/repo_actions/`**: One parquet file per repository
 - **`output/derived/action_data/dropped_stats.csv`**: Statistics on dropped threads
@@ -263,7 +265,7 @@ Five organizational practice categories are measured using the action-level data
 
 ### Step 4.1: Outcome Variables (`source/derived/org_outcomes_practices/org_outcomes.py`)
 
-**Activity**: Counts of issues opened/closed and pull requests opened/closed/merged per 6-month period.
+**Activity**: Counts of issues opened, issues closed, and pull requests closed per 6-month period. 
 
 **Downloads**: Each repository is linked to its PyPI package name(s) via the mapping from Step 1.2. Monthly download counts (Step 1.1) are summed across all associated packages per period, restricted to periods from July 2018 onward.
 
@@ -301,7 +303,7 @@ I measure how broadly team members engage across different types of development 
 
 **Issue/PR mix** (`share_issue_only`, `share_pr_only`, `share_issue_and_pr`): Among all non-bot members in the rolling window, I compute the share who participated exclusively in issues, exclusively in pull requests, or both.
 
-**Activity type diversity** (`avg_unique_types`): For each non-bot member, I count the number of distinct activity types (from the nine listed in Step 4) engaged in during the rolling window. `avg_unique_types` is the mean across members.
+**Activity type diversity** (`avg_unique_types`): For each non-bot member, I count the number of distinct activity types (from the nine listed in Step 4) engaged in during the rolling window. `avg_unique_types` is the mean across members. A member's review of a pull they themselves opened is not counted as a review activity - reviews are always conducted by peers. 
 
 **Output**: `drive/output/derived/org_outcomes_practices/repo_knowledge_level/{member_subset}/rolling5/{repo}.parquet`
 
@@ -325,7 +327,7 @@ By-type variants of response rate, response time, and sentiment, decomposed acro
 
 **Network clustering** (`clustering_coefficient`): Weighted average clustering coefficient of the rolling cumulative collaboration graph (Step 3.1), restricted to non-bot members (and to important members for importance-filtered subsets).
 
-**PR review thoroughness** (`pct_merged_with_review`, `pct_merged_with_approved`): Among merged PRs, the fraction with at least one review or approval before merge. Restricted to July 2020 onward, when structured review data became available in GitHub Archive.
+**PR review thoroughness** (`pct_merged_with_review`, `pct_merged_with_approved`): Among merged PRs, the fraction with at least one *peer* review or approval before merge. Restricted to July 2020 onward, when structured review data became available in GitHub Archive.
 
 **Discussion quantity** (`avg_all_disc_count`, `avg_pull_request_*_count`): Across all PR threads, the average count of PR comments, review comments, and review events per thread (the original PR opening post is always excluded). `exclude_opener` variants additionally remove all posts by the PR author.
 
@@ -385,47 +387,43 @@ I join all five practice datasets with the outcome variables into a single panel
 
 ---
 
-## Step 5: Analysis Panel Preparation (`source/derived/analysis_panel/`)
+## Step 5: Candidate Panel (`source/derived/analysis_panel/build_candidate_panel.py`)
 
-This step creates the panel of organizations used in estimation. Composite covariate scores summarizing each repository's pre-treatment organizational practices are constructed, using principal component analysis. 
-
-### Step 5.1: Prepare Panel (`source/derived/analysis_panel/prepare_panel.py`)
+This step selects the *candidate* set of organizations — the repositories eligible to enter estimation although they will face outcome-based screening dowstream. 
 
 | Script | Output | Description |
 |--------|--------|-------------|
-| `prepare_panel.py` | `output/derived/analysis_panel/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel.parquet` | Filter org panel to estimation sample and construct PC covariate scores |
+| `build_candidate_panel.py` | `output/derived/analysis_panel/candidate/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel.parquet` | Filter the org panel to the candidate sample and add event time |
 
-**Quasi-treatment and event time**: `quasi_treatment_group` from Step 4.7 serves as the reference period for treated and never-treated repositories alike. Event time is defined as `time_index − quasi_treatment_group`.
+**Quasi-treatment and event time**: `quasi_treatment_group` from Step 4.7 serves as the reference period for treated and never-treated repositories alike. Event time is defined as `quasi_event_time = time_index − quasi_treatment_group`.
 
 **Sample qualification** (`FilterQualifiedSample`): Restricts to repositories where the count of `num_important_qualified` members at the quasi-treatment period equals a target value. The primary specification is `exact_1_2` (organizations with exactly 1 or 2 qualified important members, estimated separately and combined via inverse-variance weighting); `exact1` and `exact2` are the two sub-samples that make up this primary, and `exact3` is an extension.
 
 **Control group** (`FilterControlGroup`): Two variants are used. The **primary** variant (`nevertreated`) keeps repositories with at most 1 total departure, using zero-departure repositories as never-treated controls. The **extension** variant (`notyettreated`) keeps only treated repositories and uses units not yet treated at a given event time as controls.
 
-**Complete-panel filter** (`CreateCompletePanel`): Drops repositories that (a) have a non-computable or zero-variance baseline for any active outcome — meaning all pre-period values are missing, or all pre-period values are identical (e.g. zero releases in every pre-period), either of which prevents normalization — or (b) lack observations spanning the full required event-time window relative to quasi-treatment. A repository is dropped if *any* active outcome fails these checks.
-
-**PC score construction** (`ComputeRepoPCScores`): For each of five covariate groups defined in `source/lib/pc_groups.json` — *collaboration*, *knowledge_level*, *discussion_quality*, *investment_in_new_talent*, *problem_solving_routines* — I compute one principal component score per repository. The PCA uses per-repository means of each group variable over the immediate pre-treatment period (quasi_event_time == −1 for the primary rolling5 specification). Variables missing for 200 or more repositories in the estimation sample are excluded. Variables are standardized before PCA; the first PC direction may sometimes be sign-flipped for groups to ensure that a higher raw score indicates increased practice adoption. A binary variant (above vs. below the cross-repository median) is also produced.
-
-
-**Output**:
-- **`output/derived/analysis_panel/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel.parquet`**: Filtered panel with all practice measures and PC covariate scores
-- **`pc_score_metadata.csv`**: PCA loadings and variance explained per group
-- **`pc_score_excluded_vars.csv`**: Variables excluded due to missing-value threshold
-- **`pc_score_columns.json`**: Column names for continuous and binary PC score variants
-- For the primary specification only: `output/autofill/panel_autofill.tex` (sample-size macros), `output/autofill/pc_autofill.tex` (variance-explained macros), `output/derived/analysis_panel/pc_loadings_{group}.txt` (PC loading vectors for paper tables)
-
-The script runs over all combinations of importance type and rolling period defined in `source/lib/config/pipeline_inputs.json`. The primary specification is defined in `source/lib/config/paper_settings.json`.
-
-Because the trim below (Step 6) selects the estimation sample using the opened-cohort opened counts, which are produced downstream in Step 6, `prepare_panel.py`'s output is the **untrimmed** base panel. It is written under `analysis_panel/outliers_kept/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel.parquet`, serves as the member panel's repo-list and period→event-time input, and is retained for robustness (keeping scale-outlier organizations).
+**Output**: `output/derived/analysis_panel/candidate/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel.parquet` — the candidate skeleton (all practice measures and treatment/event-time columns). The script runs over all combinations defined in `source/lib/config/pipeline_inputs.json`.
 
 ---
 
-## Step 6: Event-Time Member Panel and Outcome-Sample Analysis Panels (`source/derived/model_prediction/build_event_time_member_panel.py`)
+## Step 6: Analysis Panel (`source/derived/analysis_panel/build_analysis_panel.py`)
 
-This step builds the member-level, event-time panel of pull-request activity and, from it, the per-outcome-sample analysis panels that the event study, forest, and model-prediction analyses read. It uses the repo list and period→event-time map from the untrimmed base panel (Step 5.1), and counts opens, reviews, and merges (attributed to the pull's opener) per tracked member and per repository over event time, dropping bots and counting distinct threads.
+This step turns each candidate panel into the estimation panel that the event study, forest, and model-prediction analyses read. It computes the PR outcomes directly from the action data, screens and trims the sample on those outcomes, builds the pre-treatment covariate scores on the final sample, and assembles everything into one panel per outcome sample. 
 
-### Outcome-sample constructions
+### PR stage counts (per repository, over event time)
 
-Reviews and merges can be assigned to periods in three ways. **Opens are identical across all three constructions** — only downstream reviews/merges are re-timed — so a repository's opened counts (and hence the trim below) do not depend on the construction.
+From each repository's action data I separate the pull-request lifecycle into stages, counting **distinct threads** and **excluding bots** (no bot open/review/merge enters any outcome).
+
+| Count | Definition |
+|-------|-----------|
+| `pull_request_opened` | Distinct pulls opened |
+| `pull_request_reviewed` | Distinct pulls receiving ≥1 peer review |
+| `pull_request_merged_direct` | Distinct pulls merged with no prior peer review |
+| `pull_request_merged_after_review` | Distinct pulls merged after ≥1 peer review |
+| `pull_request_merged` | `pull_request_merged_direct + pull_request_merged_after_review` |
+
+### Outcome-sample constructions (timing of reviews/merges)
+
+Reviews and merges can be assigned to periods in three ways. **Opens are identical across all three constructions** — only downstream reviews/merges are re-timed — so a repository's opened counts do not depend on the construction.
 
 | Outcome sample | Construction |
 |----------------|-------------|
@@ -433,13 +431,46 @@ Reviews and merges can be assigned to periods in three ways. **Opens are identic
 | `same_period` | Reviews/merges restricted to pulls opened AND reviewed/merged within the same period *t* (strict same-period match, consistent denominator). |
 | `opened_cohort` | Reviews/merges attributed to the period the pull was opened, accumulating downstream activity across any later period (consistent denominator, full downstream activity captured). |
 
-`opened_cohort` is the primary construction used in the paper (the only `run` outcome sample in `pipeline_inputs.json`'s `outcome_samples`); `same_period` and `observed` are `extended` (produced only when the extended phase is enabled). The member panel itself always builds all three member-level constructions.
+`opened_cohort` is the primary construction used in the paper (the only `run` outcome sample in `pipeline_inputs.json`'s `outcome_samples`); `same_period` and `observed` are `extended`.
 
-### Per-outcome-sample analysis panels and the scale-outlier trim
+### Rate outcomes
 
-For each `run` outcome sample, the org-level counts are aggregated from the member panel (`pull_request_opened`, `pull_request_reviewed`, `pull_request_merged_direct`, `pull_request_merged_after_review`, and `pull_request_merged = direct + after_review`) and joined onto the base panel's skeleton, covariates, PC scores, and (construction-invariant) release outcomes. The estimation sample is then restricted by a **scale-outlier trim**: organizations whose pre-period (event time [−5, −1]) mean opened-cohort `pull_request_opened` falls outside the pooled 1st–99th percentile (across treated and control) are dropped, because a few very high-volume projects would otherwise dominate the count-weighted estimates. Opens are construction-invariant, so the same kept-repository set applies to every outcome sample. `trim_outcome` and `trim_probs` are set in `source/lib/config/analysis_parameters.json`.
+Four rates are materialized alongside the counts. A `0/0` (no denominator activity) yields `NA` and is dropped per outcome in estimation.
 
-**Output**: `output/derived/analysis_panel/{outcome_sample}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/panel.parquet` (trimmed; the panels all analyses read), for `outcome_sample ∈ {opened_cohort, same_period}`. The untrimmed base panels remain under `analysis_panel/outliers_kept/...`.
+| Rate | Definition |
+|------|-----------|
+| `merge_rate` | `pull_request_merged / pull_request_opened` |
+| `review_rate` | `pull_request_reviewed / pull_request_opened` |
+| `direct_merge_rate` | `pull_request_merged_direct / pull_request_opened` |
+| `reviewed_merge_rate` | `pull_request_merged_after_review / pull_request_reviewed` |
+
+### Completeness gate and scale-outlier trim
+
+The org-level counts are joined onto the candidate skeleton, and the estimation sample is screened in two steps, both operating on the `opened_cohort` construction:
+
+**Completeness gate** (`CreateCompletePanel`): For each gate outcome in `sample_filter_outcomes` (`source/lib/config/analysis_parameters.json` — the proper `pull_request_opened`, the proper `pull_request_merged`, and `overall_new_release_count`), a repository is dropped if it (a) has a non-computable or zero-variance pre-period baseline — all pre-period values missing, or all identical (e.g. zero releases every pre-period), either of which prevents normalization — or (b) lacks observations spanning the full required event-time window relative to quasi-treatment. A repository is dropped if *any* gate outcome fails.
+
+**Scale-outlier trim** (`ScaleTrimmedRepos`): Organizations whose pre-period (event time [−5, −1]) mean `pull_request_opened` falls outside the pooled 1st–99th percentile (across treated and control) are dropped, because a few very high-volume projects would otherwise dominate the count-weighted estimates. `trim_outcome` and `trim_probs` are set in `analysis_parameters.json`. Opens are sample construction-invariant, so the same kept-repository set applies to every outcome sample.
+
+### PC score construction (on the final sample)
+
+**PC scores** (`ComputeRepoPCScores`): For each of five covariate groups defined in `source/lib/pc_groups.json` — *collaboration*, *knowledge_level*, *discussion_quality*, *investment_in_new_talent*, *problem_solving_routines* — I compute one principal component score per kept repository. The PCA uses per-repository means of each group variable over the pre-treatment period (`quasi_event_time == −1` for the primary rolling5 specification). Variables missing for 200 or more repositories in the sample are excluded. Variables are standardized before PCA; the first PC direction may be sign-flipped per group so that a higher raw score indicates increased practice adoption. Scores are **cross-fit** over `n_folds` cross-validation folds (assigned by `AssignFolds`): each repository's score is produced by a PCA fit on the other folds, so a repository's own practices do not enter its own score. A binary variant (above vs. below the cross-repository median) is also produced.  
+
+**Output**: `output/derived/analysis_panel/{outcome_sample}/{importance_type}/{rolling_period}/{qualified_sample}/{control_group}/`, for each `run` outcome sample (`opened_cohort` in the primary specification):
+- **`panel.parquet`**: the estimation panel — candidate skeleton restricted to kept repositories, joined with the five counts, four rates, PC scores, PC-score binary variants, CV `fold`, and (construction-invariant) release outcomes
+- **`pc_score_metadata.csv`**: PCA loadings and variance explained per group
+- **`pc_score_excluded_vars.csv`**: variables excluded due to the missing-value threshold
+- **`pc_score_columns.json`**: column names for the continuous and binary PC-score variants
+
+---
+
+## Step 7: Event-Time Member Panel (`source/derived/model_prediction/build_event_time_member_panel.py`)
+
+This step builds the member-level, event-time panel of pull-request activity used by the model-prediction analysis. It reads the repo list and period→event-time map from the final `opened_cohort` analysis panel (Step 6). In `run` mode it builds only the `opened_cohort` construction; the member-level `observed`/`same_period` variants are `extended`. A companion `(opener, other-member)` crossmerge count is written to a separate tree so the event-study reader can glob the member-panel directory without encountering a foreign schema.
+
+**Output**:
+- `drive/output/derived/model_prediction/event_time_member_panel/{outcome_sample}/{importance_type}/{qualified_sample}/{control_group}/{repo}.parquet`
+- `drive/output/derived/model_prediction/event_time_member_crossmerge/{outcome_sample}/{importance_type}/{qualified_sample}/{control_group}/{repo}.parquet`
 
 ---
 
@@ -450,7 +481,7 @@ For each `run` outcome sample, the org-level counts are aggregated from the memb
 | `action_id` | Unique identifier: `{thread_number}___{seq}` for most events, or `{thread_number}___{discussion_id}___{seq}` for PR review events |
 | `thread_number` | Issue or PR number (unified term) |
 | `discussion_id` | Sub-thread identifier (only for PR review events; based on file path/position for comments, chronological order for reviews) |
-| `opener_id` | Actor ID of the user who opened the thread |
+| `opener_id` | Actor ID of the thread's first opener (earliest opening event) |
 
 ---
 

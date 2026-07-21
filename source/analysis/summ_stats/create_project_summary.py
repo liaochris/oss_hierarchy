@@ -151,7 +151,7 @@ def BuildAnalysisSpec(pipeline_cfg, paper_settings):
         sample: Path("output/derived/analysis_panel") / outcome_sample / importance_type / rolling_label / sample / control_group / "panel.parquet"
         for sample in exact_samples
     }
-    pc_metadata_path = (Path("output/derived/analysis_panel") / "outliers_kept" / importance_type / rolling_label
+    pc_metadata_path = (Path("output/derived/analysis_panel") / outcome_sample / importance_type / rolling_label
                         / paper_settings["primary_qualified_sample"] / control_group / "pc_score_metadata.csv")
     return {
         "importance_type": importance_type,

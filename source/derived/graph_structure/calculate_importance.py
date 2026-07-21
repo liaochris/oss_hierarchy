@@ -142,7 +142,7 @@ def AnalyzeImportance(df, consecutive_req=3, centrality_col="degree_centrality_z
         return pd.DataFrame()
 
     df["time_period"] = (
-        pd.to_datetime(df["time_period"]).dt.to_period("6M").dt.to_timestamp()
+        pd.to_datetime(df["time_period"]).dt.to_period(f"{TIME_PERIOD}M").dt.to_timestamp()
     )
 
     periods = GeneratePeriods(df)
@@ -202,7 +202,7 @@ def GeneratePeriods(df):
     end = pd.to_datetime(df["time_period"]).max()
     if pd.isna(start) or pd.isna(end):
         return []
-    return pd.date_range(start, end, freq="6MS").drop_duplicates().to_pydatetime().tolist()
+    return pd.date_range(start, end, freq=f"{TIME_PERIOD}MS").drop_duplicates().to_pydatetime().tolist()
 
 
 def GetTopK(period_df, centrality_col, top_k):

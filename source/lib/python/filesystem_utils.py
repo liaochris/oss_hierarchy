@@ -43,3 +43,7 @@ def CleanDirs(dirs, patterns=("*.parquet", "*.log")):
             for f in d.glob(pattern):
                 if f.name != "sconscript.log":
                     f.unlink(missing_ok=True)
+
+
+def ListRepoStems(directory):
+    return [f.stem for f in Path(directory).glob("*.parquet") if not f.stem.startswith("._")]

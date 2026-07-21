@@ -1,5 +1,4 @@
 import pandas as pd
-import os
 from pathlib import Path
 import networkx as nx
 from joblib import Parallel, delayed
@@ -24,10 +23,10 @@ def Main():
         for f in INDIR_DATA.glob("*.parquet")
         if f.is_file() and "___" in f.stem
     })
-    time_periods = pd.date_range(globals_data["github_start_date"], globals_data["github_end_date"], freq="6MS").to_list()
+    time_periods = pd.date_range(globals_data["github_start_date"], globals_data["github_end_date"], freq=f"{time_period}MS").to_list()
 
     results = Parallel(n_jobs=globals_data["n_jobs"])(
-        delayed(worker)(repo, time_periods, time_period, OUTDIR, INDIR_DATA) for repo in repo_list
+        delayed(CreateGraph)(repo, time_periods, time_period, [], OUTDIR, INDIR_DATA) for repo in repo_list
     )
     all_logs = [log for logs in results for log in logs]
 
@@ -45,10 +44,6 @@ def CleanOutputs():
         if d.is_dir():
             for f in d.glob("*.gexf"):
                 f.unlink(missing_ok=True)
-
-
-def worker(repo, time_periods, time_period, outdir, indir_data):
-    return CreateGraph(repo, time_periods, time_period, [], outdir, indir_data)
 
 
 def CreateGraph(repo, time_periods, time_period, exported_graphs_log, outdir, indir_data):
@@ -171,7 +166,7 @@ def ExportData(repo, graphs, interaction_df, outdir):
 
         yearmonth = f"{period.year}{str(period.month).zfill(2)}"
         output_dir = outdir / "graphs" / yearmonth
-        os.makedirs(output_dir, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
         output_base = output_dir / MakeRepoNameSafe(repo)
 
         nx.write_gexf(G, f"{output_base}.gexf")
@@ -179,7 +174,7 @@ def ExportData(repo, graphs, interaction_df, outdir):
 
     if interaction_df.shape[0] > 0:
         interactions_dir = outdir / "interactions"
-        os.makedirs(interactions_dir, exist_ok=True)
+        interactions_dir.mkdir(parents=True, exist_ok=True)
         parquet_path = interactions_dir / f"{MakeRepoNameSafe(repo)}.parquet"
 
         log_out_dir = LOG_DIR / "interactions"

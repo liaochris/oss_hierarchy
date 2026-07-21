@@ -2,7 +2,7 @@ import random
 from pathlib import Path
 import pandas as pd
 from joblib import Parallel, delayed
-from source.lib.python.filesystem_utils import CleanDirs, WriteContentHash
+from source.lib.python.filesystem_utils import CleanDirs, ListRepoStems, WriteContentHash
 from source.lib.python.data_utils import ImputeTimePeriod
 from source.lib.python.config_loaders import LoadGlobalSettings, LoadImportanceSpecifications
 from source.derived.org_outcomes_practices.helpers import AddTypeBroad, ApplyRolling, ConcatStatsByTimePeriod, FilterOnImportant, LoadBotList, LoadFilteredImportantMembers
@@ -29,7 +29,7 @@ LOG_OUTDIR      = Path("output/derived/org_outcomes_practices/repo_knowledge_lev
 def Main():
     CleanOutputs()
     bot_list   = LoadBotList(INDIR_BOT)
-    repo_files = [f.stem for f in INDIR.glob("*.parquet") if not f.stem.startswith("._")]
+    repo_files = ListRepoStems(INDIR)
     random.shuffle(repo_files)
     subsets = [PRIMARY_SUBSET] + (EXTENSION_SUBSETS if RUN_EXTENSIONS else [])
     for subset in subsets:
@@ -116,8 +116,10 @@ def ActorIssuePRMix(df_actions, bot_list):
 
 
 def AverageTypeCountCore(df_actions, bot_list):
+    non_bot = df_actions[~df_actions["type_broad"].str.endswith("reopened") & ~df_actions["actor_id"].isin(bot_list)]
+    opener_self_review = (non_bot["type_broad"] == "pull request review") & (non_bot["actor_id"] == pd.to_numeric(non_bot["opener_id"]))
     avg_types = (
-        df_actions[~df_actions["type_broad"].str.endswith("reopened") & ~df_actions["actor_id"].isin(bot_list)]
+        non_bot[~opener_self_review]
         .groupby(["repo_name", "actor_id"])["type_broad"].nunique()
         .groupby("repo_name").mean()
     )

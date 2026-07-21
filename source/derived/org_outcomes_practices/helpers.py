@@ -68,7 +68,7 @@ def FirstFilePresence(df_files, file_type, col_name):
             .set_index("time_period").drop_duplicates())
 
 
-def ApplyRolling(df_all, rolling_periods, stat_func, time_period=6, **kwargs):
+def ApplyRolling(df_all, rolling_periods, stat_func, time_period, **kwargs):
     results = []
     unique_periods = sorted(df_all["time_period"].unique())
     for t in unique_periods:

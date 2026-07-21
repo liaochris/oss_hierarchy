@@ -20,8 +20,6 @@ def SeparatePullRequestStages(df_actions):
     is_review = df_actions["type"].str.startswith("pull request review") | (df_actions["type"] == "pull request comment")
     is_merge  = df_actions["type"] == "pull request merged"
 
-    # first opener per thread: threads can carry opens from multiple actors (multi-opener artifact); the dedup
-    # moves upstream into combine_action_data in a later step, after which this reads a single opener_id -- see HANDOFF.md.
     first_open_per_thread = (df_actions[is_open].sort_values("created_at")
                              .drop_duplicates("thread_number")[["quasi_event_time", "actor_id", "thread_number"]])
     opener_by_thread = first_open_per_thread.set_index("thread_number")["actor_id"]

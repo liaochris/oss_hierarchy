@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import duckdb
 from joblib import Parallel, delayed
-from source.lib.python.filesystem_utils import CleanDirs, WriteContentHash
+from source.lib.python.filesystem_utils import CleanDirs, ListRepoStems, WriteContentHash
 from source.lib.python.data_utils import ImputeTimePeriod
 from source.lib.python.config_loaders import LoadGlobalSettings
 from source.lib.python.repo_utils import MakeRepoNameOriginal
@@ -26,7 +26,7 @@ TIME_PERIOD             = _globals["time_period_months"]
 
 def Main():
     CleanOutputs()
-    repo_files = [f.stem for f in INDIR.glob("*.parquet") if not f.stem.startswith("._")]
+    repo_files = ListRepoStems(INDIR)
     random.shuffle(repo_files)
     repo_package_map = LoadRepoPackageMap()
     monthly_by_repo, project_by_repo = PreloadAllDownloads(repo_package_map)
@@ -133,7 +133,7 @@ def PreloadAllDownloads(repo_package_map):
 def GetOutcomeEventCounts(df_all, time_period):
     df_all = ImputeTimePeriod(df_all, time_period)
     df_all = AddTypeBroad(df_all)
-    event_types = ["issue opened", "pull request opened", "pull request merged", "pull request closed", "issue closed"]
+    event_types = ["issue opened", "pull request closed", "issue closed"]
     df_out = (
         df_all[df_all["type_broad"].isin(event_types)]
         .groupby(["time_period", "type_broad"])

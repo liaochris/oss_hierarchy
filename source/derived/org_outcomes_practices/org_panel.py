@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
 from source.lib.python.data_utils import JsonDeserialize, JsonSerialize
+from source.lib.python.filesystem_utils import ListRepoStems
 from source.lib.python.config_loaders import LoadAnalysisParameters, LoadGlobalSettings, LoadImportanceSpecifications, LoadPipelineInputs
 from source.lib.python.repo_utils import MakeRepoNameOriginal
 from source.lib.JMSLab.SaveData import SaveData
@@ -53,7 +54,7 @@ DATASETS = {
 
 
 def Main():
-    repo_files = sorted(f.stem for f in INDIR.glob("*.parquet") if not f.stem.startswith("._"))
+    repo_files = sorted(ListRepoStems(INDIR))
 
     for importance_type in IMPORTANCE_TYPES:
         for rolling_period in ROLLING_PERIODS:

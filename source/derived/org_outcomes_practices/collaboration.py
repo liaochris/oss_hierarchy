@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from source.lib.python.filesystem_utils import CleanDirs, WriteContentHash
+from source.lib.python.filesystem_utils import CleanDirs, ListRepoStems, WriteContentHash
 from source.lib.python.data_utils import ImputeTimePeriod
 from source.lib.python.config_loaders import LoadGlobalSettings, LoadImportanceSpecifications
 from source.derived.org_outcomes_practices.helpers import AddTypeBroad, ApplyRolling, ConcatStatsByTimePeriod, FilterOnImportant, LoadBotList, LoadFilteredImportantMembers
@@ -31,7 +31,7 @@ LOG_OUTDIR      = Path("output/derived/org_outcomes_practices/repo_collaboration
 def Main():
     CleanOutputs()
     bot_list   = LoadBotList(INDIR_BOT)
-    repo_files = [f.stem for f in INDIR.glob("*.parquet") if not f.stem.startswith("._")]
+    repo_files = ListRepoStems(INDIR)
     random.shuffle(repo_files)
     subsets = [PRIMARY_SUBSET] + (EXTENSION_SUBSETS if RUN_EXTENSIONS else [])
     for subset in subsets:

@@ -7,7 +7,7 @@ from joblib import Parallel, delayed
 from source.derived.org_outcomes_practices.helpers import LoadBotList
 from source.lib.JMSLab.SaveData import SaveData
 from source.lib.python.config_loaders import LoadGlobalSettings, LoadPipelineInputs
-from source.lib.python.filesystem_utils import WriteContentHash
+from source.lib.python.filesystem_utils import CleanDirs, WriteContentHash
 from source.lib.python.pull_request_stages import (
     AssertMergesLeOpened,
     AttributeReviewsMergesToOpeningPeriod,
@@ -26,7 +26,7 @@ N_JOBS         = GLOBAL_SETTINGS["n_jobs"]
 ROLLING_PERIOD = f"rolling{CONFIG['rolling_periods']['run'][0]}"
 ANALYSIS_PANEL_OUTCOME_SAMPLES = CONFIG["outcome_samples"]["run"]
 
-OUTLIERS_KEPT_SUBDIR = "outliers_kept"
+FINAL_SAMPLE_OUTCOME_SAMPLE = "opened_cohort"
 
 INDIR_ACTIONS = Path("drive/output/derived/action_data/repo_actions")
 INDIR_BOT     = Path("output/derived/create_bot_list")
@@ -58,15 +58,22 @@ def Combos():
         }
 
 
+def CleanComboOutputs(combo):
+    for outcome_sample in ANALYSIS_PANEL_OUTCOME_SAMPLES:
+        combo_subpath = Path(outcome_sample) / combo["importance_type"] / combo["qualified_sample"] / combo["control_group"]
+        CleanDirs([OUTDIR / combo_subpath, CROSS_OUTDIR / combo_subpath, LOG_OUTDIR / combo_subpath])
+
+
 def ProcessCombo(combo, df_bot_list):
     base_panel_dir = (
-        INDIR_PANEL / OUTLIERS_KEPT_SUBDIR / combo["importance_type"] / ROLLING_PERIOD
+        INDIR_PANEL / FINAL_SAMPLE_OUTCOME_SAMPLE / combo["importance_type"] / ROLLING_PERIOD
         / combo["qualified_sample"] / combo["control_group"]
     )
     panel_path = base_panel_dir / "panel.parquet"
     if not panel_path.exists():
         return
 
+    CleanComboOutputs(combo)
     base_panel  = pd.read_parquet(panel_path)
     df_time_map = base_panel[["repo_name", "time_period", "quasi_event_time"]].drop_duplicates()
     repo_names  = df_time_map["repo_name"].unique()

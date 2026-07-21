@@ -3,34 +3,34 @@ Conditional-on-opens stage rates; surviving incumbents exclude the departed key 
 
 (c) SURVIVOR REACTION -- conditional rates, pre vs post, treated vs control; reaction_DiD = (treated post-pre) - (control post-pre)
                    rate  treated_pre  treated_post  control_pre  control_post  reaction_DiD
-       P(reviewed|open)        0.627         0.592        0.608         0.546         0.027
- self direct-merge|open        0.156         0.271        0.205         0.331        -0.012
-other direct-merge|open        0.100         0.031        0.096         0.030        -0.002
-      self after-review        0.310         0.640        0.282         0.495         0.118
-     other after-review        0.464         0.202        0.453         0.323        -0.132
+       P(reviewed|open)        0.628         0.587        0.606         0.553         0.013
+ self direct-merge|open        0.156         0.278        0.208         0.326         0.004
+other direct-merge|open        0.100         0.031        0.095         0.029        -0.003
+      self after-review        0.310         0.640        0.289         0.507         0.113
+     other after-review        0.464         0.202        0.455         0.316        -0.122
 
     sample sizes (surviving incumbents; treated post is thin -> those rates are noisy)
   group window  incumbents  opens  reviewed_opens
-treated    pre        1800   4055            2544
-treated   post        1800    709             420
-control    pre       11599  42629           25920
-control   post       11599  15798            8621
+treated    pre        1803   4057            2546
+treated   post        1803    716             420
+control    pre       11720  44219           26815
+control   post       11720  16331            9027
 
 (b) ENTRANT PROFILE -- conditional rates pooled over post-periods, entrants vs incumbents
   group member_type  opens  P(reviewed|open)  self direct-merge|open  other direct-merge|open  self after-review  other after-review
-treated   incumbent    709             0.592                   0.271                    0.031              0.640               0.202
-treated         new   1350             0.610                   0.089                    0.056              0.354               0.366
-control   incumbent  15798             0.546                   0.331                    0.030              0.495               0.323
-control         new  18233             0.783                   0.028                    0.052              0.181               0.518
+treated   incumbent    716             0.587                   0.278                    0.031              0.640               0.202
+treated         new   1417             0.625                   0.085                    0.054              0.329               0.401
+control   incumbent  16331             0.553                   0.326                    0.029              0.507               0.316
+control         new  19743             0.783                   0.036                    0.048              0.206               0.506
 
 (c) PICKUP -- j*'s freed load and who absorbs it, treated repos, rate per repo-open, pre vs post
      channel       handler    pre   post
- other-after departer (j*) 0.0992 0.0043
- other-after       entrant 0.0000 0.0681
- other-after     incumbent 0.1296 0.1132
+ other-after departer (j*) 0.0992 0.0042
+ other-after       entrant 0.0000 0.0658
+ other-after     incumbent 0.1298 0.1343
 other-direct departer (j*) 0.0345 0.0014
-other-direct       entrant 0.0000 0.0197
-other-direct     incumbent 0.0523 0.0259
- solo review departer (j*) 0.1411 0.0043
- solo review       entrant 0.0000 0.2235
- solo review     incumbent 0.2138 0.2014
+other-direct       entrant 0.0000 0.0190
+other-direct     incumbent 0.0522 0.0259
+ solo review departer (j*) 0.1410 0.0042
+ solo review       entrant 0.0000 0.2158
+ solo review     incumbent 0.2141 0.2233

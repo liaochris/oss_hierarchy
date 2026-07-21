@@ -4,7 +4,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from source.lib.python.filesystem_utils import CleanDirs, WriteContentHash
+from source.lib.python.filesystem_utils import CleanDirs, ListRepoStems, WriteContentHash
 from source.lib.python.data_utils import ImputeTimePeriod
 from source.lib.python.config_loaders import LoadGlobalSettings, LoadImportanceSpecifications, LoadGlobals
 from source.derived.org_outcomes_practices.helpers import AddTypeBroad, ApplyRolling, ConcatStatsByTimePeriod, FilterOnImportant, LoadBotList, LoadFilteredImportantMembers
@@ -36,7 +36,7 @@ LOG_OUTDIR       = Path("output/derived/org_outcomes_practices/repo_discussion_q
 def Main():
     CleanOutputs()
     bot_list   = LoadBotList(INDIR_BOT)
-    repo_files = [f.stem for f in INDIR.glob("*.parquet") if not f.stem.startswith("._")]
+    repo_files = ListRepoStems(INDIR)
     random.shuffle(repo_files)
     subsets = [PRIMARY_SUBSET] + (EXTENSION_SUBSETS if RUN_EXTENSIONS else [])
     for subset in subsets:
@@ -244,8 +244,12 @@ def PercentPullsMergedReviewedCore(df_actions):
     if df_actions.empty:
         return pd.DataFrame()
     merged = df_actions[df_actions["type"] == "pull request merged"][["repo_name", "thread_number"]].drop_duplicates()
+    peer_reviews = df_actions[
+        (df_actions["type"].eq("pull request review approved") | df_actions["type_broad"].eq("pull request review"))
+        & (df_actions["actor_id"] != pd.to_numeric(df_actions["opener_id"]))
+    ]
     indicators = (
-        df_actions[df_actions["type"].eq("pull request review approved") | df_actions["type_broad"].eq("pull request review")]
+        peer_reviews
         .assign(has_approved=lambda d: d["type"].eq("pull request review approved"),
                 has_review=lambda d: d["type_broad"].eq("pull request review"))
         .groupby(["repo_name", "thread_number"])[["has_approved", "has_review"]].max().reset_index()

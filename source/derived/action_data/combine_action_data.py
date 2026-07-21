@@ -286,8 +286,9 @@ def CombineIssuesAndPRs(df_issue, df_pr, safe_repo_name):
         return df.drop(columns="opened_text")
 
     def propagate_opener_id(df):
-        df['opener_id'] = df['actor_id'].where(df['type'].isin(['issue opened', 'pull request opened']))
-        df['opener_id'] = df.groupby('thread_number')['opener_id'].transform(lambda x: x.ffill().bfill())
+        opened_events = df[df['type'].isin(['issue opened', 'pull request opened'])]
+        first_opener_by_thread = opened_events.sort_values('created_at').groupby('thread_number')['actor_id'].first()
+        df['opener_id'] = df['thread_number'].map(first_opener_by_thread)
         return df
 
     def forward_fill_list_columns(df, cols):

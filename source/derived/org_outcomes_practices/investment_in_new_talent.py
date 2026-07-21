@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from source.lib.python.filesystem_utils import CleanDirs, WriteContentHash
+from source.lib.python.filesystem_utils import CleanDirs, ListRepoStems, WriteContentHash
 from source.lib.python.data_utils import ImputeTimePeriod
 from source.lib.python.config_loaders import LoadGlobalSettings, LoadImportanceSpecifications, LoadGlobals
 from source.derived.org_outcomes_practices.helpers import ConcatStatsByTimePeriod, FilterOnImportant, FirstFilePresence, LoadBotList, LoadFilteredImportantMembers
@@ -31,13 +31,13 @@ INDIR_IMPORTANT = Path("output/derived/graph_structure/important_members")
 OUTDIR          = Path("drive/output/derived/org_outcomes_practices/repo_investment_in_new_talent")
 LOG_OUTDIR      = Path("output/derived/org_outcomes_practices/repo_investment_in_new_talent")
 
-_DATA_CUTOFF = pd.Timestamp("2024-12-31")
+DATA_CUTOFF = pd.Timestamp(_constants["data_cutoff_date"])
 
 
 def Main():
     CleanOutputs()
     bot_list   = LoadBotList(INDIR_BOT)
-    repo_files = [f.stem for f in INDIR.glob("*.parquet") if not f.stem.startswith("._")]
+    repo_files = ListRepoStems(INDIR)
     random.shuffle(repo_files)
     subsets = [PRIMARY_SUBSET] + (EXTENSION_SUBSETS if RUN_EXTENSIONS else [])
     for subset in subsets:
@@ -139,7 +139,7 @@ def GoodFirstIssues(df_actions):
 def NewcomerFiles(df_files):
     df = (FirstFilePresence(df_files, "contributing",    "has_contributing_guide")
           .join([FirstFilePresence(df_files, "code_of_conduct", "has_code_of_conduct")], how="outer"))
-    return df[df.index <= _DATA_CUTOFF].reset_index()
+    return df[df.index <= DATA_CUTOFF].reset_index()
 
 
 def CalculateNewcomerAdoption(df_actions, bot_list, past_periods):
@@ -154,6 +154,8 @@ def CalculateNewcomerAdoption(df_actions, bot_list, past_periods):
     first_seen = df_actions.groupby("actor_id")["time_period"].min()
     df_acts  = df_actions[df_actions["type"].isin(act_map.keys())].copy()
     df_acts["activity"] = df_acts["type"].map(act_map)
+    opener_self_review = (df_acts["activity"] == "pull_request_review") & (df_acts["actor_id"] == pd.to_numeric(df_acts["opener_id"]))
+    df_acts  = df_acts[~opener_self_review]
     df_acts  = df_acts.merge(first_seen.rename("first_seen"), on="actor_id")
 
     results, periods = [], sorted(df_actions["time_period"].unique())

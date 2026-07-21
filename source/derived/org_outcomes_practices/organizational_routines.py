@@ -4,13 +4,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
-from source.lib.python.filesystem_utils import CleanDirs, WriteContentHash
+from source.lib.python.filesystem_utils import CleanDirs, ListRepoStems, WriteContentHash
 from source.lib.python.data_utils import ImputeTimePeriod
-from source.lib.python.config_loaders import LoadGlobalSettings
+from source.lib.python.config_loaders import LoadGlobalSettings, LoadGlobals
 from source.derived.org_outcomes_practices.helpers import ApplyRolling, ConcatStatsByTimePeriod, FirstFilePresence
 from source.lib.JMSLab.SaveData import SaveData
 
 _globals        = LoadGlobalSettings()
+_constants      = LoadGlobals("source/derived/org_outcomes_practices/constants.json")
 TIME_PERIOD     = _globals["time_period_months"]
 ROLLING_PERIODS = _globals["rolling_periods"]
 N_JOBS          = _globals["n_jobs"]
@@ -20,15 +21,14 @@ INDIR_FILE  = Path("drive/output/scrape/governance_data")
 OUTDIR      = Path("drive/output/derived/org_outcomes_practices/repo_organizational_routines")
 LOG_OUTDIR  = Path("output/derived/org_outcomes_practices/repo_organizational_routines")
 
-# Dates GitHub introduced these features (used for zero-filling periods before each existed)
-_CODEOWNERS_LAUNCH = pd.Timestamp("2017-07-01")  # https://github.blog/news-insights/product-news/introducing-code-owners/
-_TEMPLATES_LAUNCH  = pd.Timestamp("2016-01-01")  # https://github.blog/developer-skills/github/issue-and-pull-request-templates/
-_DATA_CUTOFF       = pd.Timestamp("2024-12-31")
+CODEOWNERS_LAUNCH = pd.Timestamp(_constants["codeowners_launch_date"])
+TEMPLATES_LAUNCH  = pd.Timestamp(_constants["issue_pr_templates_launch_date"])
+DATA_CUTOFF       = pd.Timestamp(_constants["data_cutoff_date"])
 
 
 def Main():
     CleanOutputs()
-    repos = [f.stem for f in INDIR.glob("*.parquet") if not f.stem.startswith("._")]
+    repos = ListRepoStems(INDIR)
     random.shuffle(repos)
     Parallel(n_jobs=N_JOBS)(delayed(ProcessRepo)(repo) for repo in repos)
 
@@ -109,7 +109,7 @@ def UniqueIssueTemplateCount(df_files):
 def FirstCodeowners(df_files):
     return (df_files.query('file_type == "codeowners"')
             .sort_values("created_at").drop_duplicates("file_type", keep="first")
-            .loc[lambda df: df["time_period"] <= _DATA_CUTOFF]
+            .loc[lambda df: df["time_period"] <= DATA_CUTOFF]
             .assign(has_codeowners=1)[["time_period", "has_codeowners"]]
             .set_index("time_period"))
 
@@ -119,7 +119,7 @@ def OrganizingFiles(df_files):
           .join([FirstFilePresence(df_files, "issue_template", "has_issue_template"),
                  FirstFilePresence(df_files, "pr_template",    "has_pr_template"),
                  UniqueIssueTemplateCount(df_files).set_index("time_period")], how="outer"))
-    return df[df.index <= _DATA_CUTOFF].reset_index()
+    return df[df.index <= DATA_CUTOFF].reset_index()
 
 
 def ForwardFillOrganizingCols(df):
@@ -130,10 +130,10 @@ def ForwardFillOrganizingCols(df):
             df[col] = np.nan
     df[file_cols] = df[file_cols].ffill()
 
-    df.loc[df["time_period"] >= _CODEOWNERS_LAUNCH, "has_codeowners"] = (
-        df.loc[df["time_period"] >= _CODEOWNERS_LAUNCH, "has_codeowners"].fillna(0)
+    df.loc[df["time_period"] >= CODEOWNERS_LAUNCH, "has_codeowners"] = (
+        df.loc[df["time_period"] >= CODEOWNERS_LAUNCH, "has_codeowners"].fillna(0)
     )
-    mask_templates = df["time_period"] >= _TEMPLATES_LAUNCH
+    mask_templates = df["time_period"] >= TEMPLATES_LAUNCH
     df.loc[mask_templates, ["has_issue_template", "has_pr_template", "issue_template_count"]] = (
         df.loc[mask_templates, ["has_issue_template", "has_pr_template", "issue_template_count"]].fillna(0)
     )
